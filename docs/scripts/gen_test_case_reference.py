@@ -1,91 +1,77 @@
 """
-Script called during mkdocs build|serve to create the "Test Case Reference".
+Generate the "Test Case Reference" pages of the documentation site.
 
-Called via the mkdocs-gen-files plugin; it's specified in mkdocs.yaml and
-can't take command-line arguments. The main logic is implemented in
-src/pytest_plugins/filler/gen_test_doc.py.
+Called by `docs/scripts/gen_docs.py` before `zensical build`. The main logic
+is implemented in the `gen_test_doc` pytest plugin:
+packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/gen_test_doc/gen_test_doc.py
 """
 
-import importlib
 import logging
-import sys
-from os import getenv
+from pathlib import Path
+from typing import List
 
 import pytest
 from click.testing import CliRunner
 from execution_testing.cli.pytest_commands.fill import fill
-from execution_testing.cli.pytest_commands.plugins.filler.gen_test_doc import (
-    gen_test_doc,
-)
 from execution_testing.config import DocsConfig
 
-importlib.reload(
-    gen_test_doc
-)  # get changes in plugin to trigger an update for `mkdocs serve`
-
-TARGET_FORK = DocsConfig().TARGET_FORK
-GENERATE_UNTIL_FORK = DocsConfig().GENERATE_UNTIL_FORK
-
-logger = logging.getLogger("mkdocs")
+logger = logging.getLogger("gen_docs")
 
 
-# If docs are generated while FAST_DOCS is true, then use "tests/frontier";
-# otherwise use "tests". Benchmark tests are opted in via --include-benchmark
-# in full mode only.
-#
-# USAGE 1 (use fast mode):
-#       export FAST_DOCS=true && uv run mkdocs serve
-# USAGE 2 (use fast mode + hide side-effect warnings):
-#       export FAST_DOCS=true && uv run mkdocs serve 2>&1 | sed '/is not found among documentation files/d' #noqa: E501
-fast_mode = (getenv("FAST_DOCS") or "").lower() == "true"
-if fast_mode:
-    print("-" * 40, "\nWill generate docs using FAST_DOCS mode.\n" + "-" * 40)
-    test_arg = "tests/frontier"
-else:
-    test_arg = "tests"
+def generate_test_case_reference(
+    docs_dir: Path, test_paths: List[str], include_benchmark: bool
+) -> int:
+    """
+    Run `fill` with the doc generation plugins over `test_paths`.
 
-args = [
-    "--override-ini",
-    # suppress warnings due to reload ⬇️
-    "filterwarnings=ignore::pytest.PytestAssertRewriteWarning",
-    "-p",
-    "execution_testing.cli.pytest_commands.plugins.filler.gen_test_doc.gen_test_doc",
-    "-p",
-    "execution_testing.cli.pytest_commands.plugins.filler.eip_checklist",
-    "--gen-docs",
-    f"--gen-docs-target-fork={TARGET_FORK}",
-    f"--until={GENERATE_UNTIL_FORK}",
-    "--checklist-doc-gen",
-    "--skip-index",
-    "--ignore=tests/ported_static",
-    "-m",
-    "not blockchain_test_engine",
-    "-s",
-]
-if not fast_mode:
-    args.append("--include-benchmark")
-args.append(test_arg)
+    Pages are written below `docs_dir / "tests"`. Returns the pytest exit
+    code (0 on success).
+    """
+    target_fork = DocsConfig().TARGET_FORK
+    generate_until_fork = DocsConfig().GENERATE_UNTIL_FORK
+    args = [
+        "--override-ini",
+        "filterwarnings=ignore::pytest.PytestAssertRewriteWarning",
+        "-p",
+        "execution_testing.cli.pytest_commands.plugins.filler.gen_test_doc.gen_test_doc",
+        "-p",
+        "execution_testing.cli.pytest_commands.plugins.filler.eip_checklist",
+        "--gen-docs",
+        f"--gen-docs-target-fork={target_fork}",
+        f"--gen-docs-output-dir={docs_dir}",
+        f"--until={generate_until_fork}",
+        "--checklist-doc-gen",
+        "--skip-index",
+        "--ignore=tests/ported_static",
+        "-m",
+        "not blockchain_test_engine",
+        "-s",
+    ]
+    if include_benchmark:
+        args.append("--include-benchmark")
+    args.extend(test_paths)
 
-runner = CliRunner()
-logger.info(
-    f"Generating documentation for test cases until {GENERATE_UNTIL_FORK} as "
-    f"fill {' '.join(args)}"
-)
-result = runner.invoke(fill, args)
-for line in result.output.split("\n"):
-    if "===" in line:
+    logger.info(
+        f"Generating documentation for test cases until "
+        f"{generate_until_fork} as fill {' '.join(args)}"
+    )
+    result = CliRunner().invoke(fill, args)
+    for line in result.output.split("\n"):
         logger.info(line.replace("===", "=="))
-        continue
-    logger.info(line)
-if result.exit_code in [
-    pytest.ExitCode.OK,
-    pytest.ExitCode.NO_TESTS_COLLECTED,
-]:
-    logger.info("Documentation generation successful.")
-    sys.exit(0)
-logger.error(
-    f"Documentation generation failed (exit: "
-    f"{pytest.ExitCode(result.exit_code)}, "
-    f"{pytest.ExitCode(result.exit_code).name})."
-)
-sys.exit(result.exit_code)
+    if result.exception is not None and not isinstance(
+        result.exception, SystemExit
+    ):
+        logger.error(f"fill raised: {result.exception!r}")
+        return 1
+    if result.exit_code in [
+        pytest.ExitCode.OK,
+        pytest.ExitCode.NO_TESTS_COLLECTED,
+    ]:
+        logger.info("Test case reference generation successful.")
+        return 0
+    logger.error(
+        f"Test case reference generation failed (exit: "
+        f"{pytest.ExitCode(result.exit_code)}, "
+        f"{pytest.ExitCode(result.exit_code).name})."
+    )
+    return result.exit_code

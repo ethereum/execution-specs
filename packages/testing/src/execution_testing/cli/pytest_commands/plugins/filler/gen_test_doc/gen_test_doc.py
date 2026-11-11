@@ -1,40 +1,30 @@
 """
-A pytest plugin that generates test case documentation for use in mkdocs.
+A pytest plugin that generates test case documentation for the docs site.
 
-It generates the top-level "Test Case Reference" section in EEST's mkdocs site.
+It generates the top-level "Test Case Reference" section of the Zensical
+documentation site.
 
 Note:
 ----
-- No output directory is specified for the generated output; file IO
-occurs via the `mkdocs-gen-files` plugin. `mkdocs serve` writes intermediate
-files to our local `docs/` directory and then copies it to the site directory.
-We modify `docs/navigation.md` and write all other output underneath
-`docs/tests`. If mkdocs is interrupted, these intermediate artifacts are left
-in `docs/`.
+- Pages are written as plain Markdown files below `--gen-docs-output-dir`
+(default: `docs`), underneath `docs/tests`. The section's navigation is
+written to `docs/tests/navigation.md`, a nested literate-nav file that
+`docs/navigation.md` links to via `[Test Case Reference](tests/)`.
+- `docs/tests` is gitignored and is recreated by `docs/scripts/gen_docs.py`.
 
 Usage:
 ------
 
-!!! note "Ensuring a clean build"
-
-In case mkdocs has polluted the `docs/` directory with intermediate files, run:
+To generate the pages (and the other generated docs pages), run:
 
 ```console
-git restore docs/navigation.md  # Careful if you have local modifications!
-rm -rf docs/tests docs/docs site
-```
-
-To test doc generation, run the plugin without mkdocs:
-
-```console
-uv run fill -p pytest_plugins.filler.gen_test_doc.gen_test_doc --gen-docs \
-    --fork=<fork> tests
+uv run python docs/scripts/gen_docs.py
 ```
 
 Or to build and view the site:
 
 ```console
-uv run mkdocs serve
+just docs-serve
 ```
 
 """
@@ -47,9 +37,8 @@ import sys
 import textwrap
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple, cast
+from typing import IO, Any, Dict, List, Set, Tuple, cast
 
-import mkdocs_gen_files  # type: ignore[unused-ignore, import-not-found]
 import pytest
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from pytest import Item
@@ -79,7 +68,7 @@ from .page_props import (
     sanitize_string_title,
 )
 
-logger = logging.getLogger("mkdocs")
+logger = logging.getLogger("gen_docs")
 
 docstring_test_function_history: Dict[str, str] = {}
 
@@ -94,7 +83,19 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         dest="gen_docs",
         default=False,
         help=(
-            "Generate documentation for all collected tests for use in mkdocs"
+            "Generate documentation for all collected tests for use in the "
+            "docs site"
+        ),
+    )
+    gen_docs.addoption(
+        "--gen-docs-output-dir",
+        action="store",
+        dest="gen_docs_output_dir",
+        type=Path,
+        default=Path("docs"),
+        help=(
+            "The docs directory to write generated pages to (default: docs). "
+            "Pages are written below its `tests/` subdirectory."
         ),
     )
     gen_docs.addoption(
@@ -246,6 +247,57 @@ def get_test_function_test_type(item: pytest.Item) -> str:
     return f"unknown ([📖🐛]({issue_url}))"
 
 
+class DocsFileWriter:
+    """
+    Write generated pages as real files below a docs directory.
+
+    Implements the `FileOpener` protocol (previously provided by the
+    `mkdocs-gen-files` plugin).
+    """
+
+    def __init__(self, root: Path) -> None:
+        """Initialize the writer with the docs directory to write to."""
+        self.root = root
+
+    def open(self, path: Path, mode: str) -> IO[Any]:
+        """Open a file below the docs directory, creating parent dirs."""
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        return open(target, mode, encoding="utf-8")
+
+
+def build_literate_nav(entries: List[Tuple[Tuple[str, ...], str]]) -> str:
+    """
+    Build a literate-nav Markdown list from (title path, file) entries.
+
+    Entries sharing a title prefix are merged into the same section, e.g.
+    `(("A", "B"), "a/b.md")` and `(("A", "C"), "a/c.md")` produce a section
+    "A" with two links. Based on `mkdocs_gen_files.Nav.build_literate_nav`.
+    """
+    tree: Dict[Any, Any] = {}
+    for keys, filename in entries:
+        node = tree
+        for key in keys:
+            node = node.setdefault(key, {})
+        node[None] = filename
+
+    escape_chars = tuple("!#()*+-[\\]_`{}")
+    lines: List[str] = []
+
+    def walk(node: Dict[Any, Any], level: int) -> None:
+        for title, child in node.items():
+            if title is None:
+                continue
+            line = "\\" + title if title.startswith(escape_chars) else title
+            if child.get(None) is not None:
+                line = f"[{line}]({child[None]})"
+            lines.append("    " * level + "* " + line + "\n")
+            walk(child, level + 1)
+
+    walk(tree, 0)
+    return "".join(lines)
+
+
 class TestDocsGenerator:
     """Pytest plugin class for generating test case documentation."""
 
@@ -281,6 +333,7 @@ class TestDocsGenerator:
             undefined=StrictUndefined,
         )
         self.source_dir = Path("tests")
+        self.output_dir: Path = config.getoption("gen_docs_output_dir")
         self.ref = get_current_commit_hash_or_tag()
         self.top_level_nav_entry = "Test Case Reference"
         # intermediate collected pages and their properties
@@ -331,7 +384,7 @@ class TestDocsGenerator:
         self.add_markdown_page_props()
         # write pages and navigation menu
         self.write_pages()
-        self.update_mkdocs_nav()
+        self.write_nav()
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_runtestloop(self, session: pytest.Session) -> bool:
@@ -353,11 +406,11 @@ class TestDocsGenerator:
 
     def _setup_logger(self) -> None:
         """
-        Configure the mkdocs logger and adds a StreamHandler if outside mkdocs.
+        Configure the gen_docs logger and add a StreamHandler if none is set.
 
-        We use the mkdocs logger to report warnings if conditions are invalid -
-        this will inform the user and fail the build with `mkdocs build
-        --strict`.
+        We use the gen_docs logger to report warnings if conditions are
+        invalid - `docs/scripts/gen_docs.py` counts them and fails the
+        generation step if any were emitted.
         """
         if not logger.hasHandlers() or logger.level == logging.NOTSET:
             stream_handler = logging.StreamHandler(sys.stdout)
@@ -372,20 +425,11 @@ class TestDocsGenerator:
         This is required in order to include docs/javascripts/site.js, for
         example, in the standalone html pages.
 
-        Github pages deploys to a sub-directory "execution-spec-tests" and mike
-        deploys a version of the site underneath a sub-directory named after
-        the version, e.g.:
-
-        - https://eest.ethereum.org/main/
-        - https://eest.ethereum.org/v4.1.0/
-
-        We need to be able to include the javascript available at:
-
-        - https://eest.ethereum.org/main/javascripts/site.js
+        In CI the site is deployed under a sub-directory named after the
+        branch, e.g. `/execution-spec-tests/<branch>/`.
         """
         ci = os.getenv("CI", None)
         github_ref_name = os.getenv("GITHUB_REF_NAME", None)
-        doc_version = os.getenv("GEN_TEST_DOC_VERSION", None)
         if ci and github_ref_name:
             return f"/execution-spec-tests/{github_ref_name}/"
         if ci and not github_ref_name:
@@ -393,15 +437,7 @@ class TestDocsGenerator:
                 "Failed to determine target doc version "
                 "(no GITHUB_REF_NAME env?)."
             )
-        if (
-            "--strict" in sys.argv or "deploy" in sys.argv
-        ) and not doc_version:
-            # assume we're trying to deploy manually via mike (locally)
-            raise Exception(
-                "Failed to determine target doc version during strict build "
-                "(set GEN_TEST_DOC_VERSION env var)."
-            )
-        # local test build, e.g. via `uv run mkdocs serve`
+        # local test build, e.g. via `just docs-serve`
         return "/execution-spec-tests/"
 
     def add_global_page_props_to_env(self) -> None:
@@ -684,10 +720,14 @@ class TestDocsGenerator:
                 package_name="",
             )
 
-    def update_mkdocs_nav(self) -> None:
+    def write_nav(self) -> None:
         """
-        Add the generated 'Test Case Reference' entries to the mkdocs
-        navigation menu.
+        Write the 'Test Case Reference' navigation as a nested literate-nav
+        file, `tests/navigation.md`, below the docs output directory.
+
+        `docs/navigation.md` links the section via `[Test Case
+        Reference](tests/)`, so entries here are relative to `tests/` and
+        omit the top-level 'Test Case Reference' title.
         """
 
         # Fork directories on disk are snake_case (e.g. `tangerine_whistle`)
@@ -743,17 +783,27 @@ class TestDocsGenerator:
             else:
                 return (2, fork_order[fork], length, 2, x.path)
 
-        nav = mkdocs_gen_files.Nav()
+        entries: List[Tuple[Tuple[str, ...], str]] = []
         for page in sorted(
             self.page_props.values(), key=sort_by_fork_deployment_and_path
         ):
-            nav[page.nav_entry(self.top_level_nav_entry)] = str(
-                page.target_output_file
+            nav_entry = page.nav_entry(self.top_level_nav_entry)
+            # The section title comes from the parent nav file; the section's
+            # own index page becomes a top-level entry here.
+            keys = nav_entry[1:] or nav_entry
+            target = Path(page.target_output_file)
+            if target.is_relative_to(self.source_dir):
+                target = target.relative_to(self.source_dir)
+            entries.append((keys, target.as_posix()))
+        writer = DocsFileWriter(self.output_dir)
+        with writer.open(self.source_dir / "navigation.md", "w") as nav_file:
+            nav_file.write(
+                "<!-- Generated by gen_test_doc.py; do not edit. -->\n"
             )
-        with mkdocs_gen_files.open("navigation.md", "a") as nav_file:
-            nav_file.writelines(nav.build_literate_nav())
+            nav_file.write(build_literate_nav(entries))
 
     def write_pages(self) -> None:
         """Write all pages to the target directory."""
+        writer = DocsFileWriter(self.output_dir)
         for page in self.page_props.values():
-            page.write_page(mkdocs_gen_files, self.jinja2_env)  # type: ignore[arg-type, unused-ignore]
+            page.write_page(writer, self.jinja2_env)

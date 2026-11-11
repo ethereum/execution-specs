@@ -1,1 +1,1 @@
-"""A pytest plugin to generate test case documentation for mkdocs."""
+"""A pytest plugin to generate test case documentation for the docs site."""

@@ -14,7 +14,7 @@ on:
       - ".vscode/**"
       - "whitelist.txt"
       - "docs/**"
-      - "mkdocs.yml"
+      - "zensical.toml"
   workflow_dispatch:
   pull_request:
     paths-ignore:
@@ -24,7 +24,7 @@ on:
       - ".vscode/**"
       - "whitelist.txt"
       - "docs/**"
-      - "mkdocs.yml"
+      - "zensical.toml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}

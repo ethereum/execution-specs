@@ -1,7 +1,7 @@
 # Build Docs
 #
 # Dual-purpose workflow:
-#   - On PRs: Tests that MkDocs and spec docs build successfully
+#   - On PRs: Tests that the Zensical site and spec docs build successfully
 #   - On push to allowlisted branches: Builds, uploads artifacts, and triggers
 #     the aggregator workflow in steel-website for deployment
 #
@@ -33,7 +33,7 @@ on:
       - "docs/**"
       - "packages/testing/**"
       - "*.md"
-      - "mkdocs.yml"
+      - "zensical.toml"
       - "uv.lock"
       - "pyproject.toml"
       - "Justfile"
@@ -222,13 +222,19 @@ jobs:
 
       - uses: ./.github/actions/setup-uv
 
-      - name: Build MkDocs documentation
+      - name: Build Zensical documentation
         env:
           SITE_URL: ${{ needs.check-should-publish.outputs.site_url }}
-          # Social cards are publish-only; PR builds skip them for speed.
-          DOCS_SOCIAL_CARDS: ${{ github.event_name != 'pull_request' }}
         run: |
-          echo "Building MkDocs with SITE_URL=$SITE_URL"
+          # zensical.toml can't read environment variables; set the
+          # per-branch site_url (canonical/OG/sitemap URLs) in place.
+          # Refs without zensical.toml (e.g. mainnet, still on MkDocs)
+          # read SITE_URL from the environment instead.
+          if [ -f zensical.toml ]; then
+            sed -i "s|^site_url = .*|site_url = \"${SITE_URL}\"|" zensical.toml
+            grep '^site_url = ' zensical.toml
+          fi
+          echo "Building docs with SITE_URL=$SITE_URL"
           just docs
 
       - name: Upload HTML docs artifact
