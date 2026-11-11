@@ -2,10 +2,26 @@ version = 1
 revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
-    "python_full_version >= '3.15'",
-    "python_full_version >= '3.13' and python_full_version < '3.15'",
-    "python_full_version >= '3.11.5' and python_full_version < '3.13'",
-    "python_full_version < '3.11.5'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.15' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "(python_full_version >= '3.15' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64') or (python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'darwin') or (python_full_version >= '3.15' and platform_machine == 'arm64' and sys_platform == 'linux') or (python_full_version >= '3.15' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "(python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64') or (python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'darwin') or (python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'arm64' and sys_platform == 'linux') or (python_full_version >= '3.13' and python_full_version < '3.15' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "(python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64') or (python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'aarch64' and sys_platform == 'darwin') or (python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'arm64' and sys_platform == 'linux') or (python_full_version >= '3.11.5' and python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.11.5' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version < '3.11.5' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version < '3.11.5' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version < '3.11.5' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "(python_full_version < '3.11.5' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64') or (python_full_version < '3.11.5' and platform_machine == 'aarch64' and sys_platform == 'darwin') or (python_full_version < '3.11.5' and platform_machine == 'arm64' and sys_platform == 'linux') or (python_full_version < '3.11.5' and sys_platform != 'darwin' and sys_platform != 'linux')",
 ]
 
 [manifest]
@@ -642,25 +658,6 @@ wheels = [
 ]
 
 [[package]]
-name = "docc"
-version = "0.6.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "importlib-resources" },
-    { name = "inflection" },
-    { name = "jinja2" },
-    { name = "libcst" },
-    { name = "mistletoe" },
-    { name = "rich" },
-    { name = "tomli" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a6/e2/47252138c9978ca2ab7a3637bba1464f8da2d1f34e1886babaef0459c1b6/docc-0.6.1.tar.gz", hash = "sha256:c4cc94f542afa76e2d9b10ce5e43ec4cdddc87897dde52a2a0f07a1db0af9499", size = 74268, upload-time = "2026-05-14T23:51:53.862Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/0b/56f73ba7767f53796d43e86e2a3e77d04211b214f09b8fc96cbb5fb110c5/docc-0.6.1-py3-none-any.whl", hash = "sha256:c058a8207603270d437d4f1887eb850ddfc2519f336627d4f373d87d296a0198", size = 100269, upload-time = "2026-05-14T23:51:52.256Z" },
-]
-
-[[package]]
 name = "eth-abi"
 version = "5.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -771,13 +768,10 @@ actionlint = [
 dev = [
     { name = "actionlint-py" },
     { name = "codespell" },
-    { name = "docc" },
     { name = "ethereum-execution-testing" },
     { name = "filelock" },
-    { name = "fladrif" },
     { name = "gitpython" },
     { name = "libcst" },
-    { name = "mistletoe" },
     { name = "mkdocs-click" },
     { name = "mkdocstrings" },
     { name = "mkdocstrings-python" },
@@ -787,6 +781,10 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
+    { name = "rdocc", version = "0.1.0", source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_10_12_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "rdocc", version = "0.1.0", source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_11_0_arm64.whl" }, marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { name = "rdocc", version = "0.1.0", source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "rdocc", version = "0.1.0", source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "requests" },
     { name = "requests-cache" },
     { name = "ruff" },
@@ -796,9 +794,10 @@ dev = [
     { name = "zensical" },
 ]
 doc = [
-    { name = "docc" },
-    { name = "fladrif" },
-    { name = "mistletoe" },
+    { name = "rdocc", version = "0.1.0", source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_10_12_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "rdocc", version = "0.1.0", source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_11_0_arm64.whl" }, marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { name = "rdocc", version = "0.1.0", source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "rdocc", version = "0.1.0", source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 docs = [
     { name = "mkdocs-click" },
@@ -853,13 +852,10 @@ actionlint = [
 dev = [
     { name = "actionlint-py", specifier = ">=1.7.11,<2" },
     { name = "codespell", specifier = "==2.4.1" },
-    { name = "docc", specifier = ">=0.6.1,<0.7.0" },
     { name = "ethereum-execution-testing", editable = "packages/testing" },
     { name = "filelock", specifier = ">=3.15.1,<4" },
-    { name = "fladrif", specifier = ">=0.2.0,<0.3.0" },
     { name = "gitpython", specifier = ">=3.1.0,<3.2" },
     { name = "libcst", specifier = ">=1.8,<2" },
-    { name = "mistletoe", specifier = ">=1.5.0,<2" },
     { name = "mkdocs-click", specifier = ">=0.9,<1" },
     { name = "mkdocstrings", specifier = ">=1.0.8,<2" },
     { name = "mkdocstrings-python", specifier = ">=2.0.10,<3" },
@@ -869,6 +865,10 @@ dev = [
     { name = "pytest", specifier = ">=8,<9" },
     { name = "pytest-cov", specifier = ">=4.1.0,<5" },
     { name = "pytest-xdist", specifier = ">=3.3.1,<4" },
+    { name = "rdocc", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_11_0_arm64.whl" },
+    { name = "rdocc", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'", url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_10_12_x86_64.whl" },
+    { name = "rdocc", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl" },
+    { name = "rdocc", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
     { name = "requests" },
     { name = "requests-cache", specifier = ">=1.2.1,<2" },
     { name = "ruff", specifier = "==0.13.2" },
@@ -878,9 +878,10 @@ dev = [
     { name = "zensical", specifier = ">=0.1.0,<0.2" },
 ]
 doc = [
-    { name = "docc", specifier = ">=0.6.1,<0.7.0" },
-    { name = "fladrif", specifier = ">=0.2.0,<0.3.0" },
-    { name = "mistletoe", specifier = ">=1.5.0,<2" },
+    { name = "rdocc", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_11_0_arm64.whl" },
+    { name = "rdocc", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'", url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_10_12_x86_64.whl" },
+    { name = "rdocc", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl" },
+    { name = "rdocc", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
 ]
 docs = [
     { name = "mkdocs-click", specifier = ">=0.9,<1" },
@@ -1079,15 +1080,6 @@ wheels = [
 ]
 
 [[package]]
-name = "fladrif"
-version = "0.2.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3c/08/d9c18a63ccdaa269f8397107897742a0bec75123c6caf91a25a51b4da8eb/fladrif-0.2.0.tar.gz", hash = "sha256:3512d732dd6802f100643895f9bde667cc2d072cf03936d9179e94c1c2495727", size = 4806, upload-time = "2023-08-10T18:04:12.53Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/53/2e6b79e51ed771be268dde26caa57c64d5552fd49019c7a66f9ee18330be/fladrif-0.2.0-py3-none-any.whl", hash = "sha256:34ce53c2084159d7d5cd2f886db62ca9db0569d7d1c17799ab99e62831d4c53b", size = 6371, upload-time = "2023-08-10T18:04:11.559Z" },
-]
-
-[[package]]
 name = "ghp-import"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1228,24 +1220,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/98/cf84048b7c6cec888826e696a31f45bee7ebcac15e532b6be1fc4c2c9608/ijson-3.5.0-pp311-pypy311_pp73-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4217a1edc278660679e1197c83a1a2a2d367792bfbb2a3279577f4b59b93730d", size = 71217, upload-time = "2026-02-24T03:58:28.021Z" },
     { url = "https://files.pythonhosted.org/packages/3c/0a/e34c729a87ff67dc6540f6bcc896626158e691d433ab57db0086d73decd2/ijson-3.5.0-pp311-pypy311_pp73-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:04f0fc740311388ee745ba55a12292b722d6f52000b11acbb913982ba5fbdf87", size = 68618, upload-time = "2026-02-24T03:58:28.918Z" },
     { url = "https://files.pythonhosted.org/packages/c1/0f/e849d072f2e0afe49627de3995fc9dae54b4c804c70c0840f928d95c10e1/ijson-3.5.0-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:fdeee6957f92e0c114f65c55cf8fe7eabb80cfacab64eea6864060913173f66d", size = 55369, upload-time = "2026-02-24T03:58:29.839Z" },
-]
-
-[[package]]
-name = "importlib-resources"
-version = "6.5.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cf/8c/f834fbf984f691b4f7ff60f50b514cc3de5cc08abfc3295564dd89c5e2e7/importlib_resources-6.5.2.tar.gz", hash = "sha256:185f87adef5bcc288449d98fb4fba07cea78bc036455dd44c5fc4a2fe78fed2c", size = 44693, upload-time = "2025-01-03T18:51:56.698Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a4/ed/1f1afb2e9e7f38a545d628f864d562a5ae64fe6f7a10e28ffb9b185b4e89/importlib_resources-6.5.2-py3-none-any.whl", hash = "sha256:789cfdc3ed28c78b67a06acb8126751ced69a3d5f79c095a98298cd8a760ccec", size = 37461, upload-time = "2025-01-03T18:51:54.306Z" },
-]
-
-[[package]]
-name = "inflection"
-version = "0.5.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e1/7e/691d061b7329bc8d54edbf0ec22fbfb2afe61facb681f9aaa9bff7a27d04/inflection-0.5.1.tar.gz", hash = "sha256:1a29730d366e996aaacffb2f1f1cb9593dc38e2ddd30c91250c6dde09ea9b417", size = 15091, upload-time = "2020-08-22T08:16:29.139Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/59/91/aa6bde563e0085a02a435aa99b49ef75b0a4b062635e606dab23ce18d720/inflection-0.5.1-py2.py3-none-any.whl", hash = "sha256:f38b2b640938a4f35ade69ac3d053042959b62a0f1076a5bbaa1b9526605a8a2", size = 9454, upload-time = "2020-08-22T08:16:27.816Z" },
 ]
 
 [[package]]
@@ -1522,15 +1496,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/3a/41/580bb4006e3ed0361b8151a01d324fb03f420815446c7def45d02f74c270/mergedeep-1.3.4.tar.gz", hash = "sha256:0096d52e9dad9939c3d975a774666af186eda617e6ca84df4c94dec30004f2a8", size = 4661, upload-time = "2021-02-05T18:55:30.623Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2c/19/04f9b178c2d8a15b076c8b5140708fa6ffc5601fb6f1e975537072df5b2a/mergedeep-1.3.4-py3-none-any.whl", hash = "sha256:70775750742b25c0d8f36c55aed03d24c3384d17c951b3175d898bd778ef0307", size = 6354, upload-time = "2021-02-05T18:55:29.583Z" },
-]
-
-[[package]]
-name = "mistletoe"
-version = "1.5.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/71/99/a42e378cc63df214c80e1487237964b6ffc23a847085c13ebf71f623e9aa/mistletoe-1.5.0.tar.gz", hash = "sha256:68b73be68bf8075ec882e035176d5c379d0d7f3401392c6f39c2cc9cd3264d44", size = 111620, upload-time = "2025-10-18T16:37:09.523Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/c2/bd0fc48dc323035cd65d21c45a3bb5c7b054001bf4ea75e461beb7656e07/mistletoe-1.5.0-py3-none-any.whl", hash = "sha256:d4e77b991b998c5efe3c4eab4e1b472263b5349688acd50d79bd9a6c317a9df1", size = 55262, upload-time = "2025-10-18T16:37:08.376Z" },
 ]
 
 [[package]]
@@ -1970,7 +1935,11 @@ name = "pymdown-extensions"
 version = "12.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.11.5'",
+    "python_full_version < '3.11.5' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version < '3.11.5' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version < '3.11.5' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version < '3.11.5' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "(python_full_version < '3.11.5' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64') or (python_full_version < '3.11.5' and platform_machine == 'aarch64' and sys_platform == 'darwin') or (python_full_version < '3.11.5' and platform_machine == 'arm64' and sys_platform == 'linux') or (python_full_version < '3.11.5' and sys_platform != 'darwin' and sys_platform != 'linux')",
 ]
 dependencies = [
     { name = "markdown" },
@@ -1986,9 +1955,21 @@ name = "pymdown-extensions"
 version = "13.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.15'",
-    "python_full_version >= '3.13' and python_full_version < '3.15'",
-    "python_full_version >= '3.11.5' and python_full_version < '3.13'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.15' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "(python_full_version >= '3.15' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64') or (python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'darwin') or (python_full_version >= '3.15' and platform_machine == 'arm64' and sys_platform == 'linux') or (python_full_version >= '3.15' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "(python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64') or (python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'darwin') or (python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'arm64' and sys_platform == 'linux') or (python_full_version >= '3.13' and python_full_version < '3.15' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "(python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64') or (python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'aarch64' and sys_platform == 'darwin') or (python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'arm64' and sys_platform == 'linux') or (python_full_version >= '3.11.5' and python_full_version < '3.13' and sys_platform != 'darwin' and sys_platform != 'linux')",
 ]
 dependencies = [
     { name = "markdown" },
@@ -2216,6 +2197,62 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f6/45/eafb0bba0f9988f6a2520f9ca2df2c82ddfa8d67c95d6625452e97b204a5/questionary-2.1.1.tar.gz", hash = "sha256:3d7e980292bb0107abaa79c68dd3eee3c561b83a0f89ae482860b181c8bd412d", size = 25845, upload-time = "2025-08-28T19:00:20.851Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3c/26/1062c7ec1b053db9e499b4d2d5bc231743201b74051c973dadeac80a8f43/questionary-2.1.1-py3-none-any.whl", hash = "sha256:a51af13f345f1cdea62347589fbb6df3b290306ab8930713bfae4d475a7d4a59", size = 36753, upload-time = "2025-08-28T19:00:19.56Z" },
+]
+
+[[package]]
+name = "rdocc"
+version = "0.1.0"
+source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_10_12_x86_64.whl" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "python_full_version < '3.11.5' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+]
+wheels = [
+    { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:3b1164310ec6dc748b0095cbcca5de05f9e8fb18ec5baf7be1525a95656771ec" },
+]
+
+[[package]]
+name = "rdocc"
+version = "0.1.0"
+source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_11_0_arm64.whl" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version < '3.11.5' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+]
+wheels = [
+    { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:02f8cd94c0d8b9a551319e8f509e816badf42d39b56d0b6fab2204032f3194df" },
+]
+
+[[package]]
+name = "rdocc"
+version = "0.1.0"
+source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version < '3.11.5' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+]
+wheels = [
+    { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9f50c4136dcd298de780611985738c0fdaaf3af33932fab99c1025cac06d2f96" },
+]
+
+[[package]]
+name = "rdocc"
+version = "0.1.0"
+source = { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version < '3.11.5' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+]
+wheels = [
+    { url = "https://github.com/ethspecs/rdocc/releases/download/v0.1.0/rdocc-0.1.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:fc5636f006f8f2287ee02f8bf532f0750580ddf7838c32dedcc6324992c8dceb" },
 ]
 
 [[package]]
