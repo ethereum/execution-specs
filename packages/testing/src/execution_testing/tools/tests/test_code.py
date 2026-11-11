@@ -147,36 +147,76 @@ def test_initcode(initcode: Initcode, bytecode: bytes) -> None:  # noqa: D103
 
 
 @pytest.mark.parametrize(
-    "prefix_length,push_opcode,offset",
+    "prefix_length,deploy_code,length_push,offset_push",
     [
-        pytest.param(244, 0x60, 0xFF, id="offset-fits-push1"),
-        pytest.param(245, 0x61, 0x0101, id="offset-needs-push2"),
-        pytest.param(3000, 0x61, 3000 + 12, id="execute-sized-prefix"),
+        pytest.param(
+            244,
+            Op.SSTORE(0, 1) + Op.STOP,
+            Op.PUSH2(6),
+            Op.PUSH1(0xFF),
+            id="offset-fits-push1",
+        ),
+        pytest.param(
+            245,
+            Op.SSTORE(0, 1) + Op.STOP,
+            Op.PUSH2(6),
+            Op.PUSH2(0x0101),
+            id="offset-needs-push2",
+        ),
+        pytest.param(
+            3000,
+            Op.SSTORE(0, 1) + Op.STOP,
+            Op.PUSH2(6),
+            Op.PUSH2(3000 + 12),
+            id="execute-sized-prefix",
+        ),
+        pytest.param(
+            65524,
+            Op.SSTORE(0, 1) + Op.STOP,
+            Op.PUSH2(6),
+            Op.PUSH3(65537),
+            id="widened-offset-needs-push3",
+        ),
+        pytest.param(
+            243,
+            Op.STOP * 65536,
+            Op.PUSH3(65536),
+            Op.PUSH1(0xFF),
+            id="long-code-offset-fits-push1",
+        ),
+        pytest.param(
+            244,
+            Op.STOP * 65536,
+            Op.PUSH3(65536),
+            Op.PUSH2(0x0101),
+            id="long-code-offset-needs-push2",
+        ),
     ],
 )
 def test_initcode_long_prefix(
-    prefix_length: int, push_opcode: int, offset: int
+    prefix_length: int,
+    deploy_code: Bytecode,
+    length_push: Bytecode,
+    offset_push: Bytecode,
 ) -> None:
     """
     Test that a long prefix widens the push of the deploy code offset, and
     that the offset still points at the deploy code.
     """
-    deploy_code = Op.SSTORE(0, 1) + Op.STOP
-    initcode = bytes(
-        Initcode(
-            deploy_code=deploy_code,
-            initcode_prefix=Op.JUMPDEST * prefix_length,
-        )
+    prefix = Op.JUMPDEST * prefix_length
+    header = (
+        prefix
+        + length_push
+        + Op.PUSH1(0)
+        + Op.DUP2
+        + offset_push
+        + Op.DUP3
+        + Op.CODECOPY
+        + Op.RETURN
     )
-    # prefix, PUSH2 <code length>, PUSH1 0, DUP2, then the offset push
-    push_index = prefix_length + 3 + 2 + 1
-    push_size = push_opcode - 0x5F
-    assert initcode[push_index] == push_opcode
-    assert (
-        int.from_bytes(initcode[push_index + 1 : push_index + 1 + push_size])
-        == offset
-    )
-    assert initcode[offset:] == bytes(deploy_code)
+    assert int.from_bytes(bytes(offset_push)[1:]) == len(header)
+    initcode = Initcode(deploy_code=deploy_code, initcode_prefix=prefix)
+    assert bytes(initcode) == bytes(header + deploy_code)
 
 
 @pytest.mark.parametrize(
