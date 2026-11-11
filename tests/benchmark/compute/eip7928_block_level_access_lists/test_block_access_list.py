@@ -12,6 +12,7 @@ Tests target different BAL optimization paths:
 """
 
 import math
+from collections.abc import Iterator
 from enum import Enum, auto
 
 import pytest
@@ -140,15 +141,34 @@ def _build_keccak_chain(
     return prefix + loop + cleanup, setup_gas, per_iter_gas, reserve_gas
 
 
-def _build_sequential_sstore_code(reserve_gas: int) -> Bytecode:
+def _sequential_sstore_body(value: int) -> Bytecode:
+    """
+    Return the loop body that writes `value` to the slot held at
+    ``memory[0:32]`` and steps that slot down by one.
+    """
+    return Op.SSTORE(
+        Op.MLOAD(0),
+        value,
+        key_warm=False,
+        original_value=1,
+        current_value=1,
+        new_value=value,
+    ) + Op.MSTORE(
+        0,
+        Op.SUB(Op.MLOAD(0), 1),
+        old_memory_size=32,
+        new_memory_size=32,
+    )
+
+
+def _build_sequential_sstore_code(reserve_gas: int, value: int) -> Bytecode:
     """
     Build runtime code that SSTOREs to sequential cold storage slots.
 
-    Read ``start_slot`` from ``calldata[0:32]``, then loop writing a
-    max-weight value (``2**256 - 1``) to ``slot``, ``slot - 1``, ...
-    until remaining gas drops below ``reserve_gas``.  Counting down
-    from high keys with 32-byte values maximizes RLP encoding weight
-    per trie leaf for state root computation benchmarks.
+    Read ``start_slot`` from ``calldata[0:32]``, then loop writing
+    `value` to ``slot``, ``slot - 1``, ... until remaining gas drops
+    below ``reserve_gas``.  Counting down from high keys maximizes RLP
+    encoding weight per trie leaf for state root computation benchmarks.
 
     Memory layout: ``[0:32]`` = current slot counter.
     """
@@ -158,26 +178,29 @@ def _build_sequential_sstore_code(reserve_gas: int) -> Bytecode:
         old_memory_size=0,
         new_memory_size=32,
     )
-
-    sstore_body = Op.SSTORE(
-        Op.MLOAD(0),
-        2**256 - 1,
-        key_warm=False,
-        original_value=1,
-        current_value=1,
-        new_value=2**256 - 1,
-    ) + Op.MSTORE(
-        0,
-        Op.SUB(Op.MLOAD(0), 1),
-        old_memory_size=32,
-        new_memory_size=32,
-    )
-
     condition = Op.GT(Op.GAS, reserve_gas)
-
-    loop = While(body=sstore_body, condition=condition)
-
+    loop = While(body=_sequential_sstore_body(value), condition=condition)
     return setup + loop + Op.STOP
+
+
+def _while_gas_iterations(
+    loop_gas: int, body: Bytecode, reserve_gas: int, fork: Fork
+) -> int:
+    """
+    Return how many times a `While` loop with condition
+    ``GT(GAS, reserve_gas)`` runs `body` when it starts with `loop_gas`.
+
+    The body always runs once; each condition then reads ``GAS`` after
+    the ``JUMPDEST``, the body and the ``PUSH`` of `reserve_gas`.
+    """
+    per_iter_gas, _ = _derive_loop_gas(body, fork)
+    before_gas_read = (Op.JUMPDEST + body + Op.PUSH1(1) + Op.GAS).gas_cost(
+        fork
+    )
+    spare = loop_gas - before_gas_read - reserve_gas
+    if spare <= 0:
+        return 1
+    return math.ceil(spare / per_iter_gas) + 1
 
 
 def _build_sload_chain_code(reserve_gas: int) -> Bytecode:
@@ -370,6 +393,13 @@ def test_parallel_execution_serial_chain(
     ],
 )
 @pytest.mark.parametrize("tx_density", TX_DENSITY_PARAMS)
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(2**256 - 1, id="overwrite"),
+        pytest.param(0, id="clear"),
+    ],
+)
 def test_state_root_computation(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -378,6 +408,7 @@ def test_state_root_computation(
     tx_gas_limit: int,
     tx_density: TxDensity,
     contract_per_tx: bool,
+    value: int,
 ) -> None:
     """
     Benchmark state root computation with disjoint storage writes.
@@ -390,92 +421,188 @@ def test_state_root_computation(
     The ``contract_per_tx`` parameter controls whether each
     transaction targets a unique contract (maximizing account trie
     width) or all transactions share a single contract (maximizing
-    storage trie depth).
+    storage trie depth). With ``clear``, the writes empty every
+    contract's storage.
     """
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     # Worst-case calldata: 32 nonzero bytes for start_slot.
     intrinsic_gas = intrinsic_gas_calculator(calldata=b"\xff" * 32)
 
-    # Reconstruct body bytecode to extract gas components;
-    # _build_sequential_sstore_code only returns assembled code.
     setup = Op.MSTORE(
         0,
         Op.CALLDATALOAD(0),
         old_memory_size=0,
         new_memory_size=32,
     )
-
-    sstore_body = Op.SSTORE(
-        Op.MLOAD(0),
-        2**256 - 1,
-        key_warm=False,
-        original_value=1,
-        current_value=1,
-        new_value=2**256 - 1,
-    ) + Op.MSTORE(
-        0,
-        Op.SUB(Op.MLOAD(0), 1),
-        old_memory_size=32,
-        new_memory_size=32,
-    )
+    sstore_body = _sequential_sstore_body(value)
 
     setup_gas = setup.gas_cost(fork)
     per_iter_gas, exit_overhead = _derive_loop_gas(sstore_body, fork)
     cleanup_gas = Op.STOP.gas_cost(fork)
     reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
 
-    runtime_code = _build_sequential_sstore_code(reserve_gas)
+    runtime_code = _build_sequential_sstore_code(reserve_gas, value)
     min_per_tx_gas = intrinsic_gas + setup_gas + reserve_gas
 
     tx_gas_schedule = _derive_tx_schedule(
         gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_density
     )
     num_exec_txs = len(tx_gas_schedule)
-
-    available_gas = tx_gas_schedule[0] - intrinsic_gas - setup_gas
-    estimated_slots_per_tx = max(1, available_gas // per_iter_gas)
-
     num_contracts = num_exec_txs if contract_per_tx else 1
-    txs_per_contract = math.ceil(num_exec_txs / num_contracts)
-    slots_per_contract = (estimated_slots_per_tx + 1) * txs_per_contract
 
-    # Pre-populate storage counting down from near-max uint256.
-    # High slot keys + 32-byte stored values maximize RLP weight
-    # per trie leaf for state root computation.
+    # Each transaction writes a run of slots counting down from where
+    # the previous transaction to its contract stopped. High slot keys
+    # maximize RLP weight per trie leaf for state root computation.
     high_start = 2**256 - 1
-    contracts = []
-    for _ in range(num_contracts):
-        storage: Storage.StorageDictType = {
-            high_start - i: 1 for i in range(slots_per_contract)
-        }
-        addr = pre.deploy_contract(
-            code=runtime_code,
-            storage=storage,
+    next_slot = [high_start] * num_contracts
+    written: list[list[int]] = [[] for _ in range(num_contracts)]
+    tx_plan: list[tuple[int, int, int]] = []
+    for tx_idx, tx_gas in enumerate(tx_gas_schedule):
+        c_idx = tx_idx % num_contracts
+        start_slot = next_slot[c_idx]
+        loop_gas = (
+            tx_gas
+            - intrinsic_gas_calculator(
+                calldata=Hash(start_slot),
+                return_cost_deducted_prior_execution=True,
+            )
+            - setup_gas
         )
-        contracts.append(addr)
+        slots = _while_gas_iterations(loop_gas, sstore_body, reserve_gas, fork)
+        written[c_idx] += range(start_slot, start_slot - slots, -1)
+        next_slot[c_idx] = start_slot - slots
+        tx_plan.append((c_idx, tx_gas, start_slot))
 
-    blocks: list[Block] = []
-    contract_tx_counts = [0] * num_contracts
+    # Every slot a transaction writes is pre-populated, so each write
+    # updates or deletes an existing leaf.
+    contracts = [
+        pre.deploy_contract(code=runtime_code, storage=dict.fromkeys(slots, 1))
+        for slots in written
+    ]
+    post = {
+        contract: Account(
+            storage={slot: value for slot in slots if value != 0}
+        )
+        for contract, slots in zip(contracts, written, strict=True)
+    }
 
     with TestPhaseManager.execution():
-        exec_txs = []
-        for tx_idx in range(num_exec_txs):
-            c_idx = tx_idx % num_contracts
-            start_slot = (
-                high_start - contract_tx_counts[c_idx] * estimated_slots_per_tx
+        exec_txs = [
+            Transaction(
+                to=contracts[c_idx],
+                gas_limit=tx_gas,
+                data=Hash(start_slot),
+                sender=pre.fund_eoa(),
             )
-            contract_tx_counts[c_idx] += 1
-            exec_txs.append(
+            for c_idx, tx_gas, start_slot in tx_plan
+        ]
+
+    benchmark_test(
+        post=post,
+        blocks=[Block(txs=exec_txs)],
+        skip_gas_used_validation=True,
+    )
+
+
+def _slots_under_first_nibble(nibble: int) -> Iterator[int]:
+    """Yield slots, from 1 up, whose hashed key starts with `nibble`."""
+    slot = 1
+    while True:
+        if keccak256(slot.to_bytes(32, "big"))[0] >> 4 == nibble:
+            yield slot
+        slot += 1
+
+
+def test_state_root_slots_under_one_nibble(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+) -> None:
+    """
+    Benchmark state root computation with every write under one nibble.
+
+    All the slots one contract updates hash to keys with the same first
+    nibble, so the whole change sits below a single child of the storage
+    root and splitting the root hashing by that nibble gains nothing.
+    Each transaction lists its slots in calldata.
+    """
+    value = 2**256 - 1
+    setup = Op.MSTORE(0, 0, old_memory_size=0, new_memory_size=32)
+    sstore_body = Op.SSTORE(
+        Op.CALLDATALOAD(Op.MLOAD(0)),
+        value,
+        key_warm=False,
+        original_value=1,
+        current_value=1,
+        new_value=value,
+    ) + Op.MSTORE(
+        0,
+        Op.ADD(Op.MLOAD(0), 32),
+        old_memory_size=32,
+        new_memory_size=32,
+    )
+    loop = While(
+        body=sstore_body,
+        condition=Op.GT(Op.CALLDATASIZE, Op.MLOAD(0)),
+    )
+    per_iter_gas = loop.gas_cost(fork)
+
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+
+    def standard_intrinsic(calldata: bytes) -> int:
+        return intrinsic_gas_calculator(
+            calldata=calldata, return_cost_deducted_prior_execution=True
+        )
+
+    empty_intrinsic = standard_intrinsic(b"")
+    mined = _slots_under_first_nibble(0)
+    slot_batches: list[tuple[list[int], int]] = []
+    remaining_gas = gas_benchmark_value
+    while remaining_gas > 0:
+        tx_budget = min(tx_gas_limit, remaining_gas)
+        gas_needed = empty_intrinsic + setup.gas_cost(fork)
+        batch: list[int] = []
+        while True:
+            slot = next(mined)
+            slot_gas = per_iter_gas + (
+                standard_intrinsic(Hash(slot)) - empty_intrinsic
+            )
+            if gas_needed + slot_gas > tx_budget:
+                break
+            batch.append(slot)
+            gas_needed += slot_gas
+        if not batch:
+            break
+        slot_batches.append((batch, tx_budget))
+        remaining_gas -= tx_budget
+
+    all_slots = [slot for batch, _ in slot_batches for slot in batch]
+    contract = pre.deploy_contract(
+        code=setup + loop, storage=dict.fromkeys(all_slots, 1)
+    )
+
+    with TestPhaseManager.execution():
+        txs = []
+        for batch, tx_budget in slot_batches:
+            calldata = b"".join(Hash(slot) for slot in batch)
+            # The calldata floor must fit as well.
+            assert intrinsic_gas_calculator(calldata=calldata) <= tx_budget
+            txs.append(
                 Transaction(
-                    to=contracts[c_idx],
-                    gas_limit=tx_gas_schedule[tx_idx],
-                    data=Hash(start_slot),
+                    to=contract,
+                    gas_limit=tx_budget,
+                    data=calldata,
                     sender=pre.fund_eoa(),
                 )
             )
-        blocks.append(Block(txs=exec_txs))
 
-    benchmark_test(blocks=blocks, skip_gas_used_validation=True)
+    benchmark_test(
+        post={contract: Account(storage=dict.fromkeys(all_slots, value))},
+        blocks=[Block(txs=txs)],
+        skip_gas_used_validation=True,
+    )
 
 
 def test_prefetch_cold_storage(
