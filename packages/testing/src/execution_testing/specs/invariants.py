@@ -198,7 +198,9 @@ def check_gas_accounting(
     refunds kept the header is at most `q / (q - 1)` of the receipts. With
     several dimensions the header is the largest one, and each receipt is
     at most the sum of its dimensions, so the header is at least the
-    receipts over their count.
+    receipts over their count. From EIP-8037 on, the header is therefore
+    only bounded, not pinned: the transition tool reports no per-dimension
+    totals to check it against.
     """
     violations: List[InvariantViolation] = []
     gas_used = totals.gas_used

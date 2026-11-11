@@ -39,13 +39,11 @@ class BalWitnessTracer(EvmTracer):
         """Record the slot of a storage op when it starts and ends."""
         if isinstance(event, OpStart):
             self._pending = None
-            # The slot key is on top of the stack, and `current_target`
-            # (on `evm.message` in older forks) is the storage owner under
-            # DELEGATECALL and CALLCODE too. An op on an empty stack fails
-            # before it touches storage.
+            # The slot key is on top of the stack, and `current_target` is
+            # the storage owner under DELEGATECALL and CALLCODE too. An op
+            # on an empty stack fails before it touches storage.
             if event.op.name in STORAGE_OPS and evm.stack:
-                message = getattr(evm, "message", evm)
-                target = int.from_bytes(message.current_target, "big")
+                target = int.from_bytes(evm.current_target, "big")
                 self._pending = (target, int(evm.stack[-1]))
                 self._started.add(self._pending)
         elif isinstance(event, OpEnd):
