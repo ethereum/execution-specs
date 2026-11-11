@@ -870,6 +870,66 @@ def test_max_cost_collected_at_payment_approval(
     )
 
 
+def test_max_cost_collected_within_approving_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test that `max_cost` leaves the payer within the approving frame: a
+    self-call approves payment and returns, then its caller reads the
+    reduced balance.
+    """
+    call_self = Op.CALL(
+        gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
+    )
+    # Slot 0 records the self-call's result plus one, slot 1 the balance
+    # its caller reads after it returns.
+    record = Op.SSTORE(0, Op.ADD(1, call_self)) + Op.SSTORE(1, Op.SELFBALANCE)
+    # The frame supplies no calldata, the self-call one byte.
+    sender_code = Conditional(
+        condition=Op.CALLDATASIZE,
+        if_true=APPROVE_ALL,
+        if_false=record + Op.STOP,
+    )
+    sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        nonce=1,
+        max_priority_fee_per_gas=PRIORITY_FEE,
+        frames=[
+            default_frame(
+                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
+                target=sender,
+                gas_limit=FRAME_GAS,
+                pin_gas=False,
+                state_gas_used=record.state_cost(fork),
+            ),
+        ],
+    )
+    assert tx.frames is not None and tx.signatures is not None
+    assert tx.max_fee is not None
+    max_cost = fee_budget(
+        fork,
+        sender,
+        tx.frames,
+        tx.signatures,
+        max_priority_fee_per_gas=PRIORITY_FEE,
+        max_fee=int(tx.max_fee),
+    ).max_cost
+
+    state_test(
+        env=Environment(base_fee_per_gas=BASE_FEE),
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=2, storage={0: 2, 1: FUNDS - max_cost}),
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "budget_delta",
     [
