@@ -259,14 +259,23 @@ def test_split_approval_order(
     )
 
 
+@pytest.mark.parametrize(
+    "sponsor_pays_first",
+    [
+        pytest.param(False, id="sender_paid_first"),
+        pytest.param(True, id="sponsor_paid_first"),
+    ],
+)
 def test_second_payment_approval_refused(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    sponsor_pays_first: bool,
 ) -> None:
     """
-    Test that a sponsor's payment approval is refused once the sender
-    is the payer, although the sponsor can afford `max_cost`.
+    Test that a sponsor's payment approval is refused once the sender,
+    or an earlier sponsor, is the payer, although the sponsor can afford
+    `max_cost`.
     """
     sender = pre.fund_eoa()
     record = Op.SSTORE(0, Op.ADD(1, Op.CALL(gas=Op.GAS, address=Op.ADDRESS)))
@@ -277,21 +286,36 @@ def test_second_payment_approval_refused(
         if_false=Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT),
     )
     sponsor = pre.deploy_contract(code=sponsor_code, balance=FUNDS)
+    sponsor_frame = default_frame(
+        flags=Spec.APPROVE_PAYMENT,
+        target=sponsor,
+        data=Bytes(b"\x01"),
+        gas_limit=FRAME_GAS,
+        pin_gas=False,
+        state_gas_used=record.state_cost(fork),
+    )
+
+    signatures = [canonical_entry(sender)]
+    if sponsor_pays_first:
+        # A codeless sponsor approves through default code, which reads
+        # the entry at index 1.
+        first_payer = pre.fund_eoa(amount=FUNDS)
+        signatures.append(canonical_entry(first_payer))
+        frames = [
+            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            verify_frame(flags=Spec.APPROVE_PAYMENT, target=first_payer),
+            sponsor_frame,
+        ]
+    else:
+        first_payer = sender
+        frames = [verify_frame(), sponsor_frame]
 
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
-        frames=[
-            verify_frame(),
-            default_frame(
-                flags=Spec.APPROVE_PAYMENT,
-                target=sponsor,
-                data=Bytes(b"\x01"),
-                gas_limit=FRAME_GAS,
-                pin_gas=False,
-                state_gas_used=record.state_cost(fork),
-            ),
-        ],
+        payer=first_payer,
+        frames=frames,
+        signatures=signatures,
     )
 
     state_test(
