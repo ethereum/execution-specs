@@ -59,6 +59,9 @@ pytestmark = pytest.mark.valid_from("Bogota")
         # The full tip fits in the budget, so `max_cost` is the base fee
         # cost plus the tip on `max_gas`, still below `max_fee`.
         pytest.param("surplus_with_tip", id="surplus_with_tip"),
+        # Half the full tip fits in the budget, so `max_cost` is the base
+        # fee cost plus that half, all of `max_fee`.
+        pytest.param("partial_tip", id="partial_tip"),
     ],
 )
 def test_sender_balance_covers_max_cost(
@@ -70,19 +73,22 @@ def test_sender_balance_covers_max_cost(
 ) -> None:
     """
     Test that an EOA sender's balance is checked against `max_cost`,
-    not `max_fee`: exactly `max_cost` approves, one wei less
-    invalidates the transaction.
+    not `max_fee` or the full tip: exactly `max_cost` approves, one wei
+    less invalidates the transaction.
     """
     frames = [verify_frame()]
     sender = pre.fund_eoa(amount=0)
     fees = fee_budget(fork, sender, frames)
     max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
-    priority_fee = PRIORITY_FEE if budget == "surplus_with_tip" else 0
+    priority_fee = (
+        PRIORITY_FEE if budget in ("surplus_with_tip", "partial_tip") else 0
+    )
     full_tip = PRIORITY_FEE * max_gas
     max_fee = {
         "exact_budget": required_max_fee,
         "surplus_without_tip": required_max_fee + full_tip,
         "surplus_with_tip": required_max_fee + 2 * full_tip,
+        "partial_tip": required_max_fee + full_tip // 2,
     }[budget]
     max_cost = fee_budget(
         fork,
@@ -91,7 +97,7 @@ def test_sender_balance_covers_max_cost(
         max_priority_fee_per_gas=priority_fee,
         max_fee=max_fee,
     ).max_cost
-    assert (max_cost < max_fee) == (budget != "exact_budget")
+    assert (max_cost == max_fee) == (budget in ("exact_budget", "partial_tip"))
     pre.fund_address(sender, max_cost + balance_delta)
 
     tx = FrameTransaction.build(
@@ -111,8 +117,8 @@ def test_sender_balance_covers_max_cost(
     if balance_delta:
         post = Account(nonce_change=0, balance_change=0)
     else:
-        # With the full tip in the budget, the payer pays the base fee
-        # and the tip on every unit of gas used.
+        # The tip on the gas used fits in what `max_cost` leaves after the
+        # base fee, so the payer pays both on every unit of gas used.
         post = Account(
             nonce_change=1,
             balance_change=-tx.payer_gas_used() * (BASE_FEE + priority_fee),
