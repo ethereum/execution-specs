@@ -49,9 +49,9 @@ extra_css = [
 ]
 
 [project.theme]
-# `classic` keeps the Material for MkDocs look so custom.css/site.js apply.
-variant = "classic"
-logo = "img/eth-diamond-white.png"
+# Zensical's own look. The header is light, so use the orange logo.
+variant = "modern"
+logo = "img/eth-diamond-orange.svg"
 favicon = "img/eth-diamond-orange.svg"
 language = "en"
 features = [
@@ -64,6 +64,16 @@ features = [
   "navigation.prune",
   "navigation.tabs",
   "navigation.footer",
+  "navigation.instant.prefetch",
+  "navigation.instant.progress",
+  "navigation.path",
+  "navigation.top",
+  "navigation.tracking",
+  "toc.follow",
+  "content.tooltips",
+  "content.footnote.tooltips",
+  "content.code.annotate",
+  "search.share",
 ]
 
 [[project.theme.palette]]
