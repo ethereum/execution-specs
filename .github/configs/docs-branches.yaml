@@ -1,14 +1,14 @@
 # Branches whose documentation is built and published to
 # steel.ethereum.foundation/docs/execution-specs/
 #
-# The `branches[]` list must stay in sync with steel-website's
+# The `branches[]` list must stay in sync with protocol-specs-website's
 # `docs-config.yml`; a branch that publishes here but isn't listed there
 # is dispatched but dropped by the aggregator.
 #
 # `default_branch` names the branch whose docs are deployed at the root
 # (steel.ethereum.foundation/docs/execution-specs/) instead of a
 # branch-nested path. It must also appear in `branches[]` below and must
-# match steel-website's `default_branch` setting in `docs-config.yml`.
+# match protocol-specs-website's `default_branch` setting in `docs-config.yml`.
 #
 # Each entry defines:
 #   - path: The branch name (must match the Git branch exactly)

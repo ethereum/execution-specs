@@ -3,7 +3,7 @@
 # Dual-purpose workflow:
 #   - On PRs: Tests that the Zensical site and spec docs build successfully
 #   - On push to allowlisted branches: Builds, uploads artifacts, and triggers
-#     the aggregator workflow in steel-website for deployment
+#     the aggregator workflow in protocol-specs-website for deployment
 #
 # Site structure at steel.ethereum.foundation/docs/execution-specs/:
 #   /docs/execution-specs/                         - Default branch docs (deployed at root)
@@ -13,7 +13,7 @@
 #
 # The "default branch" is named in .github/configs/docs-branches.yaml. Its
 # SITE_URL is built without a `<branch>/` segment so canonical/OG/sitemap
-# URLs match where steel-website actually publishes the artifact.
+# URLs match where protocol-specs-website actually publishes the artifact.
 
 name: Build Docs
 
@@ -195,7 +195,7 @@ jobs:
               [ "$BRANCH_INPUT" = "$DEFAULT_BRANCH" ] && SUFFIX=" (default branch; deployed at root)"
               echo "-> **Will publish** at <$SITE_URL>$SUFFIX"
               echo ""
-              echo "_Note: the URL only resolves if \`${BRANCH_INPUT}\` is also configured in steel-website's \`BRANCH_CONFIG\` (\`deploy.yml\`). If not, the aggregator will receive the dispatch but drop the artifact._"
+              echo "_Note: the URL only resolves if \`${BRANCH_INPUT}\` is also configured in protocol-specs-website's \`BRANCH_CONFIG\` (\`deploy.yml\`). If not, the aggregator will receive the dispatch but drop the artifact._"
             else
               echo "-> **Skipping publish** -- branch is not in the allowlist (\`.github/configs/docs-branches.yaml\`)."
               echo ""
@@ -351,7 +351,7 @@ jobs:
     if: needs.check-should-publish.outputs.should_publish == 'true'
 
     steps:
-      - name: Trigger steel-website aggregator workflow
+      - name: Trigger protocol-specs-website aggregator workflow
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
           BRANCH: ${{ needs.check-should-publish.outputs.branch }}
@@ -362,7 +362,7 @@ jobs:
           script: |
             await github.rest.repos.createDispatchEvent({
               owner: 'ethereum',
-              repo: 'steel-website',
+              repo: 'protocol-specs-website',
               event_type: 'docs-artifact-ready',
               client_payload: {
                 branch: process.env.BRANCH,
@@ -375,7 +375,7 @@ jobs:
         env:
           BRANCH: ${{ needs.check-should-publish.outputs.branch }}
         run: |
-          echo "Triggered aggregator workflow in ethereum/steel-website"
+          echo "Triggered aggregator workflow in ethereum/protocol-specs-website"
           echo "  Branch: $BRANCH"
           echo "  SHA: ${{ github.sha }}"
           echo "  Run ID: ${{ github.run_id }}"
