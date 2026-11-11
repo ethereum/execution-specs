@@ -211,7 +211,7 @@ The `--invariant-checks` flag checks every valid block the transition tool produ
 - The block access list ([EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)) has an entry for every changed balance, nonce, code and storage value, its last entry for each equals the post-state, and no entry repeats the value before it.
 - With the EELS transition tool, the block access list contains every storage slot an `SLOAD` or `SSTORE` completed on, and only slots one of them started on, as seen in the execution trace.
 
-State tests are checked for the first three rules only, since they have no block access list.
+A state test's own fill checks the first three rules; its blockchain form (`blockchain_test_from_state_test`) checks only the block access list.
 
 A violation is reported as an `InvariantViolationWarning`. To make it fail the fill, as CI does, turn the warning into an error:
 
