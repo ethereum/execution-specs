@@ -207,10 +207,11 @@ class TransitionTool(EthereumCLI):
     """Whether `reset_opcode_count` turns on opcode counting for a test."""
 
     supports_opcode_count: ClassVar[bool] = False
-    compute_bal_witness: bool = False
-    """Trace storage accesses into `TransitionToolOutput.bal_witness` on
-    forks with block access lists. Only the EELS transition tool honors
-    it."""
+    invariant_checks: bool = False
+    """Collect what `fill --invariant-checks` needs: the storage accesses
+    behind `TransitionToolOutput.bal_witness` on forks with block access
+    lists, and opcode counts on forks where a SELFDESTRUCT can excuse an
+    ether or nonce shortfall. Only the EELS transition tool honors it."""
     supports_xdist: ClassVar[bool] = True
     supports_blob_params: ClassVar[bool] = False
     attests_block_access_list_hash: ClassVar[bool] = True

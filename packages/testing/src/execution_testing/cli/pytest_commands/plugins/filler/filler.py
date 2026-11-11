@@ -722,10 +722,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Check chain invariants (ether conservation, gas accounting, "
             "nonces, block access list) on every filled block and warn "
-            "with InvariantViolationWarning on each violation. A "
-            "transition tool without opcode counts is taken to have run "
-            "SELFDESTRUCT, which relaxes the ether and nonce checks on "
-            "forks before EIP-8246 and EIP-6780."
+            "with InvariantViolationWarning on each violation. The EELS "
+            "transition tool counts opcodes for the checks; any other is "
+            "taken to have run SELFDESTRUCT, which relaxes the ether and "
+            "nonce checks on forks before EIP-8246 and EIP-6780."
         ),
     )
 
@@ -873,7 +873,7 @@ def pytest_configure(config: pytest.Config) -> None:
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
     config.t8n = t8n  # type: ignore[attr-defined]
-    t8n.compute_bal_witness = config.getoption("invariant_checks")
+    t8n.invariant_checks = config.getoption("invariant_checks")
 
     if "Tools" not in config.stash[metadata_key]:
         config.stash[metadata_key]["Tools"] = {

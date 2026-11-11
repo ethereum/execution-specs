@@ -889,7 +889,7 @@ class TransitionToolOutput:
     alloc: LazyAlloc
     result: Result
     body: Bytes | None = None
-    # Set only by a tool honoring ``TransitionTool.compute_bal_witness``.
+    # Set only by a tool honoring ``TransitionTool.invariant_checks``.
     bal_witness: "BalWitness | None" = None
 
     @classmethod
