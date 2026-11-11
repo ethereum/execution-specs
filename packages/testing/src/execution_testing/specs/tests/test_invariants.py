@@ -286,24 +286,31 @@ def test_bal_storage_no_op_change(
 
 
 @pytest.mark.parametrize(
-    "pre_nonce,expected",
+    "pre_nonce,post_storage,expected",
     [
-        pytest.param(0, [], id="storage_only_account_wiped"),
+        pytest.param(0, {}, [], id="storage_only_account_wiped"),
         pytest.param(
-            1, ["bal_state_diff"] * 2, id="account_with_nonce_cleared"
+            1, {}, ["bal_state_diff"] * 2, id="account_with_nonce_cleared"
+        ),
+        pytest.param(
+            0,
+            {1: 1, 2: 3},
+            ["bal_state_diff"],
+            id="storage_only_account_written",
         ),
     ],
 )
 def test_bal_storage_wipe_of_storage_only_account(
-    pre_nonce: int, expected: List[str]
+    pre_nonce: int, post_storage: Dict[int, int], expected: List[str]
 ) -> None:
     """
-    Creating over a storage-only account wipes its storage, which the BAL
-    cannot record, so only that account's storage is exempt.
+    Deleting a storage-only account wipes its storage, which the BAL
+    cannot record, so only that account's storage is exempt, and only
+    when it ends empty.
     """
     violations = check_bal_against_state_diff(
         alloc(nonce=pre_nonce, storage={1: 1, 2: 2}),
-        alloc(nonce=pre_nonce, storage={}),
+        alloc(nonce=pre_nonce, storage=post_storage),
         bal(),
     )
     assert invariants(violations) == expected

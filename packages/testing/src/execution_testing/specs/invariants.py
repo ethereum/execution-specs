@@ -370,7 +370,7 @@ def check_bal_against_state_diff(
     Every changed balance, nonce, code or storage value has an entry, the
     entry at the last index equals the post-state, and no entry repeats
     the value before it. Storage is skipped for an account that starts
-    with storage but no code and no nonce: creating over it or deleting it
+    with storage but no code and no nonce and ends with none: deleting it
     wipes the storage, which the BAL has no way to record.
     """
     if block_access_list is None:
@@ -407,10 +407,13 @@ def check_bal_against_state_diff(
             int(slot.slot): [int(c.post_value) for c in slot.slot_changes]
             for slot in entry.storage_changes
         }
-        storage_only = (
-            any(pre_storage.values()) and not pre.code and pre.nonce == 0
+        wiped = (
+            any(pre_storage.values())
+            and not pre.code
+            and pre.nonce == 0
+            and not any(post_storage.values())
         )
-        if not storage_only:
+        if not wiped:
             for slot in (
                 pre_storage.keys()
                 | post_storage.keys()
