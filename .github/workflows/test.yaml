@@ -106,9 +106,10 @@ jobs:
           # access list, which only its blockchain form has and which
           # --primary-format-only cannot select. That form checks only the
           # access list: every pull request fills it for the access list
-          # and state gas suites, and the nightly workflow for all.
-          - label: bogota-state-tests-as-blocks
-            from_fork: Bogota
+          # and state gas suites in each fork that has one, and the
+          # nightly workflow for all.
+          - label: state-tests-as-blocks
+            from_fork: Amsterdam
             until_fork: Bogota
             select: >-
               -m "not slow and blockchain_test_from_state_test"
