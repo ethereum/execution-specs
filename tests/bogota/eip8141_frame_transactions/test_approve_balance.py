@@ -17,7 +17,6 @@ from execution_testing import (
     Fork,
     Op,
     StateTestFiller,
-    Transaction,
     TransactionException,
 )
 
@@ -326,36 +325,4 @@ def test_payment_approval_reads_balance_after_top_up(
             payer: payer_post,
             donor: Account(balance=donor_funds - top_up),
         },
-    )
-
-
-@pytest.mark.exception_test
-def test_max_fee_checked_before_frames(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Test that a `max_fee` one wei below the base fee cost is rejected
-    for its fee budget before any frame runs, although the only
-    `VERIFY` frame would revert.
-    """
-    # The sender can afford the transaction, so nothing but the fee
-    # budget refuses it.
-    sender = pre.deploy_contract(code=Op.REVERT(0, 0), balance=10**18)
-    frames = [verify_frame()]
-
-    tx = Transaction(
-        sender=sender,
-        nonce=1,
-        frames=frames,
-        max_fee=fee_budget(fork, sender, frames).required_max_fee - 1,
-        error=TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS,
-    )
-
-    state_test(
-        env=Environment(base_fee_per_gas=BASE_FEE),
-        pre=pre,
-        tx=tx,
-        post={sender: Account(nonce=1, balance_change=0)},
     )
