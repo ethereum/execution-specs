@@ -13,6 +13,7 @@ plugins:
         - getting_started/contributing.md
         - getting_started/security.md
         - filling_tests/filling_tests_command_line_options.md
+        - running_tests/consume/client_runners.md
   - glightbox
   - mkdocstrings:
       handlers:
@@ -31,6 +32,7 @@ plugins:
         - docs/scripts/copy_repo_docs_to_mkdocs.py
         - docs/scripts/gen_test_case_reference.py
         - docs/scripts/generate_fill_help.py
+        - docs/scripts/gen_runner_interface_schemas.py
   - literate-nav:
       nav_file: navigation.md
 
