@@ -47,11 +47,13 @@ from execution_testing import (
     Transaction,
     Withdrawal,
     compute_create2_address,
+    keccak256,
 )
 from execution_testing.base_types import StorageRootType
 
 from .constants import (
     ADDR_EXT_ABOVE_DEEP_BRANCH,
+    ADDR_EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD,
     ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2,
     ADDR_EXT_MERGE_TRIO,
     COLLAPSE_SALT,
@@ -268,6 +270,87 @@ def test_insert_splits_extension_above_deep_branch(
         (2, "branch", 2),
         (3, "leaf", 61),
     ]
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=sender, to=new, value=1),
+        post={
+            new: Account(balance=1),
+            **{a: Account(balance=i + 1) for i, a in enumerate(committed)},
+        },
+    )
+
+
+def test_insert_splits_extension_above_deep_branch_across_blocks(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Create the deep-branch accounts in one block, the new one in the next.
+
+    pre:  none of the mined accounts; block 1 creates them by transfers
+    post: block 2 creates the new account and splits the extension, as in
+          `test_insert_splits_extension_above_deep_branch`
+    The account nodes come from block 1 instead of genesis, so block 2's
+    root is computed from nodes the client wrote itself.
+    """
+    committed = [Address(x) for x in ADDR_EXT_ABOVE_DEEP_BRANCH]
+    new = Address(ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2)
+    sender = pre.fund_eoa()
+    deep = committed[3]
+    after_first = _after_block(pre) + committed
+    assert account_shape(after_first, deep)[1:3] == [
+        (1, "ext", 2),
+        (3, "branch", 2),
+    ]
+    assert account_shape(after_first + [new], deep)[1:3] == [
+        (1, "ext", 1),
+        (2, "branch", 2),
+    ]
+    funded = {a: Account(balance=i + 1) for i, a in enumerate(committed)}
+
+    blockchain_test(
+        pre=pre,
+        post={new: Account(balance=1), **funded},
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(sender=sender, to=a, value=i + 1)
+                    for i, a in enumerate(committed)
+                ],
+                expected_post_state=funded,
+            ),
+            Block(txs=[Transaction(sender=sender, to=new, value=1)]),
+        ],
+    )
+
+
+def test_insert_before_deep_branch_below_extension(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Create an account before a deep branch without splitting the extension.
+
+    pre:  branch@0 -> {.., 1: branch@1, 2: ext(2) -> branch@3 -> {..}}
+    post: branch@0 -> {.., 2: ext(2) -> branch@3 -> {new, branch@4, ..}}
+    The account trie version of the storage test of the same name.
+    """
+    committed = [Address(x) for x in ADDR_EXT_ABOVE_DEEP_BRANCH]
+    new = Address(ADDR_EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD)
+    for i, address in enumerate(committed):
+        pre.fund_address(address, amount=i + 1)
+    sender = pre.fund_eoa()
+    deep = committed[3]
+    assert keccak256(new).hex().startswith("0x2013")
+    assert account_shape(pre, deep)[1:3] == [(1, "ext", 2), (3, "branch", 2)]
+    after = _after_block(pre) + [new]
+    assert account_shape(after, deep)[1:] == [
+        (1, "ext", 2),
+        (3, "branch", 3),
+        (4, "branch", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert account_shape(after, new)[-1] == (4, "leaf", 60)
 
     state_test(
         pre=pre,
@@ -720,4 +803,31 @@ def test_mass_delete_sixteen_to_one(
         blocks=[
             Block(txs=[_delete_tx(sender, s) for s in SIXTEEN_SALTS_BRANCH4])
         ],
+    )
+
+
+# --- large batches -------------------------------------------------------
+
+
+def test_bulk_account_creations_under_full_root_branch(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    A contract pays 300 fresh addresses spread over all 16 root children.
+
+    pre:  the fork's genesis accounts, the payer and the sender
+    post: 300 balance-only accounts more
+    Clients switch to batched or parallel trie updates above a few hundred
+    changed keys under one branch; this transaction crosses those sizes in
+    the account trie.
+    """
+    new = [Address(0x30000 + i) for i in range(300)]
+    assert account_shape(new, new[0])[0] == (0, "branch", 16)
+    assert not any(a in pre for a in new)
+    payer = pre.deploy_contract(code=_pay_each(new), balance=len(new))
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=payer),
+        post={a: Account(balance=1) for a in new},
     )
