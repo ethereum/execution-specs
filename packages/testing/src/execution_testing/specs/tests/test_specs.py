@@ -17,7 +17,9 @@ from execution_testing.forks import (
     Fork,
     Istanbul,
     Osaka,
+    OsakaToBPO1AtTime15k,
     Prague,
+    TransitionFork,
 )
 from execution_testing.test_types import Alloc, Environment, Transaction
 
@@ -209,7 +211,18 @@ def test_state_test_conversion_checks_the_env_first() -> None:
         state_test.generate_blockchain_test()
 
 
-@pytest.mark.parametrize("fork", [Cancun, Prague, Osaka, Amsterdam])
+@pytest.mark.parametrize(
+    "fork,timestamp",
+    [
+        (Cancun, 1000),
+        (Prague, 1000),
+        (Osaka, 1000),
+        (Amsterdam, 1000),
+        # The first block runs under BPO1's blob schedule, the genesis
+        # under Osaka's.
+        (OsakaToBPO1AtTime15k, 15_000),
+    ],
+)
 @pytest.mark.parametrize(
     "base_fee_per_gas,excess_blob_gas",
     [
@@ -224,7 +237,10 @@ def test_state_test_conversion_checks_the_env_first() -> None:
     ],
 )
 def test_state_test_blockchain_form_keeps_the_block_env(
-    fork: Fork, base_fee_per_gas: int, excess_blob_gas: int
+    fork: Fork | TransitionFork,
+    timestamp: int,
+    base_fee_per_gas: int,
+    excess_blob_gas: int,
 ) -> None:
     """
     Verify the block a state test's blockchain form runs in has the state
@@ -236,7 +252,9 @@ def test_state_test_blockchain_form_keeps_the_block_env(
     """
     state_test = StateTest(
         env=Environment(
-            base_fee_per_gas=base_fee_per_gas, excess_blob_gas=excess_blob_gas
+            timestamp=timestamp,
+            base_fee_per_gas=base_fee_per_gas,
+            excess_blob_gas=excess_blob_gas,
         ),
         pre=Alloc(),
         post=Alloc(),
@@ -244,15 +262,19 @@ def test_state_test_blockchain_form_keeps_the_block_env(
         fork=fork,
     )
     blockchain_test = state_test.generate_blockchain_test()
-    genesis = blockchain_test.genesis_environment.set_fork_requirements(fork)
+    genesis_fork = fork.fork_at(block_number=0, timestamp=0)
+    block_fork = fork.fork_at(block_number=1, timestamp=timestamp)
+    genesis = blockchain_test.genesis_environment.set_fork_requirements(
+        genesis_fork
+    )
     assert genesis.base_fee_per_gas is not None
     assert genesis.excess_blob_gas is not None
-    block_base_fee = fork.base_fee_per_gas_calculator()(
+    block_base_fee = block_fork.base_fee_per_gas_calculator()(
         parent_base_fee_per_gas=int(genesis.base_fee_per_gas),
         parent_gas_used=0,
         parent_gas_limit=int(genesis.gas_limit),
     )
-    block_excess_blob_gas = fork.excess_blob_gas_calculator()(
+    block_excess_blob_gas = block_fork.excess_blob_gas_calculator()(
         parent_excess_blob_gas=int(genesis.excess_blob_gas),
         parent_blob_gas_used=0,
         parent_base_fee_per_gas=int(genesis.base_fee_per_gas),

@@ -337,7 +337,6 @@ class StateTest(BaseTest):
 
         if self.env.excess_blob_gas:
             kwargs["excess_blob_gas"] = self._genesis_excess_blob_gas(
-                genesis_fork=genesis_fork,
                 genesis_base_fee_per_gas=Environment(**kwargs)
                 .set_fork_requirements(genesis_fork)
                 .base_fee_per_gas,
@@ -346,13 +345,15 @@ class StateTest(BaseTest):
         return Environment(**kwargs)
 
     def _genesis_excess_blob_gas(
-        self, *, genesis_fork: Fork, genesis_base_fee_per_gas: Any
+        self, *, genesis_base_fee_per_gas: Any
     ) -> int:
         """
         Return the genesis excess blob gas from which the first block, which
         uses no blob gas, computes the state test's excess blob gas.
 
-        That is one block's blob gas target more, except from EIP-7918 on,
+        That is one block's blob gas target more, by the first block's fork,
+        which a transition fork can change from the genesis's, except from
+        EIP-7918 on,
         where a parent base fee above the blob reserve price leaves the
         excess unchanged. In that case an excess below one block's target
         cannot follow any genesis, so the genesis adds the target as before.
@@ -362,10 +363,7 @@ class StateTest(BaseTest):
             block_number=self.env.number, timestamp=self.env.timestamp
         )
         calculator = fork.excess_blob_gas_calculator()
-        target = (
-            genesis_fork.target_blobs_per_block()
-            * genesis_fork.blob_gas_per_blob()
-        )
+        target = fork.target_blobs_per_block() * fork.blob_gas_per_blob()
         for candidate in (excess_blob_gas + target, excess_blob_gas):
             child = calculator(
                 parent_excess_blob_gas=candidate,
