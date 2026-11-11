@@ -74,6 +74,9 @@ features = [
   "content.footnote.tooltips",
   "content.code.annotate",
   "search.share",
+  "navigation.instant.preview",
+  "content.code.select",
+  "content.lazy",
 ]
 
 [[project.theme.palette]]
@@ -127,7 +130,9 @@ pymdownx.caret = {}
 pymdownx.details = {}
 pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
 pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
-pymdownx.highlight = {}
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
 pymdownx.inlinehilite = {}
 pymdownx.keys = {}
 pymdownx.mark = {}
