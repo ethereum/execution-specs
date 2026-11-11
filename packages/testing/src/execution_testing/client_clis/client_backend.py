@@ -42,7 +42,6 @@ from execution_testing.test_types import (
 from execution_testing.test_types.receipt_types import TransactionReceipt
 
 from .cli_types import (
-    EnginePayloadMetadata,
     LazyAllocJson,
     OpcodeCount,
     Result,
@@ -279,11 +278,6 @@ class ClientBackend:
             receipts = self._fetch_receipts(
                 txs, get_payload_response.execution_payload.block_hash
             )
-        np_version = block_fork.engine_new_payload_version()
-        fcu_version = block_fork.engine_forkchoice_updated_version()
-        assert np_version is not None
-        assert fcu_version is not None
-
         result = self._build_result(
             built_payload=get_payload_response.execution_payload,
             execution_requests=get_payload_response.execution_requests,
@@ -292,18 +286,7 @@ class ClientBackend:
             block_fork=block_fork,
         )
         alloc = LazyAllocJson(raw={}, _state_root=result.state_root)
-        return TransitionToolOutput(
-            alloc=alloc,
-            result=result,
-            engine_payload=EnginePayloadMetadata(
-                payload_response=get_payload_response,
-                new_payload_version=np_version,
-                forkchoice_updated_version=fcu_version,
-                parent_beacon_block_root=(
-                    payload_attributes.parent_beacon_block_root
-                ),
-            ),
-        )
+        return TransitionToolOutput(alloc=alloc, result=result)
 
     def get_post_state_alloc(
         self, expected: Alloc, *, block_number: BlockNumberType = "latest"
@@ -484,7 +467,13 @@ class ClientBackend:
         withdrawals: List[Withdrawal] | None,
         block_fork: Fork,
     ) -> Result:
-        """Assemble a ``Result`` from the client-built payload + receipts."""
+        """
+        Assemble a ``Result`` from the client-built payload + receipts.
+
+        The client chooses some header fields itself (``gas_limit``, ...),
+        so every header field the payload carries is reported, along with
+        the hash the client sealed.
+        """
         withdrawals_root: Hash | None = None
         if block_fork.header_withdrawals_required():
             withdrawals_root = Hash(Withdrawal.list_root(withdrawals or []))
@@ -520,6 +509,15 @@ class ClientBackend:
             requests=requests,
             block_access_list=bal_rlp,
             block_access_list_hash=block_access_list_hash,
+            parent_hash=built_payload.parent_hash,
+            fee_recipient=built_payload.fee_recipient,
+            number=built_payload.number,
+            gas_limit=built_payload.gas_limit,
+            timestamp=built_payload.timestamp,
+            extra_data=built_payload.extra_data,
+            prev_randao=built_payload.prev_randao,
+            slot_number=getattr(built_payload, "slot_number", None),
+            block_hash=built_payload.block_hash,
             block_exception=None,
             traces=None,
             opcode_count=None,

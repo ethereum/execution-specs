@@ -43,7 +43,6 @@ from execution_testing.client_clis import (
     TransitionTool,
 )
 from execution_testing.client_clis.cli_types import (
-    EnginePayloadMetadata,
     OpcodeCount,
 )
 from execution_testing.exceptions import (
@@ -278,57 +277,6 @@ def rejected_transactions_accessed_addresses(
             if authorization.signer is not None:
                 addresses.append(Address(authorization.signer))
     return addresses
-
-
-def engine_new_payload_params(
-    meta: EnginePayloadMetadata,
-    *,
-    execution_payload: "FixtureExecutionPayload | None" = None,
-) -> Tuple[Any, ...]:
-    """
-    Build the ``engine_newPayload`` parameters for a client-built payload.
-
-    ``execution_payload`` replaces the one the client sealed; the trailing
-    parameters are the same either way.
-    """
-    version = meta.new_payload_version
-    response = meta.payload_response
-    params: List[Any] = [
-        execution_payload
-        if execution_payload is not None
-        else response.execution_payload
-    ]
-    if version >= 3:
-        blob_hashes = (
-            response.blobs_bundle.blob_versioned_hashes()
-            if response.blobs_bundle is not None
-            else []
-        )
-        params.append(blob_hashes)
-        params.append(meta.parent_beacon_block_root)
-    if version >= 4 and response.execution_requests is not None:
-        params.append(response.execution_requests)
-    return tuple(params)
-
-
-def payload_metadata_to_fixture(
-    meta: EnginePayloadMetadata,
-    *,
-    phase: TestPhase | None = None,
-) -> FixtureEngineNewPayload:
-    """
-    Materialise an ``EnginePayloadMetadata`` into a fixture payload.
-
-    The client's ``execution_payload`` is forwarded verbatim — rebuilding
-    from fill's ``FixtureHeader`` would disagree on client-chosen fields
-    (``gas_limit``, etc.) and produce a mismatched ``block_hash``.
-    """
-    return FixtureEngineNewPayload(
-        params=engine_new_payload_params(meta),
-        new_payload_version=meta.new_payload_version,
-        forkchoice_updated_version=meta.forkchoice_updated_version,
-        phase=phase,
-    )
 
 
 class Header(CamelModel):
@@ -785,13 +733,9 @@ class BuiltBlock(CamelModel):
             execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
-            phase=phase,
+            # Left out when unset, so the phase is derived from the txs.
+            **({} if phase is None else {"phase": phase}),
         )
-
-    @property
-    def transactions_evaluated(self) -> bool:
-        """Return whether the backend ran the block's transactions."""
-        return True
 
     def verify_transactions(
         self, transition_tool_exceptions_reliable: bool
@@ -856,102 +800,6 @@ PAYLOAD_HEADER_FIELDS = frozenset(FixtureHeader.model_fields) & frozenset(
     FixtureExecutionPayload.model_fields
 )
 """Header fields that the engine ``ExecutionPayload`` carries by name."""
-
-
-class TestingBuildBlock(BuiltBlock):
-    """
-    ``BuiltBlock`` from a live-client backend; carries the engine payload
-    so ``make_stateful_fixture`` can record what the client built.
-    """
-
-    __test__ = False  # "Test" prefix; keep pytest from collecting it
-
-    model_config = CamelModel.model_config | {"arbitrary_types_allowed": True}
-
-    engine_payload: EnginePayloadMetadata
-
-    @property
-    def transactions_evaluated(self) -> bool:
-        """Return whether the client imported the block it built."""
-        return self.expected_exception is None
-
-    def sealed_header(self) -> FixtureHeader:
-        """
-        Rebuild the header of the block the client sealed.
-
-        ``self.header`` already carries the test's corruption; the payload
-        holds what the client sealed, but carries the block access list
-        itself rather than its hash.
-        """
-        built = self.engine_payload.payload_response.execution_payload
-        fields = {f: getattr(built, f) for f in PAYLOAD_HEADER_FIELDS}
-        if built.block_access_list is not None:
-            fields["block_access_list_hash"] = Hash(
-                built.block_access_list.keccak256()
-            )
-        header = self.header.copy(**fields)
-        if header.block_hash != built.block_hash:
-            raise ValueError(
-                f"header rebuilt from the client payload hashes to "
-                f"{header.block_hash}, but the client sealed "
-                f"{built.block_hash}; a header field outside the payload "
-                "differs from the client's"
-            )
-        return header
-
-    def corrupted_execution_payload(self) -> "FixtureExecutionPayload":
-        """
-        Corrupt the payload the client sealed, and re-seal it.
-
-        ``block_hash`` is recomputed over the corrupted header, so a client
-        must reach the corrupted field before it can reject the block.
-        """
-        built = self.engine_payload.payload_response.execution_payload
-        header = self.sealed_header()
-        changes: Dict[str, Any] = {}
-
-        if self.block_access_list is not None:
-            bal = self.block_access_list.rlp
-            if bal != built.block_access_list:
-                changes["block_access_list"] = bal
-                header = header.copy(
-                    block_access_list_hash=Hash(bal.keccak256())
-                )
-
-        if self.rlp_modifier is not None:
-            header = self.rlp_modifier.apply(header)
-            for field in self.rlp_modifier.model_dump(exclude_none=True):
-                changes[field] = getattr(header, field)
-
-        assert changes, "validate_stateful_blocks() first"
-        return built.copy(**changes, block_hash=header.block_hash)
-
-    def get_fixture_engine_new_payload(
-        self, *, phase: TestPhase | None = None
-    ) -> FixtureEngineNewPayload:
-        """
-        Forward what the client sealed, corrupted if the test says so.
-
-        Rebuilding from ``self.header`` would disagree with the client on
-        the fields it chose (``gas_limit``, ...) and hash to a different
-        block.
-        """
-        meta = self.engine_payload
-        return FixtureEngineNewPayload(
-            params=engine_new_payload_params(
-                meta,
-                execution_payload=(
-                    self.corrupted_execution_payload()
-                    if self.expected_exception is not None
-                    else None
-                ),
-            ),
-            new_payload_version=meta.new_payload_version,
-            forkchoice_updated_version=meta.forkchoice_updated_version,
-            validation_error=self.expected_exception,
-            error_code=self.engine_api_error_code,
-            phase=phase,
-        )
 
 
 GENESIS_ENVIRONMENT_DEFAULTS: Dict[str, Any] = {
@@ -1391,25 +1239,64 @@ class BlockchainTest(BaseTest):
                 int(env.slot_number) if env.slot_number is not None else 0
             )
 
+        # ``env`` is the block the test asked for and the result is the
+        # block the backend built, so the result wins wherever it reports
+        # a field: a client chooses some of them itself (``gas_limit``).
         header = FixtureHeader(
             **(
-                transition_tool_output.result.model_dump(
-                    exclude_none=True,
-                    exclude={"blob_gas_used", "transactions_trie"},
-                )
-                | env.model_dump(
+                env.model_dump(
                     exclude_none=True,
                     exclude={"blob_gas_used", "slot_number"},
                 )
+                | {
+                    "blob_gas_used": blob_gas_used,
+                    "extra_data": (
+                        block.extra_data
+                        if block.extra_data is not None
+                        else b""
+                    ),
+                    "slot_number": slot_number_value,
+                }
+                | transition_tool_output.result.model_dump(
+                    exclude_none=True,
+                    exclude={
+                        "blob_gas_used",
+                        "transactions_trie",
+                        "block_hash",
+                    },
+                )
             ),
-            blob_gas_used=blob_gas_used,
             transactions_trie=Transaction.list_root(txs),
-            extra_data=(
-                block.extra_data if block.extra_data is not None else b""
-            ),
-            slot_number=slot_number_value,
             fork=fork,
         )
+
+        # Every header field the test set is one it asked for: a backend
+        # that built anything else would fill a different test. A test
+        # changes a computed field with ``rlp_modifier`` instead.
+        for field in Header.model_fields:
+            requested = getattr(block, field)
+            if requested is None or isinstance(requested, Removable):
+                continue
+            if getattr(header, field) != requested:
+                raise Exception(
+                    f"test correctness: block number {int(env.number)} sets "
+                    f"`{field}` to {requested}, but the built block carries "
+                    f"{getattr(header, field)}"
+                )
+
+        # A backend that sealed the block reports its hash, which every
+        # header field, including those it does not report, must match.
+        sealed_hash = transition_tool_output.result.block_hash
+        if sealed_hash is not None:
+            # Hash a copy: ``block_hash`` is cached, and the header is still
+            # rewritten in place below (an invalid block's BAL hash).
+            built_hash = header.copy(fork=fork).block_hash
+            if built_hash != sealed_hash:
+                raise Exception(
+                    f"block number {int(env.number)}: the header hashes to "
+                    f"{built_hash}, but the backend sealed {sealed_hash}; a "
+                    "header field it does not report differs from its own"
+                )
 
         if block.header_verify is not None:
             # Verify the header after transition tool processing.
@@ -1457,6 +1344,13 @@ class BlockchainTest(BaseTest):
         t8n_bal: BlockAccessList | None = None
         if t8n_bal_rlp is not None:
             t8n_bal = BlockAccessList.from_rlp(t8n_bal_rlp)
+            if sealed_hash is not None and t8n_bal.rlp != t8n_bal_rlp:
+                raise Exception(
+                    f"block number {int(env.number)}: the backend encodes its "
+                    "block access list differently from the canonical "
+                    "encoding, so the payload, rebuilt from the decoded list, "
+                    "would not carry the sealed bytes"
+                )
 
         if fork.header_bal_hash_required():
             assert t8n_bal is not None, (
@@ -1481,11 +1375,7 @@ class BlockchainTest(BaseTest):
                 transition_tool_output.result.rejected_transactions
             )
         ]
-        if (
-            t8n_bal is not None
-            and rejected_indices
-            and transition_tool_output.engine_payload is None
-        ):
+        if t8n_bal is not None and rejected_indices and sealed_hash is None:
             # The transition tool numbers transactions by the count of
             # accepted ones, as clients do. The block body still carries the
             # rejected transactions, so move each index to its transaction's
@@ -1575,7 +1465,7 @@ class BlockchainTest(BaseTest):
             bal is not None
             and rejected_indices
             and not block.sets_block_access_list()
-            and transition_tool_output.engine_payload is None
+            and sealed_hash is None
         ):
             # The transition tool leaves rejected transactions out of the
             # BAL, so add the accounts they touch; otherwise the BAL would be
@@ -1602,7 +1492,7 @@ class BlockchainTest(BaseTest):
                     "two defects and name one. Raise the block gas limit."
                 )
 
-        built_block_kwargs: Dict[str, Any] = dict(
+        built_block = BuiltBlock(
             header=header,
             alloc=transition_tool_output.alloc,
             state_root=transition_tool_output.result.state_root,
@@ -1626,18 +1516,12 @@ class BlockchainTest(BaseTest):
                 block.engine_new_payload_slot_number
             ),
         )
-        built_block: BuiltBlock
-        if transition_tool_output.engine_payload is not None:
-            built_block = TestingBuildBlock(
-                **built_block_kwargs,
-                engine_payload=transition_tool_output.engine_payload,
-            )
-        else:
-            built_block = BuiltBlock(**built_block_kwargs)
 
         try:
             rejected_txs: List[int] = []
-            if built_block.transactions_evaluated:
+            # A client never imports a block the test corrupts, so it
+            # leaves no receipts to verify the transactions against.
+            if sealed_hash is None or block.exception is None:
                 rejected_txs = built_block.verify_transactions(
                     transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
                 )
@@ -2310,21 +2194,12 @@ class BlockchainTest(BaseTest):
                 previous_env=env,
                 previous_alloc=alloc,
             )
-            assert isinstance(built_block, TestingBuildBlock), (
-                "ClientBackend must return TestingBuildBlock; got "
-                f"{type(built_block).__name__}"
-            )
             invalid = block.exception is not None
             if not invalid:
                 # A rejected block's transactions do not land.
                 built_block.record_landings(context)
             payload = built_block.get_fixture_engine_new_payload(
                 phase=block.phase
-            )
-            # The client's authoritative block hash (the FixtureHeader RLP
-            # hash diverges — the client picks fields like gas_limit).
-            client_hash = Hash(
-                built_block.engine_payload.payload_response.execution_payload.block_hash
             )
             if payload.phase == TestPhase.SETUP:
                 setup_payloads.append(payload)
@@ -2337,7 +2212,9 @@ class BlockchainTest(BaseTest):
                 block_opcode_count = (
                     None
                     if invalid
-                    else t8n.extract_block_opcode_count(client_hash)
+                    else t8n.extract_block_opcode_count(
+                        built_block.header.block_hash
+                    )
                 )
                 execution_opcode_counts.append(
                     block_opcode_count.model_dump()
@@ -2361,16 +2238,9 @@ class BlockchainTest(BaseTest):
                 # A rejected block is not a parent: the next block, and
                 # ``last_block_hash``, stay on the last valid one.
                 continue
-            # apply_new_parent records the RLP hash; the next block's
-            # parent_hash must point at what the client actually built.
+            # The header is the block the client sealed, hash included.
             env = apply_new_parent(built_block.env, built_block.header)
-            env = env.copy(
-                block_hashes={
-                    **env.block_hashes,
-                    HexNumber(int(env.number)): client_hash,
-                },
-            )
-            head_hash = client_hash
+            head_hash = built_block.header.block_hash
 
         if self.post.root:
             got_alloc = t8n.get_post_state_alloc(self.post)

@@ -1,11 +1,18 @@
 # Filling Stateful Benchmark Fixtures
 
-The `fill-stateful` command produces `BlockchainEngineStatefulFixture` JSON for benchmark tests by driving block construction on a live EL client via `testing_buildBlockV1` against a pre-loaded network snapshot. The fixtures are replayed by [`benchmarkoor`](https://github.com/ethpandaops/benchmarkoor) against the same snapshot on any EL client. This replaces the gas-benchmarks MITMProxy approach.
+The `fill-stateful` command produces `BlockchainEngineStatefulFixture` JSON for benchmark tests by driving block
+construction on a live EL client via `testing_buildBlockV1` against a pre-loaded network snapshot. The fixtures are
+replayed by [`benchmarkoor`](https://github.com/ethpandaops/benchmarkoor) against the same snapshot on any EL client.
+This replaces the gas-benchmarks MITMProxy approach.
 
 !!! note "When to use `fill-stateful`"
-    Use the standard `fill` for t8n-based fixture generation. Use `fill-stateful` to run benchmarks in a stateful environment (e.g., perfnet, Kurtosis, or other snapshots) to observe how state size affects performance. Any test can be run using this command, but some benchmarks – like the ones under `tests/benchmark/stateful/` – only produce meaningful results in such environments.
+Use the standard `fill` for t8n-based fixture generation. Use `fill-stateful` to run benchmarks in a stateful
+environment (e.g., perfnet, Kurtosis, or other snapshots) to observe how state size affects performance. Any test can be
+run using this command, but some benchmarks – like the ones under `tests/benchmark/stateful/` – only produce meaningful
+results in such environments.
 
-`fill-stateful` does not manage datadirs — it expects the target client to already be running with the snapshot mounted. Snapshot management (overlayfs / ZFS / copy) is `benchmarkoor`'s responsibility on the replay side.
+`fill-stateful` does not manage datadirs — it expects the target client to already be running with the snapshot mounted.
+Snapshot management (overlayfs / ZFS / copy) is `benchmarkoor`'s responsibility on the replay side.
 
 ## Prerequisites
 
@@ -13,8 +20,11 @@ The target client must expose:
 
 - `testing` (`testing_buildBlockV1`) — block construction with explicit transaction ordering.
 - `engine` — `engine_newPayloadVX`, `engine_forkchoiceUpdatedVX`.
-- `eth`, `debug` — chain queries and `debug_setHead` (or `debug_resetHead` on clients like Nethermind that lack `debug_setHead`) for between-test rewind. `--extract-opcode-count` additionally needs `debug_traceBlockByHash` with JS tracer support.
-- `web3` (optional) — `web3_clientVersion` is recorded into the fixture's `_info.filling-transition-tool` for traceability.
+- `eth`, `debug` — chain queries and `debug_setHead` (or `debug_resetHead` on clients like Nethermind that lack
+  `debug_setHead`) for between-test rewind. `--extract-opcode-count` additionally needs `debug_traceBlockByHash` with JS
+  tracer support.
+- `web3` (optional) — `web3_clientVersion` is recorded into the fixture's `_info.filling-transition-tool` for
+  traceability.
 
 The production-ready filler is `ethpandaops/geth:master`.
 
@@ -100,7 +110,9 @@ uv run fill-stateful \
 
 ### 4. Replay
 
-Point `benchmarkoor`'s `datadirs.geth.source_dir` at the pristine snapshot (`/tmp/multi-snap/geth/execution-data`) — never at the fillcopy — and `tests.source.eest_fixtures.local_fixtures_dir` at the fill output. See the [benchmarkoor docs](https://github.com/ethpandaops/benchmarkoor) for the full config shape.
+Point `benchmarkoor`'s `datadirs.geth.source_dir` at the pristine snapshot (`/tmp/multi-snap/geth/execution-data`) —
+never at the fillcopy — and `tests.source.eest_fixtures.local_fixtures_dir` at the fill output. See
+the [benchmarkoor docs](https://github.com/ethpandaops/benchmarkoor) for the full config shape.
 
 ## CLI options
 
@@ -114,15 +126,25 @@ Optional:
 - `--rpc-endpoint URL` — default `http://localhost:8545`.
 - `--engine-endpoint URL` — derived from `--rpc-endpoint` with port `8551`.
 - `--chain-id INT` — auto-detected from the client.
-- `--snapshot-block HASH_OR_NUMBER` — anchor to a specific block; accepts a 32-byte hash (recommended) or an integer block number (hex `0x...` or decimal). Defaults to the client's `latest`, recorded by hash.
-- `--rpc-seed-key 0x<64hex>` — pin the seed account for reproducible fills. When omitted, a random key is generated and funded via CL withdrawal each session.
-- `--address-stubs PATH` — JSON map of label → on-chain address (and optional pkey). Required by stub-dependent tests; see [Stub-dependent tests](#stub-dependent-tests) below.
+- `--snapshot-block HASH_OR_NUMBER` — anchor to a specific block; accepts a 32-byte hash (recommended) or an integer
+  block number (hex `0x...` or decimal). Defaults to the client's `latest`, recorded by hash.
+- `--rpc-seed-key 0x<64hex>` — pin the seed account for reproducible fills. When omitted, a random key is generated and
+  funded via CL withdrawal each session.
+- `--address-stubs PATH` — JSON map of label → on-chain address (and optional pkey). Required by stub-dependent tests;
+  see [Stub-dependent tests](#stub-dependent-tests) below.
 - `--max-gas-per-test INT` — overrides the fork's `transaction_gas_limit_cap()` (EIP-7825).
 - `--gas-benchmark-values 10,30,...` — gas budgets in millions to parametrize against.
-- `--default-{gas-price,max-fee-per-gas,max-priority-fee-per-gas,max-fee-per-blob-gas}` — pin per-session fees; defaults bump live-query values by `1.5×`.
+- `--default-{gas-price,max-fee-per-gas,max-priority-fee-per-gas,max-fee-per-blob-gas}` — pin per-session fees; defaults
+  bump live-query values by `1.5×`.
 - `--output PATH` — default `./fixtures`.
 - `--clean` — wipe the output dir before filling.
-- `--extract-opcode-count` — after building each block, trace it via `debug_traceBlockByHash` (a JS opcode-counting tracer) and record per-opcode execution counts (execution-phase blocks only) in the fixture's `_info.metadata.opcode_counts` — an array with one entry per `engineNewPayloads` block (`opcode_counts[i]` is the count for `engineNewPayloads[i]`, or `null` if its trace was unavailable), so multi-block benchmarks keep per-payload granularity. When a benchmark test declares a target opcode count (`fixed_opcode_count`/`expected_opcode_count`), the live-client count is verified against it and the fill fails on >5% divergence. Requires the `debug` namespace with JS tracer support. Adds a full re-execution trace per block, so it is slow and opt-in.
+- `--extract-opcode-count` — after building each block, trace it via `debug_traceBlockByHash` (a JS opcode-counting
+  tracer) and record per-opcode execution counts (execution-phase blocks only) in the fixture's
+  `_info.metadata.opcode_counts` — an array with one entry per `engineNewPayloads` block (`opcode_counts[i]` is the
+  count for `engineNewPayloads[i]`, or `null` if its trace was unavailable), so multi-block benchmarks keep per-payload
+  granularity. When a benchmark test declares a target opcode count (`fixed_opcode_count`/`expected_opcode_count`), the
+  live-client count is verified against it and the fill fails on >5% divergence. Requires the `debug` namespace with JS
+  tracer support. Adds a full re-execution trace per block, so it is slow and opt-in.
 
 ## Output layout
 
@@ -136,27 +158,44 @@ Optional:
             └── <test>.json         # per-test setup + execution payloads
 ```
 
-Each `pre_run/<start_block_hash>.json` (a `StatefulPreRunFixture`) is replayed once per `benchmarkoor` run. Per-test fixtures (`BlockchainEngineStatefulFixture`) reference their setup file by hash: a fixture with `startBlockHash = 0xabc...` is preceded by `pre_run/0xabc....json`. Each per-test fixture carries `snapshotBlockNumber`/`Hash`, `startBlockNumber`/`Hash`, `setupEngineNewPayloads`, `engineNewPayloads`, plus a `benchmarkGasUsed` field and the EL build in `_info.filling-transition-tool`. With `--extract-opcode-count`, it also carries `_info.metadata.opcode_counts` (an array of per-opcode execution counts, one entry per `engineNewPayloads` block). The hash-based filename leaves room for multiple pre-run files (e.g. different setup variants off one snapshot) without coordinating names.
+Each `pre_run/<start_block_hash>.json` (a `StatefulPreRunFixture`) is replayed once per `benchmarkoor` run. Per-test
+fixtures (`BlockchainEngineStatefulFixture`) reference their setup file by hash: a fixture with
+`startBlockHash = 0xabc...` is preceded by `pre_run/0xabc....json`. Each per-test fixture carries `snapshotBlockNumber`/
+`Hash`, `startBlockNumber`/`Hash`, `setupEngineNewPayloads`, `engineNewPayloads`, plus a `benchmarkGasUsed` field and
+the EL build in `_info.filling-transition-tool`. With `--extract-opcode-count`, it also carries
+`_info.metadata.opcode_counts` (an array of per-opcode execution counts, one entry per `engineNewPayloads` block). The
+hash-based filename leaves room for multiple pre-run files (e.g. different setup variants off one snapshot) without
+coordinating names.
 
 !!! warning "Snapshot anchoring"
-    `--snapshot-block` accepts a hash on purpose. Anchoring to `latest` works against a quiescent client, but a live reorg between session start and fixture write would silently re-anchor the fixture to a different block. The hash form rejects that.
+`--snapshot-block` accepts a hash on purpose. Anchoring to `latest` works against a quiescent client, but a live reorg
+between session start and fixture write would silently re-anchor the fixture to a different block. The hash form rejects
+that.
 
 !!! warning "State pollution across fills"
-    Re-running `fill-stateful` against the same datadir progresses the chain past previous fills. Always start from a fresh copy of the snapshot.
+Re-running `fill-stateful` against the same datadir progresses the chain past previous fills. Always start from a fresh
+copy of the snapshot.
 
 !!! note "Single-worker"
-    `fill-stateful` forces `-n 0` — pytest-xdist is not used; the chain advances sequentially.
+`fill-stateful` forces `-n 0` — pytest-xdist is not used; the chain advances sequentially.
 
 ## Stub-dependent tests
 
-Some stateful tests (e.g. `test_erc20_operation.py`, `test_sload.py`) target on-chain accounts the snapshot already contains. They reach them two ways:
+Some stateful tests (e.g. `test_erc20_operation.py`, `test_sload.py`) target on-chain accounts the snapshot already
+contains. They reach them two ways:
 
-- `@pytest.mark.stub_parametrize("name", "prefix_")` — parametrize values pulled from `--address-stubs` matching `prefix_`.
+- `@pytest.mark.stub_parametrize("name", "prefix_")` — parametrize values pulled from `--address-stubs` matching
+  `prefix_`.
 - `pre.deploy_contract(stub="<label>", ...)` — direct runtime lookup.
 
-Without a matching `--address-stubs` entry, both paths fail loudly: the marker path with `FAILED ... MISSING_STUBS` carrying the missing prefix; the runtime path with `ValueError("Stub '<label>' not found...")`. Stock pytest's silent skip on empty parametrize is overridden — running a bloatnet test with no stubs is a misconfiguration, not a valid outcome.
+Without a matching `--address-stubs` entry, both paths fail loudly: the marker path with `FAILED ... MISSING_STUBS`
+carrying the missing prefix; the runtime path with `ValueError("Stub '<label>' not found...")`. Stock pytest's silent
+skip on empty parametrize is overridden — running a bloatnet test with no stubs is a misconfiguration, not a valid
+outcome.
 
-Stubs must point at addresses already on the live client; fill-stateful validates each at session start. The kurtosis devnet recipe above does **not** include them — use a bloatnet / perfnet snapshot (or a custom snapshot generator) for these tests.
+Stubs must point at addresses already on the live client; fill-stateful validates each at session start. The kurtosis
+devnet recipe above does **not** include them — use a bloatnet / perfnet snapshot (or a custom snapshot generator) for
+these tests.
 
 ## Architecture
 
@@ -178,28 +217,32 @@ backends now exist behind a common protocol; the rest of fill is unchanged.
        BlockchainEngineFixture
 ```
 
-Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`). `ClientBackend.evaluate(...)` returns a `TransitionToolOutput` with an `EnginePayloadMetadata` attached (`GetPayloadResponse` + engine API versions); the spec receives it as `TestingBuildBlock(BuiltBlock)` and forwards the payload verbatim — no header rebuild, no side-channel capture.
+Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`) and return a `TransitionToolOutput` whose
+`Result` reports the block that was built. `ClientBackend.evaluate(...)` also reports the header fields the client chose
+itself (`gas_limit`, ...) and the `block_hash` it sealed. `generate_block_data` builds the header from the test's
+environment, lets every field the `Result` reports win, and then checks that the header hashes to the sealed
+`block_hash`. Both backends therefore produce the same `BuiltBlock`, and both build their engine payloads the same way.
 
 ### Plugins and shared code
 
-| Module | Role |
-|---|---|
-| `cli/pytest_commands/fill_stateful.py` | CLI entry — `fill-stateful` Click command. |
-| `plugins/fill_stateful/fill_stateful.py` | Session pre-run + `t8n`/`session_t8n` overrides; CLI options. |
-| `plugins/shared/live_client_flags.py` | Live-client flags + fee fixtures factored out of `execute/execute.py`. |
-| `plugins/execute/pre_alloc.py` | Reused `Alloc`; `pending_transactions()` drains the queue without sending. |
-| `plugins/execute/rpc/chain_builder_eth_rpc.py` | `fund_via_withdrawals` + `build_block_with_transactions` — return `EnginePayloadMetadata`. |
-| `client_clis/client_backend.py` | `ClientBackend`: builds via `testing_buildBlockV1`, advances via `engine_newPayload` + `forkchoiceUpdated` (SYNCING-retry). |
-| `specs/blockchain.py` | `make_stateful_fixture`, `payload_metadata_to_fixture`, `Block.phase`, `_split_blocks_by_phase`, `TestingBuildBlock`. |
+| Module                                         | Role                                                                                                                        |
+|------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| `cli/pytest_commands/fill_stateful.py`         | CLI entry — `fill-stateful` Click command.                                                                                  |
+| `plugins/fill_stateful/fill_stateful.py`       | Session pre-run + `t8n`/`session_t8n` overrides; CLI options.                                                               |
+| `plugins/shared/live_client_flags.py`          | Live-client flags + fee fixtures factored out of `execute/execute.py`.                                                      |
+| `plugins/execute/pre_alloc.py`                 | Reused `Alloc`; `pending_transactions()` drains the queue without sending.                                                  |
+| `plugins/execute/rpc/chain_builder_eth_rpc.py` | `fund_via_withdrawals` + `build_block_with_transactions` — return the accepted `FixtureEngineNewPayload` (pre-run).         |
+| `client_clis/client_backend.py`                | `ClientBackend`: builds via `testing_buildBlockV1`, advances via `engine_newPayload` + `forkchoiceUpdated` (SYNCING-retry). |
+| `specs/blockchain.py`                          | `make_stateful_fixture`, `generate_block_data`, `Block.phase`, `_split_blocks_by_phase`.                                    |
 
 ### Flags introduced
 
-| Flag | Where | Purpose |
-|---|---|---|
-| `--snapshot-block` | `fill-stateful` | Anchor by 32-byte hash (reorg-safe) or block number; defaults to `latest`. |
-| `--rpc-seed-key` | `fill-stateful` | Pin the seed EOA; otherwise generated + funded via CL withdrawal. |
-| `--default-gas-price`, `--default-max-fee-per-gas`, `--default-max-priority-fee-per-gas`, `--default-max-fee-per-blob-gas` | `shared/live_client_flags` | Pin per-session fees; defaults bump a one-shot live query by `1.5x`. |
-| `--max-gas-per-test`, `--max-tx-per-batch`, `--transaction-gas-limit`, ... | `shared/live_client_flags` | Generic live-client knobs reused across commands. |
+| Flag                                                                                                                       | Where                      | Purpose                                                                    |
+|----------------------------------------------------------------------------------------------------------------------------|----------------------------|----------------------------------------------------------------------------|
+| `--snapshot-block`                                                                                                         | `fill-stateful`            | Anchor by 32-byte hash (reorg-safe) or block number; defaults to `latest`. |
+| `--rpc-seed-key`                                                                                                           | `fill-stateful`            | Pin the seed EOA; otherwise generated + funded via CL withdrawal.          |
+| `--default-gas-price`, `--default-max-fee-per-gas`, `--default-max-priority-fee-per-gas`, `--default-max-fee-per-blob-gas` | `shared/live_client_flags` | Pin per-session fees; defaults bump a one-shot live query by `1.5x`.       |
+| `--max-gas-per-test`, `--max-tx-per-batch`, `--transaction-gas-limit`, ...                                                 | `shared/live_client_flags` | Generic live-client knobs reused across commands.                          |
 
 ### Fill flow
 
@@ -212,21 +255,28 @@ Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`). `Client
 2. **Per-test fill** (`make_stateful_fixture`):
     1. Materialise `pre.fund_eoa` / `pre.deploy_contract` queue into a synthetic setup block prepended to `self.blocks`.
     2. `_split_blocks_by_phase` splits any mixed-phase blocks (e.g. EIP-7702 SETUP + benchmark TEST).
-    3. For each block, `ClientBackend.evaluate` builds + finalises it; payload partitioned by `Block.phase` into `setupEngineNewPayloads` vs `engineNewPayloads`.
+    3. For each block, `ClientBackend.evaluate` builds + finalises it; payload partitioned by `Block.phase` into
+       `setupEngineNewPayloads` vs `engineNewPayloads`.
     4. Write `<test>.json` (a `BlockchainEngineStatefulFixture`).
-3. **Per-test reset** (`_reset_chain_between_tests`): `debug_setHead(start_block.number)` — or `debug_resetHead(start_block.hash)` on clients without `debug_setHead`, e.g. Nethermind — re-fetch `latest`, abort if hash drifted.
+3. **Per-test reset** (`_reset_chain_between_tests`): `debug_setHead(start_block.number)` — or
+   `debug_resetHead(start_block.hash)` on clients without `debug_setHead`, e.g. Nethermind — re-fetch `latest`, abort if
+   hash drifted.
 
 ### Fixture types
 
-| Type | One per | Carries |
-|---|---|---|
-| `StatefulPreRunFixture` | session | `snapshot/start` anchors, `engineNewPayloads` (the withdrawal + factory deploy blocks). |
-| `BlockchainEngineStatefulFixture` | test | `snapshot/start` anchors, `setupEngineNewPayloads`, `engineNewPayloads`, `benchmarkGasUsed`, `_info.filling-transition-tool` (EL build string). |
-| `FixtureEngineNewPayload` | block | `params` (`engine_newPayloadVX` args), `newPayloadVersion`, `forkchoiceUpdatedVersion`, `phase` (`SETUP`/`EXECUTION`/`None`). |
+| Type                              | One per | Carries                                                                                                                                         |
+|-----------------------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| `StatefulPreRunFixture`           | session | `snapshot/start` anchors, `engineNewPayloads` (the withdrawal + factory deploy blocks).                                                         |
+| `BlockchainEngineStatefulFixture` | test    | `snapshot/start` anchors, `setupEngineNewPayloads`, `engineNewPayloads`, `benchmarkGasUsed`, `_info.filling-transition-tool` (EL build string). |
+| `FixtureEngineNewPayload`         | block   | `params` (`engine_newPayloadVX` args), `newPayloadVersion`, `forkchoiceUpdatedVersion`, `phase` (`SETUP`/`EXECUTION`/`None`).                   |
 
 ### What's captured in each payload
 
-The client's `GetPayloadResponse` is recorded **verbatim**. Rebuilding from `FixtureHeader` would diverge on client-picked fields (e.g. `gas_limit`) and break `engine_newPayload` hash validation on replay.
+Each payload is rebuilt from the `BuiltBlock`, whose header is the block the client sealed: the fields the client
+picked (e.g. `gas_limit`) come from its payload, and the header must hash to the client's `block_hash`, so the payload
+replays exactly. A field the test sets on the `Block` must reach the built block, or filling fails. A test-corrupted
+block is the sealed block with `rlp_modifier` applied and its hash recomputed. The pre-run payloads, which have no
+`Block`, record the exact `engine_newPayload` call the client accepted.
 
 ### Replay (benchmarkoor)
 
@@ -244,4 +294,5 @@ pristine snapshot ───copy──▶ datadir ───▶ geth ───▶ 
                                                             └── re-fetch latest, verify hash
 ```
 
-Sanity check: each fixture's `benchmarkGasUsed` (recorded at fill) should equal benchmarkoor's measured `gas_used_total` for that test.
+Sanity check: each fixture's `benchmarkGasUsed` (recorded at fill) should equal benchmarkoor's measured `gas_used_total`
+for that test.
