@@ -228,9 +228,13 @@ jobs:
         run: |
           # zensical.toml can't read environment variables; set the
           # per-branch site_url (canonical/OG/sitemap URLs) in place.
-          sed -i "s|^site_url = .*|site_url = \"${SITE_URL}\"|" zensical.toml
-          grep '^site_url = ' zensical.toml
-          echo "Building Zensical docs with SITE_URL=$SITE_URL"
+          # Refs without zensical.toml (e.g. mainnet, still on MkDocs)
+          # read SITE_URL from the environment instead.
+          if [ -f zensical.toml ]; then
+            sed -i "s|^site_url = .*|site_url = \"${SITE_URL}\"|" zensical.toml
+            grep '^site_url = ' zensical.toml
+          fi
+          echo "Building docs with SITE_URL=$SITE_URL"
           just docs
 
       - name: Upload HTML docs artifact
