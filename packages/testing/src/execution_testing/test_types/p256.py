@@ -23,7 +23,10 @@ class P256Signature(NamedTuple):
 
     def __bytes__(self) -> bytes:
         """Return `r || s || qx || qy`, each a 32-byte big-endian word."""
-        return b"".join(word.to_bytes(32, "big") for word in self)
+        return b"".join(
+            sig.to_bytes(32, "big")
+            for sig in (self.r, self.s, self.qx, self.qy)
+        )
 
 
 def p256_sign(digest: bytes, key: int | bytes) -> P256Signature:
