@@ -501,7 +501,6 @@ bench-opcode-config *args: (_tmp-logs "bench-opcode-config")
 
 # --- Docs ---
 
-export GEN_TEST_DOC_VERSION := "local"
 export DYLD_FALLBACK_LIBRARY_PATH := if os() == "macos" { "/opt/homebrew/lib" } else { "" }
 
 # Generate documentation for EELS using docc

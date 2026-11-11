@@ -425,34 +425,17 @@ class TestDocsGenerator:
         This is required in order to include docs/javascripts/site.js, for
         example, in the standalone html pages.
 
-        Github pages deploys to a sub-directory "execution-spec-tests" and mike
-        deploys a version of the site underneath a sub-directory named after
-        the version, e.g.:
-
-        - https://eest.ethereum.org/main/
-        - https://eest.ethereum.org/v4.1.0/
-
-        We need to be able to include the javascript available at:
-
-        - https://eest.ethereum.org/main/javascripts/site.js
+        In CI the site is deployed under a sub-directory named after the
+        branch, e.g. `/execution-spec-tests/<branch>/`.
         """
         ci = os.getenv("CI", None)
         github_ref_name = os.getenv("GITHUB_REF_NAME", None)
-        doc_version = os.getenv("GEN_TEST_DOC_VERSION", None)
         if ci and github_ref_name:
             return f"/execution-spec-tests/{github_ref_name}/"
         if ci and not github_ref_name:
             raise Exception(
                 "Failed to determine target doc version "
                 "(no GITHUB_REF_NAME env?)."
-            )
-        if (
-            "--strict" in sys.argv or "deploy" in sys.argv
-        ) and not doc_version:
-            # assume we're trying to deploy manually via mike (locally)
-            raise Exception(
-                "Failed to determine target doc version during strict build "
-                "(set GEN_TEST_DOC_VERSION env var)."
             )
         # local test build, e.g. via `just docs-serve`
         return "/execution-spec-tests/"
