@@ -107,6 +107,28 @@ PLANTED_CONFTEST = textwrap.dedent(
     """
 )
 
+# Halves the fee EELS pays Osaka's coinbase, which a SELFDESTRUCT could
+# otherwise explain away before EIP-8246.
+HALVED_COINBASE_FEE_CONFTEST = textwrap.dedent(
+    """\
+    import pytest
+    from ethereum_types.numeric import U256
+
+    from ethereum.forks.osaka import fork
+
+    @pytest.fixture(autouse=True)
+    def halved_coinbase_fee(monkeypatch):
+        create_ether = fork.create_ether
+        monkeypatch.setattr(
+            fork,
+            "create_ether",
+            lambda state, address, amount: create_ether(
+                state, address, U256(int(amount) // 2)
+            ),
+        )
+    """
+)
+
 AS_ERROR = (
     "error::execution_testing.specs.invariants.InvariantViolationWarning"
 )
@@ -241,6 +263,26 @@ def test_state_test_blockchain_form_checks_only_the_access_list(
         AS_ERROR,
     )
     result.assert_outcomes(passed=1, failed=0)
+
+
+def test_lost_ether_fails_before_selfdestruct_burns(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    Before EIP-8246 a block that ran no SELFDESTRUCT must still conserve
+    ether, so a halved coinbase fee at Osaka fails the fill.
+    """
+    (pytester.path / "conftest.py").write_text(HALVED_COINBASE_FEE_CONFTEST)
+    result = fill(
+        pytester,
+        STATE_TEST_MODULE,
+        "-m",
+        "state_test",
+        "-W",
+        AS_ERROR,
+        fork="Osaka",
+    )
+    result.assert_outcomes(passed=0, failed=1)
 
 
 def test_fork_without_bal_fills_cleanly(pytester: pytest.Pytester) -> None:

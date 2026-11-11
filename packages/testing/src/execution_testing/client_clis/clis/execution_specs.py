@@ -141,7 +141,11 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             )
 
         count_tracer = None
-        if self.supports_opcode_count and self.opcode_count is not None:
+        # The invariant checks excuse an ether or nonce shortfall before
+        # EIP-8246 only when SELFDESTRUCT ran, which needs the counts.
+        if self.supports_opcode_count and (
+            self.opcode_count is not None or self.compute_bal_witness
+        ):
             count_tracer = CountTracer()
             if tracers is None:
                 tracers = GroupTracer()
