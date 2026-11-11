@@ -113,6 +113,10 @@ EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4: Final = 102457
 TWO_SLOTS_EXT4_SIBLING_DEPTH2: Final = 1326
 TWO_SLOTS_EXT4_SIBLING_DEPTH3: Final = 549
 
+# Smallest slot outside TWO_SLOTS_EXT4 sharing exactly 4 nibbles with both:
+# a different second child for branch@4 once one of the pair is gone.
+TWO_SLOTS_EXT4_SIBLING_DEPTH4: Final = 138275
+
 # Lowest pair sharing exactly 10 nibbles: 53 remaining nibbles, so a leaf
 # with a single-byte value is 30 bytes and a 2-byte value gives exactly
 # 32, the first hashed size, from the value side.
@@ -123,6 +127,63 @@ VALUE_BOUNDARY_PAIR: Final = (247476, 515151)
 # is 31 bytes with a single-byte value: x/y have 54 remaining nibbles
 # (even, 28-byte compact path), s has 55 (odd, also 28 bytes).
 INLINE_TRIO: Final = (175378, 2311414, 458416)
+
+# Prefixes 20, 2f5, 2f6, 30c63 (x2), 30c60, 30c7; the sibling 300 sorts
+# between the subtree under 2f and the committed branches under 30c, and
+# splits the extension above them. Trie: branch@0 -> {2: branch@1 ->
+# {leaf, branch@2}, 3: ext(2) -> branch@3 -> {branch@4 -> {..}, leaf}}.
+# Rule, for first nibbles n and n + 1 and nibbles q > 0, r and v: the
+# smallest slot under n0; the smallest under nf, and the smallest under nf
+# with another third nibble; a pair under (n+1)0qrv differing at the
+# sixth nibble; the smallest under (n+1)0qr with the lowest other fifth
+# nibble, under (n+1)0q(r+1) and, the sibling, under (n+1)00. n, q, r, v
+# and the pair minimise the largest slot.
+EXT_ABOVE_DEEP_BRANCH: Final = (485, 243, 304, 9857, 33603, 27818, 3070)
+EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2: Final = 2620
+
+# Smallest slot under 30c with a fourth nibble below 6: with
+# EXT_ABOVE_DEEP_BRANCH it becomes branch@3's first child, before the deep
+# branch, and the extension above stays whole.
+EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD: Final = 37584
+
+# Prefixes 80, 8f6, 8ff9, 8ff2, 900a3 (x2), 900a0, 900b; the sibling 9000
+# sorts between the subtree under 8ff and the committed branches under
+# 900a. Trie: branch@0 -> {8: branch@1 -> {leaf, branch@2 -> {leaf,
+# branch@3}}, 9: ext(2) -> branch@3 -> {branch@4 -> {..}, leaf}}.
+# Rule, for first nibbles n and n + 1 and nibbles x > 0 and y: the
+# smallest slot under n0; the smallest under nf whose third nibble is not
+# f; the lowest pair under nff differing at the fourth nibble; the lowest
+# pair under (n+1)00xy differing at the sixth nibble; the smallest under
+# (n+1)00xz with z = 0 (1 when y = 0); the smallest under (n+1)00(x+1)
+# and, the sibling, under (n+1)000. n, x and y minimise the largest slot.
+TWO_NIBBLE_CARRY: Final = (360, 112, 101, 3422, 89029, 92837, 63882, 1669)
+TWO_NIBBLE_CARRY_SIBLING_DEPTH3: Final = 14450
+
+# The 192 smallest slots whose hash starts with 00: one depth-2 subtree.
+# fmt: off
+SLOTS_UNDER_00: Final = (
+    480, 581, 732, 746, 797, 891, 1010, 1124, 1787, 1803,
+    2090, 2245, 2565, 2587, 2663, 2741, 2767, 2830, 2995, 3065,
+    4088, 4365, 4373, 4582, 4601, 4775, 5109, 5123, 5814, 5918,
+    6096, 6257, 6509, 7033, 8009, 8751, 8788, 8836, 8899, 8922,
+    9141, 9161, 9568, 10137, 10568, 11132, 11151, 11168, 11367, 11544,
+    11617, 11788, 12482, 12621, 12741, 12881, 13431, 13841, 14570, 15251,
+    15328, 15365, 15381, 15637, 16605, 16716, 17145, 17667, 17758, 18656,
+    19171, 19606, 19628, 20026, 20842, 21218, 21357, 21369, 21587, 21622,
+    22139, 22372, 22951, 23280, 23297, 23979, 24152, 24201, 24516, 24861,
+    25012, 25140, 25533, 26118, 26622, 26950, 27213, 27453, 28019, 28229,
+    28356, 28514, 28932, 29021, 29571, 29844, 29898, 30080, 30156, 30595,
+    30742, 31082, 31175, 31441, 31783, 31807, 32245, 32315, 32331, 32527,
+    32544, 33146, 33235, 33336, 33648, 33660, 33814, 33818, 34109, 34228,
+    34309, 34426, 34572, 34784, 34872, 35770, 35775, 35903, 36879, 36929,
+    37263, 37529, 38194, 38250, 38433, 38489, 38697, 38851, 39024, 39077,
+    39330, 39363, 39512, 39608, 40565, 40911, 41918, 41948, 42198, 42454,
+    42545, 42582, 43501, 43786, 44621, 44683, 44786, 45025, 45559, 46050,
+    46471, 46796, 47420, 47426, 47541, 47751, 47895, 48110, 49662, 49716,
+    50413, 50485, 50671, 50683, 51019, 51200, 51899, 52109, 52134, 53005,
+    53078, 53646,
+)
+# fmt: on
 
 # --- addresses ----------------------------------------------------------
 
@@ -155,6 +216,25 @@ ADDR_EXT_MERGE_TRIO: Final = (65755, 66515, 66334)
 # 3 nibbles with both: controlled branch parents above the mined group.
 TWO_ADDRS_EXT4_SIBLING_DEPTH1: Final = 65545
 TWO_ADDRS_EXT4_SIBLING_DEPTH3: Final = 68252
+
+# EXT_ABOVE_DEEP_BRANCH's rule over addresses, with n restricted to 1 or
+# e: the first nibbles n and n + 1 must be free of the genesis, sender and
+# coinbase accounts on every fork from Osaka. Prefixes 10, 1f0, 1f8,
+# 201b4 (x2), 201b0, 201c; the sibling 200.
+ADDR_EXT_ABOVE_DEEP_BRANCH: Final = (
+    65613,
+    65872,
+    65822,
+    146752,
+    152928,
+    163618,
+    82263,
+)
+ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2: Final = 68415
+
+# Smallest address under 201 with a fourth nibble below b: the same new
+# first child for ADDR_EXT_ABOVE_DEEP_BRANCH.
+ADDR_EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD: Final = 66634
 
 # --- CREATE2 salts ------------------------------------------------------
 

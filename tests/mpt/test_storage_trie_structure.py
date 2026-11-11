@@ -26,6 +26,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    keccak256,
 )
 from execution_testing.base_types import StorageRootType
 
@@ -33,6 +34,9 @@ from .constants import (
     BRANCH_SURVIVOR_TRIO,
     EMBEDDED_LEAF_PAIR,
     EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4,
+    EXT_ABOVE_DEEP_BRANCH,
+    EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD,
+    EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2,
     EXT_MERGE_TRIO,
     EXT_MERGE_TRIO_SIBLING_DEPTH3,
     HASHED_LEAF_PAIR,
@@ -44,13 +48,22 @@ from .constants import (
     SINGLE_SLOT_SIBLING_DEPTH2,
     SIXTEEN_SLOTS_BRANCH4,
     SLOT_WRITER,
+    SLOTS_UNDER_00,
+    TWO_NIBBLE_CARRY,
+    TWO_NIBBLE_CARRY_SIBLING_DEPTH3,
     TWO_SLOTS_EXT4,
     TWO_SLOTS_EXT4_SIBLING_DEPTH1,
     TWO_SLOTS_EXT4_SIBLING_DEPTH2,
     TWO_SLOTS_EXT4_SIBLING_DEPTH3,
+    TWO_SLOTS_EXT4_SIBLING_DEPTH4,
     VALUE_BOUNDARY_PAIR,
 )
-from .trie_shape import Shape, storage_leaf_size, storage_shape
+from .trie_shape import (
+    Shape,
+    slot_key,
+    storage_leaf_size,
+    storage_shape,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -437,6 +450,207 @@ def test_insert_splits_nested_extension_first_nibble(
     )
 
 
+def test_insert_splits_extension_above_deep_branch(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Insert a key between an unchanged subtree and a deeper committed branch.
+
+    pre:  branch@0 -> {2: branch@1, 3: ext(2) -> branch@3 -> {..}}
+    post: branch@0 -> {.., 3: ext(1) -> branch@2 -> {new, branch@3}}
+    The new key sorts after the unchanged subtree under `2f` and before the
+    committed branches under `30c` that sit below the extension it splits.
+    A client that rebuilds the root from committed nodes must not skip it.
+    """
+    committed = EXT_ABOVE_DEEP_BRANCH
+    new = EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2
+    left, deep = committed[1], committed[3]
+    assert storage_shape(committed, left) == [
+        (0, "branch", 2),
+        (1, "branch", 2),
+        (2, "branch", 2),
+        (3, "leaf", 61),
+    ]
+    assert storage_shape(committed, deep) == [
+        (0, "branch", 2),
+        (1, "ext", 2),
+        (3, "branch", 2),
+        (4, "branch", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert storage_shape([*committed, new], deep) == [
+        (0, "branch", 2),
+        (1, "ext", 1),
+        (2, "branch", 2),
+        (3, "branch", 2),
+        (4, "branch", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert storage_shape([*committed, new], new)[-1] == (3, "leaf", 61)
+    storage = _storage(committed)
+    contract = pre.deploy_contract(
+        code=_writer_code([(new, 9)]), storage=storage
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={**storage, new: 9})},
+    )
+
+
+def test_insert_splits_extension_above_deep_branch_across_blocks(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Build the deep-branch trie in one block, insert into the gap in the next.
+
+    pre:  empty; block 1 writes the committed slots
+    post: block 2 writes the new slot and splits the extension, as in
+          `test_insert_splits_extension_above_deep_branch`
+    The committed nodes come from block 1 instead of genesis, so block 2's
+    root is computed from nodes the client wrote itself.
+    """
+    committed = EXT_ABOVE_DEEP_BRANCH
+    new = EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2
+    storage = _storage(committed)
+    contract = pre.deploy_contract(code=SLOT_WRITER)
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={**storage, new: 9})},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, s, storage[s]) for s in committed
+                ],
+                expected_post_state={contract: Account(storage=storage)},
+            ),
+            Block(txs=[_write(sender, contract, new, 9)]),
+        ],
+    )
+
+
+def test_insert_before_deep_branch_below_extension(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Insert a key before a deep branch without splitting the extension.
+
+    pre:  branch@0 -> {2: branch@1, 3: ext(2) -> branch@3 -> {..}}
+    post: branch@0 -> {.., 3: ext(2) -> branch@3 -> {new, branch@4, ..}}
+    As in `test_insert_splits_extension_above_deep_branch`, the new key
+    sorts after the unchanged subtree under `2f` and before the deep branch
+    under `30c6`, but it lands as branch@3's first child.
+    """
+    committed = EXT_ABOVE_DEEP_BRANCH
+    new = EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD
+    deep = committed[3]
+    assert keccak256(slot_key(new)).hex().startswith("0x30c0")
+    assert storage_shape(committed, deep)[2] == (3, "branch", 2)
+    assert storage_shape([*committed, new], deep) == [
+        (0, "branch", 2),
+        (1, "ext", 2),
+        (3, "branch", 3),
+        (4, "branch", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert storage_shape([*committed, new], new)[-1] == (4, "leaf", 60)
+    storage = _storage(committed)
+    contract = pre.deploy_contract(
+        code=_writer_code([(new, 9)]), storage=storage
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={**storage, new: 9})},
+    )
+
+
+def test_insert_before_deep_branch_below_extension_across_blocks(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Build the deep-branch trie in one block, add the first child in the next.
+
+    pre:  empty; block 1 writes the committed slots
+    post: block 2 writes the new slot, as in
+          `test_insert_before_deep_branch_below_extension`
+    """
+    committed = EXT_ABOVE_DEEP_BRANCH
+    new = EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD
+    storage = _storage(committed)
+    contract = pre.deploy_contract(code=SLOT_WRITER)
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={**storage, new: 9})},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, s, storage[s]) for s in committed
+                ],
+                expected_post_state={contract: Account(storage=storage)},
+            ),
+            Block(txs=[_write(sender, contract, new, 9)]),
+        ],
+    )
+
+
+def test_insert_after_unchanged_subtree_two_nibbles_deep(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Insert a key right after an unchanged subtree whose path ends in `ff`.
+
+    pre:  branch@0 -> {8: branch@1 -> {.., branch@2 -> {leaf, branch@3}},
+          9: ext(2) -> branch@3 -> {branch@4 -> {..}, leaf}}
+    post: branch@0 -> {.., 9: ext(2) -> branch@3 -> {new, branch@4, ..}}
+    The same transaction updates the leaf under `8f6`, so the unchanged
+    subtree is the one under `8ff`. The next key after it is `900`, two
+    nibbles up, and the new key sorts before the branch under `900a`.
+    """
+    committed = TWO_NIBBLE_CARRY
+    new = TWO_NIBBLE_CARRY_SIBLING_DEPTH3
+    updated, skipped, deep = committed[1], committed[2], committed[4]
+    assert keccak256(slot_key(skipped)).hex().startswith("0x8ff")
+    assert keccak256(slot_key(new)).hex().startswith("0x9000")
+    assert storage_shape(committed, skipped) == [
+        (0, "branch", 2),
+        (1, "branch", 2),
+        (2, "branch", 2),
+        (3, "branch", 2),
+        (4, "leaf", 60),
+    ]
+    assert storage_shape(committed, updated)[-1] == (3, "leaf", 61)
+    assert storage_shape(committed, deep) == [
+        (0, "branch", 2),
+        (1, "ext", 2),
+        (3, "branch", 2),
+        (4, "branch", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert storage_shape([*committed, new], deep)[2] == (3, "branch", 3)
+    assert storage_shape([*committed, new], new)[-1] == (4, "leaf", 60)
+    storage = _storage(committed)
+    contract = pre.deploy_contract(
+        code=_writer_code([(updated, 9), (new, 9)]), storage=storage
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={**storage, updated: 9, new: 9})},
+    )
+
+
 @pytest.mark.parametrize(
     "committed,writes,present,post_shape",
     [
@@ -807,6 +1021,31 @@ DELETE_CASES = [
         [(0, "branch", 2), (1, "ext", 3), (4, "branch", 2), (5, "leaf", 59)],
         id="nested_ext_branch",
     ),
+    # The extension above a deep branch takes the gap key's nibble back: the
+    # reverse of `test_insert_splits_extension_above_deep_branch`.
+    pytest.param(
+        (*EXT_ABOVE_DEEP_BRANCH, EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2),
+        EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2,
+        EXT_ABOVE_DEEP_BRANCH[3],
+        [
+            (0, "branch", 2),
+            (1, "ext", 1),
+            (2, "branch", 2),
+            (3, "branch", 2),
+            (4, "branch", 2),
+            (5, "branch", 2),
+            (6, "leaf", 58),
+        ],
+        [
+            (0, "branch", 2),
+            (1, "ext", 2),
+            (3, "branch", 2),
+            (4, "branch", 2),
+            (5, "branch", 2),
+            (6, "leaf", 58),
+        ],
+        id="ext_above_deep_branch",
+    ),
 ]
 
 
@@ -939,6 +1178,74 @@ def test_delete_from_block_built_trie(
                 expected_post_state={contract: Account(storage=without)},
             ),
             Block(txs=[_write(sender, contract, target, values[target])]),
+        ],
+    )
+
+
+# --- rebuilds at a path an earlier block cleared -----------------------
+
+
+def test_branch_rebuilt_with_other_child_across_blocks(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Collapse a branch in one block and rebuild it at the same path.
+
+    pre:  ext(4) -> branch@4 -> {a, b}
+    post: block 1: leaf(64); block 2: ext(4) -> branch@4 -> {a, c}
+    Block 2's branch sits where block 1 removed the old one, with another
+    second child, so a node kept from before the collapse is stale.
+    """
+    a, b = TWO_SLOTS_EXT4
+    c = TWO_SLOTS_EXT4_SIBLING_DEPTH4
+    pair_shape = [(0, "ext", 4), (4, "branch", 2), (5, "leaf", 59)]
+    assert storage_shape([a, b], a) == pair_shape
+    assert storage_shape([a], a) == [(0, "leaf", 64)]
+    assert storage_shape([a, c], a) == pair_shape
+    assert storage_shape([a, b, c], a)[1] == (4, "branch", 3)
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage={a: 1, b: 2})
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={a: 1, c: 3})},
+        blocks=[
+            Block(
+                txs=[_write(sender, contract, b, 0)],
+                expected_post_state={contract: Account(storage={a: 1})},
+            ),
+            Block(txs=[_write(sender, contract, c, 3)]),
+        ],
+    )
+
+
+def test_emptied_trie_refilled_across_blocks(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Empty a storage trie in one block and refill part of it in the next.
+
+    pre:  ext(4) -> branch@4 -> {16 x leaf(59)}
+    post: block 1: empty; block 2: ext(4) -> branch@4 -> {2 x leaf(59)}
+    Block 2's branch sits where block 1 removed the 16-child one.
+    """
+    slots = SIXTEEN_SLOTS_BRANCH4
+    refilled = slots[:2]
+    assert storage_shape(slots, slots[0])[1] == (4, "branch", 16)
+    assert storage_shape(refilled, refilled[0])[1] == (4, "branch", 2)
+    storage = _storage(slots)
+    contract = pre.deploy_contract(code=SLOT_WRITER, storage=storage)
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage=dict.fromkeys(refilled, 9))},
+        blocks=[
+            Block(
+                txs=[_write(sender, contract, s, 0) for s in slots],
+                expected_post_state={contract: Account(storage={})},
+            ),
+            Block(txs=[_write(sender, contract, s, 9) for s in refilled]),
         ],
     )
 
@@ -1180,6 +1487,38 @@ def test_replace_child_within_branch_slot(
     )
 
 
+def test_leaf_replaced_by_two_siblings(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Zero a leaf and write two keys into its branch slot in one transaction.
+
+    pre:  branch@0 -> {leaf(63) old, leaf(63) other}
+    post: branch@0 -> {branch@1 -> {leaf(62), leaf(62)}, leaf(63) other}
+    """
+    old, other = ROOT_PAIR
+    first, second = SINGLE_SLOT_SIBLING_DEPTH1, SINGLE_SLOT_SIBLING_DEPTH2
+    assert storage_shape([old, other], old) == [
+        (0, "branch", 2),
+        (1, "leaf", 63),
+    ]
+    assert storage_shape([other, first, second], first) == [
+        (0, "branch", 2),
+        (1, "branch", 2),
+        (2, "leaf", 62),
+    ]
+    contract = pre.deploy_contract(
+        code=_writer_code([(old, 0), (first, 3), (second, 4)]),
+        storage={old: 1, other: 2},
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={other: 2, first: 3, second: 4})},
+    )
+
+
 def test_two_shape_changes_at_different_depths(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
@@ -1223,6 +1562,97 @@ def test_two_shape_changes_at_different_depths(
                 ]
             )
         ],
+    )
+
+
+def test_extension_split_twice_same_transaction(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Split one committed extension at two offsets in one transaction.
+
+    pre:  branch@0 -> {ext(3) -> branch@4 -> {..}, leaf(63)}
+    post: branch@0 -> {branch@1 -> {leaf(62), ext(1) -> branch@3 -> {leaf,
+          branch@4 -> {..}}}, leaf(63)}
+    """
+    committed = (*TWO_SLOTS_EXT4, SINGLE_SLOT)
+    first, last = TWO_SLOTS_EXT4_SIBLING_DEPTH1, TWO_SLOTS_EXT4_SIBLING_DEPTH3
+    target = committed[0]
+    assert storage_shape(committed, target)[1] == (1, "ext", 3)
+    assert storage_shape([*committed, first, last], target) == [
+        (0, "branch", 2),
+        (1, "branch", 2),
+        (2, "ext", 1),
+        (3, "branch", 2),
+        (4, "branch", 2),
+        (5, "leaf", 59),
+    ]
+    storage = _storage(committed)
+    contract = pre.deploy_contract(
+        code=_writer_code([(first, 8), (last, 9)]), storage=storage
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={**storage, first: 8, last: 9})},
+    )
+
+
+@pytest.mark.parametrize(
+    "pair,post_shape",
+    [
+        pytest.param(
+            EXT_MERGE_TRIO[:2],
+            [
+                (0, "branch", 3),
+                (1, "ext", 4),
+                (5, "branch", 2),
+                (6, "leaf", 58),
+            ],
+            id="ext4",
+        ),
+        pytest.param(
+            BRANCH_SURVIVOR_TRIO[:2],
+            [
+                (0, "branch", 3),
+                (1, "ext", 2),
+                (3, "branch", 2),
+                (4, "leaf", 60),
+            ],
+            id="ext2",
+        ),
+    ],
+)
+def test_insert_pair_into_empty_branch_slot(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    pair: Sequence[int],
+    post_shape: Shape,
+) -> None:
+    """
+    Insert two keys sharing a prefix into an empty root branch slot.
+
+    pre:  branch@0 -> {leaf(63), leaf(63)}
+    post: branch@0 -> {.., ext(n) -> branch -> {leaf, leaf}}, n = 4 or 2
+    Both keys reach the empty slot in one transaction, so the extension
+    and branch below it are created together.
+    """
+    committed = ROOT_PAIR
+    assert storage_shape(committed, committed[0]) == [
+        (0, "branch", 2),
+        (1, "leaf", 63),
+    ]
+    assert storage_shape([*committed, *pair], pair[0]) == post_shape
+    storage = _storage(committed)
+    contract = pre.deploy_contract(
+        code=_writer_code([(pair[0], 8), (pair[1], 9)]), storage=storage
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage={**storage, pair[0]: 8, pair[1]: 9})},
     )
 
 
@@ -1371,6 +1801,68 @@ def test_shared_node_deleted_in_one_trie(
             ),
             Block(txs=[_write(sender, contract_b, b, 2)]),
         ],
+    )
+
+
+# --- large batches -----------------------------------------------------
+
+
+def test_bulk_changes_under_full_root_branch(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Change 300 slots spread over all 16 root children in one transaction.
+
+    pre:  64 slots
+    post: 32 of them updated, 32 deleted and 236 new slots
+    Clients switch to batched or parallel trie updates above a few hundred
+    changed keys under one branch; this transaction crosses those sizes.
+    """
+    committed = range(1, 65)
+    updated, deleted, new = committed[:32], committed[32:], range(65, 301)
+    changed = [*updated, *deleted, *new]
+    assert storage_shape(changed, changed[0])[0] == (0, "branch", 16)
+    after = {**{s: 1000 + s for s in updated}, **{s: s for s in new}}
+    writes = [(s, after.get(s, 0)) for s in changed]
+    contract = pre.deploy_contract(
+        code=_writer_code(writes), storage=_storage(committed)
+    )
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage=after)},
+    )
+
+
+def test_bulk_changes_in_one_depth_two_subtree(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Change 160 slots that share their first two nibbles in one transaction.
+
+    pre:  96 slots under `00`
+    post: 32 of them updated, 32 deleted and 96 new slots under `00`
+    Every change lands in one depth-2 subtree, so a client that updates
+    such subtrees separately updates this one with all 160.
+    """
+    under = SLOTS_UNDER_00
+    assert storage_shape(under, under[0])[0] == (0, "ext", 2)
+    committed, new = under[:96], under[96:]
+    updated, deleted = committed[:32], committed[32:64]
+    storage = _storage(committed)
+    after: Dict[int, int] = {
+        **{s: v for s, v in storage.items() if s not in deleted},
+        **{s: 1000 + s for s in updated},
+        **{s: s for s in new},
+    }
+    writes = [(s, after.get(s, 0)) for s in (*updated, *deleted, *new)]
+    contract = pre.deploy_contract(code=_writer_code(writes), storage=storage)
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=pre.fund_eoa(), to=contract),
+        post={contract: Account(storage=after)},
     )
 
 
