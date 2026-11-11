@@ -51,6 +51,10 @@ def prepare_stack(opcode: Opcode) -> Bytecode:
     if opcode == Op.TXTRACE:
         # A zero param and index, so only the `ASSERT` frame check halts it.
         return Op.PUSH1(0) * 2
+    if opcode == Op.EVENTDATACOPY:
+        # An event to index and an empty copy of it, so only the `ASSERT`
+        # frame check halts it.
+        return Op.LOG0(0, 0) + Op.PUSH1(0) * 4
     return Op.PUSH1(0x01) * 32
 
 
