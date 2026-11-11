@@ -140,11 +140,19 @@ class ExecutionSpecsTransitionTool(TransitionTool):
                 )
             )
 
+        fork = transition_tool_data.fork
         count_tracer = None
-        # The invariant checks excuse an ether or nonce shortfall before
-        # EIP-8246 only when SELFDESTRUCT ran, which needs the counts.
+        # The invariant checks excuse an ether or nonce shortfall only
+        # when SELFDESTRUCT ran, and only on forks where it can cause one.
         if self.supports_opcode_count and (
-            self.opcode_count is not None or self.compute_bal_witness
+            self.opcode_count is not None
+            or (
+                self.invariant_checks
+                and (
+                    fork.selfdestruct_burns_balance()
+                    or fork.selfdestruct_deletes_existing_accounts()
+                )
+            )
         ):
             count_tracer = CountTracer()
             if tracers is None:
@@ -153,9 +161,9 @@ class ExecutionSpecsTransitionTool(TransitionTool):
 
         bal_tracer = None
         if (
-            self.compute_bal_witness
+            self.invariant_checks
             and not transition_tool_data.state_test
-            and transition_tool_data.fork.header_bal_hash_required()
+            and fork.header_bal_hash_required()
         ):
             bal_tracer = BalWitnessTracer()
             if tracers is None:

@@ -895,7 +895,7 @@ class TransitionToolOutput:
     # Populated by ``ClientBackend.evaluate`` (live-client path). Always
     # ``None`` from the classical t8n path.
     engine_payload: EnginePayloadMetadata | None = None
-    # Set only by a tool honoring ``TransitionTool.compute_bal_witness``.
+    # Set only by a tool honoring ``TransitionTool.invariant_checks``.
     bal_witness: "BalWitness | None" = None
 
     @classmethod
