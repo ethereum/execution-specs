@@ -241,24 +241,25 @@ def test_side_chain_reorg_depth_tuned(
     Depths above 128 are capability probes rather than conformance
     assertions: no state retention depth is specified, so a client that
     cannot execute the side chain may answer its payloads and the FCU to
-    its tip with SYNCING, accepted as disputed. Measured 2026-09-16 (Cancun,
-    five clients, client defaults):
+    its tip with SYNCING, accepted as disputed. Measured 2026-11-12 (Cancun,
+    client defaults; go-ethereum v1.17.11, reth 2.11.0, nethermind 2.3.0,
+    besu 26.11, erigon 3.9.0):
 
     ===== ======= ======= ========== ======= =======
     depth geth    reth    nethermind besu    erigon
     ===== ======= ======= ========== ======= =======
     128   applied applied applied    applied applied
     129   SYNCING applied applied    applied applied
-    256   SYNCING applied applied    applied applied
-    512   SYNCING applied SYNCING    INVALID applied
+    256   SYNCING applied SYNCING    applied applied
+    512   SYNCING applied SYNCING    SYNCING applied
     ===== ======= ======= ========== ======= =======
 
-    Only 64 and 129 are in the corpus: 129 pins go-ethereum's ceiling, and
-    256 measured the same behaviour for twice the steps. 512 costs ~1500
-    steps per client and is where besu answers ``INVALID`` with ``"Unable to
-    process block because parent world state ... is not available"``, i.e.
-    reports missing state as block invalidity where the others report a sync
-    state. Add either depth above to reproduce.
+    Only 64 and 129 are in the corpus: 129 pins go-ethereum's ceiling.
+    nethermind's ceiling lies between 129 and 256 and besu's between 256
+    and 512; 512 costs ~1500 steps per client. Add either depth above to
+    reproduce. On 2026-09-16 nethermind still applied 256, and besu answered
+    512 with ``INVALID``, reporting missing parent state as block invalidity
+    (besu-eth/besu#11314, fixed since).
 
     go-ethereum's ceiling is exactly the 128 in-memory trie layers
     (`state.scheme=path`): raising the Engine API depth cap does not help,
@@ -269,9 +270,8 @@ def test_side_chain_reorg_depth_tuned(
     history retention, is the limit.
 
     No client returned ``-38006`` here: on side chains clients degrade into
-    sync states (or, for besu, into ``INVALID``). go-ethereum checks its
-    depth cap only for canonical-ancestor rewinds, which
-    ``test_canonical_ancestor_reorg_depth_default`` covers.
+    sync states. go-ethereum checks its depth cap only for canonical-ancestor
+    rewinds, which ``test_canonical_ancestor_reorg_depth_default`` covers.
     """
     probe = depth > 128
     blocks, steps = two_branches(pre, depth, probe=probe)
