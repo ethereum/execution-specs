@@ -21,7 +21,7 @@ from typing import (
 
 import requests
 from jwt import encode
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 from tenacity import (
     RetryCallState,
     before_sleep_log,
@@ -41,6 +41,7 @@ from execution_testing.logging import (
 from execution_testing.test_types import Account, Alloc
 
 from .rpc_types import (
+    ClientVersionV1,
     EthConfigResponse,
     ForkchoiceState,
     ForkchoiceUpdateResponse,
@@ -1423,6 +1424,24 @@ class EngineRPC(BaseJwtRPC):
     Represents an Engine API RPC class for every Engine API method used within
     EEST based hive simulators.
     """
+
+    def get_client_version(
+        self, client_version: ClientVersionV1
+    ) -> List[ClientVersionV1]:
+        """
+        `engine_getClientVersionV1`: Exchanges client version information
+        with the execution client.
+
+        `client_version` identifies the caller; the execution client answers
+        with one entry per execution client behind the endpoint.
+        """
+        response = self.post_request(
+            request=RPCCall(
+                method="getClientVersionV1",
+                params=[to_json(client_version)],
+            ),
+        ).result_or_raise()
+        return TypeAdapter(List[ClientVersionV1]).validate_python(response)
 
     def new_payload(self, *params: Any, version: int) -> PayloadStatus:
         """

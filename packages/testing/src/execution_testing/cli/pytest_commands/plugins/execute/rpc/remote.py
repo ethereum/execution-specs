@@ -1,17 +1,37 @@
 """Pytest plugin to run the execute in remote-rpc-mode."""
 
+from http import HTTPStatus
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
+import requests
+from pydantic import ValidationError
 
+from execution_testing.base_types import Bytes
 from execution_testing.forks import Fork, TransitionFork
-from execution_testing.rpc import EngineRPC, EthRPC
+from execution_testing.logging import get_logger
+from execution_testing.rpc import ClientVersionV1, EngineRPC, EthRPC
+from execution_testing.rpc.rpc_types import JSONRPCError
 from execution_testing.test_types.chain_config_types import (
     ChainConfigDefaults,
 )
 
 from ...shared.helpers import get_rpc_endpoint, is_help_or_collectonly_mode
 from .chain_builder_eth_rpc import ChainBuilderEthRPC, TestingRPC
+
+logger = get_logger(__name__)
+
+EXECUTE_CLIENT_VERSION = ClientVersionV1(
+    code="ET",
+    name="execution-testing",
+    version=version("ethereum-execution-testing"),
+    commit=Bytes(bytes(4)),
+)
+"""
+How `execute` identifies itself to the execution client when it checks the
+engine endpoint with `engine_getClientVersionV1`.
+"""
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -145,10 +165,53 @@ def pytest_configure(config: pytest.Config) -> None:
             f"JWT secret must be a bytes object, got {type(jwt_secret)}"
         )
         engine_rpc = EngineRPC(engine_endpoint, jwt_secret=jwt_secret)
-        # TODO: Perform a request to the engine endpoint to verify that the JWT
-        # secret is valid. Potentially could be `engine_getClientVersionV1` but
-        # need to implement this in rpc.py.
+        verify_engine_endpoint(engine_rpc)
     config.engine_rpc = engine_rpc  # type: ignore
+
+
+def verify_engine_endpoint(engine_rpc: EngineRPC) -> None:
+    """
+    Exit the session unless the engine endpoint accepts the JWT secret.
+
+    Without this check, a wrong JWT secret only surfaces once the tests
+    start, and then fails every test one by one.
+
+    Execution clients authenticate a request before dispatching it, so any
+    JSON-RPC response, including an error from a client that does not
+    implement `engine_getClientVersionV1`, shows that the secret is valid.
+    """
+    try:
+        client_versions = engine_rpc.get_client_version(EXECUTE_CLIENT_VERSION)
+    except (JSONRPCError, ValidationError) as e:
+        logger.warning(
+            f"Engine endpoint {engine_rpc.url} accepted the JWT secret but "
+            f"did not report its client version: {e}"
+        )
+        return
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code in (
+            HTTPStatus.UNAUTHORIZED,
+            HTTPStatus.FORBIDDEN,
+        ):
+            pytest.exit(
+                f"Engine endpoint {engine_rpc.url} rejected the JWT secret "
+                f"({e}). Please check if the JWT secret is correctly "
+                "configured with the --engine-jwt-secret or "
+                "--engine-jwt-secret-file flag."
+            )
+        pytest.exit(
+            f"Engine endpoint {engine_rpc.url} returned an error ({e}). "
+            "Please check if the engine endpoint is correctly configured "
+            "with the --engine-endpoint flag."
+        )
+    except requests.RequestException as e:
+        pytest.exit(
+            f"Unable to reach the engine endpoint {engine_rpc.url} ({e}). "
+            "Please check if the engine endpoint is correctly configured "
+            "with the --engine-endpoint flag."
+        )
+    for client_version in client_versions:
+        logger.info(f"Engine endpoint client: {client_version}")
 
 
 @pytest.fixture(scope="session")

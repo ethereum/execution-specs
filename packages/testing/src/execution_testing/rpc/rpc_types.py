@@ -156,6 +156,22 @@ class TransactionByHashResponse(Transaction):
         assert self.transaction_hash == self.hash
 
 
+class ClientVersionV1(CamelModel):
+    """
+    Identifies a client implementation, as exchanged by
+    `engine_getClientVersionV1`.
+    """
+
+    code: str
+    name: str
+    version: str
+    commit: Bytes
+
+    def __str__(self) -> str:
+        """Return a human-readable description of the client."""
+        return f"{self.name} {self.version} ({self.code}, {self.commit})"
+
+
 class ForkchoiceState(CamelModel):
     """Represents the forkchoice state of the beacon chain."""
 
