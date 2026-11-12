@@ -278,9 +278,11 @@ jobs:
           else
             gh run download ${{ github.run_id }} -p "fixtures_*" --dir ./artifacts
             rm -rf ./artifacts/fixtures__*/
-            # Only benchmark features build genesis files (see
-            # build-fixtures), so any other failure here is real.
-            if [[ "$INPUT_FEATURE" == *benchmark* ]]; then
+            # Only benchmark features other than zkevm-benchmark build
+            # genesis files (see build-fixtures), so any other failure
+            # here is real.
+            if [[ "$INPUT_FEATURE" == *benchmark* \
+              && "$INPUT_FEATURE" != zkevm-benchmark ]]; then
               gh run download ${{ github.run_id }} -p "benchmark_genesis_*" --dir ./artifacts
             fi
           fi
