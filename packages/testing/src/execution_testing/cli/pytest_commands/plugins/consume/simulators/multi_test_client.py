@@ -661,15 +661,22 @@ def group_client(
     if resolved_client is not None:
         logger.info(f"♻️  Reusing client for group {group_identifier}")
     else:
-        resolved_client = boot_managed_client(
-            multi_test_hive_test,
-            multi_test_client_manager,
-            group_identifier,
-            client_type,
-            environment,
-            client_genesis,
-            total_timing_data,
-        )
+        try:
+            resolved_client = boot_managed_client(
+                multi_test_hive_test,
+                multi_test_client_manager,
+                group_identifier,
+                client_type,
+                environment,
+                client_genesis,
+                total_timing_data,
+            )
+        except Exception:
+            # `hive_test` is normally set up after `client`, so a failed
+            # start would end the setup before the test reaches hive.
+            # Open it now so hive records the test as failed.
+            request.getfixturevalue("hive_test")
+            raise
     try:
         yield resolved_client
     finally:
