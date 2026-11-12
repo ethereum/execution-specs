@@ -119,15 +119,6 @@ it to EIP-6780's same-transaction deletion rule.
 | `test_reorg_over_same_block_destroy_and_recreate`: Reorg a block that destroys and recreates one address. | Authored same-block/EIP-6780 scenario; no direct port of an executable upstream test. | Inspiration/context: Erigon's [`WithoutExperimentalBAL` comment][erigon-recreate-comment] names the intra-block SELFDESTRUCT/CREATE2 limitation. Related: [`TestRecreateAndRewind`][erigon-recreate] recreates in a later block; here deletion is in the creating transaction and recreation is in another transaction of the same block. |
 | `test_reorg_over_selfdestruct_in_a_later_block`: Undo both destruction and an earlier storage change. | Adapted port of Erigon [`TestReorgOverSelfDestruct`][erigon-selfdestruct]: preserve creation → change → destruction and branch off creation, using public NP/FCU/state queries instead of internal insertion/database access. Paris and Shanghai only; no EIP-6780 rewrite. | No additional source. |
 
-## `test_sync_delivery.py`
-
-Deferred/skipped; generates no fixtures. The function has no implemented
-scenario and is excluded from implemented coverage.
-
-| Test | Source relationship and limitations | Related upstream tests |
-|---|---|---|
-| `test_head_synced_from_peer`: Deferred/skipped placeholder; generates no fixtures. | No implemented port. | Inspiration for deferred peer delivery: Hive's [`Withdrawals Fork on Block 1 - 8 Block Re-Org, Sync` registration][hive-withdrawals-sync]. |
-
 ## `test_tx_receipts_logs_reorg.py`
 
 Transactions, receipts and canonical log queries across reorgs. Transaction-pool
@@ -138,6 +129,13 @@ reinjection is observed as client policy, not required as conformance.
 | `test_tx_reorg_shared_dropped_postponed_added`: Receipts and transaction status follow the winning branch. | Adapted port of geth [`testChainTxReorgs`][geth-tx-reorg]: keep shared/dropped/postponed/added classes, with smaller branches, FCU selection and RPC observations instead of internal indexes; omit a separate swapped-transaction class. Dropped transactions may be pending or dropped. | No additional source. |
 | `test_logs_follow_reorg`: Return only the canonical branch's logs before and after reorgs. | Adapted port of Erigon [`TestEthGetLogsDoNotGetAffectedAfterNewPayloadOnSideChain`][erigon-logs]: range queries and a smaller emitter replace its block-hash query/contract setup; add branch switches and receipt removal. | Inspiration: geth [`testLogReorgs`][geth-logs] asserts subscription removal events, not these RPC log queries; no event-stream or removed-log-flag coverage is claimed. |
 | `test_txpool_reinjection_after_reorg`: Record whether an executable reorged-out transaction returns to the pool. | Policy observation, not a direct conformance port: allow pending or dropped after reorg; require the replacement transaction to be included and restore the original receipt on returning. | Related: reth [`maintain_txpool_reorg`][reth-pool] and Besu [`shouldReAddTransactionsFromThePreviousCanonicalHeadWhenAReorgOccurs`][besu-pool] require reinjection in their pool tests. geth [`LegacyPool.reset`][geth-pool] is implementation context, not an upstream test. |
+
+## Not covered: delivery by peer sync
+
+Every block in these tests reaches the client through `engine_newPayload`.
+Reaching a head by syncing it from a peer, as Hive's
+[`Withdrawals Fork on Block 1 - 8 Block Re-Org, Sync` registration][hive-withdrawals-sync]
+does, is tracked in ethereum/execution-specs#3991.
 
 [geth-depth]: https://github.com/ethereum/go-ethereum/blob/8801a261e0f47d087e80611355b1cfff48f54a67/eth/catalyst/api_test.go#L489
 [geth-trie-gc]: https://github.com/ethereum/go-ethereum/blob/8801a261e0f47d087e80611355b1cfff48f54a67/core/blockchain_test.go#L1631
