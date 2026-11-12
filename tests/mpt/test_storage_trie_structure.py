@@ -26,6 +26,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    keccak256,
 )
 from execution_testing.base_types import StorageRootType
 
@@ -478,6 +479,15 @@ def test_insert_splits_extension_above_deep_branch(
         (6, "leaf", 58),
     ]
     assert storage_shape([*committed, new], new)[-1] == (3, "leaf", 61)
+    # Key order the trigger needs: the skipped subtree is the f-child `2f`,
+    # so the seek after it carries to `30`; the new key sorts first under
+    # `3`; the deep branch is the first child of `30c`.
+    key = {
+        s: bytes(keccak256(s.to_bytes(32, "big"))).hex()
+        for s in [*committed, new]
+    }
+    assert key[left][:2] == "2f" and key[new][:3] == "300"
+    assert key[deep][:4] == "30c6" and key[committed[6]][:4] == "30c7"
     storage = _storage(committed)
     contract = pre.deploy_contract(
         code=_writer_code([(new, 9)]), storage=storage

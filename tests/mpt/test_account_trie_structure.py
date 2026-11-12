@@ -47,6 +47,7 @@ from execution_testing import (
     Transaction,
     Withdrawal,
     compute_create2_address,
+    keccak256,
 )
 from execution_testing.base_types import StorageRootType
 
@@ -268,6 +269,11 @@ def test_insert_splits_extension_above_deep_branch(
         (2, "branch", 2),
         (3, "leaf", 61),
     ]
+    # Same key order as the storage test: `1f` carries to `20`, the new key
+    # sorts first under `2`, the deep branch is the first child of `201`.
+    key = {a: bytes(keccak256(a)).hex() for a in [*committed, new]}
+    assert key[left][:2] == "1f" and key[new][:3] == "200"
+    assert key[deep][:4] == "201b" and key[committed[6]][:4] == "201c"
 
     state_test(
         pre=pre,
