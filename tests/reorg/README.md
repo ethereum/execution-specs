@@ -2,7 +2,7 @@
 
 These tests fill `blockchain_test_engine_reorg` fixtures: a labeled block DAG
 plus an ordered list of Engine API and JSON-RPC steps, run against one fresh
-client by `consume reorg`. See [the format documentation](../../docs/running_tests/test_formats/blockchain_test_engine_reorg.md).
+client by `consume reorg`. See [the format documentation](https://steel.ethereum.foundation/docs/execution-specs/running_tests/test_formats/blockchain_test_engine_reorg/).
 
 This README maps the current tests to commit-pinned sources. Its notes record
 adaptations and omissions; a related source does not establish equivalent
