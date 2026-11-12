@@ -43,6 +43,7 @@ from .account_types import EOA
 from .blob_types import Blob
 from .chain_config_types import ChainConfigDefaults
 from .leansphincs import LEANSPHINCS_SIGNATURE_LENGTH, LeanSphincsKey
+from .p256 import P256_SIGNATURE_LENGTH, P256Key
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import TransactionReceipt
 from .utils import int_to_bytes, keccak256
@@ -337,23 +338,29 @@ class FrameSignature(FrameSignatureGeneric[HexNumber]):
     explicit 32-byte `msg` sign that digest, while entries with an empty
     `msg` sign the canonical transaction signature hash.
 
-    An entry with `leansphincs_key` set is signed with that leanSPHINCS
+    An entry with `leansphincs_key` or `p256_key` set is signed with that
     key instead. Its `signer` is left as given, so a `LEANSPHINCS` entry
-    sets it to the key's public key.
+    sets it to the key's public key and a `P256` entry to the key's
+    address. An `ARBITRARY` entry with `secret_key` set carries a
+    secp256k1 signature, for code that verifies it itself.
     """
 
     secret_key: Hash | None = Field(None, exclude=True)
     leansphincs_key: LeanSphincsKey | None = Field(None, exclude=True)
+    p256_key: P256Key | None = Field(None, exclude=True)
 
     model_config = {"arbitrary_types_allowed": True}
 
     def signed_over(self, digest: bytes, key: Hash | None = None) -> None:
         """
         Fill the raw signature bytes by signing `digest` with `key`, or
-        with `leansphincs_key`.
+        with `leansphincs_key` or `p256_key`.
         """
         if self.leansphincs_key is not None:
             self.signature = Bytes(self.leansphincs_key.sign(digest))
+            return
+        if self.p256_key is not None:
+            self.signature = Bytes(self.p256_key.sign(digest))
             return
         assert key is not None, "secret_key must be set"
         signature_bytes = PrivateKey(key).sign_recoverable(digest)
@@ -822,7 +829,7 @@ class Transaction(
                 self.signatures = []
 
         def resolve_key(sig: FrameSignature) -> Hash | None:
-            if sig.leansphincs_key is not None:
+            if sig.leansphincs_key is not None or sig.p256_key is not None:
                 return None
             if sig.secret_key is not None:
                 return sig.secret_key
@@ -839,10 +846,12 @@ class Transaction(
         def signable(sig: FrameSignature) -> bool:
             if len(sig.signature) > 0:
                 return False
-            if sig.leansphincs_key is not None:
+            if sig.leansphincs_key is not None or sig.p256_key is not None:
                 return True
             if sig.scheme == FrameSignatureScheme.SECP256K1:
                 return resolve_key(sig) is not None
+            if sig.scheme == FrameSignatureScheme.ARBITRARY:
+                return sig.secret_key is not None
             return False
 
         for sig in self.signatures:
@@ -859,6 +868,8 @@ class Transaction(
                 continue
             if sig.leansphincs_key is not None:
                 length = LEANSPHINCS_SIGNATURE_LENGTH
+            elif sig.p256_key is not None:
+                length = P256_SIGNATURE_LENGTH
             else:
                 length = SECP256K1_SIGNATURE_LENGTH
             sig.signature = Bytes(bytes(length))

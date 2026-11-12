@@ -41,6 +41,7 @@ from .helpers import (
     eoa_from_hash,
 )
 from .leansphincs import LeanSphincsKey
+from .p256 import P256Key
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import (
     FrameReceipt,
@@ -117,6 +118,7 @@ __all__ = (
     "FrameSignature",
     "FrameSignatureScheme",
     "LeanSphincsKey",
+    "P256Key",
     "FrameStatus",
     "LogMismatchError",
     "NetworkWrappedTransaction",
