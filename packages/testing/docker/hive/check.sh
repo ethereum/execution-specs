@@ -24,6 +24,7 @@ consume-engine) format=blockchain_tests_engine ;;
 consume-enginex) format=blockchain_tests_engine_x ;;
 consume-wirex) format=blockchain_tests_engine_x ;;
 consume-sync) format=blockchain_tests_sync ;;
+consume-reorg) format=blockchain_tests_engine_reorg ;;
 execute-blobs) ;;
 *)
     echo "error: unknown simulator '$simulator'" >&2

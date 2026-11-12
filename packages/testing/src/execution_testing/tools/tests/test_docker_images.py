@@ -242,6 +242,7 @@ def test_catalogue() -> None:
     assert fixture_formats() == [
         "blockchain_tests",
         "blockchain_tests_engine",
+        "blockchain_tests_engine_reorg",
         "blockchain_tests_engine_x",
         "blockchain_tests_sync",
     ]
