@@ -620,21 +620,31 @@ def boot_managed_client(
     environment: dict[str, str],
     client_genesis: dict[str, Any],
     total_timing_data: "TimingData",
+    request: pytest.FixtureRequest,
 ) -> Client:
     """
     Start a client and register it with the manager under `identifier`.
 
     `identifier` is usually a group's, but any unique key works; the
     session-end cleanup stops every registered client.
+
+    A client that fails to start fails the test that `request` belongs
+    to in hive, too. The `client` fixtures that call this are set up
+    before `hive_test`, so a failed start would otherwise end the setup
+    before the test reaches hive.
     """
-    with total_timing_data.time("Start client"):
-        resolved_client = start_hive_client(
-            multi_test_hive_test,
-            identifier,
-            client_type,
-            environment,
-            client_genesis,
-        )
+    try:
+        with total_timing_data.time("Start client"):
+            resolved_client = start_hive_client(
+                multi_test_hive_test,
+                identifier,
+                client_type,
+                environment,
+                client_genesis,
+            )
+    except Exception:
+        request.getfixturevalue("hive_test")
+        raise
     multi_test_client_manager.register_client(identifier, resolved_client)
     return resolved_client
 
@@ -661,22 +671,16 @@ def group_client(
     if resolved_client is not None:
         logger.info(f"♻️  Reusing client for group {group_identifier}")
     else:
-        try:
-            resolved_client = boot_managed_client(
-                multi_test_hive_test,
-                multi_test_client_manager,
-                group_identifier,
-                client_type,
-                environment,
-                client_genesis,
-                total_timing_data,
-            )
-        except Exception:
-            # `hive_test` is normally set up after `client`, so a failed
-            # start would end the setup before the test reaches hive.
-            # Open it now so hive records the test as failed.
-            request.getfixturevalue("hive_test")
-            raise
+        resolved_client = boot_managed_client(
+            multi_test_hive_test,
+            multi_test_client_manager,
+            group_identifier,
+            client_type,
+            environment,
+            client_genesis,
+            total_timing_data,
+            request,
+        )
     try:
         yield resolved_client
     finally:
