@@ -122,11 +122,11 @@ Gas price for the transaction (Transaction types 0 & 1)
 
 #### - `maxPriorityFeePerGas`: [`HexNumber`](./common_types.md#hexnumber)
 
-Max priority fee per gas to pay (Transaction types 2 & 3)
+Max priority fee per gas to pay (Transaction types 2, 3 & 4)
 
 #### - `maxFeePerGas`: [`HexNumber`](./common_types.md#hexnumber)
 
-Max base fee per gas to pay (Transaction types 2 & 3)
+Max base fee per gas to pay (Transaction types 2, 3 & 4)
 
 #### - `gasLimit`: [`List`](./common_types.md#list)`[`[`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)`]`
 
@@ -146,7 +146,7 @@ List of data bytes used on each indexed test combination
 
 #### - `accessLists`: [`List`](./common_types.md#list)`[`[`List`](./common_types.md#list)`[`[`Mapping`](./common_types.md#mapping)`[`[`Address`](./common_types.md#address)`,`[`List`](./common_types.md#list)`[`[`Hash`](./common_types.md#hash)`]]]]` `(fork: Berlin)`
 
-List of account access lists used on each indexed test combination (Transaction types 1, 2 & 3)
+List of account access lists used on each indexed test combination (Transaction types 1, 2, 3 & 4)
 
 #### - `maxFeePerBlobGas`: [`HexNumber`](./common_types.md#hexnumber) `(fork: Cancun)`
 
@@ -155,6 +155,10 @@ Max fee per blob gas to pay (Transaction type 3)
 #### - `blobVersionedHashes`: [`List`](./common_types.md#list)`[`[`Hash`](./common_types.md#hash)`]` `(fork: Cancun)`
 
 List of blob versioned hashes the transaction includes (Transaction type 3)
+
+#### - `authorizationList`: [`List`](./common_types.md#list)`[`[`AuthorizationTuple`](./common_types.md#authorizationtuple)`]` `(fork: Prague)`
+
+List of authorization tuples the transaction includes (Transaction type 4)
 
 #### - `sender`: [`Address`](./common_types.md#address)
 
