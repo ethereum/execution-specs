@@ -131,8 +131,8 @@ INLINE_TRIO: Final = (175378, 2311414, 458416)
 # Rule, for first nibbles n and n + 1 and nibbles q > 0, r and v: the
 # smallest slot under n0; the smallest under nf, and the smallest under nf
 # with another third nibble; a pair under (n+1)0qrv differing at the
-# sixth nibble; the smallest under (n+1)0qr with the lowest other fifth
-# nibble, under (n+1)0q(r+1) and, the sibling, under (n+1)00. n, q, r, v
+# sixth nibble; the smallest under (n+1)0qrw with w = 0 (1 when v = 0),
+# under (n+1)0q(r+1) and, the sibling, under (n+1)00. n, q, r, v
 # and the pair minimise the largest slot.
 EXT_ABOVE_DEEP_BRANCH: Final = (485, 243, 304, 9857, 33603, 27818, 3070)
 EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2: Final = 2620
