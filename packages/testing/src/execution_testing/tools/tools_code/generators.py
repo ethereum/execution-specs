@@ -66,23 +66,25 @@ class Initcode(Bytecode):
         # DUP2
         initcode += Op.DUP2
 
-        # PUSH1: initcode_length=9 + push_length_size + initcode_prefix_bytes
-        no_prefix_length = 0x09 + push_length_size
-        assert no_prefix_length + len(initcode_prefix) <= 0xFF, (
-            "initcode prefix too long"
-        )
-        initcode += Op.PUSH1(no_prefix_length + len(initcode_prefix))
-
-        # DUP3
-        initcode += Op.DUP3
-
-        # CODECOPY: destinationOffset=0, offset=0, length
-        initcode += Op.CODECOPY(
-            data_size=code_length, new_memory_size=code_length
+        # DUP3, CODECOPY and RETURN follow the offset push.
+        tail = (
+            Op.DUP3
+            + Op.CODECOPY(data_size=code_length, new_memory_size=code_length)
+            + Op.RETURN(code_deposit_size=len(deploy_code))
         )
 
-        # RETURN: offset=0, length
-        initcode += Op.RETURN(code_deposit_size=len(deploy_code))
+        # PUSHN: deploy code offset = bytes so far + this PUSH (1 opcode byte
+        # + its data) + tail, using the smallest PUSH that holds it. PUSH3 is
+        # enough since initcode is capped at 131,072 bytes (Amsterdam), far
+        # below 2**24; a larger offset makes PUSH3 raise.
+        for push_offset_size in range(1, 4):
+            deploy_code_offset = (
+                len(initcode) + 1 + push_offset_size + len(tail)
+            )
+            if deploy_code_offset < 1 << (8 * push_offset_size):
+                break
+        push_offset = getattr(Op, f"PUSH{push_offset_size}")
+        initcode += push_offset(deploy_code_offset) + tail
 
         initcode_plus_deploy_code = bytes(initcode) + bytes(deploy_code)
         padding_bytes = bytes()

@@ -60,6 +60,7 @@ The WireX options are:
 | `--wirex-bals` | `both` | [Block Access Lists](#block-access-lists) |
 | `--wirex-min-blocks` | `2` | [Skipped Sync Targets](#skipped-sync-targets) |
 | `--wirex-sync-timeout` | `60` (seconds) | [Tuning](#tuning) |
+| `--wirex-verdict-grace` | `15` (seconds) | [Tuning](#tuning) |
 | `--wirex-sync-loop-interval` | the simulator's `HIVE_SYNC_LOOP_INTERVAL_MS`, else `10` (milliseconds) | [Tuning](#tuning) |
 | `--wirex-announce-interval` | `3` (seconds) | [Process Diagram](#process-diagram) |
 | `--wirex-poll-interval` | `0.005` (seconds) | [Process Diagram](#process-diagram) |
@@ -87,6 +88,8 @@ WireX also skips invalid paths that devp2p or the fixture cannot represent (see 
 ### Tuning
 
 Run time depends on the client. Much of it goes to starting and stopping clients, and most of it for clients that boot slowly. A test that times out costs the full `--wirex-sync-timeout` (default 60 s), so a class of tests a client never answers can dominate a run. A lower timeout shortens such runs, but too low a value fails valid syncs of short chains.
+
+A test also fails once the client has gone `--wirex-verdict-grace` seconds (default 15) without a verdict after the peer served it every block the verdict needs: every header below the head, and every body unless the invalidity can be judged from headers alone. From then on the delay is the client's own, so most tests a client never answers fail well before the sync timeout. A client that returns its verdict later than that fails, even if the verdict is right. `0` turns the grace off and leaves only the sync timeout.
 
 - Parallelism: `-n 4` is a safe default. Each xdist worker and each running client needs its own memory. Groups run whole on one worker, so a run cannot finish faster than its largest group.
 - Sync loop interval: some clients advance a sync only when a loop on a timer runs. nethermind's runs once a second by default, which makes each short test take seconds.

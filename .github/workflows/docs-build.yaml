@@ -1,9 +1,9 @@
 # Build Docs
 #
 # Dual-purpose workflow:
-#   - On PRs: Tests that MkDocs and spec docs build successfully
+#   - On PRs: Tests that the Zensical site and spec docs build successfully
 #   - On push to allowlisted branches: Builds, uploads artifacts, and triggers
-#     the aggregator workflow in steel-website for deployment
+#     the aggregator workflow in protocol-specs-website for deployment
 #
 # Site structure at steel.ethereum.foundation/docs/execution-specs/:
 #   /docs/execution-specs/                         - Default branch docs (deployed at root)
@@ -13,7 +13,7 @@
 #
 # The "default branch" is named in .github/configs/docs-branches.yaml. Its
 # SITE_URL is built without a `<branch>/` segment so canonical/OG/sitemap
-# URLs match where steel-website actually publishes the artifact.
+# URLs match where protocol-specs-website actually publishes the artifact.
 
 name: Build Docs
 
@@ -24,16 +24,15 @@ on:
     # (use the `ref:` input to publish a tag/SHA).
     branches:
       - mainnet
-      - forks/amsterdam
+      - forks/bogota
     paths: &docs_paths
       - "src/ethereum/**"
-      - "src/ethereum_spec_tools/docc.py"
       - "src/ethereum_spec_tools/forks.py"
       - "static/**"
       - "docs/**"
       - "packages/testing/**"
       - "*.md"
-      - "mkdocs.yml"
+      - "zensical.toml"
       - "uv.lock"
       - "pyproject.toml"
       - "Justfile"
@@ -49,7 +48,7 @@ on:
         description: "Branch to publish under. Must be in the allowlist (see .github/configs/docs-branches.yaml)."
         required: true
         type: string
-        default: forks/amsterdam
+        default: forks/bogota
       ref:
         description: "Ref to build: branch name, tag (e.g. v1.2.3), or commit SHA. Empty = tip of the branch above."
         required: false
@@ -196,7 +195,7 @@ jobs:
               [ "$BRANCH_INPUT" = "$DEFAULT_BRANCH" ] && SUFFIX=" (default branch; deployed at root)"
               echo "-> **Will publish** at <$SITE_URL>$SUFFIX"
               echo ""
-              echo "_Note: the URL only resolves if \`${BRANCH_INPUT}\` is also configured in steel-website's \`BRANCH_CONFIG\` (\`deploy.yml\`). If not, the aggregator will receive the dispatch but drop the artifact._"
+              echo "_Note: the URL only resolves if \`${BRANCH_INPUT}\` is also configured in protocol-specs-website's \`BRANCH_CONFIG\` (\`deploy.yml\`). If not, the aggregator will receive the dispatch but drop the artifact._"
             else
               echo "-> **Skipping publish** -- branch is not in the allowlist (\`.github/configs/docs-branches.yaml\`)."
               echo ""
@@ -222,13 +221,19 @@ jobs:
 
       - uses: ./.github/actions/setup-uv
 
-      - name: Build MkDocs documentation
+      - name: Build Zensical documentation
         env:
           SITE_URL: ${{ needs.check-should-publish.outputs.site_url }}
-          # Social cards are publish-only; PR builds skip them for speed.
-          DOCS_SOCIAL_CARDS: ${{ github.event_name != 'pull_request' }}
         run: |
-          echo "Building MkDocs with SITE_URL=$SITE_URL"
+          # zensical.toml can't read environment variables; set the
+          # per-branch site_url (canonical/OG/sitemap URLs) in place.
+          # Refs without zensical.toml (e.g. mainnet, still on MkDocs)
+          # read SITE_URL from the environment instead.
+          if [ -f zensical.toml ]; then
+            sed -i "s|^site_url = .*|site_url = \"${SITE_URL}\"|" zensical.toml
+            grep '^site_url = ' zensical.toml
+          fi
+          echo "Building docs with SITE_URL=$SITE_URL"
           just docs
 
       - name: Upload HTML docs artifact
@@ -254,15 +259,11 @@ jobs:
 
       - uses: ./.github/actions/setup-uv
 
-      - name: Build spec documentation (parallel shards)
-        if: github.event_name == 'pull_request'
-        run: just docs-spec-parallel
-
+      # rdocc builds the full site, per-fork diff pages included, in seconds,
+      # so pull requests and every branch build the same thing as the default
+      # branch.
       - name: Build spec documentation
-        if: github.event_name != 'pull_request'
         run: just docs-spec
-        env:
-          DOCC_SKIP_DIFFS: ${{ case(github.event_name == 'push' && github.ref_name == github.event.repository.default_branch, '', '1') }}
 
       - name: Upload spec docs artifact
         if: needs.check-should-publish.outputs.should_publish == 'true'
@@ -350,7 +351,7 @@ jobs:
     if: needs.check-should-publish.outputs.should_publish == 'true'
 
     steps:
-      - name: Trigger steel-website aggregator workflow
+      - name: Trigger protocol-specs-website aggregator workflow
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
           BRANCH: ${{ needs.check-should-publish.outputs.branch }}
@@ -361,7 +362,7 @@ jobs:
           script: |
             await github.rest.repos.createDispatchEvent({
               owner: 'ethereum',
-              repo: 'steel-website',
+              repo: 'protocol-specs-website',
               event_type: 'docs-artifact-ready',
               client_payload: {
                 branch: process.env.BRANCH,
@@ -374,7 +375,7 @@ jobs:
         env:
           BRANCH: ${{ needs.check-should-publish.outputs.branch }}
         run: |
-          echo "Triggered aggregator workflow in ethereum/steel-website"
+          echo "Triggered aggregator workflow in ethereum/protocol-specs-website"
           echo "  Branch: $BRANCH"
           echo "  SHA: ${{ github.sha }}"
           echo "  Run ID: ${{ github.run_id }}"

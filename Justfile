@@ -501,44 +501,48 @@ bench-opcode-config *args: (_tmp-logs "bench-opcode-config")
 
 # --- Docs ---
 
-export GEN_TEST_DOC_VERSION := "local"
 export DYLD_FALLBACK_LIBRARY_PATH := if os() == "macos" { "/opt/homebrew/lib" } else { "" }
 
-# Generate documentation for EELS using docc
+# rdocc (Rust port of docc) command. Defaults to `uv run rdocc`: the
+# binary-only wheel from the ethspecs/rdocc GitHub release, locked in the `doc`
+# dependency group. Override with RDOCC, e.g. a local build:
+#   RDOCC=../rdocc/target/release/rdocc just docs-spec
+rdocc := env("RDOCC", "uv run rdocc")
+
+# Generate documentation for EELS with rdocc (reads [tool.docc])
 [group('docs')]
 docs-spec $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
-    uv run docc --output "{{ output_dir }}/docs-spec"
-    uv run python -c 'import pathlib; print("documentation available under file://{0}".format(pathlib.Path(r"{{ output_dir }}") / "docs-spec" / "index.html"))'
+    {{ rdocc }} --output "{{ output_dir }}/docs-spec"
+    @echo "documentation available under file://{{ output_dir }}/docs-spec/index.html"
 
-# Generate documentation for EELS using docc, skipping the slow per-fork diff render
+# Generate documentation for EELS, skipping the per-fork diff pages
 [group('docs')]
 docs-spec-fast: (docs-spec "1")
 
-# Build spec docs in parallel shards for fast PR validation
+# Generate the untracked docs pages (test case reference, fill --help, ...)
 [group('docs')]
-docs-spec-parallel shards="4":
-    uv run python -m ethereum_spec_tools.docc_shards \
-        -n {{ shards }} -o "{{ output_dir }}/docs-spec-parallel"
+docs-gen *args:
+    uv run python docs/scripts/gen_docs.py "$@"
 
-# Build HTML site documentation with mkdocs
+# Build HTML site documentation with Zensical (output: .just/docs/site)
 [group('docs')]
-docs *args:
-    uv run mkdocs build --strict -d "{{ output_dir }}/docs/site" "$@"
+docs *args: docs-gen
+    uv run zensical build --strict "$@"
 
-# Build HTML site documentation with mkdocs (skip test case reference)
+# Build HTML site documentation with Zensical (partial test case reference)
 [group('docs')]
-docs-fast *args:
-    FAST_DOCS=True uv run mkdocs build --strict -d "{{ output_dir }}/docs/site" "$@"
+docs-fast *args: (docs-gen "--fast")
+    uv run zensical build --strict "$@"
 
-# Serve site documentation locally with mkdocs (live reload)
+# Serve site documentation locally with Zensical (live reload; pages are not regenerated)
 [group('docs')]
-docs-serve *args:
-    uv run mkdocs serve "$@"
+docs-serve *args: docs-gen
+    uv run zensical serve "$@"
 
-# Serve site documentation locally with mkdocs (skip test case reference)
+# Serve site documentation locally with Zensical (partial test case reference)
 [group('docs')]
-docs-serve-fast *args:
-    FAST_DOCS=True uv run mkdocs serve "$@"
+docs-serve-fast *args: (docs-gen "--fast")
+    uv run zensical serve "$@"
 
 # Lint markdown files (markdownlint)
 [group('docs')]

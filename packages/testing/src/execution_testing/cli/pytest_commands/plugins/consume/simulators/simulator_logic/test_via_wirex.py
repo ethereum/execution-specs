@@ -80,6 +80,83 @@ def required_wire_headers(chain: Chain) -> list[Block]:
     return chain.blocks[:-1]
 
 
+class VerdictClock:
+    """
+    Time a client's verdict from when it holds every block it needs.
+
+    A client is covered once the peer has served, to this client at any
+    time, every header below the head and every body that
+    `required_wire_bodies` lists (headers only for a header-judgeable
+    invalidity). From then on the client has all the evidence for its
+    verdict, so the time it takes after that is its own.
+    """
+
+    def __init__(
+        self, chain: Chain, mock_peer: MockPeer, require_bodies: bool
+    ) -> None:
+        """Start the clock for `chain` as served by `mock_peer`."""
+        self.mock_peer = mock_peer
+        self.headers = {b.block_hash for b in required_wire_headers(chain)}
+        self.bodies = (
+            {b.block_hash for b in required_wire_bodies(chain)}
+            if require_bodies
+            else set()
+        )
+        self.started = time.monotonic()
+        self.covered_at: float | None = None
+
+    def check(self) -> None:
+        """Note the moment the client first holds every needed block."""
+        if self.covered_at is not None:
+            return
+        try:
+            covered = self.headers <= set(
+                self.mock_peer.header_hashes_ever_served
+            ) and self.bodies <= set(self.mock_peer.body_hashes_ever_served)
+        except RuntimeError:
+            # The peer thread grew a set mid-copy; read it next poll.
+            return
+        if covered:
+            self.covered_at = time.monotonic()
+
+    def waited(self) -> float | None:
+        """Return the seconds since coverage, None while uncovered."""
+        if self.covered_at is None:
+            return None
+        return time.monotonic() - self.covered_at
+
+    def exceeded(self, grace: float) -> bool:
+        """Return whether the client went `grace` seconds since coverage."""
+        if not grace:
+            return False
+        self.check()
+        waited = self.waited()
+        return waited is not None and waited >= grace
+
+    def report(self, outcome: str, prefix: str) -> None:
+        """Log how long the client took, overall and after coverage."""
+        self.check()
+        now = time.monotonic()
+        after_coverage = (
+            "never covered"
+            if self.covered_at is None
+            else f"{now - self.covered_at:.3f}s after coverage"
+        )
+        logger.info(
+            f"{prefix}Verdict {outcome} after {now - self.started:.3f}s, "
+            f"{after_coverage}"
+        )
+
+
+def waited_out(
+    gave_up: bool, verdict_grace: float, sync_timeout: float
+) -> str:
+    """Describe the limit a client without a verdict ran into."""
+    if gave_up:
+        return f"{verdict_grace}s of being served every block it needs"
+    return f"{sync_timeout}s"
+
+
 EVIDENCE_GRACE_TIME = 2.0
 """
 Seconds the peer's serving evidence may lag the client's verdict before
@@ -288,6 +365,7 @@ def _run_sync_target(
     sync_timeout: float,
     poll_interval: float,
     announce_interval: float,
+    verdict_grace: float = 0.0,
 ) -> None:
     """
     Make one client sync or reject one target's served chain.
@@ -470,6 +548,14 @@ def _run_sync_target(
 
     if expect_rejection:
         with timing_data.time(f"{prefix}Reject invalid chain"):
+            clock = VerdictClock(
+                chain,
+                mock_peer,
+                require_bodies=not (
+                    path.invalidities & HEADER_JUDGEABLE_INVALIDITIES
+                ),
+            )
+            gave_up = False
             deadline = time.monotonic() + sync_timeout
             next_announcement = time.monotonic() + announce_interval
 
@@ -517,6 +603,9 @@ def _run_sync_target(
                 payload_status = poll()
                 if rejected(payload_status) or time.monotonic() >= deadline:
                     break
+                if clock.exceeded(verdict_grace):
+                    gave_up = True
+                    break
                 if time.monotonic() >= next_announcement:
                     if not mock_peer.alive:
                         # A client may drop a peer that served it a bad
@@ -534,12 +623,15 @@ def _run_sync_target(
                     next_announcement = time.monotonic() + announce_interval
                 time.sleep(poll_interval)
             if payload_status.status not in REJECTED_STATUSES:
+                clock.report("missing", prefix)
                 raise LoggedError(
                     f"{prefix}Client never rejected the invalid head "
-                    f"{expected_head} within {sync_timeout}s (last "
-                    f"status: {payload_status.status}). Peer transcript: "
-                    f"{mock_peer.statistics.transcript}"
+                    f"{expected_head} within "
+                    f"{waited_out(gave_up, verdict_grace, sync_timeout)} "
+                    f"(last status: {payload_status.status}). Peer "
+                    f"transcript: {mock_peer.statistics.transcript}"
                 )
+        clock.report("given", prefix)
         statistics = mock_peer.statistics
         logger.info(
             f"{prefix}Client rejected the invalid head at block "
@@ -605,6 +697,8 @@ def _run_sync_target(
         # update: each update restarts the client's sync cycle. The
         # announcement repeats on a slow cadence, as a consensus client
         # would each slot, for a client that ignored the first.
+        clock = VerdictClock(chain, mock_peer, require_bodies=True)
+        gave_up = False
         raise_if_rejected(announce_status)
         deadline = time.monotonic() + sync_timeout
         next_announcement = time.monotonic() + announce_interval
@@ -615,6 +709,9 @@ def _run_sync_target(
                 break
             if time.monotonic() >= deadline:
                 break
+            if clock.exceeded(verdict_grace):
+                gave_up = True
+                break
             if time.monotonic() >= next_announcement:
                 if not mock_peer.alive:
                     redial("mid-sync")
@@ -622,11 +719,13 @@ def _run_sync_target(
                 raise_if_rejected(announce())
                 next_announcement = time.monotonic() + announce_interval
             time.sleep(poll_interval)
+        clock.report("given" if synced else "missing", prefix)
         if not synced:
             raise LoggedError(
                 f"{prefix}Client never imported the fixture head "
-                f"{expected_head} within {sync_timeout}s. Peer "
-                f"transcript: {mock_peer.statistics.transcript}"
+                f"{expected_head} within "
+                f"{waited_out(gave_up, verdict_grace, sync_timeout)}. "
+                f"Peer transcript: {mock_peer.statistics.transcript}"
             )
 
     with timing_data.time(f"{prefix}Confirm head"):
@@ -690,6 +789,7 @@ def test_blockchain_via_wirex(
     wirex_sync_timeout: float,
     wirex_poll_interval: float,
     wirex_announce_interval: float,
+    wirex_verdict_grace: float,
 ) -> None:
     """
     Make a client full sync, or reject, each of one test's sync targets.
@@ -716,4 +816,5 @@ def test_blockchain_via_wirex(
                 sync_timeout=wirex_sync_timeout,
                 poll_interval=wirex_poll_interval,
                 announce_interval=wirex_announce_interval,
+                verdict_grace=wirex_verdict_grace,
             )

@@ -5,15 +5,22 @@ import os
 import re
 from pathlib import Path
 
-import mkdocs_gen_files
-
-logger = logging.getLogger("mkdocs")
+logger = logging.getLogger("gen_docs")
 
 
-def copy_markdown_file(source_path, destination_path, fix_links=True):
-    """Copy a markdown file to the destination, fixing links if requested."""
+def copy_markdown_file(
+    source_path: str,
+    destination_path: str,
+    docs_dir: Path,
+    fix_links: bool = True,
+) -> None:
+    """
+    Copy a markdown file to `docs_dir / destination_path`, fixing links if
+    requested.
+    """
     source_file = Path(source_path)
-    destination_file = Path(destination_path)
+    destination_file = docs_dir / destination_path
+    destination_file.parent.mkdir(parents=True, exist_ok=True)
 
     if not source_file.is_file():
         raise FileNotFoundError(
@@ -21,7 +28,7 @@ def copy_markdown_file(source_path, destination_path, fix_links=True):
         )
 
     try:
-        with mkdocs_gen_files.open(destination_file, "w") as destination:
+        with open(destination_file, "w") as destination:
             with open(source_file, "r") as f:
                 for line in f.readlines():
                     if fix_links:
@@ -68,15 +75,14 @@ def copy_markdown_file(source_path, destination_path, fix_links=True):
     logger.info(f"Copied {source_file} to {destination_file}.")
 
 
-def include_contributing_in_docs():
-    """Copy CONTRIBUTING.md to ./docs/ to include in HTML docs."""
-    copy_markdown_file("CONTRIBUTING.md", "getting_started/contributing.md")
+def copy_repo_docs(docs_dir: Path) -> None:
+    """Copy CONTRIBUTING.md and SECURITY.md to docs/getting_started/."""
+    copy_markdown_file(
+        "CONTRIBUTING.md", "getting_started/contributing.md", docs_dir
+    )
+    copy_markdown_file("SECURITY.md", "getting_started/security.md", docs_dir)
 
 
-def include_security_in_docs():
-    """Copy SECURITY.md to ./docs/getting_started/ to include in HTML docs."""
-    copy_markdown_file("SECURITY.md", "getting_started/security.md")
-
-
-include_contributing_in_docs()
-include_security_in_docs()
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    copy_repo_docs(Path("docs"))

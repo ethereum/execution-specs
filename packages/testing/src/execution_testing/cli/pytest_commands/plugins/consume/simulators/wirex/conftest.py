@@ -69,6 +69,7 @@ logger = logging.getLogger(__name__)
 pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.pytest_hive.pytest_hive",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.base",
+    "execution_testing.cli.pytest_commands.plugins.consume.simulators.client_start_pipeline",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.multi_test_client",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.test_case_description",
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.timing_data",
@@ -190,6 +191,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Seconds to wait for a client to reach the fixture head. "
             "Default: 60."
+        ),
+    )
+    group.addoption(
+        "--wirex-verdict-grace",
+        action="store",
+        dest="wirex_verdict_grace",
+        type=float,
+        default=15.0,
+        help=(
+            "Seconds a client may go without a verdict once the peer has "
+            "served every block the verdict needs, before the test fails. "
+            "0 waits for --wirex-sync-timeout only. Default: 15."
         ),
     )
     group.addoption(
@@ -397,6 +410,12 @@ def wirex_serve_bals(request: pytest.FixtureRequest) -> bool:
 def wirex_sync_timeout(request: pytest.FixtureRequest) -> float:
     """Return how long to wait for a client to reach the fixture head."""
     return float(request.config.getoption("wirex_sync_timeout"))
+
+
+@pytest.fixture(scope="session")
+def wirex_verdict_grace(request: pytest.FixtureRequest) -> float:
+    """Return how long a fully served client may go without a verdict."""
+    return float(request.config.getoption("wirex_verdict_grace"))
 
 
 @pytest.fixture(scope="session")

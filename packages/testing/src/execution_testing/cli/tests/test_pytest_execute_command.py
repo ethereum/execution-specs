@@ -99,7 +99,13 @@ def test_all_execute_subcommands_help_no_conflicts(runner: CliRunner) -> None:
     This is a regression test for issue where --chain-id was defined in
     multiple plugins, causing argparse.ArgumentError conflicts.
     """
-    subcommands = ["remote", "recover", "hive", "eth-config"]
+    subcommands = [
+        "remote",
+        "recover",
+        "hive",
+        "eth-config",
+        "deploy-required-contracts",
+    ]
 
     for subcommand in subcommands:
         result = runner.invoke(execute, [subcommand, "--help"])

@@ -41,6 +41,7 @@ from ..simulators.simulator_logic.test_via_wirex import (
 from ..simulators.wirex import client_policy
 from ..simulators.wirex import conftest as wirex
 from ..simulators.wirex.client_policy import (
+    ENGINE_REQUEST_TIMEOUT,
     HEAD_LOOKUP_TIMEOUT,
     MAX_REORG_DEPTH,
     ClientHead,
@@ -556,6 +557,37 @@ class TestClientHeadLookup:
         )
         assert reason is not None
         assert "lookup failed" in reason and cause in reason
+
+
+class TestEngineRequestTimeout:
+    """The bound on each Engine API request of a test."""
+
+    def test_engine_requests_use_the_engine_timeout(self) -> None:
+        """A hung Engine API is not waited out for the default timeout."""
+        client = cast(Any, SimpleNamespace(id="c", ip="10.0.0.2"))
+        with client_policy.build_engine_rpc(client, None) as engine_rpc:
+            assert engine_rpc.url == "http://10.0.0.2:8551"
+            assert engine_rpc.request_timeout == ENGINE_REQUEST_TIMEOUT
+
+    def test_a_test_s_first_target_uses_the_engine_timeout(self) -> None:
+        """The `engine_rpc` fixture of a test's own client is bounded too."""
+        client = cast(Any, SimpleNamespace(id="c", ip="10.0.0.2"))
+        fixture = fixture_body(client_policy.engine_rpc)(
+            client=client, client_exception_mapper=None
+        )
+        engine_rpc = next(fixture)
+        assert engine_rpc.request_timeout == ENGINE_REQUEST_TIMEOUT
+        fixture.close()
+
+    def test_the_override_registers_after_the_shared_fixture(self) -> None:
+        """
+        `client_policy` follows `engine_api` in the wirex plugins.
+
+        Pytest prefers the fixture of the most recently registered
+        plugin, so this order makes the override win.
+        """
+        plugins = [name.rsplit(".", 1)[-1] for name in wirex.pytest_plugins]
+        assert plugins.index("client_policy") > plugins.index("engine_api")
 
 
 class _DroppedPeer:
