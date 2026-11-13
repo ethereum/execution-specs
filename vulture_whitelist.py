@@ -14,17 +14,11 @@ from ethereum.forks.amsterdam.execution_engine.requests import (
     BuilderExitRequest,
     ConsolidationRequest,
     WithdrawalRequest,
-    decode_execution_requests,
 )
 from ethereum.forks.amsterdam.execution_engine.types import (
     BlobsBundle,
     GetPayloadResponse,
     PayloadAttributes,
-)
-from ethereum.forks.amsterdam.stateless_guest import run_stateless_guest
-from ethereum.forks.amsterdam.stateless_host import (
-    build_stateless_input,
-    serialize_stateless_input,
 )
 from ethereum.stateless.types import ProtocolFork, deserialize_stateless_output
 from ethereum.trace import EvmTracer
@@ -42,6 +36,7 @@ from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
 )
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
 from ethereum_spec_tools.lint.lints.uint_len import UintLenHygiene
+from ethereum_spec_tools.loaders.fork_loader import ForkLoad
 from ethereum_spec_tools.loaders.transaction_loader import (
     TransactionLoad,
 )
@@ -199,15 +194,11 @@ ConsolidationRequest.source_pubkey
 ConsolidationRequest.target_pubkey
 BuilderExitRequest.source_address
 
-# src/ethereum/forks/amsterdam/execution_engine/requests.py,
-# stateless_host.py and stateless_guest.py, and src/ethereum/stateless/
-# types.py - stateless public API, called from the testing framework outside
-# vulture's scanned paths
-decode_execution_requests
-build_stateless_input
-serialize_stateless_input
+# src/ethereum/stateless/types.py and src/ethereum_spec_tools/loaders/
+# fork_loader.py - stateless public API, called from the testing framework
+# outside vulture's scanned paths
 deserialize_stateless_output
-run_stateless_guest
+ForkLoad.has_stateless
 
 # src/ethereum/forks/amsterdam/execution_engine/types.py - Engine API fields
 PayloadAttributes.suggested_fee_recipient

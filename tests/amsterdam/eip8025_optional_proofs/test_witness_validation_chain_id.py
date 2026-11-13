@@ -14,11 +14,10 @@ from execution_testing import (
     Transaction,
 )
 
-from ethereum.forks.amsterdam.stateless import StatelessInput
-
 from .gas_helpers import empty_account_value_transfer_gas_limit
 from .spec import ref_spec_8025
 from .stateless_input_helpers import (
+    StatelessInput,
     StatelessInputBytesModifier,
     modify_stateless_input,
 )
@@ -32,6 +31,7 @@ ChainIdBuilder = Callable[[StatelessInput], U64]
 
 
 def replace_chain_id(
+    fork: Fork,
     build_chain_id: ChainIdBuilder,
 ) -> StatelessInputBytesModifier:
     """Replace only the decoded stateless input chain ID."""
@@ -42,7 +42,7 @@ def replace_chain_id(
             chain_id=build_chain_id(stateless_input),
         )
 
-    return modify_stateless_input(update)
+    return modify_stateless_input(fork, update)
 
 
 def wrong_chain_id(stateless_input: StatelessInput) -> U64:
@@ -76,7 +76,7 @@ def test_validation_wrong_chain_id_legacy_signature(
             Block(
                 txs=[tx],
                 stateless_input_bytes_modifier=replace_chain_id(
-                    wrong_chain_id
+                    fork, wrong_chain_id
                 ),
                 expected_stateless_validation_success=False,
             )

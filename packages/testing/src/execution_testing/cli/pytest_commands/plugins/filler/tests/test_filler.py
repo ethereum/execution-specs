@@ -14,6 +14,13 @@ from unittest.mock import patch
 from typing import Any
 
 import pytest
+from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.stateless.types import (
+    STATELESS_INPUT_SCHEMA_ID_SIZE,
+    deserialize_stateless_output,
+)
+from ethereum_types.bytes import Bytes as EthereumBytes
+from ethereum_types.numeric import U16, U64
 
 from execution_testing.client_clis import (
     ExecutionSpecsTransitionTool,
@@ -24,6 +31,8 @@ from execution_testing.fixtures import (
     BlockchainFixture,
 )
 from execution_testing.fixtures.file import Fixtures
+from execution_testing.forks import Amsterdam
+from execution_testing.specs.blockchain_stateless import spec_fork
 from execution_testing.test_types import Environment
 
 from ..filler import default_output_directory
@@ -1245,24 +1254,18 @@ def test_execution_witness_in_blockchain_fixture(
     # statelessInputBytes is schema-prefixed guest input bytes.
     sib = block.stateless_input_bytes
     assert sib is not None and len(sib) > 0
-    from ethereum.forks.amsterdam.stateless import (
-        STATELESS_INPUT_SCHEMA_ID,
-        STATELESS_INPUT_SCHEMA_ID_BYTES,
+    schema_id = spec_fork(Amsterdam).STATELESS_INPUT_SCHEMA_ID
+    assert bytes(sib).startswith(
+        schema_id.to_bytes(STATELESS_INPUT_SCHEMA_ID_SIZE, "big")
     )
-
-    assert bytes(sib).startswith(STATELESS_INPUT_SCHEMA_ID_BYTES)
 
     sob = block.stateless_output_bytes
     assert sob is not None and len(sob) > 0
 
-    from ethereum.stateless.types import deserialize_stateless_output
-    from ethereum_types.bytes import Bytes as EthereumBytes
-    from ethereum_types.numeric import U16, U64
-
     stateless_output = deserialize_stateless_output(EthereumBytes(bytes(sob)))
     assert stateless_output.successful_validation is True
     assert stateless_output.chain_id == U64(1)
-    assert stateless_output.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
+    assert stateless_output.schema_id == U16(schema_id)
 
     engine_fixture_path = Path(
         "fixtures/blockchain_tests_engine/for_amsterdam/amsterdam/"
@@ -1396,12 +1399,7 @@ def test_execution_witness_rlp_modifier_carries_stateless_artifacts(
 
     assert len(block["executionWitness"]["headers"]) > 0
 
-    from ethereum.forks.amsterdam.stateless_guest import (
-        deserialize_stateless_input,
-    )
-    from ethereum.stateless.types import deserialize_stateless_output
-
-    stateless_input = deserialize_stateless_input(
+    stateless_input = spec_fork(Amsterdam).deserialize_stateless_input(
         bytes.fromhex(block["statelessInputBytes"][2:])
     )
     stateless_output = deserialize_stateless_output(
@@ -1518,12 +1516,7 @@ def test_execution_witness_engine_only_block_carries_stateless_artifacts(
     assert len(engine_payload["executionWitness"]["headers"]) > 0
     assert "executionWitnessMutated" not in engine_payload
 
-    from ethereum.forks.amsterdam.stateless_guest import (
-        deserialize_stateless_input,
-    )
-    from ethereum.stateless.types import deserialize_stateless_output
-
-    stateless_input = deserialize_stateless_input(
+    stateless_input = spec_fork(Amsterdam).deserialize_stateless_input(
         bytes.fromhex(engine_payload["statelessInputBytes"][2:])
     )
     stateless_output = deserialize_stateless_output(
@@ -1570,21 +1563,8 @@ def test_execution_witness_expected_true_reuses_canonical_stateless_result(
     fixture = next(iter(fixture_data.values()))
     block = fixture["blocks"][-1]
 
-    from ethereum.crypto.hash import Hash32
-    from ethereum.forks.amsterdam.stateless import (
-        compute_new_payload_request_root,
-    )
-    from ethereum.forks.amsterdam.stateless_guest import (
-        deserialize_stateless_input,
-    )
-    from ethereum.stateless.types import deserialize_stateless_output
-    from ethereum.forks.amsterdam.stateless import (
-        STATELESS_INPUT_SCHEMA_ID,
-    )
-    from ethereum_types.bytes import Bytes as EthereumBytes
-    from ethereum_types.numeric import U16
-
-    stateless_input = deserialize_stateless_input(
+    spec = spec_fork(Amsterdam)
+    stateless_input = spec.deserialize_stateless_input(
         EthereumBytes(bytes.fromhex(block["statelessInputBytes"][2:]))
     )
     stateless_output = deserialize_stateless_output(
@@ -1592,11 +1572,11 @@ def test_execution_witness_expected_true_reuses_canonical_stateless_result(
     )
 
     assert stateless_output.successful_validation is True
-    assert stateless_output.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
+    assert stateless_output.schema_id == U16(spec.STATELESS_INPUT_SCHEMA_ID)
     assert stateless_output.new_payload_request_root != Hash32(b"\0" * 32)
     assert (
         stateless_output.new_payload_request_root
-        == compute_new_payload_request_root(stateless_input)
+        == spec.compute_new_payload_request_root(stateless_input)
     )
     payload = stateless_input.new_payload_request.execution_payload
     assert (
@@ -1652,13 +1632,7 @@ def test_execution_witness_bal_modifier_rebuilds_stateless_input(
     block = fixture["blocks"][0]
     header = block["rlp_decoded"]["blockHeader"]
 
-    from ethereum.crypto.hash import keccak256
-    from ethereum.forks.amsterdam.stateless_guest import (
-        deserialize_stateless_input,
-    )
-    from ethereum.stateless.types import deserialize_stateless_output
-
-    stateless_input = deserialize_stateless_input(
+    stateless_input = spec_fork(Amsterdam).deserialize_stateless_input(
         bytes.fromhex(block["statelessInputBytes"][2:])
     )
     stateless_output = deserialize_stateless_output(
@@ -1707,21 +1681,8 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
 
     assert len(block["executionWitness"]["headers"]) == 1
 
-    from ethereum.crypto.hash import Hash32
-    from ethereum.forks.amsterdam.stateless import (
-        compute_new_payload_request_root,
-    )
-    from ethereum.forks.amsterdam.stateless_guest import (
-        deserialize_stateless_input,
-    )
-    from ethereum.stateless.types import deserialize_stateless_output
-    from ethereum.forks.amsterdam.stateless import (
-        STATELESS_INPUT_SCHEMA_ID,
-    )
-    from ethereum_types.bytes import Bytes as EthereumBytes
-    from ethereum_types.numeric import U16
-
-    stateless_input = deserialize_stateless_input(
+    spec = spec_fork(Amsterdam)
+    stateless_input = spec.deserialize_stateless_input(
         EthereumBytes(bytes.fromhex(block["statelessInputBytes"][2:]))
     )
     stateless_output = deserialize_stateless_output(
@@ -1729,11 +1690,11 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
     )
 
     assert stateless_output.successful_validation is False
-    assert stateless_output.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
+    assert stateless_output.schema_id == U16(spec.STATELESS_INPUT_SCHEMA_ID)
     assert stateless_output.new_payload_request_root != Hash32(b"\0" * 32)
     assert (
         stateless_output.new_payload_request_root
-        == compute_new_payload_request_root(stateless_input)
+        == spec.compute_new_payload_request_root(stateless_input)
     )
     assert len(stateless_input.witness.headers) == 1
     assert [

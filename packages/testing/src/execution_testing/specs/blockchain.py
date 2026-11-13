@@ -1613,6 +1613,7 @@ class BlockchainTest(BaseTest):
         )
         stateless_artifacts = finalize_stateless_artifacts(
             options=stateless_options,
+            fork=fork,
             original=build_stateless_artifacts(
                 options=stateless_options,
                 fork=fork,

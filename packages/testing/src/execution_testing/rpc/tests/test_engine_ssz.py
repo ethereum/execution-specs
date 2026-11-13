@@ -8,7 +8,7 @@ import requests
 
 from execution_testing.base_types import Address, Bloom, Bytes, Hash
 from execution_testing.fixtures.blockchain import FixtureExecutionPayload
-from execution_testing.forks import Amsterdam
+from execution_testing.forks import Amsterdam, Bogota, Fork, Osaka
 from execution_testing.rpc import (
     EngineSSZRPC,
     EngineWitnessEndpointNotImplementedError,
@@ -54,19 +54,27 @@ def response(status: int, body: bytes, content_type: str) -> requests.Response:
     return result
 
 
-def test_envelope_offsets_and_fields(payload: FixtureExecutionPayload) -> None:
+@pytest.mark.parametrize("fork", [Amsterdam, Bogota])
+def test_envelope_offsets_and_fields(
+    payload: FixtureExecutionPayload, fork: Fork
+) -> None:
     """Use the normative envelope order and omit legacy blob hashes."""
     encoded = encode_witness_request(
-        payload, Hash(9), [Bytes(b"\x00\x11")], Amsterdam
+        payload, Hash(9), [Bytes(b"\x00\x11")], fork
     )
     assert encoded[:4] == bytes.fromhex("28000000")
     assert encoded[4:36] == bytes(Hash(9))
     end = int.from_bytes(encoded[36:40], "little")
-    assert (
-        FixtureExecutionPayload.ssz_decode(encoded[40:end], Amsterdam)
-        == payload
-    )
+    assert FixtureExecutionPayload.ssz_decode(encoded[40:end], fork) == payload
     assert encoded[end:] == bytes.fromhex("040000000011")
+
+
+def test_envelope_rejects_fork_before_amsterdam(
+    payload: FixtureExecutionPayload,
+) -> None:
+    """Reject a fork that predates the witness endpoint."""
+    with pytest.raises(ValueError, match="Unsupported REST witness schema"):
+        encode_witness_request(payload, Hash(9), [], Osaka)
 
 
 def test_rest_bal_exceeds_fixture_limit(
@@ -96,7 +104,9 @@ def test_rest_request_and_repeated_submission(
         200, raw, "application/octet-stream"
     )
     for _ in range(2):
-        rpc.new_payload_with_witness(payload, [Hash(99)], Hash(9), [])
+        rpc.new_payload_with_witness(
+            payload, [Hash(99)], Hash(9), [], fork=Amsterdam
+        )
     assert rpc.session.post.call_count == 2
     args, kwargs = rpc.session.post.call_args
     assert args == ("http://client:8551/engine/v1/payloads/witness",)
@@ -169,10 +179,12 @@ def test_problem_error_mapping(
     )
     if not correct_status:
         with pytest.raises(ValueError, match="Unexpected HTTP status"):
-            rpc.new_payload_with_witness(payload, [], Hash(0), [])
+            rpc.new_payload_with_witness(
+                payload, [], Hash(0), [], fork=Amsterdam
+            )
         return
     with pytest.raises(JSONRPCError) as exc:
-        rpc.new_payload_with_witness(payload, [], Hash(0), [])
+        rpc.new_payload_with_witness(payload, [], Hash(0), [], fork=Amsterdam)
     assert exc.value.code == code
 
 
@@ -188,7 +200,7 @@ def test_witness_requires_http_200(
         status, raw, "application/octet-stream"
     )
     with pytest.raises(ValueError, match="Unexpected HTTP status"):
-        rpc.new_payload_with_witness(payload, [], Hash(0), [])
+        rpc.new_payload_with_witness(payload, [], Hash(0), [], fork=Amsterdam)
 
 
 def test_raw_witness_request() -> None:
@@ -232,7 +244,9 @@ def test_new_rest_error_remains_http_failure(
     )
     if not correct_status:
         with pytest.raises(ValueError, match="Unexpected HTTP status"):
-            rpc.new_payload_with_witness(payload, [], Hash(0), [])
+            rpc.new_payload_with_witness(
+                payload, [], Hash(0), [], fork=Amsterdam
+            )
         return
     with pytest.raises(requests.HTTPError):
-        rpc.new_payload_with_witness(payload, [], Hash(0), [])
+        rpc.new_payload_with_witness(payload, [], Hash(0), [], fork=Amsterdam)
