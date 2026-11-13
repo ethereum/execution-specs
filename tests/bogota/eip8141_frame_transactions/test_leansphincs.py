@@ -10,6 +10,12 @@ itself, which `SIGPARAM` returns in one word. The default code accepts
 only secp256k1 entries, so leanSPHINCS authorizes accounts with code,
 such as a wallet that stores its owner's public key.
 
+Such a wallet attests signatures to other contracts with
+[EIP-1271](https://eips.ethereum.org/EIPS/eip-1271)'s
+`isValidSignature` from a `LEANSPHINCS` entry over an explicit digest in
+the current frame transaction, since the EVM cannot verify leanSPHINCS
+signatures itself.
+
 An EOA migrates to a leanSPHINCS wallet by adopting the wallet's code
 with `SETCODEFROM` ([EIP-8298](https://eips.ethereum.org/EIPS/eip-8298)),
 after which its secp256k1 key no longer authorizes it.
@@ -131,10 +137,11 @@ def public_key_word(key: LeanSphincsKey) -> int:
     return int.from_bytes(key.public_key, "big")
 
 
-def approving_path(key: LeanSphincsKey) -> Bytecode:
+def approving_path(key: LeanSphincsKey, offset: int = 0) -> Bytecode:
     """
     Return the part of `leansphincs_wallet(key)` that runs when it
-    approves, which prices the wallet's `VERIFY` frame.
+    approves, which prices the wallet's `VERIFY` frame, placed at
+    `offset` in the wallet's code.
     """
     authorized = Op.AND(
         Op.EQ(Op.SIGPARAM(0, Spec.SIGPARAM_SCHEME), Spec.SCHEME_LEANSPHINCS),
@@ -149,7 +156,7 @@ def approving_path(key: LeanSphincsKey) -> Bytecode:
     rejected = Op.ISZERO(authorized)
     # `rejected`, then PUSH1 of the destination and JUMPI.
     length = len(rejected) + 3 + len(APPROVE_ALL)
-    path = Op.JUMPI(length, rejected) + APPROVE_ALL
+    path = Op.JUMPI(offset + length, rejected) + APPROVE_ALL
     assert len(path) == length
     return path
 
@@ -520,4 +527,271 @@ def test_migrated_eoa_rejects_secp256k1(
             ),
         ],
         post={eoa: Account(code=wallet_code, nonce=2)},
+    )
+
+
+IS_VALID_SIGNATURE = 0x1626BA7E
+"""
+Selector of `isValidSignature(bytes32,bytes)`, which is also the value it
+returns for a valid signature.
+"""
+
+VALID = IS_VALID_SIGNATURE << 224
+"""The word `isValidSignature` returns for a valid signature."""
+
+SLOT_CALL_SUCCESS = 0x10
+SLOT_RESULT = 0x11
+
+CHECK_GAS = 20_000
+"""Gas the verifier gives `isValidSignature`."""
+
+VERIFIER_CODE = (
+    Op.CALLDATACOPY(0, 32, Op.SUB(Op.CALLDATASIZE, 32))
+    + Op.SSTORE(
+        SLOT_CALL_SUCCESS,
+        Op.STATICCALL(
+            CHECK_GAS,
+            Op.CALLDATALOAD(0),
+            0,
+            Op.SUB(Op.CALLDATASIZE, 32),
+            0x100,
+            32,
+        ),
+    )
+    + Op.SSTORE(SLOT_RESULT, Op.MLOAD(0x100))
+    + Op.STOP
+)
+"""
+Contract that asks the account in its first calldata word whether a
+signature is valid, forwarding the rest of its calldata, and stores
+whether the call succeeded and what it returned.
+"""
+
+
+def attested_hash(wallet: Address, digest: Hash) -> Hash:
+    """Return the digest the owner signs to attest `digest` to `wallet`."""
+    return Hash(Bytes(bytes(wallet) + bytes(digest)).keccak256())
+
+
+def attesting_path(key: LeanSphincsKey) -> Bytecode:
+    """
+    Return code answering `isValidSignature(hash, signature)`, where
+    `signature` is the index of a signature entry of the current
+    transaction: valid when the entry is a `LEANSPHINCS` entry under
+    `key`'s public key over `attested_hash(ADDRESS, hash)`.
+    """
+    # Calldata: selector, hash, offset and length of `signature`, index.
+    index = Op.CALLDATALOAD(100)
+    valid = Op.AND(
+        Op.EQ(
+            Op.SIGPARAM(index, Spec.SIGPARAM_SCHEME), Spec.SCHEME_LEANSPHINCS
+        ),
+        Op.AND(
+            Op.EQ(
+                Op.SIGPARAM(index, Spec.SIGPARAM_RESOLVED_SIGNER),
+                public_key_word(key),
+            ),
+            Op.EQ(Op.SIGPARAM(index, Spec.SIGPARAM_MSG), Op.SHA3(12, 52)),
+        ),
+    )
+    return (
+        Op.MSTORE(0, Op.ADDRESS)
+        + Op.MSTORE(32, Op.CALLDATALOAD(4))
+        + Op.MSTORE(0, Op.MUL(valid, VALID))
+        + Op.RETURN(0, 32)
+    )
+
+
+def attesting_wallet(key: LeanSphincsKey) -> Bytecode:
+    """
+    Return `leansphincs_wallet(key)` extended to answer
+    `isValidSignature` when called with calldata.
+    """
+    dispatch_length = len(Op.JUMPI(0xFF, Op.CALLDATASIZE))
+    rejecting = (
+        approving_path(key, offset=dispatch_length)
+        + Op.JUMPDEST
+        + Op.REVERT(0, 0)
+    )
+    destination = dispatch_length + len(rejecting)
+    assert destination < 0x100
+    return (
+        Op.JUMPI(destination, Op.CALLDATASIZE)
+        + rejecting
+        + Op.JUMPDEST
+        + attesting_path(key)
+    )
+
+
+def is_valid_signature_call(
+    wallet: Address, digest: Hash, index: int
+) -> Bytes:
+    """
+    Return the verifier's calldata asking `wallet` whether signature
+    entry `index` signs `digest`.
+    """
+    return Bytes(
+        bytes(word(wallet))
+        + IS_VALID_SIGNATURE.to_bytes(4, "big")
+        + bytes(digest)
+        + (0x40).to_bytes(32, "big")
+        + (32).to_bytes(32, "big")
+        + index.to_bytes(32, "big")
+    )
+
+
+ATTESTED = Hash(0xA77E57ED)
+"""The hash a dapp asks the wallet about."""
+
+
+@pytest.mark.parametrize("submitter", ["relayer", "wallet"])
+def test_leansphincs_wallet_attests_signature(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    submitter: str,
+) -> None:
+    """
+    Attest a hash from a leanSPHINCS wallet to a contract that calls its
+    `isValidSignature`, with the owner's `LEANSPHINCS` entry over the
+    attested hash in the frame transaction that makes the call.
+
+    The transaction is sent by a relayer or by the wallet itself.
+    """
+    wallet = pre.deploy_contract(code=attesting_wallet(KEY), balance=10**18)
+    verifier = pre.deploy_contract(
+        code=VERIFIER_CODE,
+        storage={SLOT_CALL_SUCCESS: SENTINEL, SLOT_RESULT: SENTINEL},
+    )
+    attestation = leansphincs_entry(msg=attested_hash(wallet, ATTESTED))
+    call = sender_frame(
+        target=verifier, data=is_valid_signature_call(wallet, ATTESTED, 1)
+    )
+
+    if submitter == "relayer":
+        relayer = pre.fund_eoa()
+        tx = Transaction(
+            sender=relayer,
+            frames=[verify_frame(), call],
+            signatures=[
+                FrameSignature(
+                    scheme=Spec.SCHEME_SECP256K1, signer=Bytes(relayer)
+                ),
+                attestation,
+            ],
+        )
+    elif submitter == "wallet":
+        tx = Transaction(
+            sender=wallet,
+            nonce=1,
+            frames=[verify_frame(), call],
+            signatures=[leansphincs_entry(), attestation],
+        )
+    else:
+        raise ValueError(submitter)
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            verifier: Account(
+                storage={SLOT_CALL_SUCCESS: 1, SLOT_RESULT: VALID}
+            )
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["other_hash", "other_wallet", "other_key", "missing_entry"],
+)
+def test_leansphincs_wallet_rejects_attestation(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    case: str,
+) -> None:
+    """
+    Answer `isValidSignature` as invalid when the referenced entry does
+    not attest the hash to the wallet under the owner's key, and fail
+    the call when the entry does not exist.
+
+    Two wallets of the same key do not share attestations, since the
+    owner signs the hash bound to one wallet's address.
+    """
+    wallet = pre.deploy_contract(code=attesting_wallet(KEY))
+    verifier = pre.deploy_contract(
+        code=VERIFIER_CODE,
+        storage={SLOT_CALL_SUCCESS: SENTINEL, SLOT_RESULT: SENTINEL},
+    )
+    relayer = pre.fund_eoa()
+    key, signed, asked, queried, index = KEY, wallet, ATTESTED, wallet, 1
+    call_success = 1
+
+    if case == "other_hash":
+        asked = Hash(0xA77E57EE)
+    elif case == "other_wallet":
+        queried = pre.deploy_contract(code=attesting_wallet(KEY))
+    elif case == "other_key":
+        key = LeanSphincsKey(bytes(range(32)))
+    elif case == "missing_entry":
+        # `SIGPARAM` halts on an out-of-bounds index.
+        index, call_success = 2, 0
+    else:
+        raise ValueError(case)
+
+    tx = Transaction(
+        sender=relayer,
+        frames=[
+            verify_frame(),
+            sender_frame(
+                target=verifier,
+                data=is_valid_signature_call(queried, asked, index),
+            ),
+        ],
+        signatures=[
+            FrameSignature(
+                scheme=Spec.SCHEME_SECP256K1, signer=Bytes(relayer)
+            ),
+            leansphincs_entry(key, msg=attested_hash(signed, ATTESTED)),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            verifier: Account(
+                storage={SLOT_CALL_SUCCESS: call_success, SLOT_RESULT: 0}
+            )
+        },
+    )
+
+
+@pytest.mark.frame_tx_incompatible
+def test_leansphincs_wallet_cannot_attest_outside_frame_transaction(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Fail a leanSPHINCS wallet's `isValidSignature` in a transaction that
+    is not a frame transaction, which has no signature entries for
+    `SIGPARAM` to read.
+    """
+    wallet = pre.deploy_contract(code=attesting_wallet(KEY))
+    verifier = pre.deploy_contract(
+        code=VERIFIER_CODE,
+        storage={SLOT_CALL_SUCCESS: SENTINEL, SLOT_RESULT: SENTINEL},
+    )
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=verifier,
+        data=is_valid_signature_call(wallet, ATTESTED, 0),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            verifier: Account(storage={SLOT_CALL_SUCCESS: 0, SLOT_RESULT: 0})
+        },
     )
