@@ -8,10 +8,7 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32
-from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT, Trie
-from ethereum.state import Account, Address, PreState, Root
-
-from .incremental_mpt import (
+from ethereum.incremental_mpt import (
     IncrementalMPT,
     build_mpt,
     mpt_get,
@@ -19,6 +16,9 @@ from .incremental_mpt import (
     mpt_set,
     mpt_set_storage_slots,
 )
+from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT, Trie
+from ethereum.state import Account, Address, PreState, Root
+
 from .state_tracker import BlockState
 from .stateless import ExecutionWitness
 

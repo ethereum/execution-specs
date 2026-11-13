@@ -26,7 +26,7 @@ from execution_testing import (
 )
 
 import ethereum.forks.amsterdam.fork as amsterdam_fork
-import ethereum.forks.amsterdam.incremental_mpt as incremental_mpt
+import ethereum.incremental_mpt as incremental_mpt
 from ethereum.crypto.hash import keccak256
 from ethereum.forks.amsterdam.block_access_lists import BlockAccessList
 from ethereum.forks.amsterdam.blocks import Header
@@ -38,7 +38,17 @@ from ethereum.forks.amsterdam.execution_engine.validation_helpers import (
     _payload_header,
 )
 from ethereum.forks.amsterdam.fork import ChainContext, execute_block
-from ethereum.forks.amsterdam.incremental_mpt import (
+from ethereum.forks.amsterdam.stateless_guest import (
+    deserialize_stateless_input,
+)
+from ethereum.forks.amsterdam.stateless_host import serialize_stateless_input
+from ethereum.forks.amsterdam.witness_state import (
+    WitnessState,
+    _decode_account_from_leaf,
+    build_code_db,
+    build_node_db,
+)
+from ethereum.incremental_mpt import (
     IncrementalMPT,
     MutableBranchNode,
     MutableExtensionNode,
@@ -49,16 +59,6 @@ from ethereum.forks.amsterdam.incremental_mpt import (
     mpt_get,
     mpt_root,
     mpt_set,
-)
-from ethereum.forks.amsterdam.stateless_guest import (
-    deserialize_stateless_input,
-)
-from ethereum.forks.amsterdam.stateless_host import serialize_stateless_input
-from ethereum.forks.amsterdam.witness_state import (
-    WitnessState,
-    _decode_account_from_leaf,
-    build_code_db,
-    build_node_db,
 )
 from ethereum.merkle_patricia_trie import (
     EMPTY_TRIE_ROOT,

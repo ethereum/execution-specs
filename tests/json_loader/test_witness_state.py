@@ -9,16 +9,16 @@ from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.amsterdam.fork_types import encode_account
-from ethereum.forks.amsterdam.incremental_mpt import (
-    IncrementalMPT,
-    build_mpt,
-    mpt_get,
-    mpt_root,
-)
 from ethereum.forks.amsterdam.witness_state import (
     WitnessState,
     build_code_db,
     build_node_db,
+)
+from ethereum.incremental_mpt import (
+    IncrementalMPT,
+    build_mpt,
+    mpt_get,
+    mpt_root,
 )
 from ethereum.merkle_patricia_trie import (
     EMPTY_TRIE_ROOT,

@@ -11,7 +11,7 @@ from execution_testing import Account, Address, Alloc, Bytes, Storage
 from execution_testing.forks import Amsterdam
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.forks.amsterdam.incremental_mpt import (
+from ethereum.incremental_mpt import (
     build_mpt,
     compact_to_nibbles,
     mpt_get,
