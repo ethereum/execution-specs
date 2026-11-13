@@ -1537,7 +1537,9 @@ class BlockchainTest(BaseTest):
         # to what the state form checked, so a fork without one skips it.
         from .state import StateTest
 
-        from_state_test = self._from_test is StateTest
+        from_state_test = self._from_test is not None and issubclass(
+            self._from_test, StateTest
+        )
         if (
             self.invariant_checks
             and block.exception is None
