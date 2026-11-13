@@ -97,13 +97,10 @@ PLANTED_CONFTEST = textwrap.dedent(
 
     @pytest.fixture(autouse=True)
     def planted_violation(monkeypatch):
-        monkeypatch.setattr(
-            invariants,
-            "check_gas_accounting",
-            lambda *args: [
-                InvariantViolation(invariant="planted", message="")
-            ],
-        )
+        def planted(*args):
+            raise InvariantViolation(invariant="planted", message="")
+
+        monkeypatch.setattr(invariants, "check_gas_accounting", planted)
     """
 )
 
@@ -127,10 +124,6 @@ HALVED_COINBASE_FEE_CONFTEST = textwrap.dedent(
             ),
         )
     """
-)
-
-AS_ERROR = (
-    "error::execution_testing.specs.invariants.InvariantViolationWarning"
 )
 
 
@@ -170,16 +163,14 @@ def test_cached_formats_use_their_own_witness(
     pytester: pytest.Pytester,
 ) -> None:
     """
-    Fill two formats of one test, the second from the t8n output cache, with
-    violations as errors: each block is checked against its own witness.
+    Fill two formats of one test, the second from the t8n output cache: each
+    block is checked against its own witness and both fill cleanly.
     """
     result = fill(
         pytester,
         TWO_BLOCK_MODULE,
         "-m",
         "blockchain_test or blockchain_test_engine",
-        "-W",
-        AS_ERROR,
     )
     result.assert_outcomes(passed=2, failed=0)
 
@@ -206,44 +197,33 @@ def test_cached_formats_use_their_own_witness(
         ),
     ],
 )
-def test_bal_defect_warns(
+def test_bal_defect_fails(
     pytester: pytest.Pytester,
+    capsys: pytest.CaptureFixture[str],
     module_source: str,
     fixture_format: str,
     broken_function: str,
     invariant: str,
 ) -> None:
-    """A defect in the EELS BAL builder reaches the fill as a warning."""
+    """A defect in the EELS BAL builder fails the fill with its invariant."""
     (pytester.path / "conftest.py").write_text(
         DEFECT_CONFTEST.format(function=broken_function)
     )
     result = fill(pytester, module_source, "-m", fixture_format)
-    result.assert_outcomes(passed=1, failed=0)
-    result.stdout.fnmatch_lines(
-        [f"*InvariantViolationWarning: block *: [[]{invariant}]*"]
-    )
-
-
-def test_bal_defect_fails_when_warnings_are_errors(
-    pytester: pytest.Pytester, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """With the warning made an error, as in CI, a defect fails the fill."""
-    (pytester.path / "conftest.py").write_text(
-        DEFECT_CONFTEST.format(function="add_storage_read")
-    )
-    result = fill(
-        pytester, TWO_BLOCK_MODULE, "-m", "blockchain_test", "-W", AS_ERROR
-    )
     capsys.readouterr()  # suppress inner failure bleed
     result.assert_outcomes(passed=0, failed=1)
+    result.stdout.fnmatch_lines([f"*InvariantViolation: [[]{invariant}]*"])
 
 
-def test_state_test_is_checked(pytester: pytest.Pytester) -> None:
+def test_state_test_is_checked(
+    pytester: pytest.Pytester, capsys: pytest.CaptureFixture[str]
+) -> None:
     """A state test's own fill runs the checks too."""
     (pytester.path / "conftest.py").write_text(PLANTED_CONFTEST)
     result = fill(pytester, STATE_TEST_MODULE, "-m", "state_test")
-    result.assert_outcomes(passed=1, failed=0)
-    result.stdout.fnmatch_lines(["*InvariantViolationWarning: [[]planted]*"])
+    capsys.readouterr()  # suppress inner failure bleed
+    result.assert_outcomes(passed=0, failed=1)
+    result.stdout.fnmatch_lines(["*InvariantViolation: [[]planted]*"])
 
 
 def test_state_test_blockchain_form_checks_only_the_access_list(
@@ -251,7 +231,7 @@ def test_state_test_blockchain_form_checks_only_the_access_list(
 ) -> None:
     """
     A state test's blockchain form leaves the checks its state form ran,
-    so the planted gas violation stays silent there.
+    so the planted gas violation stays silent there and the fill passes.
     """
     (pytester.path / "conftest.py").write_text(PLANTED_CONFTEST)
     result = fill(
@@ -259,14 +239,12 @@ def test_state_test_blockchain_form_checks_only_the_access_list(
         STATE_TEST_MODULE,
         "-m",
         "blockchain_test_from_state_test",
-        "-W",
-        AS_ERROR,
     )
     result.assert_outcomes(passed=1, failed=0)
 
 
 def test_lost_ether_fails_before_selfdestruct_burns(
-    pytester: pytest.Pytester,
+    pytester: pytest.Pytester, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
     Before EIP-8246 a block that ran no SELFDESTRUCT must still conserve
@@ -278,10 +256,9 @@ def test_lost_ether_fails_before_selfdestruct_burns(
         STATE_TEST_MODULE,
         "-m",
         "state_test",
-        "-W",
-        AS_ERROR,
         fork="Osaka",
     )
+    capsys.readouterr()  # suppress inner failure bleed
     result.assert_outcomes(passed=0, failed=1)
 
 
@@ -292,8 +269,6 @@ def test_fork_without_bal_fills_cleanly(pytester: pytest.Pytester) -> None:
         TWO_BLOCK_MODULE,
         "-m",
         "blockchain_test",
-        "-W",
-        AS_ERROR,
         fork="Osaka",
     )
     result.assert_outcomes(passed=1, failed=0)

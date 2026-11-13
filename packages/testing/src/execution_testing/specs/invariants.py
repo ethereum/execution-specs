@@ -1,14 +1,13 @@
 """
 Chain invariants checked on every valid block while filling.
 
-Enabled with `fill --invariant-checks`. A violation is emitted as an
-`InvariantViolationWarning`; CI turns that warning into an error.
+Enabled with `fill --invariant-checks`. A violation is raised as an
+`InvariantViolation`, which fails the fill on the first one found.
 """
 
-import warnings
 from collections import Counter
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Optional, Sequence, Set, Tuple
 
 from execution_testing.base_types import Account, Address
 from execution_testing.client_clis.cli_types import Result
@@ -25,21 +24,18 @@ from execution_testing.test_types.block_access_list import (
 from execution_testing.vm import Op
 
 
-class InvariantViolationWarning(UserWarning):
-    """Warning category for chain invariant violations found during fill."""
+class InvariantViolation(Exception):  # noqa: N818
+    """A chain invariant a filled block broke."""
 
-
-@dataclass(frozen=True)
-class InvariantViolation:
-    """A single violated invariant, with a human-readable breakdown."""
-
-    invariant: str
-    message: str
+    def __init__(self, invariant: str, message: str) -> None:
+        self.invariant = invariant
+        self.message = message
+        super().__init__(f"[{invariant}] {message}")
 
 
 def _accepted_txs(
     txs: Sequence[Transaction], result: Result
-) -> List[Transaction]:
+) -> list[Transaction]:
     rejected_indices = {
         int(rejected.index) for rejected in result.rejected_transactions
     }
@@ -81,7 +77,7 @@ def check_ether_conservation(
     post_alloc: Alloc,
     result: Result,
     totals: BlockTotals,
-) -> List[InvariantViolation]:
+) -> None:
     """
     Check that total ether changes only by issuance minus the fee burn.
 
@@ -100,24 +96,22 @@ def check_ether_conservation(
         _may_have_run_selfdestruct(result)
     )
     if delta == expected or (may_burn and delta < expected):
-        return []
-    return [
-        InvariantViolation(
-            invariant="ether_conservation",
-            message=(
-                f"balance delta {delta} != expected {expected} "
-                f"(issued={totals.issued}, "
-                f"base_fee_burn={base_fee_burn}, "
-                f"blob_fee_burn={blob_fee_burn}, "
-                f"unexplained={delta - expected})"
-            ),
-        )
-    ]
+        return
+    raise InvariantViolation(
+        invariant="ether_conservation",
+        message=(
+            f"balance delta {delta} != expected {expected} "
+            f"(issued={totals.issued}, "
+            f"base_fee_burn={base_fee_burn}, "
+            f"blob_fee_burn={blob_fee_burn}, "
+            f"unexplained={delta - expected})"
+        ),
+    )
 
 
 def check_gas_accounting(
     fork: Fork, result: Result, totals: BlockTotals
-) -> List[InvariantViolation]:
+) -> None:
     """
     Check the header's gas used against the gas limit and the receipts.
 
@@ -131,34 +125,28 @@ def check_gas_accounting(
     only bounded, not pinned: the transition tool reports no per-dimension
     totals to check it against.
     """
-    violations: List[InvariantViolation] = []
     gas_used = totals.gas_used
 
     if gas_used > totals.gas_limit:
-        violations.append(
-            InvariantViolation(
-                invariant="gas_used_within_limit",
-                message=(
-                    f"block gas_used {gas_used} exceeds "
-                    f"gas_limit {totals.gas_limit}"
-                ),
-            )
+        raise InvariantViolation(
+            invariant="gas_used_within_limit",
+            message=(
+                f"block gas_used {gas_used} exceeds "
+                f"gas_limit {totals.gas_limit}"
+            ),
         )
 
     previous = 0
     for index, receipt in enumerate(result.receipts):
         cumulative = receipt.cumulative_gas_used
         if cumulative is None or int(cumulative) <= previous:
-            violations.append(
-                InvariantViolation(
-                    invariant="receipt_gas_monotonicity",
-                    message=(
-                        f"receipt {index} cumulative gas {cumulative} "
-                        f"<= previous {previous}"
-                    ),
-                )
+            raise InvariantViolation(
+                invariant="receipt_gas_monotonicity",
+                message=(
+                    f"receipt {index} cumulative gas {cumulative} "
+                    f"<= previous {previous}"
+                ),
             )
-            continue
         previous = int(cumulative)
 
     receipts_gas = totals.receipts_gas_used
@@ -169,16 +157,13 @@ def check_gas_accounting(
         quotient = fork.max_refund_quotient()
         highest = receipts_gas * quotient // (quotient - 1)
     if not lowest <= gas_used <= highest:
-        violations.append(
-            InvariantViolation(
-                invariant="receipt_gas_totals",
-                message=(
-                    f"block gas_used {gas_used} outside [{lowest}, "
-                    f"{highest}] for receipts totaling {receipts_gas}"
-                ),
-            )
+        raise InvariantViolation(
+            invariant="receipt_gas_totals",
+            message=(
+                f"block gas_used {gas_used} outside [{lowest}, "
+                f"{highest}] for receipts totaling {receipts_gas}"
+            ),
         )
-    return violations
 
 
 def check_nonce_monotonicity(
@@ -187,7 +172,7 @@ def check_nonce_monotonicity(
     post_alloc: Alloc,
     txs: Sequence[Transaction],
     result: Result,
-) -> List[InvariantViolation]:
+) -> None:
     """
     Check that nonces never decrease and senders advance per transaction.
 
@@ -196,7 +181,6 @@ def check_nonce_monotonicity(
     decrease check. From EIP-6780 on it deletes only accounts created in
     the same transaction, which never lowers a nonce.
     """
-    violations: List[InvariantViolation] = []
 
     def nonce_of(alloc: Alloc, address: Address) -> int | None:
         account = alloc.root.get(address)
@@ -216,14 +200,12 @@ def check_nonce_monotonicity(
                 and post_nonce is not None
                 and post_nonce < pre_nonce
             ):
-                violations.append(
-                    InvariantViolation(
-                        invariant="nonce_never_decreases",
-                        message=(
-                            f"nonce of {address} decreased "
-                            f"{pre_nonce} -> {post_nonce}"
-                        ),
-                    )
+                raise InvariantViolation(
+                    invariant="nonce_never_decreases",
+                    message=(
+                        f"nonce of {address} decreased "
+                        f"{pre_nonce} -> {post_nonce}"
+                    ),
                 )
 
     accepted = Counter(
@@ -233,17 +215,14 @@ def check_nonce_monotonicity(
         pre_nonce = nonce_of(pre_alloc, sender) or 0
         post_nonce = nonce_of(post_alloc, sender)
         if post_nonce is not None and post_nonce < pre_nonce + count:
-            violations.append(
-                InvariantViolation(
-                    invariant="sender_nonce_advances",
-                    message=(
-                        f"sender {sender} nonce {pre_nonce} -> "
-                        f"{post_nonce} after {count} accepted "
-                        "transactions"
-                    ),
-                )
+            raise InvariantViolation(
+                invariant="sender_nonce_advances",
+                message=(
+                    f"sender {sender} nonce {pre_nonce} -> "
+                    f"{post_nonce} after {count} accepted "
+                    "transactions"
+                ),
             )
-    return violations
 
 
 def _check_changes(
@@ -252,49 +231,41 @@ def _check_changes(
     pre_value: object,
     post_value: object,
     recorded: Sequence[object],
-) -> List[InvariantViolation]:
+) -> None:
     """Check one field's recorded post-values against its pre and post."""
     if not recorded:
         if pre_value == post_value:
-            return []
-        return [
-            InvariantViolation(
-                invariant="bal_state_diff",
-                message=f"{address} {field} changed but the BAL has no entry",
-            )
-        ]
-    violations = []
+            return
+        raise InvariantViolation(
+            invariant="bal_state_diff",
+            message=f"{address} {field} changed but the BAL has no entry",
+        )
     if recorded[-1] != post_value:
-        violations.append(
-            InvariantViolation(
-                invariant="bal_state_diff",
-                message=(
-                    f"{address} {field} last BAL value {recorded[-1]!r} "
-                    f"!= post-state {post_value!r}"
-                ),
-            )
+        raise InvariantViolation(
+            invariant="bal_state_diff",
+            message=(
+                f"{address} {field} last BAL value {recorded[-1]!r} "
+                f"!= post-state {post_value!r}"
+            ),
         )
     previous = pre_value
     for value in recorded:
         if value == previous:
-            violations.append(
-                InvariantViolation(
-                    invariant="bal_state_diff",
-                    message=(
-                        f"{address} {field} BAL records a no-op change "
-                        f"to {value!r}"
-                    ),
-                )
+            raise InvariantViolation(
+                invariant="bal_state_diff",
+                message=(
+                    f"{address} {field} BAL records a no-op change "
+                    f"to {value!r}"
+                ),
             )
         previous = value
-    return violations
 
 
 def check_bal_against_state_diff(
     pre_alloc: Alloc,
     post_alloc: Alloc,
     block_access_list: Optional[BlockAccessList],
-) -> List[InvariantViolation]:
+) -> None:
     """
     Check the block access list against the block's pre/post state diff.
 
@@ -305,9 +276,8 @@ def check_bal_against_state_diff(
     wipes the storage, which the BAL has no way to record.
     """
     if block_access_list is None:
-        return []
+        return
     entries = {entry.address: entry for entry in block_access_list.root}
-    violations: List[InvariantViolation] = []
     addresses = pre_alloc.root.keys() | post_alloc.root.keys() | entries.keys()
     for address in addresses:
         pre = pre_alloc.root.get(address) or Account()
@@ -357,16 +327,13 @@ def check_bal_against_state_diff(
                 )
 
         for field, (pre_value, post_value, recorded) in fields.items():
-            violations += _check_changes(
-                address, field, pre_value, post_value, recorded
-            )
-    return violations
+            _check_changes(address, field, pre_value, post_value, recorded)
 
 
 def check_bal_access_witness(
     witness: Optional[BalWitness],
     block_access_list: Optional[BlockAccessList],
-) -> List[InvariantViolation]:
+) -> None:
     """
     Check the BAL's storage slots against the slots execution accessed.
 
@@ -375,7 +342,7 @@ def check_bal_access_witness(
     up here. Only the EELS transition tool produces a witness.
     """
     if witness is None or block_access_list is None:
-        return []
+        return
     listed: Set[SlotAccess] = set()
     for entry in block_access_list.root:
         address = int.from_bytes(entry.address, "big")
@@ -385,7 +352,6 @@ def check_bal_access_witness(
     # The trace shows a storage op start and end but not the access itself,
     # so the BAL must hold every slot an SLOAD or SSTORE completed on, and
     # only slots one started on: `ended <= BAL <= started`.
-    violations: List[InvariantViolation] = []
     for problem, slots in (
         ("accessed but absent from the BAL", witness.ended - listed),
         ("in the BAL but never accessed", listed - witness.started),
@@ -395,13 +361,10 @@ def check_bal_access_witness(
         sample = ", ".join(
             f"{address:#042x}:{slot:#x}" for address, slot in sorted(slots)[:3]
         )
-        violations.append(
-            InvariantViolation(
-                invariant="bal_access_witness",
-                message=f"{problem} ({len(slots)}): {sample}",
-            )
+        raise InvariantViolation(
+            invariant="bal_access_witness",
+            message=f"{problem} ({len(slots)}): {sample}",
         )
-    return violations
 
 
 def check_block_invariants(
@@ -418,39 +381,25 @@ def check_block_invariants(
     block_access_list_only: bool = False,
 ) -> None:
     """
-    Run every block-level invariant check and warn on any violation.
+    Run every block-level invariant check, raising on the first violation.
 
     With `block_access_list_only`, only the checks of the block access
     list run: the blockchain form of a state test, whose state form
     checked the rest.
 
-    The warning names the block when the test has more than one, since
-    `-W error` turns the first violation into the test's failure.
+    The raised violation carries the block number as a note when the test
+    has more than one block.
     """
-    violations = [
-        *check_bal_against_state_diff(
-            pre_alloc, post_alloc, block_access_list
-        ),
-        *check_bal_access_witness(bal_witness, block_access_list),
-    ]
-    if not block_access_list_only:
-        violations = [
-            *check_ether_conservation(
+    try:
+        if not block_access_list_only:
+            check_ether_conservation(
                 fork, pre_alloc, post_alloc, result, totals
-            ),
-            *check_gas_accounting(fork, result, totals),
-            *check_nonce_monotonicity(
-                fork, pre_alloc, post_alloc, txs, result
-            ),
-            *violations,
-        ]
-    # One warning per block, since `-W error` raises on the first warning.
-    if violations:
-        where = "" if block_number is None else f"block {block_number}: "
-        warnings.warn(
-            "\n".join(
-                f"{where}[{v.invariant}] {v.message}" for v in violations
-            ),
-            InvariantViolationWarning,
-            stacklevel=3,
-        )
+            )
+            check_gas_accounting(fork, result, totals)
+            check_nonce_monotonicity(fork, pre_alloc, post_alloc, txs, result)
+        check_bal_against_state_diff(pre_alloc, post_alloc, block_access_list)
+        check_bal_access_witness(bal_witness, block_access_list)
+    except InvariantViolation as violation:
+        if block_number is not None:
+            violation.add_note(f"block {block_number}")
+        raise

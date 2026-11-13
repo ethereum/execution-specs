@@ -26,6 +26,5 @@ jobs:
           just fill --from Amsterdam --until Bogota
           -m "not slow and blockchain_test_from_state_test"
           --invariant-checks
-          -W "error::execution_testing.specs.invariants.InvariantViolationWarning"
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto

@@ -124,7 +124,6 @@ jobs:
           just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
           ${{ matrix.select || '-m "not slow" --primary-format-only' }}
           --invariant-checks
-          -W "error::execution_testing.specs.invariants.InvariantViolationWarning"
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Validate blockchain fixtures with EELS (${{ matrix.label }})
