@@ -5,9 +5,9 @@ from typing import Dict
 from execution_testing.forks import (
     ALL_FORKS_WITH_TRANSITIONS,
     Amsterdam,
-    Byzantium,
     Fork,
     London,
+    TangerineWhistle,
     TransitionFork,
 )
 
@@ -17,7 +17,10 @@ def ruleset_format(fork: Fork | TransitionFork) -> Dict[str, int]:
     default_values: Dict[str, int] = dict.fromkeys(
         London.ruleset().keys(), 2000
     )
-    if fork < Byzantium:
+    if fork < TangerineWhistle:
+        # Only a network that has not passed Tangerine Whistle can still
+        # see the DAO fork: a client refuses a DAO fork scheduled after
+        # an active Tangerine Whistle (as Hive's own rulesets do).
         default_values["HIVE_FORK_DAO_BLOCK"] = 2000
     if fork > London:
         default_values["HIVE_TERMINAL_TOTAL_DIFFICULTY"] = 0
