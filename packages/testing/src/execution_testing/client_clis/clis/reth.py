@@ -54,10 +54,15 @@ class RethExceptionMapper(ExceptionMapper):
     # most transaction validation messages (evm2 rev 4a53ec08). The revm
     # messages are kept as alternatives for reth images that predate it.
     #
-    # evm2 reports the intrinsic and calldata floor checks with the same
-    # "intrinsic gas too low" message, and both nonce mismatch directions
-    # with the same "invalid nonce" message, so each of these messages maps
-    # to both exceptions.
+    # evm2 reported the intrinsic and calldata floor checks with the same
+    # "intrinsic gas too low" message until rev d1b2b46f, and reports both
+    # nonce mismatch directions with the same "invalid nonce" message, so
+    # each of these messages maps to both exceptions.
+    #
+    # Since rev d1b2b46f the calldata floor check reports "gas limit below
+    # floor gas". The EIP-8037 cap on the intrinsic execution gas and on the
+    # calldata floor reports "intrinsic gas exceeds cap", and the tests
+    # expect INTRINSIC_GAS_TOO_LOW for both cap overflows.
     mapping_regex = {
         TransactionException.SENDER_NOT_EOA: r"caller has code",
         TransactionException.INVALID_CHAINID: (
@@ -95,11 +100,13 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
             r"call gas cost \(\d+\) exceeds the gas limit \(\d+\)|"
             r"gas floor \(\d+\) exceeds the gas limit \(\d+\)|"
-            r"intrinsic gas too low: required \d+, got \d+"
+            r"intrinsic gas too low: required \d+, got \d+|"
+            r"intrinsic gas exceeds cap: required \d+, cap \d+"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
             r"gas floor \(\d+\) exceeds the gas limit \(\d+\)|"
-            r"intrinsic gas too low: required \d+, got \d+"
+            r"intrinsic gas too low: required \d+, got \d+|"
+            r"gas limit below floor gas: required \d+, got \d+"
         ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
