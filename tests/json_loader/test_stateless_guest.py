@@ -31,19 +31,15 @@ from ethereum.forks.amsterdam.stateless import (
     STATELESS_INPUT_SCHEMA_ID,
     STATELESS_INPUT_SCHEMA_ID_BYTES,
     STATELESS_INPUT_SCHEMA_REVISION,
-    ProtocolFork,
     StatelessInput,
-    StatelessValidationResult,
     compute_new_payload_request_root,
 )
 from ethereum.forks.amsterdam.stateless_guest import (
     deserialize_stateless_input,
     run_stateless_guest,
-    serialize_stateless_output,
 )
 from ethereum.forks.amsterdam.stateless_host import (
     build_stateless_input,
-    deserialize_stateless_output,
     serialize_stateless_input,
 )
 from ethereum.forks.amsterdam.transactions import LegacyTransaction
@@ -54,6 +50,10 @@ from ethereum.stateless.types import (
     MAX_BYTES_PER_WITNESS_NODE,
     MAX_WITNESS_HEADERS,
     ExecutionWitness,
+    ProtocolFork,
+    StatelessValidationResult,
+    deserialize_stateless_output,
+    serialize_stateless_output,
 )
 
 _RNG = random.Random(0xDEADBEEF)

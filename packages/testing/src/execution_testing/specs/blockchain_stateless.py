@@ -246,16 +246,16 @@ def build_stateless_artifacts(
     )
     from ethereum.forks.amsterdam.stateless import (
         STATELESS_INPUT_SCHEMA_ID,
-        StatelessValidationResult,
         compute_new_payload_request_root,
-    )
-    from ethereum.forks.amsterdam.stateless_guest import (
-        serialize_stateless_output,
     )
     from ethereum.forks.amsterdam.stateless_host import (
         build_stateless_input,
-        deserialize_stateless_output,
         serialize_stateless_input,
+    )
+    from ethereum.stateless.types import (
+        StatelessValidationResult,
+        deserialize_stateless_output,
+        serialize_stateless_output,
     )
     from ethereum_rlp import rlp
     from ethereum_types.numeric import U16, U64
@@ -467,9 +467,7 @@ def verify_stateless_result(
     chain_id: int,
 ) -> None:
     """Check the guest's validation result and its public output values."""
-    from ethereum.forks.amsterdam.stateless_host import (
-        deserialize_stateless_output,
-    )
+    from ethereum.stateless.types import deserialize_stateless_output
     from ethereum_types.bytes import Bytes as AmsterdamBytes
 
     assert artifacts.stateless_output_bytes is not None

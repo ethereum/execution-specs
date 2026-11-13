@@ -21,16 +21,12 @@ from ethereum.forks.amsterdam.execution_engine.types import (
     GetPayloadResponse,
     PayloadAttributes,
 )
-from ethereum.forks.amsterdam.stateless import (
-    NewPayloadRequestHeader,
-    ProtocolFork,
-)
 from ethereum.forks.amsterdam.stateless_guest import run_stateless_guest
 from ethereum.forks.amsterdam.stateless_host import (
     build_stateless_input,
-    deserialize_stateless_output,
     serialize_stateless_input,
 )
+from ethereum.stateless.types import ProtocolFork, deserialize_stateless_output
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
@@ -204,8 +200,9 @@ ConsolidationRequest.target_pubkey
 BuilderExitRequest.source_address
 
 # src/ethereum/forks/amsterdam/execution_engine/requests.py,
-# stateless_host.py and stateless_guest.py - stateless public API, called
-# from the testing framework outside vulture's scanned paths
+# stateless_host.py and stateless_guest.py, and src/ethereum/stateless/
+# types.py - stateless public API, called from the testing framework outside
+# vulture's scanned paths
 decode_execution_requests
 build_stateless_input
 serialize_stateless_input
@@ -220,9 +217,8 @@ BlobsBundle.blobs
 GetPayloadResponse.block_value
 GetPayloadResponse.blobs_bundle
 
-# src/ethereum/forks/amsterdam/stateless.py - stateless public API scaffolding
-NewPayloadRequestHeader
-NewPayloadRequestHeader.execution_payload_header
+# src/ethereum/stateless/types.py - fork ids that no stateless input schema
+# uses yet
 ProtocolFork.Frontier
 ProtocolFork.Homestead
 ProtocolFork.DAOFork

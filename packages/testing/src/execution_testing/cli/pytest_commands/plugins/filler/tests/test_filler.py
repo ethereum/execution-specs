@@ -1255,9 +1255,7 @@ def test_execution_witness_in_blockchain_fixture(
     sob = block.stateless_output_bytes
     assert sob is not None and len(sob) > 0
 
-    from ethereum.forks.amsterdam.stateless_host import (
-        deserialize_stateless_output,
-    )
+    from ethereum.stateless.types import deserialize_stateless_output
     from ethereum_types.bytes import Bytes as EthereumBytes
     from ethereum_types.numeric import U16, U64
 
@@ -1401,9 +1399,7 @@ def test_execution_witness_rlp_modifier_carries_stateless_artifacts(
     from ethereum.forks.amsterdam.stateless_guest import (
         deserialize_stateless_input,
     )
-    from ethereum.forks.amsterdam.stateless_host import (
-        deserialize_stateless_output,
-    )
+    from ethereum.stateless.types import deserialize_stateless_output
 
     stateless_input = deserialize_stateless_input(
         bytes.fromhex(block["statelessInputBytes"][2:])
@@ -1525,9 +1521,7 @@ def test_execution_witness_engine_only_block_carries_stateless_artifacts(
     from ethereum.forks.amsterdam.stateless_guest import (
         deserialize_stateless_input,
     )
-    from ethereum.forks.amsterdam.stateless_host import (
-        deserialize_stateless_output,
-    )
+    from ethereum.stateless.types import deserialize_stateless_output
 
     stateless_input = deserialize_stateless_input(
         bytes.fromhex(engine_payload["statelessInputBytes"][2:])
@@ -1583,9 +1577,7 @@ def test_execution_witness_expected_true_reuses_canonical_stateless_result(
     from ethereum.forks.amsterdam.stateless_guest import (
         deserialize_stateless_input,
     )
-    from ethereum.forks.amsterdam.stateless_host import (
-        deserialize_stateless_output,
-    )
+    from ethereum.stateless.types import deserialize_stateless_output
     from ethereum.forks.amsterdam.stateless import (
         STATELESS_INPUT_SCHEMA_ID,
     )
@@ -1664,9 +1656,7 @@ def test_execution_witness_bal_modifier_rebuilds_stateless_input(
     from ethereum.forks.amsterdam.stateless_guest import (
         deserialize_stateless_input,
     )
-    from ethereum.forks.amsterdam.stateless_host import (
-        deserialize_stateless_output,
-    )
+    from ethereum.stateless.types import deserialize_stateless_output
 
     stateless_input = deserialize_stateless_input(
         bytes.fromhex(block["statelessInputBytes"][2:])
@@ -1724,9 +1714,7 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
     from ethereum.forks.amsterdam.stateless_guest import (
         deserialize_stateless_input,
     )
-    from ethereum.forks.amsterdam.stateless_host import (
-        deserialize_stateless_output,
-    )
+    from ethereum.stateless.types import deserialize_stateless_output
     from ethereum.forks.amsterdam.stateless import (
         STATELESS_INPUT_SCHEMA_ID,
     )
