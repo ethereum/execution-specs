@@ -2,7 +2,7 @@
 name: EIP Implementation Tracker
 about: Track specification and testing progress for an EIP
 title: 'EIP-<eip-number> Implementation Tracker'
-labels: A-spec-specs, A-spec-tests, C-eip, C-test
+labels: tracker
 assignees: ''
 
 ---
