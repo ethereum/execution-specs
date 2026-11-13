@@ -1,0 +1,46 @@
+"""Reference spec and constants for EIP-8357."""
+
+from dataclasses import dataclass
+
+from execution_testing import Bytes
+
+
+@dataclass(frozen=True)
+class ReferenceSpec:
+    """Reference specification."""
+
+    git_path: str
+    version: str
+
+
+ref_spec_8357 = ReferenceSpec(
+    git_path="EIPS/eip-8357.md",
+    version="bb5d64c84817feb1e012aecea18c1aa09807c2d1",
+)
+
+
+class Spec:
+    """Constants from EIP-8357."""
+
+    SYSTEM_ADDRESS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+    FACTORY_ADDRESS = 0x4E59B44847B379578588920CA78FBF26C0B4956C
+    EVM_VK_REGISTRY_ADDRESS = 0x00005E9C1447C1A05A642EC9EB76D9C125468357
+    REGISTRY_DEPLOYMENT_SALT = (
+        0x5C4FDE244AECAD9B7C039F836E4F6BFF9978D838DD6D0AE179F3C70AA84A997F
+    )
+
+    CURRENT_VERIFICATION_KEY_HASH_SLOT = 0
+    SCHEMA_ID_MAPPING_SLOT = 1
+    MAX_SCHEMA_ID = 2**16 - 1
+
+    REGISTRY_RUNTIME_CODE = Bytes(
+        "0x3460a1573373fffffffffffffffffffffffffffffffffffffffe14604a57"
+        "6020360360a1575f3580602c57545b801560a1575f52600160205260405f"
+        "2054801560a15760205260405ff35b602036146085576040360360a1575f"
+        "35801560a157805f52600160205260405f20805460a157602035801560a1"
+        "578060101c60a15790555f55005b5f35801560a157805f52600160205260"
+        "405f20541560a1575f55005b5f5ffd"
+    )
+    REGISTRY_INITCODE = Bytes(
+        "0x60a58060095f395ff3" + REGISTRY_RUNTIME_CODE.hex()[2:]
+    )
