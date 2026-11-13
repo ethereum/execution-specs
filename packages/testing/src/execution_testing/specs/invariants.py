@@ -7,32 +7,22 @@ Enabled with `fill --invariant-checks`. A violation is emitted as an
 
 import warnings
 from collections import Counter
-from dataclasses import dataclass, replace
-from typing import (
-    TYPE_CHECKING,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Sequence, Set, Tuple
+
+from execution_testing.base_types import Account, Address
+from execution_testing.client_clis.cli_types import Result
+from execution_testing.evm_tools.t8n.evm_trace.bal_witness import (
+    BalWitness,
+    SlotAccess,
 )
-
-from execution_testing.base_types import Account, Wei
-from execution_testing.test_types.balance_expectations import transaction_key
-from execution_testing.test_types.block_access_list import BalAccountChange
+from execution_testing.forks import Fork
+from execution_testing.test_types import Alloc, Transaction
+from execution_testing.test_types.block_access_list import (
+    BalAccountChange,
+    BlockAccessList,
+)
 from execution_testing.vm import Op
-
-if TYPE_CHECKING:
-    from ..base_types import Address
-    from ..client_clis.cli_types import Result
-    from ..evm_tools.t8n.evm_trace.bal_witness import BalWitness, SlotAccess
-    from ..forks.base_fork import BaseFork
-    from ..test_types import Alloc, Environment, Transaction
-    from ..test_types.balance_expectations import PostStateContext
-    from ..test_types.block_access_list import BlockAccessList
-    from .blockchain import BuiltBlock
 
 
 class InvariantViolationWarning(UserWarning):
@@ -48,8 +38,8 @@ class InvariantViolation:
 
 
 def _accepted_txs(
-    txs: Sequence["Transaction"], result: "Result"
-) -> List["Transaction"]:
+    txs: Sequence[Transaction], result: Result
+) -> List[Transaction]:
     rejected_indices = {
         int(rejected.index) for rejected in result.rejected_transactions
     }
@@ -73,69 +63,8 @@ class BlockTotals:
     issued: int
     """The block reward plus the withdrawals, in wei."""
 
-    @classmethod
-    def of_built_block(cls, block: "BuiltBlock") -> "BlockTotals":
-        """Return the totals of a block a blockchain test built."""
-        header = block.header
-        blob_gas_price = 0
-        if header.excess_blob_gas is not None:
-            blob_gas_price = block.fork.blob_gas_price_calculator()(
-                excess_blob_gas=int(header.excess_blob_gas)
-            )
-        # EIP-4895 withdrawal amounts are in gwei.
-        withdrawn = sum(int(w.amount) for w in block.withdrawals or [])
-        return cls(
-            gas_limit=int(header.gas_limit),
-            gas_used=block.block_gas_used(),
-            receipts_gas_used=block.cumulative_gas_used(),
-            base_fee_per_gas=int(header.base_fee_per_gas or 0),
-            blob_gas_used=int(header.blob_gas_used or 0),
-            blob_gas_price=blob_gas_price,
-            issued=block.fork.get_reward() + withdrawn * Wei("1 gwei"),
-        )
 
-    @classmethod
-    def of_state_test(
-        cls,
-        *,
-        fork: Type["BaseFork"],
-        tx: "Transaction",
-        env: "Environment",
-        result: "Result",
-        context: "PostStateContext",
-    ) -> "BlockTotals":
-        """
-        Return the totals of a state test's transaction, priced as its
-        post-state is. A state test pays no reward and no withdrawals.
-        """
-        totals = cls(
-            gas_limit=int(env.gas_limit),
-            gas_used=int(result.gas_used),
-            receipts_gas_used=0,
-            base_fee_per_gas=0,
-            blob_gas_used=0,
-            blob_gas_price=0,
-            issued=0,
-        )
-        if tx.error is not None:
-            return totals
-        receipt_gas = result.receipts[-1].cumulative_gas_used
-        assert receipt_gas is not None, "receipt has no cumulative gas used"
-        blob_gas_used = 0
-        if tx.blob_versioned_hashes:
-            blob_count = len(tx.blob_versioned_hashes)
-            blob_gas_used = fork.blob_gas_per_blob() * blob_count
-        landing = context.landing(transaction_key(tx))
-        return replace(
-            totals,
-            receipts_gas_used=int(receipt_gas),
-            base_fee_per_gas=landing.base_fee_per_gas(),
-            blob_gas_used=blob_gas_used,
-            blob_gas_price=landing.blob_gas_price() or 0,
-        )
-
-
-def _may_have_run_selfdestruct(result: "Result") -> bool:
+def _may_have_run_selfdestruct(result: Result) -> bool:
     """
     Return whether SELFDESTRUCT may have run in the block.
 
@@ -147,10 +76,10 @@ def _may_have_run_selfdestruct(result: "Result") -> bool:
 
 
 def check_ether_conservation(
-    fork: Type["BaseFork"],
-    pre_alloc: "Alloc",
-    post_alloc: "Alloc",
-    result: "Result",
+    fork: Fork,
+    pre_alloc: Alloc,
+    post_alloc: Alloc,
+    result: Result,
     totals: BlockTotals,
 ) -> List[InvariantViolation]:
     """
@@ -187,7 +116,7 @@ def check_ether_conservation(
 
 
 def check_gas_accounting(
-    fork: Type["BaseFork"], result: "Result", totals: BlockTotals
+    fork: Fork, result: Result, totals: BlockTotals
 ) -> List[InvariantViolation]:
     """
     Check the header's gas used against the gas limit and the receipts.
@@ -233,7 +162,7 @@ def check_gas_accounting(
         previous = int(cumulative)
 
     receipts_gas = totals.receipts_gas_used
-    dimensions = fork.block_gas_dimensions()
+    dimensions = len(fork.block_gas_dimensions())
     lowest = (receipts_gas + dimensions - 1) // dimensions
     highest = receipts_gas
     if fork.block_gas_used_includes_refunds():
@@ -253,11 +182,11 @@ def check_gas_accounting(
 
 
 def check_nonce_monotonicity(
-    fork: Type["BaseFork"],
-    pre_alloc: "Alloc",
-    post_alloc: "Alloc",
-    txs: Sequence["Transaction"],
-    result: "Result",
+    fork: Fork,
+    pre_alloc: Alloc,
+    post_alloc: Alloc,
+    txs: Sequence[Transaction],
+    result: Result,
 ) -> List[InvariantViolation]:
     """
     Check that nonces never decrease and senders advance per transaction.
@@ -269,7 +198,7 @@ def check_nonce_monotonicity(
     """
     violations: List[InvariantViolation] = []
 
-    def nonce_of(alloc: "Alloc", address: "Address") -> int | None:
+    def nonce_of(alloc: Alloc, address: Address) -> int | None:
         account = alloc.root.get(address)
         if account is None:
             return None
@@ -318,7 +247,7 @@ def check_nonce_monotonicity(
 
 
 def _check_changes(
-    address: "Address",
+    address: Address,
     field: str,
     pre_value: object,
     post_value: object,
@@ -362,9 +291,9 @@ def _check_changes(
 
 
 def check_bal_against_state_diff(
-    pre_alloc: "Alloc",
-    post_alloc: "Alloc",
-    block_access_list: Optional["BlockAccessList"],
+    pre_alloc: Alloc,
+    post_alloc: Alloc,
+    block_access_list: Optional[BlockAccessList],
 ) -> List[InvariantViolation]:
     """
     Check the block access list against the block's pre/post state diff.
@@ -435,8 +364,8 @@ def check_bal_against_state_diff(
 
 
 def check_bal_access_witness(
-    witness: Optional["BalWitness"],
-    block_access_list: Optional["BlockAccessList"],
+    witness: Optional[BalWitness],
+    block_access_list: Optional[BlockAccessList],
 ) -> List[InvariantViolation]:
     """
     Check the BAL's storage slots against the slots execution accessed.
@@ -447,7 +376,7 @@ def check_bal_access_witness(
     """
     if witness is None or block_access_list is None:
         return []
-    listed: Set["SlotAccess"] = set()
+    listed: Set[SlotAccess] = set()
     for entry in block_access_list.root:
         address = int.from_bytes(entry.address, "big")
         listed |= {(address, int(slot.slot)) for slot in entry.storage_changes}
@@ -477,14 +406,14 @@ def check_bal_access_witness(
 
 def check_block_invariants(
     *,
-    fork: Type["BaseFork"],
-    pre_alloc: "Alloc",
-    post_alloc: "Alloc",
-    result: "Result",
-    txs: Sequence["Transaction"],
+    fork: Fork,
+    pre_alloc: Alloc,
+    post_alloc: Alloc,
+    result: Result,
+    txs: Sequence[Transaction],
     totals: BlockTotals,
-    block_access_list: Optional["BlockAccessList"] = None,
-    bal_witness: Optional["BalWitness"] = None,
+    block_access_list: Optional[BlockAccessList] = None,
+    bal_witness: Optional[BalWitness] = None,
     block_number: int | None = None,
     block_access_list_only: bool = False,
 ) -> None:

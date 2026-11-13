@@ -8,6 +8,7 @@ from typing import (
     TYPE_CHECKING,
     Callable,
     Dict,
+    FrozenSet,
     List,
     Mapping,
     Sized,
@@ -41,6 +42,7 @@ from ..base_fork import (
     BlobGasPriceCalculator,
     CalldataGasCalculator,
     ExcessBlobGasCalculator,
+    GasDimension,
     MemoryExpansionGasCalculator,
     RefundTypes,
     SystemCallPhase,
@@ -1305,9 +1307,9 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
-    def block_gas_dimensions(cls) -> int:
+    def block_gas_dimensions(cls) -> FrozenSet[GasDimension]:
         """At Genesis, all gas is metered in a single dimension."""
-        return 1
+        return frozenset({GasDimension.EXECUTION})
 
     @classmethod
     def max_request_type(cls) -> int:

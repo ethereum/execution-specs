@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from execution_testing.base_types import BlobSchedule
 from execution_testing.vm import Opcodes
 
-from ..base_fork import BaseFork, BaseForkMeta, SystemCallPhase
+from ..base_fork import BaseFork, BaseForkMeta, GasDimension, SystemCallPhase
 from ..forks.eips.paris.eip_3675 import EIP3675
 from ..forks.forks import (
     BPO1,
@@ -788,13 +788,17 @@ def test_block_gas_used_includes_refunds() -> None:
 
 def test_block_gas_dimensions() -> None:
     """EIP-8037 meters state gas apart from execution gas."""
-    assert Frontier.block_gas_dimensions() == 1
-    assert BPO2.block_gas_dimensions() == 1
-    assert Amsterdam.block_gas_dimensions() == 2
-    assert Bogota.block_gas_dimensions() == 2
+    execution = frozenset({GasDimension.EXECUTION})
+    both = frozenset({GasDimension.EXECUTION, GasDimension.STATE})
+    assert Frontier.block_gas_dimensions() == execution
+    assert BPO2.block_gas_dimensions() == execution
+    assert Amsterdam.block_gas_dimensions() == both
+    assert Bogota.block_gas_dimensions() == both
     transition = BPO2ToAmsterdamAtTime15k
-    assert transition.fork_at(timestamp=14_999).block_gas_dimensions() == 1
-    assert transition.fork_at(timestamp=15_000).block_gas_dimensions() == 2
+    before = transition.fork_at(timestamp=14_999)
+    after = transition.fork_at(timestamp=15_000)
+    assert before.block_gas_dimensions() == execution
+    assert after.block_gas_dimensions() == both
 
 
 def test_fork_adapters() -> None:  # noqa: D103

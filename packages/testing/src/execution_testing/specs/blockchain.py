@@ -19,7 +19,6 @@ import pytest
 from pydantic import (
     ConfigDict,
     Field,
-    PrivateAttr,
     field_validator,
     model_serializer,
 )
@@ -33,6 +32,7 @@ from execution_testing.base_types import (
     HeaderNonce,
     HexNumber,
     Number,
+    Wei,
     ZeroPaddedHexNumber,
 )
 from execution_testing.client_clis import (
@@ -920,6 +920,27 @@ def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
     return out
 
 
+def block_totals(block: BuiltBlock) -> BlockTotals:
+    """Return the totals of a block a blockchain test built."""
+    header = block.header
+    blob_gas_price = 0
+    if header.excess_blob_gas is not None:
+        blob_gas_price = block.fork.blob_gas_price_calculator()(
+            excess_blob_gas=int(header.excess_blob_gas)
+        )
+    # EIP-4895 withdrawal amounts are in gwei.
+    withdrawn = sum(int(w.amount) for w in block.withdrawals or [])
+    return BlockTotals(
+        gas_limit=int(header.gas_limit),
+        gas_used=block.block_gas_used(),
+        receipts_gas_used=block.cumulative_gas_used(),
+        base_fee_per_gas=int(header.base_fee_per_gas or 0),
+        blob_gas_used=int(header.blob_gas_used or 0),
+        blob_gas_price=blob_gas_price,
+        issued=block.fork.get_reward() + withdrawn * Wei("1 gwei"),
+    )
+
+
 class BlockchainTest(BaseTest):
     """Filler type that tests multiple blocks (valid or invalid) in a chain."""
 
@@ -940,12 +961,6 @@ class BlockchainTest(BaseTest):
     """
     Include transaction receipts in the fixture output.
     """
-    _from_state_test: bool = PrivateAttr(default=False)
-    """
-    Generated from a state test, whose own fill already checked every
-    invariant a block access list plays no part in.
-    """
-
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
     ] = [
@@ -1520,13 +1535,16 @@ class BlockchainTest(BaseTest):
 
         # A state test's blockchain form adds only the block access list
         # to what the state form checked, so a fork without one skips it.
+        from .state import StateTest
+
+        from_state_test = self._from_test is StateTest
         if (
             self.invariant_checks
             and block.exception is None
-            and not (self._from_state_test and t8n_bal is None)
+            and not (from_state_test and t8n_bal is None)
         ):
             check_block_invariants(
-                block_access_list_only=self._from_state_test,
+                block_access_list_only=from_state_test,
                 fork=fork,
                 pre_alloc=(
                     previous_alloc.materialize()
@@ -1536,7 +1554,7 @@ class BlockchainTest(BaseTest):
                 post_alloc=transition_tool_output.alloc.materialize(),
                 result=transition_tool_output.result,
                 txs=txs,
-                totals=BlockTotals.of_built_block(built_block),
+                totals=block_totals(built_block),
                 block_access_list=t8n_bal,
                 bal_witness=transition_tool_output.bal_witness,
                 block_number=int(header.number),

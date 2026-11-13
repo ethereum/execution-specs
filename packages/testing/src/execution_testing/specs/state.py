@@ -1,5 +1,6 @@
 """Ethereum state test spec definition and filler."""
 
+from dataclasses import replace
 from pprint import pprint
 from typing import (
     Any,
@@ -58,6 +59,7 @@ from execution_testing.test_types import (
     PostStateContext,
     Transaction,
 )
+from execution_testing.test_types.balance_expectations import transaction_key
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 
 from .base import BaseTest, FillResult, OpMode
@@ -67,6 +69,45 @@ from .helpers import RecordedPostStateContext, verify_transactions
 from .invariants import BlockTotals, check_block_invariants
 
 logger = get_logger(__name__)
+
+
+def state_test_block_totals(
+    *,
+    fork: Fork,
+    tx: Transaction,
+    env: Environment,
+    result: Result,
+    context: PostStateContext,
+) -> BlockTotals:
+    """
+    Return the totals of a state test's transaction, priced as its
+    post-state is. A state test pays no reward and no withdrawals.
+    """
+    totals = BlockTotals(
+        gas_limit=int(env.gas_limit),
+        gas_used=int(result.gas_used),
+        receipts_gas_used=0,
+        base_fee_per_gas=0,
+        blob_gas_used=0,
+        blob_gas_price=0,
+        issued=0,
+    )
+    if tx.error is not None:
+        return totals
+    receipt_gas = result.receipts[-1].cumulative_gas_used
+    assert receipt_gas is not None, "receipt has no cumulative gas used"
+    blob_gas_used = 0
+    if tx.blob_versioned_hashes:
+        blob_count = len(tx.blob_versioned_hashes)
+        blob_gas_used = fork.blob_gas_per_blob() * blob_count
+    landing = context.landing(transaction_key(tx))
+    return replace(
+        totals,
+        receipts_gas_used=int(receipt_gas),
+        base_fee_per_gas=landing.base_fee_per_gas(),
+        blob_gas_used=blob_gas_used,
+        blob_gas_price=landing.blob_gas_price() or 0,
+    )
 
 
 class StateTest(BaseTest):
@@ -399,7 +440,6 @@ class StateTest(BaseTest):
             post=self.post,
             blocks=self._generate_blockchain_blocks(),
         )
-        blockchain_test._from_state_test = True
         return blockchain_test
 
     def make_state_test_fixture(
@@ -477,7 +517,7 @@ class StateTest(BaseTest):
                 post_alloc=output_alloc,
                 result=transition_tool_output.result,
                 txs=[tx],
-                totals=BlockTotals.of_state_test(
+                totals=state_test_block_totals(
                     fork=fork,
                     tx=tx,
                     env=env,

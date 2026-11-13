@@ -102,7 +102,7 @@ def test_receipts_equal_header_gas_before_eip7778(
 
 RECEIPTS_GAS = 1000
 REFUND_QUOTIENT = Amsterdam.max_refund_quotient()
-LOWEST_HEADER_GAS = RECEIPTS_GAS // Amsterdam.block_gas_dimensions()
+LOWEST_HEADER_GAS = RECEIPTS_GAS // len(Amsterdam.block_gas_dimensions())
 HIGHEST_HEADER_GAS = RECEIPTS_GAS * REFUND_QUOTIENT // (REFUND_QUOTIENT - 1)
 
 
