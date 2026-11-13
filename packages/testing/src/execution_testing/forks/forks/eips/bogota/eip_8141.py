@@ -82,6 +82,7 @@ class EIP8141(BaseFork):
             FRAME_SIGNATURE_SCHEME_ARBITRARY=100,
             FRAME_SIGNATURE_SCHEME_SECP256K1=2_800,
             FRAME_SIGNATURE_SCHEME_P256=6_700,
+            FRAME_SIGNATURE_SCHEME_LEANSPHINCS=12_600,
         )
 
     @classmethod
@@ -182,6 +183,7 @@ class EIP8141(BaseFork):
             0: gas_costs.FRAME_SIGNATURE_SCHEME_ARBITRARY,
             1: gas_costs.FRAME_SIGNATURE_SCHEME_SECP256K1,
             2: gas_costs.FRAME_SIGNATURE_SCHEME_P256,
+            3: gas_costs.FRAME_SIGNATURE_SCHEME_LEANSPHINCS,
         }
         value_transfer_cost = 0
         for frame in frames:

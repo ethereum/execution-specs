@@ -58,6 +58,7 @@ class Spec:
     SCHEME_ARBITRARY = FrameSignatureScheme.ARBITRARY
     SCHEME_SECP256K1 = FrameSignatureScheme.SECP256K1
     SCHEME_P256 = FrameSignatureScheme.P256
+    SCHEME_LEANSPHINCS = FrameSignatureScheme.LEANSPHINCS
 
     STATUS_FAILURE = FrameStatus.FAILURE
     STATUS_SUCCESS = FrameStatus.SUCCESS

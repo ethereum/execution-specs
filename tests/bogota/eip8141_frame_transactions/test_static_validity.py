@@ -971,7 +971,7 @@ SIGNATURE_CASES = [
     # defined set never constructs, so the transaction never
     # decodes.
     pytest.param(
-        [FrameSignature(scheme=3)],
+        [FrameSignature(scheme=4)],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="undefined_signature_scheme",
         marks=pytest.mark.exception_test,

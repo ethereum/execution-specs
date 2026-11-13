@@ -209,6 +209,21 @@ class GasCosts:
     [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
     """  # noqa: E501
 
+    FRAME_SIGNATURE_SCHEME_LEANSPHINCS: Final[ExecutionGas] = ExecutionGas(
+        Uint(12600)
+    )
+    """
+    Cost for verifying a [`LEANSPHINCS`][s] signature in a
+    [`FrameTransaction`][ftx].
+
+    Verification is a constant 492 Keccak-f[1600] permutations, each
+    charged 25.5 gas, the rate per 136 bytes at which `KECCAK256`
+    hashes, with the resulting 12,546 rounded up.
+
+    [s]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.LEANSPHINCS
+    [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
+    """  # noqa: E501
+
     FRAME_SIGNATURE_SCHEME_ARBITRARY: Final[ExecutionGas] = ExecutionGas(
         Uint(100)
     )

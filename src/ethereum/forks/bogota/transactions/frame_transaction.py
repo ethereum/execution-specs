@@ -29,6 +29,11 @@ from ethereum.crypto.elliptic_curve import (
     secp256r1_verify,
 )
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.crypto.leansphincs import (
+    LEANSPHINCS_PUBLIC_KEY_LENGTH,
+    LEANSPHINCS_SIGNATURE_LENGTH,
+    leansphincs_verify,
+)
 from ethereum.exceptions import InvalidSignatureError, NonceOverflowError
 from ethereum.state import Address
 
@@ -358,6 +363,14 @@ class FrameSignatureScheme(UintEnum, boundary=STRICT):
     Signature over the NIST P-256 (secp256r1) curve.
     """
 
+    LEANSPHINCS = Uint(3)
+    """
+    Stateless hash-based leanSPHINCS signature over Keccak-256 (see
+    [`leansphincs_verify`][lv]).
+
+    [lv]: ref:ethereum.crypto.leansphincs.leansphincs_verify
+    """
+
 
 @final
 @slotted_freezable
@@ -382,10 +395,12 @@ class FrameSignature:
     """
     Scheme-dependent signer metadata.
 
-    For [`SECP256K1`] and [`P256`], this is a 20-byte address.
+    For [`SECP256K1`] and [`P256`], this is a 20-byte address, and for
+    [`LEANSPHINCS`], a 32-byte public key.
 
     [`SECP256K1`]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.SECP256K1
     [`P256`]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.P256
+    [`LEANSPHINCS`]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.LEANSPHINCS
     """  # noqa: E501
 
     message: Bytes0 | Bytes32
@@ -533,7 +548,7 @@ def compute_frame_signature_hash(tx: FrameTransaction) -> Hash32:
 
 def validate_signature(
     frame_signature: FrameSignature, sender: Address, sig_hash: Hash32
-) -> Optional[Address]:
+) -> Optional[Address | Bytes32]:
     """
     Validate a single [`FrameSignature`] entry and return the signer
     it resolved to.
@@ -545,10 +560,12 @@ def validate_signature(
     stack value as the EVM-visible representation of the canonical-hash
     case.
 
-    An empty `signer` resolves to `sender`. For the protocol-validated
-    schemes ([`SECP256K1`][k1] and [`P256`][p256]) the raw signature
-    bytes must be canonical — one unique encoding per signature, with
-    low-`s` — and must authenticate the resolved signer. The protocol
+    For [`SECP256K1`][k1] and [`P256`][p256], an empty `signer` resolves
+    to `sender`, and the raw signature bytes must be canonical — one
+    unique encoding per signature, with low-`s` — and must authenticate
+    the resolved signer. A [`LEANSPHINCS`][lean] entry's `signer` is the
+    32-byte public key its signature must verify under, which is also
+    its resolved signer. The protocol
     does not cryptographically validate [`ARBITRARY`][arb] entries and
     assigns them no resolved signer — `None` is returned — so their
     `signer` must be empty.
@@ -557,6 +574,7 @@ def validate_signature(
     [csh]: ref:ethereum.forks.bogota.transactions.frame_transaction.compute_frame_signature_hash
     [k1]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.SECP256K1
     [p256]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.P256
+    [lean]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.LEANSPHINCS
     [arb]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.ARBITRARY
     """  # noqa: E501
     signature_scheme = frame_signature.scheme
@@ -574,13 +592,17 @@ def validate_signature(
     else:
         raise InvalidFrameError("Invalid signature message length")
 
-    if len(signer) not in [0, Address.LENGTH]:
-        raise InvalidFrameError("invalid frame signer length")
     resolved_signer: Bytes
-    if len(signer) == 0:
-        resolved_signer = sender
-    else:
+    if signature_scheme == FrameSignatureScheme.LEANSPHINCS:
+        if len(signer) != LEANSPHINCS_PUBLIC_KEY_LENGTH:
+            raise InvalidFrameError("invalid frame signer length")
         resolved_signer = signer
+    elif len(signer) == 0:
+        resolved_signer = sender
+    elif len(signer) == Address.LENGTH:
+        resolved_signer = signer
+    else:
+        raise InvalidFrameError("invalid frame signer length")
 
     match signature_scheme:
         case FrameSignatureScheme.SECP256K1:
@@ -630,6 +652,17 @@ def validate_signature(
 
             return Address(resolved_signer)
 
+        case FrameSignatureScheme.LEANSPHINCS:
+            if len(signature) != LEANSPHINCS_SIGNATURE_LENGTH:
+                raise InvalidSignatureError(
+                    "LEANSPHINCS signature must be "
+                    f"{LEANSPHINCS_SIGNATURE_LENGTH} bytes"
+                )
+            if not leansphincs_verify(resolved_signer, message, signature):
+                raise InvalidSignatureError("invalid leansphincs signature")
+
+            return Bytes32(resolved_signer)
+
         case FrameSignatureScheme.ARBITRARY:
             if len(signer) != 0:
                 raise InvalidFrameError(
@@ -671,10 +704,11 @@ class FrameTransactionValidation:
     The transaction's canonical signature hash.
     """
 
-    resolved_signers: Tuple[Optional[Address], ...]
+    resolved_signers: Tuple[Optional[Address | Bytes32], ...]
     """
-    The signer each signature entry resolved to; `None` for
-    `ARBITRARY` entries, to which the protocol assigns no signer.
+    The signer each signature entry resolved to: an address, or a
+    public key for `LEANSPHINCS` entries; `None` for `ARBITRARY`
+    entries, to which the protocol assigns no signer.
     """
 
 
@@ -907,6 +941,8 @@ def signature_verification_gas(signature: FrameSignature) -> ExecutionGas:
             return GasCosts.FRAME_SIGNATURE_SCHEME_SECP256K1
         case FrameSignatureScheme.P256:
             return GasCosts.FRAME_SIGNATURE_SCHEME_P256
+        case FrameSignatureScheme.LEANSPHINCS:
+            return GasCosts.FRAME_SIGNATURE_SCHEME_LEANSPHINCS
         case FrameSignatureScheme.ARBITRARY:
             return GasCosts.FRAME_SIGNATURE_SCHEME_ARBITRARY
         case _ as unreachable:

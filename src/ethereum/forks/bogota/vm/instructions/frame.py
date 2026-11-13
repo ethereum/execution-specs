@@ -357,7 +357,8 @@ def sigparam(evm: Evm) -> None:
 
     Each scheme family withholds the metadata the protocol does not
     define for it: the resolved signer is available only for
-    protocol-validated entries, to which the protocol assigns one, and
+    protocol-validated entries, to which the protocol assigns one — the
+    full 32-byte public key for `LEANSPHINCS` entries — and
     the signature byte length only for `ARBITRARY` entries — the raw
     signature bytes of protocol-validated schemes, including their
     length, are not introspectable.

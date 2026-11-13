@@ -205,10 +205,11 @@ class FrameContext:
     The transaction's canonical signature hash.
     """
 
-    resolved_signers: Tuple[Optional[Address], ...]
+    resolved_signers: Tuple[Optional[Address | Bytes32], ...]
     """
-    The signer each signature entry resolved to; `None` for
-    `ARBITRARY` entries, to which the protocol assigns no signer.
+    The signer each signature entry resolved to: an address, or a
+    public key for `LEANSPHINCS` entries; `None` for `ARBITRARY`
+    entries, to which the protocol assigns no signer.
     """
 
     legacy_nonce: Uint
