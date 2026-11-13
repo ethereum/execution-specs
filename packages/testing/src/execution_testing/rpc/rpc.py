@@ -617,6 +617,18 @@ class EthRPC(BaseRPC):
             request=RPCCall(method="getBlockByHash", params=params)
         ).result_or_raise()
 
+    def get_block_access_list(self, block_hash: Hash) -> Any | None:
+        """
+        `eth_getBlockAccessList`: Return the EIP-7928 block access list of a
+        block, decoded into JSON.
+        """
+        logger.info(f"Requesting block access list of {block_hash}..")
+        return self.post_request(
+            request=RPCCall(
+                method="getBlockAccessList", params=[f"{block_hash}"]
+            )
+        ).result_or_raise()
+
     def get_block_by_hash_with_retry(
         self,
         block_hash: Hash,
