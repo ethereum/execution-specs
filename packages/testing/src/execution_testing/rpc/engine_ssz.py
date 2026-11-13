@@ -23,7 +23,7 @@ class _RESTExecutionPayload(FixtureExecutionPayload):
 
 
 class _RESTExecutionPayloadEnvelope(ForkScopedSSZModel):
-    """Declare the Amsterdam REST request fields in SSZ wire order."""
+    """Declare the REST request fields in SSZ wire order."""
 
     payload: _RESTExecutionPayload
     parent_beacon_block_root: Hash
@@ -45,8 +45,12 @@ def encode_witness_request(
     execution_requests: Sequence[Bytes],
     fork: Fork,
 ) -> bytes:
-    """Encode the Amsterdam envelope using the REST payload schema."""
-    if fork != Amsterdam:
+    """
+    Encode the envelope of ``fork`` using the REST payload schema.
+
+    The witness endpoint exists from Amsterdam on.
+    """
+    if fork < Amsterdam:
         raise ValueError(f"Unsupported REST witness schema: {fork}")
     envelope = _RESTExecutionPayloadEnvelope(
         payload=_RESTExecutionPayload.model_validate(payload.model_dump()),

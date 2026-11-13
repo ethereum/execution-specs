@@ -1,4 +1,4 @@
-"""Tests for WitnessState."""
+"""Tests for WitnessState and the execution witness builder."""
 
 from typing import Any, Optional
 
@@ -9,21 +9,19 @@ from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.amsterdam.fork_types import encode_account
-from ethereum.forks.amsterdam.incremental_mpt import (
+from ethereum.forks.amsterdam.state_tracker import BlockState
+from ethereum.incremental_mpt import (
     IncrementalMPT,
     build_mpt,
     mpt_get,
     mpt_root,
 )
-from ethereum.forks.amsterdam.witness_state import (
-    WitnessState,
-    build_code_db,
-    build_node_db,
-)
 from ethereum.merkle_patricia_trie import (
     EMPTY_TRIE_ROOT,
+    Trie,
     bytes_to_nibble_list,
     nibble_list_to_compact,
+    trie_set,
 )
 from ethereum.state import (
     EMPTY_CODE_HASH,
@@ -32,6 +30,13 @@ from ethereum.state import (
     BlockDiff,
     Root,
 )
+from ethereum.state_mpt import State
+from ethereum.state_witness import (
+    WitnessState,
+    build_code_db,
+    build_node_db,
+)
+from ethereum.stateless.witness_builder import build_execution_witness
 
 _ADDR1 = Address(b"\x01" * 20)
 _ADDR2 = Address(b"\x02" * 20)
@@ -356,3 +361,42 @@ class TestCanonicalSecureTrieValidation:
             match="Witness is missing a trie node",
         ):
             witness_state.get_storage(_ADDR1, _SLOT1)
+
+
+class TestBuildExecutionWitness:
+    """
+    Test build_execution_witness with Amsterdam's BlockState.
+
+    The builder's only other caller, the t8n, passes an untyped BlockState.
+    Passing one here is what lets mypy check that BlockState still matches
+    TrackedBlockState when upstream renames or retypes one of its fields.
+    """
+
+    def test_account_read_round_trips(self) -> None:
+        """A witness built for an account read serves that account back."""
+        account = _acct(balance=7)
+        accounts: Trie[Address, Optional[Account]] = Trie(
+            secured=True, default=None
+        )
+        trie_set(accounts, _ADDR1, account)
+        state_root, _ = _build_witness({_ADDR1: account}, {})
+        block_state = BlockState(
+            pre_state=State(_main_trie=accounts),
+            account_reads={_ADDR1},
+        )
+
+        witness = build_execution_witness(
+            block_state,
+            expected_post_state_root=state_root,
+            pre_state_accounts_data=accounts,
+            pre_state_storages_data={},
+        )
+
+        assert witness.codes == ()
+        assert witness.headers == ()
+        witness_state = WitnessState(
+            _node_db=build_node_db(witness.state),
+            _state_root=state_root,
+            _code_db={},
+        )
+        assert witness_state.get_account_optional(_ADDR1) == account

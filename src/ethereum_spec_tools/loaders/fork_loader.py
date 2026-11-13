@@ -2,6 +2,7 @@
 Loader for code from the relevant fork.
 """
 
+from dataclasses import fields
 from importlib import import_module
 from inspect import signature
 from typing import Any, Final
@@ -161,18 +162,74 @@ class ForkLoad:
 
     @property
     def has_execution_witness(self) -> bool:
-        """Check if the fork has an `ExecutionWitness` type."""
-        try:
-            module = self._module("stateless")
-        except ModuleNotFoundError:
-            return False
-        return hasattr(module, "ExecutionWitness")
+        """
+        Check if the fork's `BlockState` tracks code reads, which the shared
+        witness builder needs.
+        """
+        block_state = self._module("state_tracker").BlockState
+        return "code_reads" in {field.name for field in fields(block_state)}
 
     @property
-    def build_execution_witness(self) -> Any:
-        """Build function of the fork."""
-        mod = self._module("stateless_host_exec_witness")
-        return mod.build_execution_witness
+    def has_stateless(self) -> bool:
+        """Check if the fork has a `stateless` module."""
+        name = f"{self.hardfork.name}.stateless"
+        try:
+            self._module("stateless")
+        except ModuleNotFoundError as error:
+            # A module that `stateless` imports can be missing too, for
+            # example from a wheel that leaves out a subpackage. Raise that
+            # instead of treating the fork as having no stateless validation.
+            if error.name not in (None, name):
+                raise
+            return False
+        return True
+
+    @property
+    def StatelessInput(self) -> Any:
+        """StatelessInput class of the fork."""
+        return self._module("stateless").StatelessInput
+
+    @property
+    def STATELESS_INPUT_SCHEMA_ID(self) -> Any:
+        """STATELESS_INPUT_SCHEMA_ID of the fork."""
+        return self._module("stateless").STATELESS_INPUT_SCHEMA_ID
+
+    @property
+    def compute_new_payload_request_root(self) -> Any:
+        """compute_new_payload_request_root function of the fork."""
+        return self._module("stateless").compute_new_payload_request_root
+
+    @property
+    def build_stateless_input(self) -> Any:
+        """build_stateless_input function of the fork."""
+        return self._module("stateless_host").build_stateless_input
+
+    @property
+    def serialize_stateless_input(self) -> Any:
+        """serialize_stateless_input function of the fork."""
+        return self._module("stateless_host").serialize_stateless_input
+
+    @property
+    def deserialize_stateless_input(self) -> Any:
+        """deserialize_stateless_input function of the fork."""
+        return self._module("stateless_guest").deserialize_stateless_input
+
+    @property
+    def run_stateless_guest(self) -> Any:
+        """run_stateless_guest function of the fork."""
+        return self._module("stateless_guest").run_stateless_guest
+
+    @property
+    def decode_execution_requests(self) -> Any:
+        """decode_execution_requests function of the fork."""
+        return self._module(
+            "execution_engine.requests"
+        ).decode_execution_requests
+
+    @property
+    def BlockAccessList(self) -> Any:
+        """BlockAccessList type of the fork."""
+        return self._module("block_access_lists").BlockAccessList
 
     @property
     def BlockAccessIndex(self) -> Any:

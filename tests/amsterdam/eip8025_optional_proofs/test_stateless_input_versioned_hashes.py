@@ -14,11 +14,10 @@ from execution_testing import (
     add_kzg_version,
 )
 
-from ethereum.forks.amsterdam.stateless import StatelessInput
-
 from .gas_helpers import empty_account_value_transfer_gas_limit
 from .spec import ref_spec_8025
 from .stateless_input_helpers import (
+    StatelessInput,
     StatelessInputBytesModifier,
     modify_stateless_input,
 )
@@ -52,6 +51,7 @@ UNRELATED_BLOB_HASH = add_kzg_version([0xFF], BLOB_COMMITMENT_VERSION_KZG)[0]
 
 
 def replace_versioned_hashes(
+    fork: Fork,
     build_versioned_hashes: VersionedHashesBuilder,
 ) -> StatelessInputBytesModifier:
     """
@@ -76,7 +76,7 @@ def replace_versioned_hashes(
             ),
         )
 
-    return modify_stateless_input(update)
+    return modify_stateless_input(fork, update)
 
 
 def assert_hash_count(
@@ -238,7 +238,7 @@ def test_stateless_input_versioned_hashes(
                 # filler to rerun the guest instead of trusting the
                 # validation flag the artifact builder may hardcode.
                 stateless_input_bytes_modifier=replace_versioned_hashes(
-                    build_versioned_hashes
+                    fork, build_versioned_hashes
                 ),
                 expected_stateless_validation_success=(
                     expected_validation_success
@@ -278,7 +278,7 @@ def test_stateless_input_versioned_hashes_without_blob_transactions(
             Block(
                 txs=[tx],
                 stateless_input_bytes_modifier=replace_versioned_hashes(
-                    sole_unrelated_hash
+                    fork, sole_unrelated_hash
                 ),
                 expected_stateless_validation_success=False,
             )

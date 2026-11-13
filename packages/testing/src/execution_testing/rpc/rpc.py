@@ -35,7 +35,7 @@ from tenacity import (
 )
 
 from execution_testing.base_types import Address, Bytes, Hash, to_json
-from execution_testing.forks import Amsterdam, Fork
+from execution_testing.forks import Fork
 from execution_testing.logging import (
     get_logger,
 )
@@ -1725,7 +1725,7 @@ class EngineSSZRPC(BaseJwtRPC):
         self,
         body: bytes,
         *,
-        fork: Fork = Amsterdam,
+        fork: Fork,
         timeout: int | None = None,
     ) -> requests.Response:
         """Send raw SSZ bytes, including malformed conformance-test inputs."""
@@ -1745,12 +1745,12 @@ class EngineSSZRPC(BaseJwtRPC):
     def new_payload_with_witness(
         self,
         *params: Any,
-        fork: Fork = Amsterdam,
+        fork: Fork,
         timeout: int | None = None,
     ) -> NewPayloadWithWitnessResponse:
         """Submit a payload and validate its witness response and keys."""
         if len(params) != 4:
-            raise ValueError("REST witness requires Amsterdam payload params")
+            raise ValueError("REST witness requires four payload params")
         payload, _blob_hashes, beacon_root, execution_requests = params
         body = encode_witness_request(
             payload, beacon_root, execution_requests, fork

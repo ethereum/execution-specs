@@ -7,7 +7,7 @@ from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 
 from ethereum.crypto.hash import keccak256
-from ethereum.forks.amsterdam.incremental_mpt import (
+from ethereum.incremental_mpt import (
     EmbeddedNode,
     HashedNode,
     IncrementalMPT,
@@ -174,7 +174,7 @@ def _build_trie_and_collect_nodes(
 
     Return (root_hash, node_db).
     """
-    from ethereum.forks.amsterdam.incremental_mpt import (
+    from ethereum.incremental_mpt import (
         _encode_mutable_node,
     )
 
@@ -977,7 +977,7 @@ def _encode_root_for_db(
     node: object,
 ) -> object:
     """Encode a MutableNode root into its RLP-encodable form."""
-    from ethereum.forks.amsterdam.incremental_mpt import (
+    from ethereum.incremental_mpt import (
         _encode_mutable_node,
     )
 

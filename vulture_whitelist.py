@@ -14,23 +14,13 @@ from ethereum.forks.amsterdam.execution_engine.requests import (
     BuilderExitRequest,
     ConsolidationRequest,
     WithdrawalRequest,
-    decode_execution_requests,
 )
 from ethereum.forks.amsterdam.execution_engine.types import (
     BlobsBundle,
     GetPayloadResponse,
     PayloadAttributes,
 )
-from ethereum.forks.amsterdam.stateless import (
-    NewPayloadRequestHeader,
-    ProtocolFork,
-)
-from ethereum.forks.amsterdam.stateless_guest import run_stateless_guest
-from ethereum.forks.amsterdam.stateless_host import (
-    build_stateless_input,
-    deserialize_stateless_output,
-    serialize_stateless_input,
-)
+from ethereum.stateless.types import ProtocolFork, deserialize_stateless_output
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
@@ -46,6 +36,7 @@ from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
 )
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
 from ethereum_spec_tools.lint.lints.uint_len import UintLenHygiene
+from ethereum_spec_tools.loaders.fork_loader import ForkLoad
 from ethereum_spec_tools.loaders.transaction_loader import (
     TransactionLoad,
 )
@@ -203,14 +194,11 @@ ConsolidationRequest.source_pubkey
 ConsolidationRequest.target_pubkey
 BuilderExitRequest.source_address
 
-# src/ethereum/forks/amsterdam/execution_engine/requests.py,
-# stateless_host.py and stateless_guest.py - stateless public API, called
-# from the testing framework outside vulture's scanned paths
-decode_execution_requests
-build_stateless_input
-serialize_stateless_input
+# src/ethereum/stateless/types.py and src/ethereum_spec_tools/loaders/
+# fork_loader.py - stateless public API, called from the testing framework
+# outside vulture's scanned paths
 deserialize_stateless_output
-run_stateless_guest
+ForkLoad.has_stateless
 
 # src/ethereum/forks/amsterdam/execution_engine/types.py - Engine API fields
 PayloadAttributes.suggested_fee_recipient
@@ -220,9 +208,8 @@ BlobsBundle.blobs
 GetPayloadResponse.block_value
 GetPayloadResponse.blobs_bundle
 
-# src/ethereum/forks/amsterdam/stateless.py - stateless public API scaffolding
-NewPayloadRequestHeader
-NewPayloadRequestHeader.execution_payload_header
+# src/ethereum/stateless/types.py - fork ids that no stateless input schema
+# uses yet
 ProtocolFork.Frontier
 ProtocolFork.Homestead
 ProtocolFork.DAOFork

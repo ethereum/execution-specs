@@ -2,16 +2,13 @@
 Host-side construction of the execution witness from block execution data.
 """
 
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Protocol, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32
-from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT, Trie
-from ethereum.state import Account, Address, PreState, Root
-
-from .incremental_mpt import (
+from ethereum.incremental_mpt import (
     IncrementalMPT,
     build_mpt,
     mpt_get,
@@ -19,8 +16,57 @@ from .incremental_mpt import (
     mpt_set,
     mpt_set_storage_slots,
 )
-from .state_tracker import BlockState
-from .stateless import ExecutionWitness
+from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT, Trie
+from ethereum.state import Account, Address, PreState, Root
+from ethereum.stateless.types import ExecutionWitness
+
+
+class TrackedBlockState(Protocol):
+    """
+    What a block read and wrote while it executed, and the state it ran on.
+
+    A fork's `BlockState` records these as the block executes, and
+    [`build_execution_witness`][builder] only reads them.
+
+    [builder]: ref:ethereum.stateless.witness_builder.build_execution_witness
+    """
+
+    pre_state: PreState
+    """
+    State before the block.
+    """
+
+    account_reads: Set[Address]
+    """
+    Addresses of the accounts the block read.
+    """
+
+    account_writes: Dict[Address, Optional[Account]]
+    """
+    Final value of each account the block changed, or `None` if the block
+    deleted it.
+    """
+
+    storage_reads: Set[Tuple[Address, Bytes32]]
+    """
+    Storage slots the block read.
+    """
+
+    storage_writes: Dict[Address, Dict[Bytes32, U256]]
+    """
+    Final value of each storage slot the block changed.
+    """
+
+    code_reads: Set[Hash32]
+    """
+    Hashes of the code the block read from `pre_state`.
+    """
+
+    oldest_ancestor_offset: Optional[Uint]
+    """
+    How many blocks back the oldest ancestor read by `BLOCKHASH` is, or `None`
+    if the block read no ancestor.
+    """
 
 
 def _build_pre_state_storage_mpts(
@@ -55,7 +101,7 @@ def _build_pre_state_account_mpt(
 
 
 def _collect_storage_accesses(
-    block_state: BlockState,
+    block_state: TrackedBlockState,
 ) -> Dict[Address, Set[Bytes32]]:
     """
     Collect all storage keys that must be traversed on pre-state tries.
@@ -98,7 +144,7 @@ def _apply_storage_writes(
         mpt_set_storage_slots(incr_storage_mpts[address], dirty_keys)
 
 
-def _get_all_dirty_accounts(block_state: BlockState) -> Set[Address]:
+def _get_all_dirty_accounts(block_state: TrackedBlockState) -> Set[Address]:
     """Return addresses whose account leaf may change in the state trie."""
     return set(block_state.account_writes.keys()) | set(
         block_state.storage_writes.keys()
@@ -118,7 +164,7 @@ def _capture_pre_state_account_nodes(
 def _apply_account_writes(
     incr_account_mpt: IncrementalMPT[Address, Optional[Account]],
     incr_storage_mpts: Dict[Address, IncrementalMPT[Bytes32, U256]],
-    block_state: BlockState,
+    block_state: TrackedBlockState,
     all_dirty_accounts: Set[Address],
 ) -> None:
     """Apply final account values and post-storage roots to account trie."""
@@ -148,7 +194,7 @@ def _collect_accessed_nodes(
 
 
 def build_execution_witness(
-    block_state: BlockState,
+    block_state: TrackedBlockState,
     expected_post_state_root: Root,
     pre_state_accounts_data: Trie[Address, Optional[Account]],
     pre_state_storages_data: Dict[Address, Trie[Bytes32, U256]],

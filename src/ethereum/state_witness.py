@@ -12,10 +12,7 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT
-from ethereum.state import EMPTY_CODE_HASH, Account, Address, BlockDiff, Root
-
-from .incremental_mpt import (
+from ethereum.incremental_mpt import (
     IncrementalMPT,
     decode_witness_to_mpt,
     mpt_get,
@@ -23,6 +20,8 @@ from .incremental_mpt import (
     mpt_set,
     mpt_set_storage_slots,
 )
+from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT
+from ethereum.state import EMPTY_CODE_HASH, Account, Address, BlockDiff, Root
 
 
 def build_node_db(state_entries: Tuple[Bytes, ...]) -> Dict[Bytes, Bytes]:

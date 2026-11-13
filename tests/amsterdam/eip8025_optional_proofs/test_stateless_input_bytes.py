@@ -1,6 +1,8 @@
 """Stateless input byte validation tests."""
 
 from dataclasses import replace
+from functools import partial
+from typing import Callable
 
 import pytest
 from execution_testing import (
@@ -13,19 +15,17 @@ from execution_testing import (
     Transaction,
 )
 
-from ethereum.forks.amsterdam.stateless import (
+from ethereum.stateless.types import (
     MAX_BYTES_PER_HEADER,
     MAX_WITNESS_HEADERS,
-    StatelessInput,
-)
-from ethereum.forks.amsterdam.stateless_guest import (
-    deserialize_stateless_input,
 )
 
 from .gas_helpers import empty_account_value_transfer_gas_limit
 from .spec import ref_spec_8025
 from .stateless_input_helpers import (
+    StatelessInput,
     StatelessInputBytesModifier,
+    deserialize_stateless_input,
     modify_stateless_input,
 )
 
@@ -149,6 +149,7 @@ def test_invalid_stateless_input_bytes_are_rejected(
 
 
 def pad_last_witness_header(
+    fork: Fork,
     bytes_over_limit: int,
 ) -> StatelessInputBytesModifier:
     """Pad the last witness header to its SSZ size limit, plus extra bytes."""
@@ -165,7 +166,7 @@ def pad_last_witness_header(
             ),
         )
 
-    padded_to_limit = modify_stateless_input(pad_to_limit)
+    padded_to_limit = modify_stateless_input(fork, pad_to_limit)
 
     def modifier(input_bytes: Bytes) -> Bytes:
         # Serialization refuses an oversized header, but the headers are the
@@ -175,14 +176,18 @@ def pad_last_witness_header(
     return modifier
 
 
-def repeat_parent_header(count: int) -> StatelessInputBytesModifier:
+def repeat_parent_header(
+    fork: Fork,
+    count: int,
+) -> StatelessInputBytesModifier:
     """Replace the witness headers with `count` copies of the parent."""
 
     def modifier(input_bytes: Bytes) -> Bytes:
         # Serialization refuses more than MAX_WITNESS_HEADERS headers, so
         # encode the list by hand. It is the last SSZ field: one 4-byte
         # offset per header, then the header bytes.
-        headers = deserialize_stateless_input(input_bytes).witness.headers
+        stateless_input = deserialize_stateless_input(fork, input_bytes)
+        headers = stateless_input.witness.headers
         old_size = 4 * len(headers) + sum(len(h) for h in headers)
         parent = bytes(headers[-1])
         offsets = b"".join(
@@ -195,17 +200,25 @@ def repeat_parent_header(count: int) -> StatelessInputBytesModifier:
 
 
 @pytest.mark.parametrize(
-    "modifier,decoding_fails",
+    "build_modifier,decoding_fails",
     [
-        pytest.param(pad_last_witness_header(0), False, id="at_size_limit"),
-        pytest.param(pad_last_witness_header(1), True, id="over_size_limit"),
         pytest.param(
-            repeat_parent_header(MAX_WITNESS_HEADERS),
+            partial(pad_last_witness_header, bytes_over_limit=0),
+            False,
+            id="at_size_limit",
+        ),
+        pytest.param(
+            partial(pad_last_witness_header, bytes_over_limit=1),
+            True,
+            id="over_size_limit",
+        ),
+        pytest.param(
+            partial(repeat_parent_header, count=MAX_WITNESS_HEADERS),
             False,
             id="at_count_limit",
         ),
         pytest.param(
-            repeat_parent_header(MAX_WITNESS_HEADERS + 1),
+            partial(repeat_parent_header, count=MAX_WITNESS_HEADERS + 1),
             True,
             id="over_count_limit",
         ),
@@ -215,7 +228,7 @@ def test_witness_header_ssz_limits(
     fork: Fork,
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    modifier: StatelessInputBytesModifier,
+    build_modifier: Callable[[Fork], StatelessInputBytesModifier],
     decoding_fails: bool,
 ) -> None:
     """
@@ -239,7 +252,7 @@ def test_witness_header_ssz_limits(
         blocks=[
             Block(
                 txs=[tx],
-                stateless_input_bytes_modifier=modifier,
+                stateless_input_bytes_modifier=build_modifier(fork),
                 expected_stateless_validation_success=False,
                 expected_stateless_input_decode_failure=decoding_fails,
             )

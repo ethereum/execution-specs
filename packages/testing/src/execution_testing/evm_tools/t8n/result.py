@@ -12,6 +12,8 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock
 from ethereum.merkle_patricia_trie import root, trie_get
 from ethereum.state import BlockDiff
+from ethereum.stateless.types import ExecutionWitness
+from ethereum.stateless.witness_builder import build_execution_witness
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 
@@ -100,14 +102,14 @@ def _build_execution_witness(
     t8n: "T8N",
     block_env: Any,
     state_root: Hash32,
-) -> Any:
+) -> ExecutionWitness:
     """Build an execution witness against the still-unmodified pre-state."""
     # ``Alloc`` is the live PreState used during execution. Materialize an
-    # independent MPT mirror here because the Amsterdam witness builder needs
+    # independent MPT mirror here because the witness builder needs
     # the flat pre-state tries. ``T8N.run`` applies the block diff only after
     # ``build_result`` returns, so this is still the original pre-state.
     pre_state = t8n.alloc._materialize_state()
-    return t8n.fork.build_execution_witness(
+    return build_execution_witness(
         block_env.state,
         expected_post_state_root=state_root,
         pre_state_accounts_data=pre_state._main_trie,

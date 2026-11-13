@@ -110,7 +110,7 @@ class EmbeddedNode:
     instead of being referenced by hash. Like a [`HashedNode`], it is decoded
     only when a trie operation first reaches it.
 
-    [`HashedNode`]: ref:ethereum.forks.amsterdam.incremental_mpt.HashedNode
+    [`HashedNode`]: ref:ethereum.incremental_mpt.HashedNode
     """
 
     _rlp: Bytes
@@ -158,7 +158,7 @@ class IncrementalMPT(Generic[K, V]):
     a trie operation reaches it. A trie that the host builds holds every node
     already, so its `node_db` stays empty.
 
-    [`HashedNode`]: ref:ethereum.forks.amsterdam.incremental_mpt.HashedNode
+    [`HashedNode`]: ref:ethereum.incremental_mpt.HashedNode
     """
 
 
@@ -1117,7 +1117,7 @@ def decode_witness_to_mpt(
     malformed nodes, so this only changes the result for a parent state built
     by hand.
 
-    [`HashedNode`]: ref:ethereum.forks.amsterdam.incremental_mpt.HashedNode
+    [`HashedNode`]: ref:ethereum.incremental_mpt.HashedNode
     """
     root_node: MutableNode = None
     if root_hash != EMPTY_TRIE_ROOT:
