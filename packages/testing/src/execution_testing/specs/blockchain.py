@@ -632,6 +632,14 @@ class BuiltBlock(CamelModel):
         """
         return int(self.result.gas_used)
 
+    def benchmark_gas_used(self) -> int:
+        """
+        Return the gas a benchmark records for this block.
+        """
+        if self.expected_exception is not None:
+            return self.block_gas_used()
+        return self.cumulative_gas_used()
+
     def get_fixture_block(
         self, *, include_receipts: bool = True
     ) -> FixtureBlock | InvalidFixtureBlock:
@@ -1288,9 +1296,7 @@ class BlockchainTest(BaseTest):
         # header field, including those it does not report, must match.
         sealed_hash = transition_tool_output.result.block_hash
         if sealed_hash is not None:
-            # Hash a copy: ``block_hash`` is cached, and the header is still
-            # rewritten in place below (an invalid block's BAL hash).
-            built_hash = header.copy(fork=fork).block_hash
+            built_hash = header.block_hash
             if built_hash != sealed_hash:
                 raise Exception(
                     f"block number {int(env.number)}: the header hashes to "
@@ -1654,7 +1660,7 @@ class BlockchainTest(BaseTest):
                 )
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
-                benchmark_gas_used = built_block.cumulative_gas_used()
+                benchmark_gas_used = built_block.benchmark_gas_used()
                 benchmark_block_gas_used = built_block.block_gas_used()
                 benchmark_opcode_count = built_block.result.opcode_count
             if self.verifications:
@@ -1897,7 +1903,7 @@ class BlockchainTest(BaseTest):
             block_number = int(built_block.header.number)
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
-                benchmark_gas_used = built_block.cumulative_gas_used()
+                benchmark_gas_used = built_block.benchmark_gas_used()
                 benchmark_block_gas_used = built_block.block_gas_used()
                 benchmark_opcode_count = built_block.result.opcode_count
             if self.verifications:
@@ -2230,7 +2236,7 @@ class BlockchainTest(BaseTest):
                         block_number=int(built_block.header.number),
                     )
                 if self.operation_mode == OpMode.BENCHMARKING:
-                    benchmark_gas_used = built_block.cumulative_gas_used()
+                    benchmark_gas_used = built_block.benchmark_gas_used()
                     benchmark_block_gas_used = built_block.block_gas_used()
                     # Consumed by BenchmarkTest's opcode-count verification.
                     benchmark_opcode_count = block_opcode_count

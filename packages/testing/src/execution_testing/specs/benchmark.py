@@ -322,9 +322,6 @@ class BenchmarkTest(BaseTest):
     tx: Transaction | None = None
     setup_blocks: List[Block] = Field(default_factory=list)
     blocks: List[Block] | None = None
-    block: Block | None = None
-    """Template the generated blocks are built from; ``txs`` are filled in."""
-
     env: Environment = Field(default_factory=Environment)
     expected_benchmark_gas_used: int | None = None
     gas_benchmark_value: int = Field(
@@ -412,10 +409,6 @@ class BenchmarkTest(BaseTest):
             blocks += generated_blocks
 
         elif self.blocks is not None:
-            assert self.block is None, (
-                "`block` is a template for generated blocks; set its "
-                "fields on the blocks in `blocks` instead"
-            )
             blocks += self.blocks
 
         elif self.tx is not None:
@@ -440,13 +433,9 @@ class BenchmarkTest(BaseTest):
 
     def generate_block(self, txs: List[Transaction]) -> Block:
         """Build the block that carries the benchmark transactions."""
-        template = self.block if self.block is not None else Block()
-        if "exception" in template.model_fields_set:
-            return template.copy(txs=txs)
-        # An intrinsically invalid transaction takes its block with it, so
-        # the block inherits the exception unless the test overrides it.
+        # An intrinsically invalid transaction takes its block with it.
         error = next((tx.error for tx in txs if tx.error is not None), None)
-        return template.copy(txs=txs, exception=error)
+        return Block(txs=txs, exception=error)
 
     @property
     def has_invalid_block(self) -> bool:
