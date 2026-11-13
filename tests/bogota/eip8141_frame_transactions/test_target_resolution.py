@@ -1,0 +1,574 @@
+"""
+Target resolution tests for
+[EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
+
+A frame runs a top-level call, which dispatches a precompile by
+address and follows an EIP-7702 designation; the default code is left
+to a `VERIFY` frame whose codeless target is no precompile. Each case
+pins the resolution through the frame receipt's `gas_used`.
+"""
+
+from functools import partial
+from typing import Callable, Dict, Optional
+
+import pytest
+from execution_testing import (
+    Account,
+    Address,
+    Alloc,
+    Bytes,
+    Fork,
+    FrameSignature,
+    Op,
+    StateTestFiller,
+    Transaction,
+    TransactionException,
+)
+
+from .helpers import (
+    FrameCase,
+    FrameTransaction,
+    Outcome,
+    default_frame,
+    sender_frame,
+    verify_frame,
+)
+from .spec import Spec, ref_spec_8141
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8141.version
+
+pytestmark = pytest.mark.valid_from("Bogota")
+
+IDENTITY = Address(0x04)
+"""The `IDENTITY` precompile, whose gas is a function of its input."""
+
+BN254_ADD = Address(0x06)
+"""The `BN254_ADD` precompile, which rejects a point off the curve."""
+
+P256VERIFY = Address(0x100)
+"""The `P256VERIFY` precompile, which sits above the low precompiles."""
+
+IN_THE_GAP = Address(0x12)
+"""Codeless address between the low precompiles and `P256VERIFY`."""
+
+OFF_THE_CURVE = b"\xff" * 128
+"""`BN254_ADD` input that is not a pair of curve points."""
+
+SLOT_CREATED = 0x01
+"""Storage slot a worker contract creates."""
+
+
+def identity_gas(fork: Fork, data: bytes) -> int:
+    """Return the gas `IDENTITY` charges for `data`."""
+    gas_costs = fork.gas_costs()
+    words = (len(data) + 31) // 32
+    return (
+        gas_costs.PRECOMPILE_IDENTITY_BASE
+        + gas_costs.PRECOMPILE_IDENTITY_PER_WORD * words
+    )
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        pytest.param(Spec.MODE_DEFAULT, id="default_mode"),
+        pytest.param(Spec.MODE_SENDER, id="sender_mode"),
+        pytest.param(Spec.MODE_VERIFY, id="verify_mode"),
+    ],
+)
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(b"", id="no_input"),
+        pytest.param(b"\x01" * 32, id="one_word"),
+        pytest.param(b"\x01" * 33, id="two_words"),
+    ],
+)
+def test_precompile_target(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    mode: int,
+    data: bytes,
+) -> None:
+    """
+    Execute the precompile a frame targets, charging the frame its
+    input-dependent gas on top of the warm frame-entry access.
+
+    A `VERIFY` frame dispatches it too, rather than reading the empty
+    code hash a precompile account carries as the default code's cue.
+    """
+    sender = pre.fund_eoa()
+    builders: Dict[int, Callable[..., FrameCase]] = {
+        Spec.MODE_DEFAULT: default_frame,
+        Spec.MODE_SENDER: sender_frame,
+        # Only the default code approves, and the precompile displaces it.
+        Spec.MODE_VERIFY: partial(verify_frame, flags=Spec.APPROVE_NONE),
+    }
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            builders[mode](
+                target=IDENTITY,
+                data=data,
+                # The precompiles seed the warm set.
+                warm=True,
+                execution_gas=identity_gas(fork, data),
+            ),
+        ],
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+def test_precompile_target_rejecting_its_input(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Fail the frame whose targeted precompile rejects its input: the
+    rejection halts the frame, which forfeits its whole gas limit.
+    """
+    sender = pre.fund_eoa()
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=BN254_ADD,
+                data=OFF_THE_CURVE,
+                outcome=Outcome.HALT,
+            ),
+        ],
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+@pytest.mark.exception_test
+def test_verify_frame_precompile_rejecting_its_input(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject the transaction whose `VERIFY` frame targets a precompile
+    that rejects its input: the dispatched precompile halts the frame,
+    and a failed `VERIFY` frame invalidates the transaction where a
+    `DEFAULT` frame's failure stays its own.
+    """
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            verify_frame(
+                flags=Spec.APPROVE_NONE,
+                target=BN254_ADD,
+                data=OFF_THE_CURVE,
+            ),
+        ],
+        error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
+    )
+
+    # The rejected transaction leaves the sender's nonce untouched.
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=0)})
+
+
+def test_verify_frame_target_above_the_precompile_gap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Dispatch `P256VERIFY` for the `VERIFY` frame that targets it: the
+    exact set of active precompiles routes the frame, not an address
+    range that stops below the gap separating it from the rest.
+    """
+    sender = pre.fund_eoa()
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            verify_frame(
+                flags=Spec.APPROVE_NONE,
+                target=P256VERIFY,
+                # The precompiles seed the warm set.
+                warm=True,
+                execution_gas=fork.gas_costs().PRECOMPILE_P256VERIFY,
+            ),
+        ],
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+@pytest.mark.exception_test
+def test_verify_frame_target_inside_the_precompile_gap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Run the default code for a `VERIFY` frame targeting a codeless
+    address in the gap below `P256VERIFY`: the default code reverts on
+    the frame's empty approval scope, rejecting the transaction. An
+    address range spanning the gap would dispatch instead and accept
+    it.
+    """
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            verify_frame(flags=Spec.APPROVE_NONE, target=IN_THE_GAP),
+        ],
+        error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
+    )
+
+    # The rejected transaction leaves the sender's nonce untouched.
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=0)})
+
+
+@pytest.mark.parametrize(
+    "warm_delegate",
+    [
+        pytest.param(False, id="cold_delegate"),
+        pytest.param(True, id="warm_delegate"),
+    ],
+)
+def test_delegated_target_entry_charge(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    warm_delegate: bool,
+) -> None:
+    """
+    Charge the access of a frame target's designated address at frame
+    entry, on top of the target's own access, warm or cold.
+    """
+    sender = pre.fund_eoa()
+    delegate = pre.deploy_contract(code=Op.STOP)
+    authority = pre.fund_eoa(delegation=delegate)
+
+    # The warming frame accesses the designated address itself, so it
+    # pays for the cold access the frame under test then avoids.
+    warming_frames = [default_frame(target=delegate)] if warm_delegate else []
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            *warming_frames,
+            default_frame(
+                target=authority,
+                delegated=True,
+                delegation_warm=warm_delegate,
+            ),
+        ],
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+TRANSFERRED_VALUE = 10**15
+"""Value the `SENDER` frame moves to a target that is not alive."""
+
+
+@pytest.mark.parametrize(
+    "affordable",
+    [
+        pytest.param(True, id="affordable"),
+        pytest.param(False, id="unaffordable"),
+    ],
+)
+def test_dead_target_entry_charge(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    affordable: bool,
+) -> None:
+    """
+    Charge the state gas of reviving a target that is not alive at
+    frame entry, from the frame's state gas budget, on top of the
+    target's own access charged to its execution gas budget.
+
+    The target has no code, so the frame runs empty code and its
+    receipt reports the entry charges alone: the target's access as
+    execution gas and the revival as state gas. Given one state gas
+    less than the revival charge, the frame never runs: it halts
+    exceptionally, forfeiting its whole execution gas budget with zero
+    state gas used, the target stays dead, and no transfer log is
+    emitted.
+    """
+    sender = pre.fund_eoa()
+    dead = pre.nonexistent_account()
+
+    revival_state_gas = fork.gas_costs().NEW_ACCOUNT
+    post: Dict[Address, Optional[Account]] = {
+        dead: (
+            Account(balance=TRANSFERRED_VALUE)
+            if affordable
+            else Account.NONEXISTENT
+        )
+    }
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            sender_frame(
+                target=dead,
+                value=TRANSFERRED_VALUE,
+                state_gas_limit=(
+                    revival_state_gas if affordable else revival_state_gas - 1
+                ),
+                outcome=Outcome.SUCCESS if affordable else Outcome.HALT,
+                state_gas_used=revival_state_gas if affordable else 0,
+            ),
+        ],
+    )
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+def test_delegated_to_precompile_target(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Run no precompile for a frame whose target designates one:
+    following a designation disables precompile dispatch, leaving the
+    frame to execute the designated address's empty code.
+    """
+    sender = pre.fund_eoa()
+    authority = pre.fund_eoa(delegation=IDENTITY)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=authority,
+                data=b"\x01" * 32,
+                delegated=True,
+                delegation_warm=True,
+            ),
+        ],
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+@pytest.mark.parametrize(
+    "affordable",
+    [
+        pytest.param(True, id="affordable"),
+        pytest.param(False, id="one_gas_short"),
+    ],
+)
+def test_frame_entry_gas_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    affordable: bool,
+) -> None:
+    """
+    Run a frame budgeted exactly its target's entry access, and one
+    budgeted a single gas less.
+
+    The target holds no code, so the entry access is the whole of the
+    frame's execution: at the exact budget the frame succeeds having
+    spent all of it, and one gas short it halts exceptionally,
+    forfeiting the budget. A `DEFAULT` frame's failure is its own, so
+    the transaction stays valid either way.
+    """
+    sender = pre.fund_eoa()
+    target = pre.fund_eoa(amount=1)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                target=target,
+                gas_limit_delta=0 if affordable else -1,
+                outcome=Outcome.SUCCESS if affordable else Outcome.HALT,
+            ),
+        ],
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+def test_entry_charge_halt_unrolls_batch(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Halt a mid-batch frame on its entry access charge.
+
+    The halt unrolls the batch like any other frame failure: the
+    executed frame keeps its status and execution gas with its state
+    gas zeroed, the halting frame forfeits its whole budget, and the
+    terminator is skipped.
+    """
+    sender = pre.fund_eoa()
+    halting_target = pre.fund_eoa(amount=1)
+
+    worker_code = Op.SSTORE(SLOT_CREATED, 1)
+    worker = pre.deploy_contract(code=worker_code)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=worker,
+                code=worker_code,
+                outcome=Outcome.UNROLLED,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            ),
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=halting_target,
+                outcome=Outcome.HALT,
+                gas_limit_delta=-1,
+            ),
+            default_frame(
+                target=worker,
+                code=worker_code,
+                outcome=Outcome.SKIPPED,
+                gas_limit_delta=0,
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            # The unroll discarded the worker's write.
+            worker: Account(storage={SLOT_CREATED: 0}),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "affordable",
+    [
+        pytest.param(True, id="affordable"),
+        pytest.param(
+            False, id="one_gas_short", marks=pytest.mark.exception_test
+        ),
+    ],
+)
+def test_default_code_entry_gas_shortfall(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    affordable: bool,
+) -> None:
+    """
+    Approve payment through a sponsor's protocol default code with the
+    sponsor's entry access barely affordable, and one gas short of it.
+
+    The entry access is charged before the frame is dispatched, so the
+    frame one gas short halts before the default code is evaluated: no
+    approval is granted, and a failed `VERIFY` frame invalidates the
+    transaction. The affordable case is the control that attributes the
+    rejection to the entry charge rather than to the sponsorship shape
+    — the same frame, one gas richer, approves and binds the payer.
+    """
+    sender = pre.fund_eoa()
+    payer = pre.fund_eoa()
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        payer=payer,
+        frames=[
+            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            # The transaction touches the sponsor nowhere else, so
+            # this frame pays the cold access.
+            verify_frame(
+                flags=Spec.APPROVE_PAYMENT,
+                target=payer,
+                gas_limit_delta=0 if affordable else -1,
+            ),
+        ],
+        signatures=[
+            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            FrameSignature(
+                scheme=Spec.SCHEME_SECP256K1,
+                signer=Bytes(payer),
+                secret_key=payer.key,
+            ),
+        ],
+        error=(
+            None
+            if affordable
+            else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=1 if affordable else 0)},
+    )
+
+
+def test_verify_frame_delegated_to_precompile_target(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Follow the designation of a `VERIFY` frame's delegated target
+    rather than running the default code: the resolved code is empty,
+    as it is for the codeless target that does route to the default
+    code, but the target itself holds a designation and so is not
+    codeless.
+
+    Deciding the default code from the resolved code hash instead would
+    run it here, revert for want of a signature entry resolving to the
+    target, and reject the transaction.
+    """
+    sender = pre.fund_eoa()
+    authority = pre.fund_eoa(delegation=IDENTITY)
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[
+            verify_frame(),
+            verify_frame(
+                flags=Spec.APPROVE_NONE,
+                target=authority,
+                delegated=True,
+                delegation_warm=True,
+            ),
+        ],
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})

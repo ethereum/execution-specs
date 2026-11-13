@@ -27,6 +27,9 @@ from execution_testing.test_types import (
     AuthorizationTuple,
     Blob,
     Environment,
+    Frame,
+    FrameFlag,
+    FrameMode,
     Transaction,
 )
 
@@ -38,6 +41,31 @@ RECIPIENT = Address(0x1000000000000000000000000000000000000001)
 # Below the EIP-7825 transaction gas cap, so a transaction over the block
 # limit is rejected for that and not for the cap.
 BLOCK_GAS_LIMIT = 1_000_000
+BASE_FEE_PER_GAS = 7
+
+# An EIP-8141 frame transfer: a `VERIFY` frame has the sender's default
+# code approve execution and payment, then a `SENDER` frame moves the
+# value. The budgets keep three transfers within the block gas limit.
+FRAME_GAS_LIMIT = 50_000
+
+
+def _frames(gas_limit: int = FRAME_GAS_LIMIT) -> List[Frame]:
+    """Return the frames of a frame transfer to the funded recipient."""
+    return [
+        Frame(
+            mode=FrameMode.VERIFY,
+            flags=FrameFlag.APPROVE_EXECUTION | FrameFlag.APPROVE_PAYMENT,
+            gas_limit=FRAME_GAS_LIMIT,
+            state_gas_limit=0,
+        ),
+        Frame(
+            mode=FrameMode.SENDER,
+            target=RECIPIENT,
+            value=1,
+            gas_limit=gas_limit,
+            state_gas_limit=0,
+        ),
+    ]
 
 
 def _type_fields(fork: Fork, tx_type: int) -> dict[str, Any]:
@@ -60,6 +88,8 @@ def _type_fields(fork: Fork, tx_type: int) -> dict[str, Any]:
                 )
             ]
         }
+    elif tx_type == 6:
+        return {"sender": EOA(key=SENDER_KEY), "frames": _frames()}
     raise NotImplementedError(
         f"{fork.name()} has transaction type {tx_type}, which this test "
         "cannot build yet. Add the fields it needs here."
@@ -79,17 +109,36 @@ def _intrinsic_gas(fork: Fork, tx_type: int) -> int:
 
 def _tx(fork: Fork, tx_type: int, **overrides: Any) -> Transaction:
     """Return a signed transfer, with some fields overridden."""
-    fields: dict[str, Any] = {
-        "ty": tx_type,
-        "nonce": 0,
-        "gas_limit": _intrinsic_gas(fork, tx_type),
-        "to": RECIPIENT,
-        "value": 1,
-        "protected": False,
-        "secret_key": SENDER_KEY,
-        **_type_fields(fork, tx_type),
-    }
+    fields: dict[str, Any] = {"ty": tx_type, "nonce": 0}
+    if tx_type == 6:
+        # A frame transaction names its sender and carries the transfer
+        # in its frames instead of the `to`, `value` and `gas_limit`
+        # fields.
+        fields.update(_type_fields(fork, tx_type))
+    else:
+        fields.update(
+            gas_limit=_intrinsic_gas(fork, tx_type),
+            to=RECIPIENT,
+            value=1,
+            protected=False,
+            secret_key=SENDER_KEY,
+            **_type_fields(fork, tx_type),
+        )
     return Transaction(**{**fields, **overrides}).with_signature_and_sender()
+
+
+def _required_max_fee(fork: Fork) -> int:
+    """
+    Return the smallest `max_fee` budget a frame transfer is admitted
+    with: its maximum gas priced at the base fee, the frame transaction's
+    counterpart of the intrinsic gas.
+    """
+    tx = _tx(fork, 6)
+    assert tx.frames is not None and tx.signatures is not None
+    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=tx.frames, signatures=tx.signatures, sender=tx.sender
+    )
+    return max_gas * BASE_FEE_PER_GAS
 
 
 def _rejection(fork: Fork, tx_type: int, rejection: str) -> dict[str, Any]:
@@ -102,10 +151,27 @@ def _rejection(fork: Fork, tx_type: int, rejection: str) -> dict[str, Any]:
     if rejection == "nonce-too-high":
         return {"nonce": 9}
     elif rejection == "insufficient-balance":
+        if tx_type == 6:
+            # A frame transaction is not checked against its payer's
+            # balance at admission: the payer's default code refuses to
+            # approve a `max_cost` above its balance, which fails the
+            # `VERIFY` frame and with it the transaction. The tip takes
+            # the whole budget, so `max_cost` is the budget itself.
+            return {
+                "max_fee": 10**18 + 1,
+                "max_priority_fee_per_gas": 10**18,
+            }
         return {"value": 10**19}
     elif rejection == "gas-below-intrinsic":
+        if tx_type == 6:
+            # A frame transaction's gas is derived from its frames, so
+            # it cannot fall short of its intrinsic gas; its budget can
+            # fall short of the base fee for that gas.
+            return {"max_fee": _required_max_fee(fork) - 1}
         return {"gas_limit": _intrinsic_gas(fork, tx_type) - 1}
     elif rejection == "gas-above-block-limit":
+        if tx_type == 6:
+            return {"frames": _frames(gas_limit=BLOCK_GAS_LIMIT + 1)}
         return {"gas_limit": BLOCK_GAS_LIMIT + 1}
     raise ValueError(f"unknown rejection: {rejection}")
 
@@ -126,7 +192,7 @@ def _run(t8n: TransitionTool, fork: Fork, txs: List[Transaction]) -> Any:
         timestamp=1000,
         difficulty=0x20000,
         prev_randao=0,
-        base_fee_per_gas=7,
+        base_fee_per_gas=BASE_FEE_PER_GAS,
         excess_blob_gas=0,
         parent_beacon_block_root=0,
         parent_difficulty=0,

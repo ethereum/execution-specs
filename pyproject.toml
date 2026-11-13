@@ -175,6 +175,7 @@ packages = [
     "ethereum.forks.amsterdam.vm.precompiled_contracts",
     "ethereum.forks.amsterdam.vm.precompiled_contracts.bls12_381",
     "ethereum.forks.bogota",
+    "ethereum.forks.bogota.transactions",
     "ethereum.forks.bogota.utils",
     "ethereum.forks.bogota.vm",
     "ethereum.forks.bogota.vm.instructions",

@@ -67,6 +67,13 @@ class BlobGasLimitExceededError(InvalidTransaction):
     """
 
 
+class InsufficientMaxFeeError(InvalidTransaction):
+    """
+    The maximum fee of a frame transaction does not cover its worst-case
+    base fee charge at the including block's base fees.
+    """
+
+
 class InsufficientMaxFeePerBlobGasError(InvalidTransaction):
     """
     The maximum fee per blob gas is insufficient for the transaction.
@@ -123,6 +130,13 @@ class PriorityFeeGreaterThanMaxFeeError(InvalidTransaction):
     """
 
 
+class FeeOverflowError(InvalidTransaction):
+    """
+    A fee field of the transaction exceeds the largest representable
+    256-bit value.
+    """
+
+
 class EmptyAuthorizationListError(InvalidTransaction):
     """
     The authorization list in the transaction is empty.
@@ -142,6 +156,55 @@ class TransactionGasLimitExceededError(InvalidTransaction):
 
     Note that this is _not_ the exception thrown when bytecode execution runs
     out of gas.
+    """
+
+
+class FrameCountError(InvalidTransaction):
+    """
+    The transaction has either too many or too few [`Frame`]s to be valid.
+
+    [`Frame`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Frame
+    """  # noqa: E501
+
+    maximum: Final[Uint]
+    """
+    Any more than this number of [`Frame`]s invalidates a transaction.
+
+    [`Frame`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Frame
+    """  # noqa: E501
+
+    actual: Final[Uint]
+    """
+    Number of [`Frame`]s actually included in the transaction.
+
+    [`Frame`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Frame
+    """  # noqa: E501
+
+    def __init__(self, actual: Uint, maximum: Uint) -> None:
+        message = (
+            f"transaction must contain between 1 and {maximum} frames, "
+            f"inclusive (got {actual})"
+        )
+
+        super().__init__(message)
+        self.maximum = maximum
+        self.actual = actual
+
+
+class InvalidFrameError(InvalidTransaction):
+    """
+    A [`Frame`] did not pass validation.
+
+    [`Frame`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Frame
+    """  # noqa: E501
+
+
+class FrameTransactionExecutionError(InvalidTransaction):
+    """
+    A frame transaction violated a validity rule that is only checkable
+    during execution: a `VERIFY` frame reverted or halted exceptionally,
+    a `SENDER` frame ran before execution approval, or no frame approved
+    gas payment.
     """
 
 
