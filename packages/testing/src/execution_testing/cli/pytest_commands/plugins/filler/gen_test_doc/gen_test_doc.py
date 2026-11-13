@@ -29,12 +29,12 @@ just docs-serve
 
 """
 
+import functools
 import glob
 import logging
 import os
 import re
 import sys
-import textwrap
 from collections import defaultdict
 from pathlib import Path
 from typing import IO, Any, Dict, List, Set, Tuple, cast
@@ -228,15 +228,34 @@ def get_docstring_one_liner(item: pytest.Item) -> str:
         return docstring[:100] + f"... {report_bad_oneliner_link}"
 
 
-def get_test_function_test_type(item: pytest.Item) -> str:
-    """Get the test type for the test function based on its fixtures."""
-    test_types: List[str] = [
+def format_bytes_param(value: bytes) -> str:
+    """
+    Format a bytes parameter value as hex in `<code>` chunks of 32 chars.
+
+    Equivalent to `textwrap.wrap(value.hex(), 32)` (hex has no whitespace)
+    but much faster; this runs for every parametrized test case.
+    """
+    hex_value = value.hex()
+    return " ".join(
+        f"<code>{hex_value[i : i + 32]}</code>"
+        for i in range(0, len(hex_value), 32)
+    )
+
+
+@functools.cache
+def _test_types() -> Tuple[str, ...]:
+    """Return the pytest parameter names of all spec types."""
+    return tuple(
         spec_type.pytest_parameter_name()
         for spec_type in BaseTest.spec_types.values()
-    ]
+    )
+
+
+def get_test_function_test_type(item: pytest.Item) -> str:
+    """Get the test type for the test function based on its fixtures."""
     item = cast(pytest.Function, item)  # help mypy infer type
     fixture_names = item.fixturenames
-    for test_type in test_types:
+    for test_type in _test_types():
         if test_type in fixture_names:
             return test_type
     logger.warning(
@@ -488,10 +507,7 @@ class TestDocsGenerator:
                     # elsewhere
                     values = [
                         (
-                            " ".join(
-                                f"<code>{chunk}</code>"
-                                for chunk in textwrap.wrap(value.hex(), 32)
-                            )
+                            format_bytes_param(value)
                             if isinstance(value, bytes)
                             else str(value)
                         )
