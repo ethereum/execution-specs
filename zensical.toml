@@ -9,7 +9,7 @@
 [project]
 site_name = "Ethereum Execution Specs"
 site_description = "The Ethereum Execution Layer Specifications and Tests"
-site_url = "https://steel.ethereum.foundation/docs/execution-specs/"
+site_url = "https://specs.ethereum.foundation/docs/execution-specs/"
 repo_url = "https://github.com/ethereum/execution-specs"
 repo_name = "execution-specs"
 copyright = "Copyright: 2026, Ethereum Community"
