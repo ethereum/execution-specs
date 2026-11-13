@@ -901,17 +901,11 @@ def calculate_excess_blob_gas(
         The excess blob gas for the current block.
 
     """
-    # Defaults for a parent without blob gas fields.
-    excess_blob_gas = U64(0)
-    blob_gas_used = U64(0)
-    base_fee_per_gas = Uint(0)
-
-    if isinstance(parent_header, (Header, PreviousHeader)):
-        # Read them from any parent that carries the fields, so
-        # accumulated excess blob gas survives a fork transition.
-        excess_blob_gas = parent_header.excess_blob_gas
-        blob_gas_used = parent_header.blob_gas_used
-        base_fee_per_gas = parent_header.base_fee_per_gas
+    # Every fork that can precede this one has the blob gas fields, so
+    # they are read directly, whichever fork the parent belongs to.
+    excess_blob_gas = parent_header.excess_blob_gas
+    blob_gas_used = parent_header.blob_gas_used
+    base_fee_per_gas = parent_header.base_fee_per_gas
 
     parent_blob_gas = excess_blob_gas + blob_gas_used
     if parent_blob_gas < GasCosts.BLOB_TARGET_GAS_PER_BLOCK:
