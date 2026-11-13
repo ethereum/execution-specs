@@ -10,6 +10,7 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
+    FrozenSet,
     List,
     Mapping,
     Optional,
@@ -269,6 +270,13 @@ class SystemCallPhase(Enum):
     NONE = "none"
     BEFORE_TRANSACTIONS = "before_transactions"
     AFTER_TRANSACTIONS = "after_transactions"
+
+
+class GasDimension(Enum):
+    """A gas dimension metered separately against the block gas limit."""
+
+    EXECUTION = auto()
+    STATE = auto()
 
 
 class BaseForkMeta(ABCMeta):
@@ -807,10 +815,10 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def block_gas_dimensions(cls) -> int:
+    def block_gas_dimensions(cls) -> FrozenSet[GasDimension]:
         """
-        Return the number of gas dimensions metered separately against the
-        block gas limit; the header's gas used is the largest of them.
+        Return the gas dimensions metered separately against the block gas
+        limit; the header's gas used is the largest of them.
         """
         pass
 

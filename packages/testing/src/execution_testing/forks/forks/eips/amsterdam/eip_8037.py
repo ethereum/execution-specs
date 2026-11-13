@@ -15,7 +15,7 @@ https://eips.ethereum.org/EIPS/eip-8037
 """
 
 from dataclasses import replace
-from typing import Callable, Dict
+from typing import Callable, Dict, FrozenSet
 
 from execution_testing.vm import (
     OpcodeBase,
@@ -23,7 +23,7 @@ from execution_testing.vm import (
     Opcodes,
 )
 
-from ....base_fork import BaseFork
+from ....base_fork import BaseFork, GasDimension
 from ....gas_costs import GasCosts
 
 STATE_BYTES_PER_NEW_ACCOUNT = 120
@@ -53,9 +53,9 @@ class EIP8037(BaseFork):
         return True
 
     @classmethod
-    def block_gas_dimensions(cls) -> int:
+    def block_gas_dimensions(cls) -> FrozenSet[GasDimension]:
         """Execution gas and state gas are metered separately."""
-        return 2
+        return super().block_gas_dimensions() | {GasDimension.STATE}
 
     @classmethod
     def transaction_total_gas_limit_cap(cls) -> int | None:
