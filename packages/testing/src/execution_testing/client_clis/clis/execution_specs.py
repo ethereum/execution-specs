@@ -226,6 +226,9 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
             "BlobCountExceededError"
         ),
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "NoBlobDataError",
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
+            "InsufficientMaxFeePerGasError"
+        ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
             "InsufficientTransactionGasError"
         ),
@@ -274,10 +277,6 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         # rather than from the transaction validation itself.
         TransactionException.INVALID_SIGNATURE_VRS: (
             r"InvalidSignatureError\('r is not the x-coordinate"
-        ),
-        # Temporary solution for issue #1981.
-        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            r"InsufficientMaxFeePerGasError|InvalidBlock"
         ),
         TransactionException.TYPE_1_TX_PRE_FORK: (
             r"module '.*transactions' has no attribute "
