@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 import pytest
 
-from execution_testing.base_types import Bloom, Bytes, Hash
+from execution_testing.base_types import Address, Bloom, Bytes, Hash
 from execution_testing.client_clis.cli_types import (
     LazyAllocJson,
     Result,
@@ -13,9 +13,11 @@ from execution_testing.client_clis.cli_types import (
 )
 from execution_testing.exceptions import BlockException
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.forks import Osaka, Requests
+from execution_testing.forks import Amsterdam, Requests
 from execution_testing.test_types import (
     Alloc,
+    BalAccountChange,
+    BlockAccessList,
     BlockAccessListExpectation,
     Environment,
     TestPhase,
@@ -32,10 +34,11 @@ from ..blockchain import (
     validate_stateful_blocks,
 )
 
-FORK = Osaka
+FORK = Amsterdam
 CLIENT_GAS_LIMIT = 30_000_000
 ENV_GAS_LIMIT = 36_000_000
 GAS_USED = 21_000
+CLIENT_BAL = BlockAccessList([])
 
 
 class _Backend:
@@ -74,6 +77,8 @@ class _Backend:
             withdrawals_root=Hash(Withdrawal.list_root([])),
             requests=[],
             requests_hash=Hash(Requests()),
+            block_access_list=CLIENT_BAL.rlp,
+            block_access_list_hash=Hash(CLIENT_BAL.rlp.keccak256()),
             **self.reported,
         )
         return TransitionToolOutput(
@@ -202,6 +207,34 @@ def test_corrupted_payload_hashes_to_the_corrupted_block() -> None:
 
     assert payload.block_hash == (
         _client_header(gas_used=GAS_USED - 1).block_hash
+    )
+
+
+def test_rewritten_block_access_list_reaches_the_block_hash() -> None:
+    """
+    The payload carries the rewritten block access list and hashes to the
+    client's block committing to it, so a client has to execute the block
+    to reject it.
+    """
+    rewritten = BlockAccessList([BalAccountChange(address=Address(1))])
+    block = _valid_block(
+        exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+        expected_block_access_list=BlockAccessListExpectation().modify(
+            lambda _: rewritten
+        ),
+    )
+
+    payload = (
+        _build(block, _client(imported=False))
+        .get_fixture_engine_new_payload()
+        .params[0]
+    )
+
+    assert payload.block_access_list == rewritten.rlp
+    assert payload.block_hash == (
+        _client_header(
+            block_access_list_hash=Hash(rewritten.rlp.keccak256())
+        ).block_hash
     )
 
 

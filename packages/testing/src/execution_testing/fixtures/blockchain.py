@@ -282,6 +282,13 @@ class FixtureHeader(CamelModel):
                         f"Field {field} is required for fork {self.fork}"
                     )
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Set a field and drop the encodings cached from the old header."""
+        super().__setattr__(name, value)
+        if name in self.__class__.model_fields:
+            for cached in ("rlp_encode_list", "rlp", "block_hash"):
+                self.__dict__.pop(cached, None)
+
     @cached_property
     def rlp_encode_list(self) -> List:
         """Compute the RLP of the header."""
