@@ -42,12 +42,6 @@ from ethereum.forks.amsterdam.stateless_guest import (
     deserialize_stateless_input,
 )
 from ethereum.forks.amsterdam.stateless_host import serialize_stateless_input
-from ethereum.forks.amsterdam.witness_state import (
-    WitnessState,
-    _decode_account_from_leaf,
-    build_code_db,
-    build_node_db,
-)
 from ethereum.incremental_mpt import (
     IncrementalMPT,
     MutableBranchNode,
@@ -67,6 +61,12 @@ from ethereum.merkle_patricia_trie import (
 )
 from ethereum.state import EMPTY_CODE_HASH, BlockDiff, Root
 from ethereum.state import Account as StateAccount
+from ethereum.state_witness import (
+    WitnessState,
+    _decode_account_from_leaf,
+    build_code_db,
+    build_node_db,
+)
 
 from .state_helpers import merge_with_amsterdam_pre_alloc
 

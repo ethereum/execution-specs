@@ -9,11 +9,6 @@ from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.amsterdam.fork_types import encode_account
-from ethereum.forks.amsterdam.witness_state import (
-    WitnessState,
-    build_code_db,
-    build_node_db,
-)
 from ethereum.incremental_mpt import (
     IncrementalMPT,
     build_mpt,
@@ -31,6 +26,11 @@ from ethereum.state import (
     Address,
     BlockDiff,
     Root,
+)
+from ethereum.state_witness import (
+    WitnessState,
+    build_code_db,
+    build_node_db,
 )
 
 _ADDR1 = Address(b"\x01" * 20)
