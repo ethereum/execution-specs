@@ -20,7 +20,7 @@ from typing import (
 
 import pytest
 from _pytest.mark.structures import ParameterSet
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from typing_extensions import Self
 
 from execution_testing.base_types import to_hex
@@ -138,6 +138,9 @@ class BaseTest(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+
+    _from_test: Type["BaseTest"] | None = PrivateAttr(default=None)
+    """The spec type this test was derived from, set by `from_test`."""
 
     fork: Fork | TransitionFork = (
         BaseFork
@@ -297,7 +300,9 @@ class BaseTest(BaseModel):
         for k in BaseTest.model_fields.keys():
             if k not in kwargs and k in base_test.model_fields_set:
                 kwargs[k] = getattr(base_test, k)
-        return cls(**kwargs)
+        instance = cls(**kwargs)
+        instance._from_test = type(base_test)
+        return instance
 
     @classmethod
     def discard_execute_format_by_marks(
