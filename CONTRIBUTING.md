@@ -45,7 +45,7 @@ If you are an EIP author or part of an EL client or tooling team, message us in 
 
 ## Code of Conduct
 
-All contributors are expected to be excellent to each other; other behavior is not tolerated. To report a concern, contact one of the [STEEL team members](https://steel.ethereum.foundation/team/).
+All contributors are expected to be excellent to each other; other behavior is not tolerated. To report a concern, contact one of the [Specs team members](https://specs.ethereum.foundation/team/).
 
 ## Principles
 

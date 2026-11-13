@@ -4,7 +4,7 @@ Welcome to the documentation for the Ethereum Execution Layer Specifications (EE
 
 EELS is implemented as a readable executable reference in Python that serves as a source of truth for developers across the Ethereum ecosystem and underpins the generation of test vectors used to ensure Execution Layer client implementations are spec-compliant.
 
-EELS is a collaborative effort between Ethereum Improvement Proposals (EIP) authors, protocol researchers, prototype implementers and client developers, maintained in @ethereum/execution-specs by the [STEEL Team](https://steel.ethereum.foundation/).
+EELS is a collaborative effort between Ethereum Improvement Proposals (EIP) authors, protocol researchers, prototype implementers and client developers, maintained in @ethereum/execution-specs by the [Specs team](https://specs.ethereum.foundation/).
 
 ## Where to Start
 

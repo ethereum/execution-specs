@@ -18,7 +18,7 @@ class DocsConfig(BaseModel):
     """The fork until which documentation should be generated."""
 
     DOCS_BASE_URL: str = (
-        "https://steel.ethereum.foundation/docs/execution-specs"
+        "https://specs.ethereum.foundation/docs/execution-specs"
     )
 
     # Documentation URLs prefixed with `DOCS_URL__` to avoid conflicts with

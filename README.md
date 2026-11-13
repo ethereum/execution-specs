@@ -36,7 +36,7 @@ Python 3.11–3.14 are supported; 3.12 tends to be the smoothest for local setup
 
 ## Documentation
 
-- **Repo documentation (default branch/fork)**: <https://steel.ethereum.foundation/docs/execution-specs/>
+- **Repo documentation (default branch/fork)**: <https://specs.ethereum.foundation/docs/execution-specs/>
 - **Protocol history**: [docs/specs/protocol_history.md](docs/specs/protocol_history.md)
 - **Versioning scheme**: [docs/specs/spec_releases.md](docs/specs/spec_releases.md) (PEP 440 compatible; hardfork encoded in the minor version, `rcN` marks devnets).
 
@@ -49,7 +49,7 @@ Earnest contributions are welcome; drive-by contributions are not. See [CONTRIBU
 - [Writing Specs](docs/specs/writing_specs.md): Style rules and `ethereum_spec_tools` utilities for changes under `src/ethereum/`.
 - [Writing Tests](docs/writing_tests/index.md): For guidance on adding consensus tests under `./tests/`.
 
-This repository is maintained by the [STEEL Team](https://steel.ethereum.foundation/) at the Ethereum Foundation.
+This repository is maintained by the [Specs team](https://specs.ethereum.foundation/) at the Ethereum Foundation.
 
 ## Community and Support
 
@@ -57,7 +57,7 @@ Discussion around the initial specification of protocol changes happens on [Ethe
 
 For tracking the status of upcoming Ethereum upgrades, see [Forkcast](https://forkcast.org/): EIP inclusion, client implementation progress, and ACD call summaries.
 
-For other help, see the [Documentation](#documentation) section above, or reach out to one of the [STEEL team members](https://steel.ethereum.foundation/team/) in the Ethereum R&D Discord.
+For other help, see the [Documentation](#documentation) section above, or reach out to one of the [Specs team members](https://specs.ethereum.foundation/team/) in the Ethereum R&D Discord.
 
 ### Related projects
 
