@@ -620,21 +620,31 @@ def boot_managed_client(
     environment: dict[str, str],
     client_genesis: dict[str, Any],
     total_timing_data: "TimingData",
+    request: pytest.FixtureRequest,
 ) -> Client:
     """
     Start a client and register it with the manager under `identifier`.
 
     `identifier` is usually a group's, but any unique key works; the
     session-end cleanup stops every registered client.
+
+    A client that fails to start fails the test that `request` belongs
+    to in hive, too. The `client` fixtures that call this are set up
+    before `hive_test`, so a failed start would otherwise end the setup
+    before the test reaches hive.
     """
-    with total_timing_data.time("Start client"):
-        resolved_client = start_hive_client(
-            multi_test_hive_test,
-            identifier,
-            client_type,
-            environment,
-            client_genesis,
-        )
+    try:
+        with total_timing_data.time("Start client"):
+            resolved_client = start_hive_client(
+                multi_test_hive_test,
+                identifier,
+                client_type,
+                environment,
+                client_genesis,
+            )
+    except Exception:
+        request.getfixturevalue("hive_test")
+        raise
     multi_test_client_manager.register_client(identifier, resolved_client)
     return resolved_client
 
@@ -669,6 +679,7 @@ def group_client(
             environment,
             client_genesis,
             total_timing_data,
+            request,
         )
     try:
         yield resolved_client
