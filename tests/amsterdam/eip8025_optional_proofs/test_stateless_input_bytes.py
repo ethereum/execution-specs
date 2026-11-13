@@ -13,13 +13,13 @@ from execution_testing import (
     Transaction,
 )
 
-from ethereum.forks.amsterdam.stateless import (
-    MAX_BYTES_PER_HEADER,
-    MAX_WITNESS_HEADERS,
-    StatelessInput,
-)
+from ethereum.forks.amsterdam.stateless import StatelessInput
 from ethereum.forks.amsterdam.stateless_guest import (
     deserialize_stateless_input,
+)
+from ethereum.stateless.types import (
+    MAX_BYTES_PER_HEADER,
+    MAX_WITNESS_HEADERS,
 )
 
 from .gas_helpers import empty_account_value_transfer_gas_limit

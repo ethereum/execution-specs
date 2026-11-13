@@ -27,15 +27,10 @@ from ethereum.forks.amsterdam.execution_engine.validation_helpers import (
 )
 from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.forks.amsterdam.stateless import (
-    MAX_BYTES_PER_CODE,
-    MAX_BYTES_PER_HEADER,
-    MAX_BYTES_PER_WITNESS_NODE,
-    MAX_WITNESS_HEADERS,
     STATELESS_INPUT_SCHEMA_FORK_INDEX,
     STATELESS_INPUT_SCHEMA_ID,
     STATELESS_INPUT_SCHEMA_ID_BYTES,
     STATELESS_INPUT_SCHEMA_REVISION,
-    ExecutionWitness,
     ProtocolFork,
     StatelessInput,
     StatelessValidationResult,
@@ -53,6 +48,13 @@ from ethereum.forks.amsterdam.stateless_host import (
 )
 from ethereum.forks.amsterdam.transactions import LegacyTransaction
 from ethereum.state import Address, Root
+from ethereum.stateless.types import (
+    MAX_BYTES_PER_CODE,
+    MAX_BYTES_PER_HEADER,
+    MAX_BYTES_PER_WITNESS_NODE,
+    MAX_WITNESS_HEADERS,
+    ExecutionWitness,
+)
 
 _RNG = random.Random(0xDEADBEEF)
 

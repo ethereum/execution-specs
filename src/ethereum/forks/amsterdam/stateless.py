@@ -4,7 +4,7 @@ Stateless validation interfaces.
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Annotated, List, Sequence, Tuple, final
+from typing import List, Sequence, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -15,13 +15,8 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.state import Root
 from ethereum.state_witness import WitnessState, build_code_db, build_node_db
-from ethereum.utils.ssz import (
-    ProgressiveSszContainer,
-    SszContainer,
-    byte_list,
-    progressive_list,
-    ssz_list,
-)
+from ethereum.stateless.types import MAX_WITNESS_HEADERS, ExecutionWitness
+from ethereum.utils.ssz import ProgressiveSszContainer, SszContainer
 
 from .blocks import Header
 from .execution_engine.new_payload import execute_new_payload_request
@@ -29,46 +24,6 @@ from .execution_engine.requests import ExecutionRequests
 from .execution_engine.types import NewPayloadRequest
 from .fork import ChainContext
 from .fork_types import VersionedHash
-
-MAX_WITNESS_HEADERS = 256
-MAX_BYTES_PER_CODE = 2**16
-MAX_BYTES_PER_HEADER = 2**10
-MAX_BYTES_PER_WITNESS_NODE = 2**10
-
-
-@final
-@slotted_freezable
-@dataclass
-class ExecutionWitness(SszContainer):
-    """
-    Execution witness data for stateless validation.
-    """
-
-    state: Annotated[
-        Tuple[Annotated[Bytes, byte_list(MAX_BYTES_PER_WITNESS_NODE)], ...],
-        progressive_list(),
-    ]
-    """
-    Hashed trie-node preimages needed during execution and state-root
-    recomputation.
-    """
-
-    codes: Annotated[
-        Tuple[Annotated[Bytes, byte_list(MAX_BYTES_PER_CODE)], ...],
-        progressive_list(),
-    ]
-    """
-    Contract-code preimages (created or accessed) needed during execution.
-    """
-
-    headers: Annotated[
-        Tuple[Annotated[Bytes, byte_list(MAX_BYTES_PER_HEADER)], ...],
-        ssz_list(MAX_WITNESS_HEADERS),
-    ]
-    """
-    RLP-encoded block headers used for pre-state and ``BLOCKHASH`` correctness
-    proofs. This may trend toward empty EIP-7709.
-    """
 
 
 @final

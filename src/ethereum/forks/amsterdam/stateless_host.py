@@ -9,6 +9,7 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.stateless.types import ExecutionWitness
 
 from .block_access_lists import BlockAccessList
 from .blocks import Block
@@ -17,7 +18,6 @@ from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import VersionedHash
 from .stateless import (
     STATELESS_INPUT_SCHEMA_ID_BYTES,
-    ExecutionWitness,
     StatelessInput,
     StatelessValidationResult,
 )

@@ -2,6 +2,7 @@
 Loader for code from the relevant fork.
 """
 
+from dataclasses import fields
 from importlib import import_module
 from inspect import signature
 from typing import Any, Final
@@ -161,18 +162,12 @@ class ForkLoad:
 
     @property
     def has_execution_witness(self) -> bool:
-        """Check if the fork has an `ExecutionWitness` type."""
-        try:
-            module = self._module("stateless")
-        except ModuleNotFoundError:
-            return False
-        return hasattr(module, "ExecutionWitness")
-
-    @property
-    def build_execution_witness(self) -> Any:
-        """Build function of the fork."""
-        mod = self._module("stateless_host_exec_witness")
-        return mod.build_execution_witness
+        """
+        Check if the fork's `BlockState` tracks code reads, which the shared
+        witness builder needs.
+        """
+        block_state = self._module("state_tracker").BlockState
+        return "code_reads" in {field.name for field in fields(block_state)}
 
     @property
     def BlockAccessIndex(self) -> Any:
