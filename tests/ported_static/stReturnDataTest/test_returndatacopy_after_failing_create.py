@@ -9,12 +9,9 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
-    Fork,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,17 +26,19 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 def test_returndatacopy_after_failing_create(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Returndatacopy after failing create case due to 0xfd code."""
-    sender = pre.fund_eoa(amount=0x6400000000)
+    sender = pre.fund_eoa()
 
     # Source: lll
     # { (MSTORE 0 0x600260005260206000fd) (create 0 22 10) (SSTORE 0 (RETURNDATASIZE)) (RETURNDATACOPY 0 0 32) (SSTORE 1 (MLOAD 0)) }  # noqa: E501
+    initcode = Op.MSTORE(offset=0, value=2) + Op.REVERT(offset=0, size=32)
     target = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x600260005260206000FD)
-        + Op.POP(Op.CREATE(value=0x0, offset=0x16, size=0xA))
+        code=Op.MSTORE(offset=0, value=int.from_bytes(bytes(initcode), "big"))
+        + Op.POP(
+            Op.CREATE(value=0, offset=32 - len(initcode), size=len(initcode))
+        )
         + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
         + Op.RETURNDATACOPY(dest_offset=0x0, offset=0x0, size=0x20)
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
@@ -50,8 +49,6 @@ def test_returndatacopy_after_failing_create(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
-        gas_limit=2100000 if fork >= Amsterdam else 100000,
     )
 
     post = {target: Account(storage={0: 32, 1: 2})}

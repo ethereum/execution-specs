@@ -20,6 +20,7 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
+    GasFee,
     StateTestFiller,
     Transaction,
 )
@@ -34,14 +35,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refundFFFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_refund_ff(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0xE8D6599218, nonce=1)
+    sender = pre.fund_eoa()
 
     addr = pre.fund_eoa(amount=0)
     # Source: yul
@@ -59,7 +59,6 @@ def test_refund_ff(
         to=target,
         data=Bytes("00"),
         gas_limit=2601000,
-        nonce=1,
         gas_price=1000,
         access_list=[],
     )
@@ -81,6 +80,8 @@ def test_refund_ff(
     )
     gas_used_delta = selfdestruct_delta + intrinsic_delta
 
-    post = {sender: Account(balance=0xE8D4A51000 - 1000 * gas_used_delta)}
+    post = {
+        sender: Account(balance_change=-GasFee(tx, gas=28607 + gas_used_delta))
+    }
 
     state_test(pre=pre, post=post, tx=tx)

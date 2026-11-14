@@ -8,10 +8,8 @@ state_tests/stExample/invalidTrFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -27,24 +25,18 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.exception_test
-@pytest.mark.pre_alloc_mutable
 def test_invalid_tr(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """A state test with invalid transaction example filler."""
-    coinbase = Address(0x7704D8A022A1BA8F3539FC82C7D7FB065ABC0DF3)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    sender = pre.fund_eoa()
 
-    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[0]] (ADD 1 1) }
     target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP,
-        balance=0xDE0B6B3A7640000,
     )
-
-    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
@@ -60,4 +52,4 @@ def test_invalid_tr(
         sender: Account(nonce=0),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

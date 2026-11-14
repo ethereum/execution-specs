@@ -8,10 +8,9 @@ state_tests/stRefundTest/refund_OOGFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
+    GasFee,
     StateTestFiller,
     Transaction,
 )
@@ -25,32 +24,18 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refund_OOGFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_refund_oog(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_refund_oog."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0x7A120)
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[ 1 ]] 0 }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -62,9 +47,8 @@ def test_refund_oog(
     )
 
     post = {
-        target: Account(storage={1: 1}, balance=0xDE0B6B3A7640000),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0x3A94E, nonce=1),
+        target: Account(storage={1: 1}, balance_change=0),
+        sender: Account(balance_change=-GasFee(tx, gas=tx.gas_limit)),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

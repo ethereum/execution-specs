@@ -8,10 +8,9 @@ state_tests/stRefundTest/refund_CallA_OOGFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
+    GasFee,
     StateTestFiller,
     Transaction,
 )
@@ -25,36 +24,22 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refund_CallA_OOGFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_refund_call_a_oog(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_refund_call_a_oog."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0x2DC6C0)
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[ 1 ]] 0 }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
     # Source: lll
     # { [[ 0 ]] (CALL 6000 <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 )}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
@@ -69,8 +54,6 @@ def test_refund_call_a_oog(
         )
         + Op.STOP,
         storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -82,10 +65,9 @@ def test_refund_call_a_oog(
     )
 
     post = {
-        target: Account(storage={1: 1}, balance=0xDE0B6B3A7640000),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0x29091E, nonce=1),
+        target: Account(storage={1: 1}, balance_change=0),
+        sender: Account(balance_change=-GasFee(tx, gas=tx.gas_limit)),
         addr: Account(storage={1: 1}),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

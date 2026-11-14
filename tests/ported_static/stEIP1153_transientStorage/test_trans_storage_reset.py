@@ -216,7 +216,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_trans_storage_reset(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -226,7 +225,7 @@ def test_trans_storage_reset(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
+    sender = pre.fund_eoa()
 
     # Source: yul
     # {
@@ -716,7 +715,6 @@ def test_trans_storage_reset(
         to=target,
         data=tx_data[d],
         gas_limit=tx_gas[g],
-        nonce=1,
         error=_exc,
     )
 

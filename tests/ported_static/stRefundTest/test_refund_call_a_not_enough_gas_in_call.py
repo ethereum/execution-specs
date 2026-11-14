@@ -5,23 +5,21 @@ Ported from:
 state_tests/stRefundTest/refund_CallA_notEnoughGasInCallFiller.json
 
 @manually-enhanced: Do not overwrite. The post-state asserts the sender
-balance, which equals its start minus `gas_used * gas_price`. The inner
-CALL is starved of gas so its SSTORE clear always reverts (no refund
-survives); the only surviving repricing is in the outer frame, where
-EIP-8038 raises the `COLD_ACCOUNT_ACCESS` charged by the CALL and
-the cold no-op SSTORE of slot 0. Derive both deltas from the fork gas
-model (0 pre-EIP-8037) and subtract
-`gas_price * (call_access_delta + outer_sstore_delta)` from the Cancun
-balance; do not hardcode the Amsterdam value.
+fee, `gas_used * gas_price`. The inner CALL is starved of gas so its
+SSTORE clear always reverts (no refund survives); the only surviving
+repricing is in the outer frame, where EIP-8038 raises the
+`COLD_ACCOUNT_ACCESS` charged by the CALL and the cold no-op SSTORE of
+slot 0. Derive both deltas from the fork gas model (0 pre-EIP-8037) and
+add `call_access_delta + outer_sstore_delta` to the Cancun gas used; do
+not hardcode the Amsterdam value.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
+    GasFee,
     StateTestFiller,
     Transaction,
 )
@@ -36,37 +34,23 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refund_CallA_notEnoughGasInCallFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_refund_call_a_not_enough_gas_in_call(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Test_refund_call_a_not_enough_gas_in_call."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0xF4240)
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[ 1 ]] 0 }
-    addr = pre.deploy_contract(  # noqa: F841
+    addr = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
     # Source: lll
     # { [[ 0 ]] (CALL 5005 <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 )}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
@@ -81,8 +65,6 @@ def test_refund_call_a_not_enough_gas_in_call(
         )
         + Op.STOP,
         storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -109,10 +91,11 @@ def test_refund_call_a_not_enough_gas_in_call(
     gas_used_delta = call_access_delta + outer_sstore_delta
 
     post = {
-        target: Account(storage={1: 1}, balance=0xDE0B6B3A764000A),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0xA8DF4 - 10 * gas_used_delta, nonce=1),
+        target: Account(storage={1: 1}, balance_change=tx.value),
+        sender: Account(
+            balance_change=-tx.value - GasFee(tx, gas=30829 + gas_used_delta)
+        ),
         addr: Account(storage={1: 1}),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

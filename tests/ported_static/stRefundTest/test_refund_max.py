@@ -20,6 +20,7 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
+    GasFee,
     StateTestFiller,
     Transaction,
 )
@@ -34,14 +35,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refundMaxFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_refund_max(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0xE8D848C3A0, nonce=1)
+    sender = pre.fund_eoa()
 
     # Source: yul
     # berlin
@@ -81,7 +81,6 @@ def test_refund_max(
             6: 24743,
             7: 24743,
         },
-        balance=0xDE0B6B3A7640000,
         nonce=1,
     )
 
@@ -90,7 +89,6 @@ def test_refund_max(
         to=target,
         data=Bytes("00"),
         gas_limit=2601000,
-        nonce=1,
         gas_price=1000,
         access_list=[],
     )
@@ -109,6 +107,8 @@ def test_refund_max(
     gross_delta = 8 * cold_clear_delta + intrinsic_delta
     extra_gas_used = gross_delta * 4 // 5
 
-    post = {sender: Account(balance=0xE8D55F7E90 - 1000 * extra_gas_used)}
+    post = {
+        sender: Account(balance_change=-GasFee(tx, gas=48842 + extra_gas_used))
+    }
 
     state_test(pre=pre, post=post, tx=tx)

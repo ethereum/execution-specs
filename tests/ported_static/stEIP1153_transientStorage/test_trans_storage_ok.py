@@ -7,12 +7,8 @@ state_tests/Cancun/stEIP1153_transientStorage/transStorageOKFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -133,7 +129,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_trans_storage_ok(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -143,33 +138,8 @@ def test_trans_storage_ok(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x00000000000000000000000000000000EBD141D5)
-    contract_1 = Address(0x000000000000000000000000000000006E3A7204)
-    contract_2 = Address(0x00000000000000000000000000000000C1C922F1)
-    contract_3 = Address(0x00000000000000000000000000000000CA11BACC)
-    contract_4 = Address(0x000000000000000000000000000000005114E2C8)
-    contract_5 = Address(0x00000000000000000000000000000000264BB86A)
-    contract_6 = Address(0x000000000000000000000000000000007074A486)
-    contract_7 = Address(0x000000000000000000000000000000000000ADD1)
-    contract_8 = Address(0x000000000000000000000000000000007F9317BD)
-    contract_9 = Address(0x00000000000000000000000000000000C54B5829)
-    contract_10 = Address(0x00000000000000000000000000000000000057A7)
-    contract_11 = Address(0x000000000000000000000000000000005D7935DF)
-    sender = EOA(
-        key=0x48DC5A9F099CAAAA557742CA3A990A94BE45B9969126A1BC74E5E8BE5A2B5B47
-    )
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
     # Source: yul
     # {
     #     // These two functions use transient storage.
@@ -202,7 +172,7 @@ def test_trans_storage_ok(
     #          revert(0,0)
     #       }
     # ... (15 more lines)
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.JUMPI(pc=0x33, condition=Op.EQ(Op.CALLER, Op.ADDRESS))
         + Op.JUMPDEST
         + Op.JUMPI(pc=0xE, condition=Op.SUB(Op.CALLER, Op.ADDRESS))
@@ -279,7 +249,6 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address(0x00000000000000000000000000000000EBD141D5),  # noqa: E501
     )
     # Source: yul
     # {
@@ -313,7 +282,7 @@ def test_trans_storage_ok(
     #     // If called by a different address, we are the first call and need
     #     // to setup Trans[0] before starting the loop.
     # ... (15 more lines)
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.JUMPI(pc=0x33, condition=Op.EQ(Op.CALLER, Op.ADDRESS))
         + Op.JUMPDEST
         + Op.JUMPI(pc=0xE, condition=Op.SUB(Op.CALLER, Op.ADDRESS))
@@ -390,7 +359,6 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address(0x000000000000000000000000000000006E3A7204),  # noqa: E501
     )
     # Source: yul
     # {
@@ -424,7 +392,7 @@ def test_trans_storage_ok(
     #     // If called by a different address, we are the first call and need
     #     // to setup Trans[0] before starting the loop.
     # ... (15 more lines)
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.JUMPI(pc=0x33, condition=Op.EQ(Op.CALLER, Op.ADDRESS))
         + Op.JUMPDEST
         + Op.JUMPI(pc=0xE, condition=Op.SUB(Op.CALLER, Op.ADDRESS))
@@ -500,7 +468,6 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address(0x00000000000000000000000000000000C1C922F1),  # noqa: E501
     )
     # Source: yul
     # {
@@ -518,7 +485,7 @@ def test_trans_storage_ok(
     #     sstore(1, tload_temp(1))
     #     pop(call(gas(), caller(), 0, 0,0, 0,0))
     # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code=Op.PUSH1[0x6]
         + Op.PUSH0
         + Op.JUMP(pc=0x1D)
@@ -547,7 +514,6 @@ def test_trans_storage_ok(
         + Op.JUMP,
         storage={0: 24743, 1: 24743},
         nonce=1,
-        address=Address(0x00000000000000000000000000000000CA11BACC),  # noqa: E501
     )
     # Source: yul
     # {
@@ -581,7 +547,7 @@ def test_trans_storage_ok(
     #       // the previous call
     #       tstore_temp(0, sub(counter, 1))
     # ... (22 more lines)
-    contract_5 = pre.deploy_contract(  # noqa: F841
+    contract_5 = pre.deploy_contract(
         code=Op.JUMPI(pc=0x33, condition=Op.EQ(Op.CALLER, Op.ADDRESS))
         + Op.JUMPDEST
         + Op.JUMPI(pc=0xE, condition=Op.SUB(Op.CALLER, Op.ADDRESS))
@@ -681,7 +647,6 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address(0x00000000000000000000000000000000264BB86A),  # noqa: E501
     )
     # Source: yul
     # {
@@ -715,7 +680,7 @@ def test_trans_storage_ok(
     #
     #       // We need to repair Trans[0] because it got overwritten in
     # ... (25 more lines)
-    contract_6 = pre.deploy_contract(  # noqa: F841
+    contract_6 = pre.deploy_contract(
         code=Op.JUMPI(pc=0x33, condition=Op.EQ(Op.CALLER, Op.ADDRESS))
         + Op.JUMPDEST
         + Op.JUMPI(pc=0xE, condition=Op.SUB(Op.CALLER, Op.ADDRESS))
@@ -814,7 +779,6 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address(0x000000000000000000000000000000007074A486),  # noqa: E501
     )
     # Source: yul
     # {
@@ -828,7 +792,7 @@ def test_trans_storage_ok(
     #
     #     tstore_temp(0, add(tload_temp(0), 1))
     # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
+    contract_7 = pre.deploy_contract(
         code=Op.PUSH1[0x10]
         + Op.PUSH1[0x1]
         + Op.PUSH1[0xA]
@@ -848,7 +812,6 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address(0x000000000000000000000000000000000000ADD1),  # noqa: E501
     )
     # Source: yul
     # {
@@ -882,7 +845,7 @@ def test_trans_storage_ok(
     #     )
     #
     # ... (32 more lines)
-    contract_9 = pre.deploy_contract(  # noqa: F841
+    contract_9 = pre.deploy_contract(
         code=Op.JUMPI(pc=0x81, condition=Op.ISZERO(Op.CALLDATASIZE))
         + Op.JUMPI(pc=0x74, condition=Op.SUB(Op.ADDRESS, Op.CALLER))
         + Op.JUMPDEST
@@ -972,7 +935,6 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address(0x00000000000000000000000000000000C54B5829),  # noqa: E501
     )
     # Source: yul
     # {
@@ -994,7 +956,7 @@ def test_trans_storage_ok(
     #     mstore(0, tload_temp(0))
     #     return(0,32)
     # }
-    contract_10 = pre.deploy_contract(  # noqa: F841
+    contract_10 = pre.deploy_contract(
         code=Op.JUMPI(pc=0x12, condition=Op.CALLDATASIZE)
         + Op.JUMPDEST
         + Op.PUSH1[0xB]
@@ -1019,32 +981,16 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address(0x00000000000000000000000000000000000057A7),  # noqa: E501
     )
-    # Source: yul
-    # {
-    #   let func := shr(224, calldataload(0))
-    #   let param := calldataload(4)
-    #   sstore(0, func)
-    #   mstore(0, param)
-    #   sstore(1, call(gas(), func, 0, 0,32, 0,0))
-    # }
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH0
-        + Op.DUP1
-        + Op.PUSH1[0x20]
-        + Op.DUP2
-        + Op.DUP1
-        + Op.SHR(0xE0, Op.CALLDATALOAD(offset=Op.DUP1))
-        + Op.CALLDATALOAD(offset=0x4)
-        + Op.SSTORE(key=Op.DUP4, value=Op.DUP2)
-        + Op.DUP3
-        + Op.MSTORE
-        + Op.GAS
-        + Op.SSTORE(key=0x1, value=Op.CALL)
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.CALLDATALOAD(offset=0x0))
+        + Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x20))
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.CALL(address=Op.CALLDATALOAD(offset=0x0), args_size=0x20),
+        )
         + Op.STOP,
         nonce=1,
-        address=Address(0xDD53B677A6FD4E871A6355F283B1BD7CEB95A95E),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1078,23 +1024,25 @@ def test_trans_storage_ok(
     #
     #     // If called by a different address from 0xca11bacc, we are the first
     # ... (12 more lines)
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(pc=0x3F, condition=Op.EQ(Op.CALLER, 0xCA11BACC))
+    contract_4 = pre.deploy_contract(
+        code=Op.JUMPI(
+            pc=0x6F, condition=Op.EQ(Op.CALLER, Op.PUSH20[contract_3])
+        )
         + Op.JUMPDEST
-        + Op.JUMPI(pc=0x16, condition=Op.SUB(Op.CALLER, 0xCA11BACC))
+        + Op.JUMPI(pc=0x36, condition=Op.SUB(Op.CALLER, Op.PUSH20[contract_3]))
         + Op.STOP
         + Op.JUMPDEST
-        + Op.PUSH1[0x23]
+        + Op.PUSH1[0x43]
         + Op.CALLDATALOAD(offset=Op.PUSH0)
         + Op.SSTORE(key=0x1, value=Op.DUP1)
         + Op.PUSH0
-        + Op.JUMP(pc=0x7F)
+        + Op.JUMP(pc=0xBF)
         + Op.JUMPDEST
         + Op.SSTORE(
             key=0x2,
             value=Op.CALL(
                 gas=Op.GAS,
-                address=0xCA11BACC,
+                address=Op.PUSH20[contract_3],
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -1102,41 +1050,41 @@ def test_trans_storage_ok(
                 ret_size=Op.PUSH0,
             ),
         )
-        + Op.PUSH1[0x3A]
+        + Op.PUSH1[0x6A]
         + Op.PUSH1[0x1]
-        + Op.JUMP(pc=0x7B)
+        + Op.JUMP(pc=0xBB)
         + Op.JUMPDEST
         + Op.PUSH1[0x3]
         + Op.SSTORE
         + Op.STOP
         + Op.JUMPDEST
-        + Op.PUSH1[0x46]
+        + Op.PUSH1[0x76]
         + Op.PUSH0
-        + Op.JUMP(pc=0x7B)
+        + Op.JUMP(pc=0xBB)
         + Op.JUMPDEST
-        + Op.JUMPI(pc=0x79, condition=Op.ISZERO(Op.DUP1))
+        + Op.JUMPI(pc=0xB9, condition=Op.ISZERO(Op.DUP1))
         + Op.PUSH1[0x1]
         + Op.DUP2
-        + Op.PUSH1[0x60]
-        + Op.PUSH1[0x66]
+        + Op.PUSH1[0x90]
+        + Op.PUSH1[0x96]
         + Op.SWAP4
-        + Op.PUSH1[0x5A]
+        + Op.PUSH1[0x8A]
         + Op.DUP5
-        + Op.JUMP(pc=0x7B)
+        + Op.JUMP(pc=0xBB)
         + Op.JUMPDEST
         + Op.ADD
         + Op.DUP4
-        + Op.JUMP(pc=0x7F)
+        + Op.JUMP(pc=0xBF)
         + Op.JUMPDEST
         + Op.SUB
         + Op.PUSH0
-        + Op.JUMP(pc=0x7F)
+        + Op.JUMP(pc=0xBF)
         + Op.JUMPDEST
         + Op.JUMPI(
-            pc=0xA,
+            pc=0x1A,
             condition=Op.CALL(
                 gas=Op.GAS,
-                address=0xCA11BACC,
+                address=Op.PUSH20[contract_3],
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -1155,7 +1103,6 @@ def test_trans_storage_ok(
         + Op.TSTORE
         + Op.JUMP,
         nonce=1,
-        address=Address(0x000000000000000000000000000000005114E2C8),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1183,10 +1130,10 @@ def test_trans_storage_ok(
     #     sstore(0x13, call(gas(), 0xadd1, 0, 0,0, 0,0))
     #     sstore(3, tload_temp(0))
     # }
-    contract_8 = pre.deploy_contract(  # noqa: F841
+    contract_8 = pre.deploy_contract(
         code=Op.PUSH1[0x6]
         + Op.PUSH0
-        + Op.JUMP(pc=0x4E)
+        + Op.JUMP(pc=0x84)
         + Op.JUMPDEST
         + Op.PUSH0
         + Op.SSTORE
@@ -1194,7 +1141,7 @@ def test_trans_storage_ok(
             key=0x11,
             value=Op.CALLCODE(
                 gas=Op.GAS,
-                address=0xADD1,
+                address=Op.PUSH20[contract_7],
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -1202,9 +1149,9 @@ def test_trans_storage_ok(
                 ret_size=Op.PUSH0,
             ),
         )
-        + Op.PUSH1[0x1C]
+        + Op.PUSH1[0x2E]
         + Op.PUSH0
-        + Op.JUMP(pc=0x4E)
+        + Op.JUMP(pc=0x84)
         + Op.JUMPDEST
         + Op.PUSH1[0x1]
         + Op.SSTORE
@@ -1212,16 +1159,16 @@ def test_trans_storage_ok(
             key=0x12,
             value=Op.DELEGATECALL(
                 gas=Op.GAS,
-                address=0xADD1,
+                address=Op.PUSH20[contract_7],
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
                 ret_offset=Op.DUP1,
                 ret_size=Op.PUSH0,
             ),
         )
-        + Op.PUSH1[0x32]
+        + Op.PUSH1[0x56]
         + Op.PUSH0
-        + Op.JUMP(pc=0x4E)
+        + Op.JUMP(pc=0x84)
         + Op.JUMPDEST
         + Op.PUSH1[0x2]
         + Op.SSTORE
@@ -1229,7 +1176,7 @@ def test_trans_storage_ok(
             key=0x13,
             value=Op.CALL(
                 gas=Op.GAS,
-                address=0xADD1,
+                address=Op.PUSH20[contract_7],
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -1237,9 +1184,9 @@ def test_trans_storage_ok(
                 ret_size=Op.PUSH0,
             ),
         )
-        + Op.PUSH1[0x49]
+        + Op.PUSH1[0x7F]
         + Op.PUSH0
-        + Op.JUMP(pc=0x4E)
+        + Op.JUMP(pc=0x84)
         + Op.JUMPDEST
         + Op.PUSH1[0x3]
         + Op.SSTORE
@@ -1250,7 +1197,6 @@ def test_trans_storage_ok(
         + Op.JUMP,
         storage={0: 24743},
         nonce=1,
-        address=Address(0x000000000000000000000000000000007F9317BD),  # noqa: E501
     )
     # Source: yul
     # {
@@ -1268,12 +1214,12 @@ def test_trans_storage_ok(
     #     sstore(0x12,staticcall(gas(), 0x57A7, 0,1, 0,32))
     #     sstore(2, mload(0))
     # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
+    contract_11 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x10,
             value=Op.CALL(
                 gas=Op.GAS,
-                address=0x57A7,
+                address=contract_10,
                 value=Op.DUP1,
                 args_offset=Op.DUP2,
                 args_size=0x1,
@@ -1287,7 +1233,7 @@ def test_trans_storage_ok(
             key=0x11,
             value=Op.STATICCALL(
                 gas=Op.GAS,
-                address=0x57A7,
+                address=contract_10,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
                 ret_offset=Op.PUSH0,
@@ -1300,7 +1246,7 @@ def test_trans_storage_ok(
             key=0x12,
             value=Op.STATICCALL(
                 gas=Op.GAS,
-                address=0x57A7,
+                address=contract_10,
                 args_offset=Op.DUP2,
                 args_size=0x1,
                 ret_offset=Op.PUSH0,
@@ -1311,7 +1257,6 @@ def test_trans_storage_ok(
         + Op.STOP,
         storage={2: 24743, 18: 24743},
         nonce=1,
-        address=Address(0x000000000000000000000000000000005D7935DF),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
@@ -1418,40 +1363,40 @@ def test_trans_storage_ok(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("ebd141d5") + Hash(0x10),
-        Bytes("6e3a7204") + Hash(0x10),
-        Bytes("c1c922f1") + Hash(0x10),
-        Bytes("ebd141d5") + Hash(0x100),
-        Bytes("5114e2c8") + Hash(0xA),
-        Bytes("5114e2c8") + Hash(0x32),
-        Bytes("264bb86a") + Hash(0x6),
-        Bytes("7074a486") + Hash(0x6),
-        Bytes("7f9317bd"),
-        Bytes("c54b5829")
+        Hash(contract_0, left_padding=True) + Hash(0x10),
+        Hash(contract_1, left_padding=True) + Hash(0x10),
+        Hash(contract_2, left_padding=True) + Hash(0x10),
+        Hash(contract_0, left_padding=True) + Hash(0x100),
+        Hash(contract_4, left_padding=True) + Hash(0xA),
+        Hash(contract_4, left_padding=True) + Hash(0x32),
+        Hash(contract_5, left_padding=True) + Hash(0x6),
+        Hash(contract_6, left_padding=True) + Hash(0x6),
+        Hash(contract_8, left_padding=True),
+        Hash(contract_9, left_padding=True)
         + Hash(
             0xF2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F2F4F1F1F1
         ),
-        Bytes("c54b5829")
+        Hash(contract_9, left_padding=True)
         + Hash(
             0xF1F1F1F1F2F2F2F2F4F4F4F4F1F1F1F1F2F2F2F2F4F4F4F4F1F1F1F1F2F2F2F2
         ),
-        Bytes("c54b5829")
+        Hash(contract_9, left_padding=True)
         + Hash(
             0xF1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1
         ),
-        Bytes("c54b5829")
+        Hash(contract_9, left_padding=True)
         + Hash(
             0xF1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1
         ),
-        Bytes("c54b5829")
+        Hash(contract_9, left_padding=True)
         + Hash(
             0xF2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2F2
         ),
-        Bytes("c54b5829")
+        Hash(contract_9, left_padding=True)
         + Hash(
             0xF4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4F4
         ),
-        Bytes("5d7935df"),
+        Hash(contract_11, left_padding=True),
     ]
     tx_gas = [16777216]
 
@@ -1460,8 +1405,7 @@ def test_trans_storage_ok(
         to=target,
         data=tx_data[d],
         gas_limit=tx_gas[g],
-        nonce=1,
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -5,22 +5,21 @@ Ported from:
 state_tests/stRefundTest/refund_multimpleSuicideFiller.json
 
 @manually-enhanced: Do not overwrite. The post-state asserts the sender
-balance, which the original fixture hardcoded as 0x61EC43A. EIP-2780
-decomposes the intrinsic cost and lowers it for non-self, non-value
-txs, so the balance is derived from the fork model instead: take
+fee, whose gas the original fixture hardcoded. EIP-2780 decomposes the
+intrinsic cost and lowers it for non-self, non-value txs, so the gas is
+derived from the fork model instead: take
 `fork.transaction_intrinsic_cost_calculator()()` minus the pre-EIP-2780
-baseline 21_000, then add `gas_price (10) * |delta|` back to the sender
-(the delta is negative on Amsterdam). This keeps the adjustment exactly
-0 pre-EIP-2780. Do not hardcode the Amsterdam value.
+baseline 21_000, then add that delta to the Cancun gas used (it is
+negative on Amsterdam). This keeps the adjustment exactly 0
+pre-EIP-2780. Do not hardcode the Amsterdam value.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
+    GasFee,
     StateTestFiller,
     Transaction,
 )
@@ -35,29 +34,17 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refund_multimpleSuicideFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_refund_multimple_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Test_refund_multimple_suicide."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0x623A7C0)
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: raw
     # 0x606060405260e060020a600035046309e587a58114610031578063c04062261461004d578063dd4f1f2a1461005a575b005b61002f3373ffffffffffffffffffffffffffffffffffffffff16ff5b6100f5600061010961005e565b61002f5b60003090508073ffffffffffffffffffffffffffffffffffffffff166309e587a56040518160e060020a0281526004018090506000604051808303816000876161da5a03f1156100025750604080517f09e587a500000000000000000000000000000000000000000000000000000000815290516004828101926000929190829003018183876161da5a03f1156100025750505050565b604080519115158252519081900360200190f35b5060019056  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x40, value=0x60)
         + Op.DIV(Op.CALLDATALOAD(offset=0x0), Op.EXP(0x2, 0xE0))
         + Op.JUMPI(pc=Op.PUSH2[0x31], condition=Op.EQ(Op.DUP2, 0x9E587A5))
@@ -152,7 +139,6 @@ def test_refund_multimple_suicide(
         + Op.SWAP1
         + Op.JUMP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -163,13 +149,13 @@ def test_refund_multimple_suicide(
     )
 
     # EIP-2780 lowers the intrinsic for non-self non-value txs; the
-    # delta is negative on Amsterdam and raises the sender balance by
-    # ``gas_price * |delta|``.
+    # delta is negative on Amsterdam and lowers the gas used by ``|delta|``.
     intrinsic_delta = fork.transaction_intrinsic_cost_calculator()() - 21_000
     post = {
         target: Account(balance=0xDE0B6B3A7640000),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0x61EC43A - 10 * intrinsic_delta, nonce=1),
+        sender: Account(
+            balance_change=-GasFee(tx, gas=32039 + intrinsic_delta)
+        ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

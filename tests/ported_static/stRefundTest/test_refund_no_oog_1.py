@@ -6,23 +6,21 @@ state_tests/stRefundTest/refund_NoOOG_1Filler.json
 
 @manually-enhanced: Do not overwrite. The transaction supplies exactly
 enough gas to clear one cold storage slot (1 -> 0) and no more (the "no
-out-of-gas" boundary). EIP-8038 raises the cold SSTORE-clear charge,
-so the gas limit must rise by that charge delta to keep the slot
-clearing instead of running out of gas. The asserted sender balance
-equals its start minus `gas_used * gas_price`, and `gas_used` is the
-gross gas minus the storage-clear refund (capped by EIP-3529 only at
-Amsterdam). Both the gas limit bump and the balance shift are derived
-from the fork gas model and are exactly 0 pre-EIP-8037; do not hardcode
-the Amsterdam values.
+out-of-gas" boundary). EIP-8038 raises the cold SSTORE-clear charge, so
+the gas limit must rise by that charge delta to keep the slot clearing
+instead of running out of gas. The asserted sender fee is `gas_used *
+gas_price`, and `gas_used` is the gross gas minus the storage-clear
+refund (capped by EIP-3529 only at Amsterdam). Both the gas limit bump
+and the gas used shift are derived from the fork gas model and are
+exactly 0 pre-EIP-8037; do not hardcode the Amsterdam values.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
+    GasFee,
     StateTestFiller,
     Transaction,
 )
@@ -37,33 +35,19 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refund_NoOOG_1Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_refund_no_oog_1(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Test_refund_no_oog_1."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0xA03F70)
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[ 1 ]] 0 }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     # EIP-8038 raises the cold SSTORE-clear charge and EIP-2780 shifts
@@ -117,8 +101,9 @@ def test_refund_no_oog_1(
 
     post = {
         target: Account(storage={}),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0x9D0314 - 10 * gas_used_delta, nonce=1),
+        sender: Account(
+            balance_change=-GasFee(tx, gas=21206 + gas_used_delta)
+        ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

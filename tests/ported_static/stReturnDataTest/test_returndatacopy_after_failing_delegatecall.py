@@ -8,9 +8,7 @@ state_tests/stReturnDataTest/returndatacopy_after_failing_delegatecallFiller.jso
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
 )
@@ -26,21 +24,17 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_returndatacopy_after_failing_delegatecall(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_returndatacopy_after_failing_delegatecall."""
-    addr = Address(0x905C744ACAF4D8F5436C9C5E91E0626D44ADD821)
-    sender = pre.fund_eoa(amount=0x6400000000)
+    sender = pre.fund_eoa()
 
-    pre[addr] = Account(balance=0x100000)
     # Source: raw
     # 0xfd
     addr_3 = pre.deploy_contract(
         code=Op.REVERT,
-        balance=0x6400000000,
     )
     # Source: lll
     # { (DELEGATECALL 10000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) (RETURNDATACOPY 0x0 0x0 32) ( SSTORE 0 (MLOAD 0))}  # noqa: E501
@@ -65,8 +59,7 @@ def test_returndatacopy_after_failing_delegatecall(
 
     tx = Transaction(
         sender=sender,
-        to=addr,
-        data=Bytes(""),
+        to=addr_2,
         gas_limit=100000,
     )
 

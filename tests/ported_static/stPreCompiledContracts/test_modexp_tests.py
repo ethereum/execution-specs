@@ -797,7 +797,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_modexp_tests(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -807,7 +806,7 @@ def test_modexp_tests(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
+    sender = pre.fund_eoa()
 
     # Source: yul
     # berlin
@@ -866,7 +865,6 @@ def test_modexp_tests(
         + Op.SUB
         + Op.SSTORE(key=0x1, value=Op.SUB)
         + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
         nonce=1,
     )
 
@@ -1215,7 +1213,6 @@ def test_modexp_tests(
         to=target,
         data=tx_data[d],
         gas_limit=tx_gas[g],
-        nonce=1,
         error=_exc,
     )
 

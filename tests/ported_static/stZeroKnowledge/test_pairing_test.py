@@ -177,7 +177,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_pairing_test(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -187,7 +186,7 @@ def test_pairing_test(
     v: int,
 ) -> None:
     """Test_pairing_test."""
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
+    sender = pre.fund_eoa()
 
     # Source: lll
     # {(MSTORE 32 (CALLDATALOAD 32)) (MSTORE 64 (CALLDATALOAD 64)) (MSTORE 96 (CALLDATALOAD 96)) (MSTORE 128 (CALLDATALOAD 128)) (MSTORE 160 (CALLDATALOAD 160)) (MSTORE 192 (CALLDATALOAD 192)) (MSTORE 224 (CALLDATALOAD 224)) (MSTORE 256 (CALLDATALOAD 256)) (MSTORE 288 (CALLDATALOAD 288)) (MSTORE 320 (CALLDATALOAD 320)) (MSTORE 352 (CALLDATALOAD 352)) (MSTORE 384 (CALLDATALOAD 384)) (MSTORE 416 (CALLDATALOAD 416)) (MSTORE 448 (CALLDATALOAD 448)) (MSTORE 480 (CALLDATALOAD 480)) (MSTORE 512 (CALLDATALOAD 512)) (MSTORE 544 (CALLDATALOAD 544)) (MSTORE 576 (CALLDATALOAD 576)) (MSTORE 608 (CALLDATALOAD 608)) (MSTORE 640 (CALLDATALOAD 640)) (MSTORE 672 (CALLDATALOAD 672)) (MSTORE 704 (CALLDATALOAD 704)) (MSTORE 736 (CALLDATALOAD 736)) [[0]](CALLCODE 500000 8 0 32 (CALLDATALOAD 0) 1000 32)  [[1]] (MLOAD 1000) }  # noqa: E501
@@ -566,7 +565,6 @@ def test_pairing_test(
         to=contract_0,
         data=tx_data[d],
         gas_limit=tx_gas[g],
-        nonce=1,
         error=_exc,
     )
 

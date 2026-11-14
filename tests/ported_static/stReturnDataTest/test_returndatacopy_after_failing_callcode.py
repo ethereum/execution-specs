@@ -8,9 +8,7 @@ state_tests/stReturnDataTest/returndatacopy_after_failing_callcodeFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
 )
@@ -26,21 +24,17 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_returndatacopy_after_failing_callcode(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_returndatacopy_after_failing_callcode."""
-    addr = Address(0x285D0814904BEBB3B4ADD3B531A07647C2D08F59)
-    sender = pre.fund_eoa(amount=0x6400000000)
+    sender = pre.fund_eoa()
 
-    pre[addr] = Account(balance=0x10000000)
     # Source: raw
     # 0xfd
     addr_2 = pre.deploy_contract(
         code=Op.REVERT,
-        balance=0x6400000000,
     )
     # Source: lll
     # {  (CALLCODE 0 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0 0) (RETURNDATACOPY 0x0 0x0 32) (SSTORE 0 (MLOAD 0))}  # noqa: E501
@@ -65,7 +59,6 @@ def test_returndatacopy_after_failing_callcode(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=100000,
     )
 

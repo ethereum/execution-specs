@@ -178,7 +178,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_too_long_return_data_copy(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -188,7 +187,7 @@ def test_too_long_return_data_copy(
     v: int,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000, nonce=1)
+    sender = pre.fund_eoa()
 
     # Source: yul
     # berlin
@@ -305,7 +304,6 @@ def test_too_long_return_data_copy(
         + Op.SSTORE(key=0x0, value=0xDEAD)
         + Op.STOP,
         storage={0: 24743},
-        balance=0xDE0B6B3A7640000,
         nonce=1,
     )
 
@@ -461,7 +459,6 @@ def test_too_long_return_data_copy(
         to=target,
         data=tx_data[d],
         gas_limit=tx_gas[g],
-        nonce=1,
         gas_price=100,
         error=_exc,
     )

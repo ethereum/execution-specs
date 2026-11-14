@@ -5,24 +5,23 @@ Ported from:
 state_tests/stRefundTest/refund_getEtherBackFiller.json
 
 @manually-enhanced: Do not overwrite. The post-state asserts the sender
-balance, which equals its start minus `gas_used * gas_price`. The
-contract clears one cold storage slot (1 -> 0); EIP-8038 raises the cold
-SSTORE-clear charge and `REFUND_STORAGE_CLEAR`. The EIP-3529 refund cap
-(`gas_used // 5`) does not bind at Cancun but does at Amsterdam, so the
-shift is modeled from the fork gas model: reconstruct the cap-bounded
-`gas_used` from the fork-invariant non-SSTORE gross gas plus the fork
-SSTORE charge minus the capped refund, and subtract the same expression
-evaluated with the pre-repricing Cancun charges (so the adjustment is
-exactly 0 pre-EIP-8037). Do not hardcode the Amsterdam value.
+fee, `gas_used * gas_price`. The contract clears one cold storage slot
+(1 -> 0); EIP-8038 raises the cold SSTORE-clear charge and
+`REFUND_STORAGE_CLEAR`. The EIP-3529 refund cap (`gas_used // 5`) does
+not bind at Cancun but does at Amsterdam, so the shift is modeled from
+the fork gas model: reconstruct the cap-bounded `gas_used` from the
+fork-invariant non-SSTORE gross gas plus the fork SSTORE charge minus
+the capped refund, and subtract the same expression evaluated with the
+pre-repricing Cancun charges (so the adjustment is exactly 0
+pre-EIP-8037). Do not hardcode the Amsterdam value.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
+    GasFee,
     StateTestFiller,
     Transaction,
 )
@@ -37,33 +36,19 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refund_getEtherBackFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_refund_get_ether_back(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Test_refund_get_ether_back."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0x3CF773D0)
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=228500,
-    )
-
-    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[ 1 ]] 0 }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -114,9 +99,10 @@ def test_refund_get_ether_back(
     )
 
     post = {
-        target: Account(storage={}, balance=0xDE0B6B3A764000A),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0x3CF4376A - 10 * gas_used_delta, nonce=1),
+        target: Account(storage={}, balance_change=tx.value),
+        sender: Account(
+            balance_change=-tx.value - GasFee(tx, gas=21206 + gas_used_delta)
+        ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

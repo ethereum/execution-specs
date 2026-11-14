@@ -22,6 +22,7 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
+    GasFee,
     StateTestFiller,
     Transaction,
 )
@@ -36,14 +37,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refundSSTOREFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_refund_sstore(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0xE8D631F190, nonce=1)
+    sender = pre.fund_eoa()
 
     # Source: yul
     # berlin
@@ -53,7 +53,6 @@ def test_refund_sstore(
     target = pre.deploy_contract(
         code=Op.SSTORE(key=Op.DUP1, value=0x0) + Op.STOP,
         storage={0: 24743},
-        balance=0xDE0B6B3A7640000,
         nonce=1,
     )
 
@@ -62,7 +61,6 @@ def test_refund_sstore(
         to=target,
         data=Bytes("00"),
         gas_limit=2601000,
-        nonce=1,
         gas_price=1000,
         access_list=[],
     )
@@ -110,6 +108,8 @@ def test_refund_sstore(
         cancun_base_gross,
     )
 
-    post = {sender: Account(balance=0xE8D4EE4E00 - 1000 * gas_used_delta)}
+    post = {
+        sender: Account(balance_change=-GasFee(tx, gas=21210 + gas_used_delta))
+    }
 
     state_test(pre=pre, post=post, tx=tx)

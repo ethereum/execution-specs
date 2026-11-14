@@ -8,10 +8,9 @@ state_tests/stRefundTest/refund_TxToSuicideOOGFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
+    GasFee,
     StateTestFiller,
     Transaction,
 )
@@ -25,33 +24,20 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRefundTest/refund_TxToSuicideOOGFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_refund_tx_to_suicide_oog(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_refund_tx_to_suicide_oog."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0x5F5E100)
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { (SELFDESTRUCT 0x095e7baea6a6c7c4c2dfeb977efac326af552d87) }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
         + Op.STOP,
         storage={1: 1},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
@@ -63,9 +49,8 @@ def test_refund_tx_to_suicide_oog(
     )
 
     post = {
-        coinbase: Account(balance=0),
-        sender: Account(balance=0x5F2AC9C, nonce=1),
+        sender: Account(balance_change=-GasFee(tx, gas=tx.gas_limit)),
         target: Account(storage={1: 1}, balance=0xDE0B6B3A7640000),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
