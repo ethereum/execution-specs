@@ -480,6 +480,10 @@ class Block(Header):
     """EIP-7928: override only the engine newPayload blockAccessList field."""
     engine_new_payload_slot_number: HexNumber | None = None
     """EIP-7843: override only the engine payload slotNumber field."""
+    engine_new_payload_block_hash: Hash | None = None
+    """Override only the engine payload blockHash (a hash mismatch)."""
+    engine_new_payload_parent_hash: Hash | None = None
+    """Override only the engine payload parentHash."""
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
 
@@ -517,6 +521,10 @@ class Block(Header):
             overrides.append("engine_new_payload_block_access_list")
         if self.engine_new_payload_slot_number is not None:
             overrides.append("engine_new_payload_slot_number")
+        if self.engine_new_payload_block_hash is not None:
+            overrides.append("engine_new_payload_block_hash")
+        if self.engine_new_payload_parent_hash is not None:
+            overrides.append("engine_new_payload_parent_hash")
         if (
             self.expected_block_access_list is not None
             and self.expected_block_access_list.has_rlp_modifier
@@ -634,6 +642,8 @@ class BuiltBlock(CamelModel):
     block_access_list: BlockAccessList | None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
+    engine_new_payload_block_hash: Hash | None = None
+    engine_new_payload_parent_hash: Hash | None = None
 
     def record_landings(self, context: RecordedPostStateContext) -> None:
         """Record in `context` that this block's transactions landed."""
@@ -720,35 +730,41 @@ class BuiltBlock(CamelModel):
         """
         Propagate header changes and explicit overrides to the engine payload.
 
-        The engine ``ExecutionPayload`` schema does not carry
+        Every explicit ``engine_new_payload_*`` override is applied. The
+        engine ``ExecutionPayload`` schema does not carry
         ``block_access_list_hash`` directly; the corresponding payload
         field is the ``block_access_list`` body. Removing the header hash
         therefore removes the payload field. Adding or changing the hash
         is reflected in ``blockHash`` without synthesizing a BAL body.
         """
-        if self.engine_new_payload_slot_number is not None:
-            return FixtureExecutionPayloadModifier(
-                slot_number=self.engine_new_payload_slot_number,
-            )
-        if self.engine_new_payload_block_access_list is not None:
-            return FixtureExecutionPayloadModifier(
-                block_access_list=self.engine_new_payload_block_access_list,
-            )
-        if self.rlp_modifier is None:
-            return None
-        bal_hash_override = self.rlp_modifier.block_access_list_hash
-        if bal_hash_override is None:
-            return None
-        if bal_hash_override is Header.REMOVE_FIELD:
-            return FixtureExecutionPayloadModifier(
-                block_access_list=(
-                    FixtureExecutionPayloadModifier.REMOVE_FIELD
+        overrides: Dict[str, Any] = {
+            name: value
+            for name, value in (
+                ("slot_number", self.engine_new_payload_slot_number),
+                (
+                    "block_access_list",
+                    self.engine_new_payload_block_access_list,
                 ),
+                ("block_hash", self.engine_new_payload_block_hash),
+                ("parent_hash", self.engine_new_payload_parent_hash),
             )
-        # Do not introduce an unsupported pre-fork payload field when the
-        # intended defect is the header hash. API field-presence tests use
-        # an explicit engine_new_payload_block_access_list override.
-        return None
+            if value is not None
+        }
+        # Only a removed header hash changes the payload: a changed hash shows
+        # in blockHash, and synthesizing a body would add an unsupported
+        # pre-fork payload field. API field-presence tests use an explicit
+        # engine_new_payload_block_access_list override.
+        if (
+            "block_access_list" not in overrides
+            and self.rlp_modifier is not None
+            and self.rlp_modifier.block_access_list_hash is Header.REMOVE_FIELD
+        ):
+            overrides["block_access_list"] = (
+                FixtureExecutionPayloadModifier.REMOVE_FIELD
+            )
+        if not overrides:
+            return None
+        return FixtureExecutionPayloadModifier(**overrides)
 
     def get_fixture_engine_new_payload(self) -> FixtureEngineNewPayload:
         """Get a FixtureEngineNewPayload from the built block."""
@@ -1441,6 +1457,10 @@ class BlockchainTest(BaseTest):
             engine_new_payload_slot_number=(
                 block.engine_new_payload_slot_number
             ),
+            engine_new_payload_block_hash=block.engine_new_payload_block_hash,
+            engine_new_payload_parent_hash=(
+                block.engine_new_payload_parent_hash
+            ),
         )
         built_block: BuiltBlock
         if transition_tool_output.engine_payload is not None:
@@ -1461,6 +1481,8 @@ class BlockchainTest(BaseTest):
                 and block.requests is None
                 and not block.skip_exception_verification
                 and block.engine_new_payload_slot_number is None
+                and block.engine_new_payload_block_hash is None
+                and block.engine_new_payload_parent_hash is None
                 and not block.sets_block_access_list()
             ):
                 # Only verify block level exception if: - No transaction

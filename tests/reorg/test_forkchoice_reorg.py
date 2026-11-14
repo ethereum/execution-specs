@@ -1,0 +1,517 @@
+"""
+Sibling, invalid-side-chain and finalized-boundary forkchoice tests.
+
+Source mapping and port limitations: ``tests/reorg/README.md``
+(test_forkchoice_reorg.py section).
+
+- Sibling reorg: switch head between two blocks at the same height and verify
+  state, head labels and canonical mapping follow the forkchoice.
+- Invalid side chain: a side chain with one execution-invalid block; the
+  invalid block and everything built on it must never become canonical.
+- execution-apis#786 forkchoice semantics: no-reorg shortcut only below
+  finalized; rewind to a canonical ancestor above finalized is a real reorg
+  (or ``-38006``); finalized regression and inconsistent forkchoice states.
+"""
+
+from typing import List
+
+import pytest
+from execution_testing import (
+    Alloc,
+    BlockException,
+    EngineAPIError,
+    Hash,
+    Header,
+    Op,
+    Transaction,
+)
+from execution_testing.fixtures.reorg import (
+    AccountExpectation,
+    AssertCanonicalStep,
+    AssertHeadStep,
+    AssertStateStep,
+    ForkchoiceUpdatedStep,
+    NewPayloadStep,
+    Outcome,
+    Step,
+)
+from execution_testing.specs import ReorgBlock, ReorgTestFiller
+
+from .helpers import build_attrs, chain, reorg_outcomes
+
+REFERENCE_SPEC_GIT_PATH = "src/engine/paris.md"
+REFERENCE_SPEC_VERSION = "execution-apis#786"
+
+DISPUTED_SHORTCUT_VS_38002 = (
+    "execution-apis#891: order of the no-reorg shortcut (step 2) and -38002 "
+    "(step 5) when head is below finalized"
+)
+DISPUTED_SHORTCUT_VS_38006 = (
+    "execution-apis#891: order of the no-reorg shortcut (step 2) and -38006 "
+    "(step 6) when head is below finalized"
+)
+
+
+@pytest.mark.valid_from("Shanghai")
+def test_sibling_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
+    r"""
+    Genesis <- a1 <- a2.
+                 \\- b2.
+
+    Head moves a2 -> b2 -> a2; the recipient balances, ``latest`` and the
+    block at height 2 must follow each forkchoice update.
+    """
+    sender = pre.fund_eoa()
+    recipient_a = pre.fund_eoa(amount=0)
+    recipient_b = pre.fund_eoa(amount=0)
+
+    blocks = [
+        ReorgBlock(
+            label="a1",
+            txs=[Transaction(sender=sender, nonce=0, to=recipient_a, value=1)],
+        ),
+        ReorgBlock(
+            label="a2",
+            txs=[Transaction(sender=sender, nonce=1, to=recipient_a, value=2)],
+        ),
+        ReorgBlock(
+            label="b2",
+            parent="a1",
+            txs=[Transaction(sender=sender, nonce=1, to=recipient_b, value=3)],
+        ),
+    ]
+
+    on_a2 = [
+        AssertCanonicalStep(blocks={2: "a2"}),
+        AssertStateStep(
+            accounts={
+                recipient_a: AccountExpectation(balance=3),
+                recipient_b: AccountExpectation(balance=0),
+            }
+        ),
+        # a2 is canonical here: state "at" its own label must match "latest".
+        AssertStateStep(
+            at="a2",
+            accounts={
+                recipient_a: AccountExpectation(balance=3),
+                recipient_b: AccountExpectation(balance=0),
+            },
+        ),
+    ]
+    on_b2 = [
+        AssertCanonicalStep(blocks={2: "b2"}),
+        AssertStateStep(
+            accounts={
+                recipient_a: AccountExpectation(balance=1),
+                recipient_b: AccountExpectation(balance=3),
+            }
+        ),
+        # b2 is canonical here: state "at" its own label must match "latest".
+        AssertStateStep(
+            at="b2",
+            accounts={
+                recipient_a: AccountExpectation(balance=1),
+                recipient_b: AccountExpectation(balance=3),
+            },
+        ),
+    ]
+
+    steps: List[Step] = [
+        NewPayloadStep(block="a1"),
+        ForkchoiceUpdatedStep(head="a1"),
+        NewPayloadStep(block="a2"),
+        ForkchoiceUpdatedStep(head="a2", branches={"applied": list(on_a2)}),
+        NewPayloadStep(block="b2"),
+        # Same-height sibling: depth-1 reorg, must be applied by every client.
+        ForkchoiceUpdatedStep(
+            head="b2",
+            expect=[
+                Outcome(id="applied", status="VALID", latest_valid_hash="b2")
+            ],
+            branches={"applied": list(on_b2)},
+        ),
+        ForkchoiceUpdatedStep(
+            head="a2",
+            expect=[
+                Outcome(id="applied", status="VALID", latest_valid_hash="a2")
+            ],
+            branches={"applied": list(on_a2)},
+        ),
+    ]
+
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
+
+
+@pytest.mark.valid_from("Shanghai")
+def test_storage_across_multi_block_reorgs(
+    reorg_test: ReorgTestFiller, pre: Alloc
+) -> None:
+    r"""
+    Storage written on two multi-block branches follows every reorg.
+
+    Erigon ``TestReorgOverStateChange`` and hive's reorg state checks: one
+    contract, starting with slot0 = 7 and slot1 = 5, written on two 2-block
+    branches. Every call first copies slot0 into slot2, then stores a value:
+
+    genesis <- a1 (slot0 = 17) <- a2 (slot1 cleared)
+            \\- b1 (slot0 = 19) <- b2 (slot0 = 29) <- b3 (slot0 = 41)
+
+    Storage is checked after each switch (A, B, A, B), after b3 continues
+    execution from the restored state, and after a rewind to b1 and the
+    redo to b3.
+
+    reth's Ethereum engine answers a rewind to a canonical ancestor VALID
+    and keeps its head (``apply_chain_update``), which #786 does not allow,
+    so it is expected to fail the last two checks:
+    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
+    """
+    contract = pre.deploy_contract(
+        Op.SSTORE(2, Op.SLOAD(0))
+        + Op.SSTORE(Op.CALLDATALOAD(0), Op.CALLDATALOAD(32)),
+        storage={0: 7, 1: 5},
+    )
+
+    def branch(writes: List[tuple[str, int, int]]) -> List[ReorgBlock]:
+        sender = pre.fund_eoa()
+        return [
+            ReorgBlock(
+                label=label,
+                parent="genesis" if nonce == 0 else None,
+                txs=[
+                    Transaction(
+                        sender=sender,
+                        nonce=nonce,
+                        to=contract,
+                        data=Hash(slot) + Hash(value),
+                    )
+                ],
+            )
+            for nonce, (label, slot, value) in enumerate(writes)
+        ]
+
+    blocks = branch([("a1", 0, 17), ("a2", 1, 0)]) + branch(
+        [("b1", 0, 19), ("b2", 0, 29), ("b3", 0, 41)]
+    )
+
+    def select(
+        label: str, storage: tuple[int, int, int], rewind: bool = False
+    ) -> ForkchoiceUpdatedStep:
+        return ForkchoiceUpdatedStep(
+            head=label,
+            expect=[
+                Outcome(
+                    id="applied",
+                    status="VALID",
+                    latest_valid_hash=label,
+                    head_moved=True if rewind else None,
+                )
+            ],
+            branches={
+                "applied": [
+                    AssertStateStep(
+                        accounts={
+                            contract: AccountExpectation(
+                                storage={
+                                    Hash(slot): Hash(value)
+                                    for slot, value in enumerate(storage)
+                                }
+                            )
+                        }
+                    )
+                ]
+            },
+        )
+
+    a, b, b1, b3 = (17, 0, 17), (29, 5, 19), (19, 5, 7), (41, 5, 29)
+    steps: List[Step] = [
+        NewPayloadStep(block="a1"),
+        ForkchoiceUpdatedStep(head="a1"),
+        NewPayloadStep(block="a2"),
+        select("a2", a),
+        NewPayloadStep(block="b1"),
+        NewPayloadStep(block="b2"),
+        select("b2", b),
+        select("a2", a),
+        select("b2", b),
+        NewPayloadStep(block="b3"),
+        select("b3", b3),
+        select("b1", b1, rewind=True),
+        select("b3", b3),
+    ]
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
+
+
+@pytest.mark.valid_from("Shanghai")
+@pytest.mark.parametrize("invalid_index", [1, 3, 5])
+def test_invalid_side_chain(
+    reorg_test: ReorgTestFiller, pre: Alloc, invalid_index: int
+) -> None:
+    r"""
+    Genesis <- a1 .. a5                 (canonical).
+           \\- s1 .. s5                 (side chain, s_k invalid).
+
+    ``newPayload(s_k)`` is INVALID with ``latestValidHash`` = s_{k-1}, or
+    ACCEPTED (the side chain does not extend the canonical one, so the
+    client may skip validation); later side blocks are INVALID, SYNCING or
+    ACCEPTED; ``forkchoiceUpdated(s5)`` must not make the side chain
+    canonical; the canonical chain keeps working.
+    """
+    blocks, steps = chain(pre, "a", 5)
+
+    side_sender = pre.fund_eoa()
+    side_recipient = pre.fund_eoa(amount=0)
+    for i in range(1, 6):
+        kwargs: dict = {}
+        if i == invalid_index:
+            kwargs = dict(
+                rlp_modifier=Header(state_root=Hash(1)),
+                exception=[
+                    BlockException.INVALID_STATE_ROOT,
+                    BlockException.INVALID_BLOCK_HASH,
+                ],
+            )
+        blocks.append(
+            ReorgBlock(
+                label=f"s{i}",
+                parent="genesis" if i == 1 else f"s{i - 1}",
+                txs=[
+                    Transaction(
+                        sender=side_sender,
+                        nonce=i - 1,
+                        to=side_recipient,
+                        value=1,
+                    )
+                ],
+                **kwargs,
+            )
+        )
+
+    last_valid = "genesis" if invalid_index == 1 else f"s{invalid_index - 1}"
+    invalid_or_syncing = [
+        Outcome(id="invalid", status="INVALID", latest_valid_hash=last_valid),
+        Outcome(id="syncing", status="SYNCING"),
+    ]
+    after_invalid = [
+        *invalid_or_syncing,
+        Outcome(id="accepted", status="ACCEPTED", latest_valid_hash="null"),
+    ]
+    for i in range(1, 6):
+        # Model-derived up to the invalid block; after it, whether the parent
+        # was seen as INVALID, ACCEPTED or not at all.
+        steps.append(
+            NewPayloadStep(
+                block=f"s{i}",
+                expect=after_invalid if i > invalid_index else [],
+            )
+        )
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="s5",
+            expect=invalid_or_syncing,
+            branches={"syncing": [AssertHeadStep(latest="a5")]},
+        )
+    )
+    # Canonical chain is unaffected and still progresses.
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="a5",
+            expect=[
+                Outcome(id="applied", status="VALID", latest_valid_hash="a5")
+            ],
+            branches={
+                "applied": [
+                    AssertCanonicalStep(
+                        blocks={i: f"a{i}" for i in range(1, 6)}
+                    ),
+                    AssertStateStep(
+                        accounts={
+                            side_recipient: AccountExpectation(balance=0)
+                        }
+                    ),
+                ]
+            },
+        )
+    )
+
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
+
+
+@pytest.mark.valid_from("Shanghai")
+def test_fcu_below_finalized_with_inconsistent_state(
+    reorg_test: ReorgTestFiller, pre: Alloc
+) -> None:
+    """
+    #786 case (a): finalized = a5, then FCU(head=a2, safe=a2, finalized=a5).
+
+    a2 is an ancestor of finalized so the no-reorg shortcut (step 2) applies
+    and yields VALID; but a5 is not on a2's chain so step 5 would yield
+    ``-38002``, and a client that does not take the optional shortcut may
+    treat the request as a backwards reorg and refuse with ``-38006`` (step
+    6). Which applies is unspecified (execution-apis#891), so the errors
+    are disputed. Either way the head must not move.
+
+    First FCU(head=a2) with zero safe and finalized, without and with
+    payload attributes, takes the shortcut on its own: VALID with
+    ``latestValidHash`` = a2, the head stays a10 and no build starts; a
+    client that skips the shortcut refuses with ``-38006`` (disputed, as
+    above).
+    """
+    blocks, steps = chain(pre, "a", 10)
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="a10",
+            safe="a10",
+            finalized="a5",
+            expect=[
+                Outcome(id="applied", status="VALID", latest_valid_hash="a10")
+            ],
+        )
+    )
+    for attributes in (None, build_attrs(0x02)):
+        steps.append(
+            ForkchoiceUpdatedStep(
+                head="a2",
+                payload_attributes=attributes,
+                expect=[
+                    Outcome(
+                        id="noop",
+                        status="VALID",
+                        latest_valid_hash="a2",
+                        payload_id="null",
+                        head_moved=False,
+                    ),
+                    Outcome(
+                        id="refused",
+                        error_code=EngineAPIError.TooDeepReorg,
+                        disputed=DISPUTED_SHORTCUT_VS_38006,
+                    ),
+                ],
+            )
+        )
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="a2",
+            safe="a2",
+            finalized="a5",
+            expect=[
+                Outcome(id="noop", status="VALID", latest_valid_hash="a2"),
+                Outcome(
+                    id="inconsistent",
+                    error_code=EngineAPIError.InvalidForkchoiceState,
+                    disputed=DISPUTED_SHORTCUT_VS_38002,
+                ),
+                Outcome(
+                    id="refused",
+                    error_code=EngineAPIError.TooDeepReorg,
+                    disputed=DISPUTED_SHORTCUT_VS_38006,
+                ),
+            ],
+            branches={
+                "noop": [AssertCanonicalStep(blocks={10: "a10", 2: "a2"})],
+                "inconsistent": [AssertCanonicalStep(blocks={10: "a10"})],
+                "refused": [AssertCanonicalStep(blocks={10: "a10"})],
+            },
+        )
+    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
+
+
+@pytest.mark.valid_from("Shanghai")
+def test_fcu_finalized_regression(
+    reorg_test: ReorgTestFiller, pre: Alloc
+) -> None:
+    """
+    #786 case (b): finalized = a9, then FCU(head=a10, finalized=a1).
+
+    a1 is on the head's chain, so paris.md step 5 does not apply and step 7
+    requires the update; EIP-3675 sets finalized to the block the event
+    names, with no rule that finality only moves forward. VALID, and a1 is
+    the finalized block afterwards.
+    """
+    blocks, steps = chain(pre, "a", 10)
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="a10",
+            safe="a10",
+            finalized="a9",
+            expect=[
+                Outcome(id="applied", status="VALID", latest_valid_hash="a10")
+            ],
+        )
+    )
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="a10",
+            safe="a10",
+            finalized="a1",
+            expect=[
+                Outcome(id="applied", status="VALID", latest_valid_hash="a10")
+            ],
+        )
+    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
+
+
+@pytest.mark.valid_from("Shanghai")
+def test_fcu_rewind_to_canonical_ancestor_above_finalized(
+    reorg_test: ReorgTestFiller, pre: Alloc
+) -> None:
+    """
+    #786 case (c): finalized = a5, head = a10, then FCU(head=a7, safe=a7,
+    finalized=a5).
+
+    a7 is above finalized: the client MUST rewind to a7 (VALID, latest = a7)
+    rather than refuse with ``-38006``, as the rewind is within
+    ``MIN_APPLIED_REORG_DEPTH``; a pre-#786 VALID no-op that leaves the head
+    at a10 fails. Afterwards FCU(a10) must be VALID and the chain must
+    continue.
+
+    reth's Ethereum engine answers such a rewind VALID and keeps its head
+    (``apply_chain_update``), which #786 does not allow, so it is expected
+    to fail here:
+    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
+    """
+    blocks, steps = chain(pre, "a", 10)
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="a10",
+            safe="a10",
+            finalized="a5",
+            expect=[
+                Outcome(id="applied", status="VALID", latest_valid_hash="a10")
+            ],
+        )
+    )
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="a7",
+            safe="a7",
+            finalized="a5",
+            expect=reorg_outcomes("a7", depth=3),
+            branches={
+                "applied": [
+                    AssertCanonicalStep(blocks={7: "a7", 8: None, 10: None}),
+                    ForkchoiceUpdatedStep(
+                        head="a10",
+                        safe="a10",
+                        finalized="a5",
+                        expect=[
+                            Outcome(
+                                id="applied",
+                                status="VALID",
+                                latest_valid_hash="a10",
+                            )
+                        ],
+                        branches={
+                            "applied": [
+                                AssertCanonicalStep(
+                                    blocks={7: "a7", 8: "a8", 10: "a10"}
+                                ),
+                            ]
+                        },
+                    ),
+                ],
+            },
+        )
+    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)

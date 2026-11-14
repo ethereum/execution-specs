@@ -25,6 +25,7 @@ from execution_testing.exceptions import BlockException
 from execution_testing.fixtures.blockchain import (
     FixtureEngineNewPayload,
     FixtureHeader,
+    PayloadAttributes,
 )
 from execution_testing.rpc import (
     EngineRPC,
@@ -35,7 +36,6 @@ from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     ForkchoiceUpdateResponse,
     JSONRPCError,
-    PayloadAttributes,
     PayloadStatus,
     PayloadStatusEnum,
 )

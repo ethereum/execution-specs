@@ -43,7 +43,7 @@ def create_consume_command(
 def get_command_logic_test_paths(command_name: str) -> List[Path]:
     """Determine the command paths based on the command name and hive flag."""
     base_path = Path("cli/pytest_commands/plugins/consume")
-    if command_name in ["engine", "enginex", "rlp", "sync", "wirex"]:
+    if command_name in ["engine", "enginex", "rlp", "sync", "wirex", "reorg"]:
         test_command = "engine" if command_name == "enginex" else command_name
         command_logic_test_paths = [
             base_path
@@ -131,6 +131,12 @@ def sync() -> None:
 @consume_command(is_hive=True)
 def wirex() -> None:
     """Client full syncs fixture blocks from a mock devp2p peer."""
+    pass
+
+
+@consume_command(is_hive=True)
+def reorg() -> None:
+    """Client consumes Engine API reorg tests (payload DAG + step script)."""
     pass
 
 
