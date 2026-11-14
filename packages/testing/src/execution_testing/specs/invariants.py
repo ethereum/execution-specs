@@ -278,7 +278,11 @@ def check_bal_against_state_diff(
     if block_access_list is None:
         return
     entries = {entry.address: entry for entry in block_access_list.root}
-    addresses = pre_alloc.root.keys() | post_alloc.root.keys() | entries.keys()
+    # Sorted so the same block always fails on the same violation: a set
+    # of addresses iterates in a per-process hash order.
+    addresses = sorted(
+        pre_alloc.root.keys() | post_alloc.root.keys() | entries.keys()
+    )
     for address in addresses:
         pre = pre_alloc.root.get(address) or Account()
         post = post_alloc.root.get(address) or Account()
@@ -315,7 +319,7 @@ def check_bal_against_state_diff(
             and not any(post_storage.values())
         )
         if not wiped:
-            for slot in (
+            for slot in sorted(
                 pre_storage.keys()
                 | post_storage.keys()
                 | recorded_storage.keys()

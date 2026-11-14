@@ -387,3 +387,17 @@ def test_bal_slots_between_witness_bounds(
         assert violation is not None
         assert violation.invariant == "bal_access_witness"
         assert violation.message.partition(" (")[0] == expected
+
+
+def test_bal_state_diff_names_the_lowest_address_first() -> None:
+    """Two accounts break the diff, and the lower address is reported."""
+    low, high = Address(0x1), Address(0x2)
+    violation = violated(
+        lambda: check_bal_against_state_diff(
+            Alloc({high: Account(balance=5), low: Account(balance=5)}),
+            Alloc({high: Account(balance=7), low: Account(balance=7)}),
+            BlockAccessList([]),
+        )
+    )
+    assert violation is not None
+    assert violation.message.startswith(str(low))
