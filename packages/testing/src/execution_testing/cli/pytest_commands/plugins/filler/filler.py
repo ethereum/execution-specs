@@ -722,7 +722,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Check chain invariants (ether conservation, gas accounting, "
             "nonces, block access list) on every filled block and fail "
-            "with InvariantViolation on the first violation. The EELS "
+            "with InvariantViolationError on the first violation. The EELS "
             "transition tool counts opcodes for the checks; any other is "
             "taken to have run SELFDESTRUCT, which relaxes the ether and "
             "nonce checks on forks before EIP-8246 and EIP-6780."

@@ -25,7 +25,7 @@ from execution_testing.vm import Op
 
 from ..invariants import (
     BlockTotals,
-    InvariantViolation,
+    InvariantViolationError,
     check_bal_access_witness,
     check_bal_against_state_diff,
     check_ether_conservation,
@@ -77,16 +77,16 @@ def alloc(**account: Any) -> Alloc:
     return Alloc({ACCOUNT: Account(**account)})
 
 
-def violated(check: Callable[[], None]) -> Optional[InvariantViolation]:
+def violated(check: Callable[[], None]) -> Optional[InvariantViolationError]:
     """Run a check and return the violation it raised, or `None`."""
     try:
         check()
-    except InvariantViolation as violation:
+    except InvariantViolationError as violation:
         return violation
     return None
 
 
-def name_of(violation: Optional[InvariantViolation]) -> Optional[str]:
+def name_of(violation: Optional[InvariantViolationError]) -> Optional[str]:
     """Return the invariant a violation names, or `None`."""
     return violation.invariant if violation is not None else None
 

@@ -93,12 +93,12 @@ PLANTED_CONFTEST = textwrap.dedent(
     import pytest
 
     from execution_testing.specs import invariants
-    from execution_testing.specs.invariants import InvariantViolation
+    from execution_testing.specs.invariants import InvariantViolationError
 
     @pytest.fixture(autouse=True)
     def planted_violation(monkeypatch):
         def planted(*args):
-            raise InvariantViolation(invariant="planted", message="")
+            raise InvariantViolationError(invariant="planted", message="")
 
         monkeypatch.setattr(invariants, "check_gas_accounting", planted)
     """
@@ -212,7 +212,9 @@ def test_bal_defect_fails(
     result = fill(pytester, module_source, "-m", fixture_format)
     capsys.readouterr()  # suppress inner failure bleed
     result.assert_outcomes(passed=0, failed=1)
-    result.stdout.fnmatch_lines([f"*InvariantViolation: [[]{invariant}]*"])
+    result.stdout.fnmatch_lines(
+        [f"*InvariantViolationError: [[]{invariant}]*"]
+    )
 
 
 def test_state_test_is_checked(
@@ -223,7 +225,7 @@ def test_state_test_is_checked(
     result = fill(pytester, STATE_TEST_MODULE, "-m", "state_test")
     capsys.readouterr()  # suppress inner failure bleed
     result.assert_outcomes(passed=0, failed=1)
-    result.stdout.fnmatch_lines(["*InvariantViolation: [[]planted]*"])
+    result.stdout.fnmatch_lines(["*InvariantViolationError: [[]planted]*"])
 
 
 def test_state_test_blockchain_form_checks_only_the_access_list(
