@@ -5,7 +5,7 @@ The module implements the raw EVM tracer for t8n.
 import json
 import os
 from contextlib import ExitStack
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from typing import Any, List, Optional, TextIO, Union
 
 from ethereum.exceptions import EthereumException
@@ -96,7 +96,8 @@ class Eip3155Tracer(EvmTracer):
     trace_memory: bool
     trace_stack: bool
     trace_return_data: bool
-    output_basedir: str | TextIO
+    output_basedir: str | TextIO | None
+    finished_traces: dict[tuple[int, bytes], list[Trace | FinalTrace]]
 
     def __init__(
         self,
@@ -104,14 +105,20 @@ class Eip3155Tracer(EvmTracer):
         trace_memory: bool = False,
         trace_stack: bool = True,
         trace_return_data: bool = False,
-        output_basedir: str | TextIO = ".",
+        output_basedir: str | TextIO | None = ".",
     ):
+        """
+        Create a tracer that writes the traces of each transaction to
+        `output_basedir`, or keeps them in `finished_traces` (keyed by
+        index in block and transaction hash) if it is `None`.
+        """
         self.transaction_environment = None
         self.active_traces = []
         self.trace_memory = trace_memory
         self.trace_stack = trace_stack
         self.trace_return_data = trace_return_data
         self.output_basedir = output_basedir
+        self.finished_traces = {}
 
     def __call__(self, evm: Any, event: TraceEvent) -> None:
         """
@@ -166,12 +173,19 @@ class Eip3155Tracer(EvmTracer):
             final_trace = FinalTrace(event.gas_used, event.output, event.error)
             self.active_traces.append(final_trace)
 
-            output_traces(
-                self.active_traces,
-                message.tx_env.index_in_block,
-                message.tx_env.tx_hash,
-                self.output_basedir,
-            )
+            if self.output_basedir is None:
+                key = (
+                    int(message.tx_env.index_in_block),
+                    bytes(message.tx_env.tx_hash),
+                )
+                self.finished_traces[key] = self.active_traces
+            else:
+                output_traces(
+                    self.active_traces,
+                    message.tx_env.index_in_block,
+                    message.tx_env.tx_hash,
+                    self.output_basedir,
+                )
         elif isinstance(event, PrecompileStart):
             new_trace = Trace(
                 pc=int(evm.pc),
@@ -321,17 +335,29 @@ class _TraceJsonEncoder(json.JSONEncoder):
 
         return True
 
+    @staticmethod
+    def retained_fields(obj: Any) -> dict[str, Any]:
+        # The trace fields are only read here, so a shallow copy is enough
+        # and much cheaper than `asdict`, which deep copies the stack.
+        trace = {}
+        for f in fields(obj):
+            value = getattr(obj, f.name)
+            if _TraceJsonEncoder.retain(f.name, value):
+                trace[f.name] = value
+        return trace
+
     def default(self, obj: object) -> object:
         if not is_dataclass(obj) or isinstance(obj, type):
             return super().default(obj)
 
-        trace = {
-            k: v
-            for k, v in asdict(obj).items()
-            if _TraceJsonEncoder.retain(k, v)
-        }
+        return _TraceJsonEncoder.retained_fields(obj)
 
-        return trace
+
+def trace_to_dict(trace: Union[Trace, FinalTrace]) -> dict[str, Any]:
+    """
+    Return the fields of a single trace that are written to the output.
+    """
+    return _TraceJsonEncoder.retained_fields(trace)
 
 
 def output_op_trace(

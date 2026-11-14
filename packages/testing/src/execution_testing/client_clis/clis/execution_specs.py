@@ -2,14 +2,15 @@
 Ethereum Specs EVM Transition Tool Interface.
 """
 
-import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 
 from typing_extensions import override
 
 from execution_testing.client_clis.cli_types import (
     OpcodeCount,
+    Traces,
+    TransactionTraces,
     TransitionToolOutput,
 )
 from execution_testing.client_clis.file_utils import (
@@ -27,9 +28,13 @@ from execution_testing.exceptions import (
     TransactionException,
 )
 from execution_testing.forks import Fork
+from execution_testing.test_types import TransactionReceipt
 
 if TYPE_CHECKING:
     from execution_testing.evm_tools.t8n import ForkCache
+    from execution_testing.evm_tools.t8n.evm_trace.eip3155 import (
+        Eip3155Tracer,
+    )
 
 
 class ExecutionSpecsTransitionTool(TransitionTool):
@@ -116,26 +121,19 @@ class ExecutionSpecsTransitionTool(TransitionTool):
 
         del slow_request, profiler
 
-        temp_dir: tempfile.TemporaryDirectory[str] | None = None
+        eip3155_tracer: Eip3155Tracer | None = None
         tracers = None
         if self.trace:
-            temp_dir = tempfile.TemporaryDirectory()
-            # TODO: Eip3155 traces still round-trip through tempfile
-            # JSON — the tracer writes one ``trace-<i>.jsonl`` per tx
-            # to ``output_basedir`` and ``collect_traces`` reads them
-            # back. Same JSON round-trip we eliminated for alloc /
-            # result / body; a follow-up should wire the tracer
-            # output through memory like the rest of the in-process
-            # path.
-            tracers = GroupTracer()
-            tracers.add(
-                Eip3155Tracer(
-                    trace_memory=True,
-                    trace_stack=True,
-                    trace_return_data=True,
-                    output_basedir=temp_dir.name,
-                )
+            # Keep the traces in memory, they are only written to disk
+            # when there is a debug output directory.
+            eip3155_tracer = Eip3155Tracer(
+                trace_memory=True,
+                trace_stack=True,
+                trace_return_data=True,
+                output_basedir=None,
             )
+            tracers = GroupTracer()
+            tracers.add(eip3155_tracer)
 
         count_tracer = None
         if self.supports_opcode_count and self.opcode_count is not None:
@@ -178,13 +176,60 @@ class ExecutionSpecsTransitionTool(TransitionTool):
                 },
             )
 
-        if temp_dir is not None:
-            self.collect_traces(
-                output.result.receipts, temp_dir, debug_output_path
+        if eip3155_tracer is not None:
+            output.result.traces = self.collect_in_memory_traces(
+                output.result.receipts, eip3155_tracer, debug_output_path
             )
-            temp_dir.cleanup()
 
         return output
+
+    def collect_in_memory_traces(
+        self,
+        receipts: List[TransactionReceipt],
+        tracer: "Eip3155Tracer",
+        debug_output_path: Path | None,
+    ) -> Traces:
+        """
+        Collect the traces kept in memory by `tracer` and store them in the
+        traces list, writing them to `debug_output_path` if given.
+        """
+        from execution_testing.evm_tools.t8n.evm_trace.eip3155 import (
+            FinalTrace,
+            output_traces,
+            trace_to_dict,
+        )
+
+        traces: Traces = Traces(root=[])
+        for i, receipt in enumerate(receipts):
+            tx_traces = None
+            if receipt.transaction_hash is not None:
+                tx_hash = bytes(receipt.transaction_hash)
+                tx_traces = tracer.finished_traces.get((i, tx_hash))
+            if tx_traces is None:
+                # Transaction was rejected mid-processing (e.g. EIP-3607
+                # collision): the receipt exists but the tracer's
+                # TransactionEnd event never fired. Record an empty trace
+                # for this tx, and write an empty file to the dump dir so
+                # a later --verify-traces run loads the same number of
+                # transactions from disk.
+                traces.append(TransactionTraces(traces=[]))
+                if debug_output_path:
+                    trace_file_name = (
+                        f"trace-{i}-{receipt.transaction_hash}.jsonl"
+                    )
+                    (debug_output_path / trace_file_name).write_text("")
+                continue
+            if debug_output_path:
+                output_traces(tx_traces, i, tx_hash, str(debug_output_path))
+            transaction: Dict[str, Any] = {"traces": []}
+            for trace in tx_traces:
+                if isinstance(trace, FinalTrace):
+                    transaction |= trace_to_dict(trace)
+                elif not trace.precompile:
+                    transaction["traces"].append(trace_to_dict(trace))
+            traces.append(TransactionTraces.model_validate(transaction))
+        self.append_traces(traces)
+        return traces
 
     @classmethod
     def is_installed(cls, binary_path: Optional[Path] = None) -> bool:
