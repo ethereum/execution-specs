@@ -25,15 +25,14 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.exception_test
-@pytest.mark.pre_alloc_mutable
 def test_transaction_intinsic_bug_paris(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Bug discovered on ropsten https://github."""
-    sender = pre.fund_eoa(amount=0x2FAF094, nonce=1)
+    sender = pre.fund_eoa(amount=0x2FAF094)
 
-    addr = pre.fund_eoa(amount=10)
+    addr = pre.fund_eoa()
 
     env = Environment(base_fee_per_gas=20)
 
@@ -45,7 +44,6 @@ def test_transaction_intinsic_bug_paris(
         value=0x2DC6C14,
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=20,
-        nonce=1,
         access_list=[],
         error=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
     )

@@ -113,7 +113,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_val_causes_oof(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -123,7 +122,7 @@ def test_val_causes_oof(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0x5F5E100, nonce=1)
+    sender = pre.fund_eoa(amount=0x5F5E100)
 
     # Source: yul
     # london
@@ -144,7 +143,6 @@ def test_val_causes_oof(
         + Op.NOT(0x0)
         + Op.ADD
         + Op.JUMP(pc=0x3),
-        balance=0x5AF3107A4000,
     )
 
     expect_entries_: list[dict] = [
@@ -199,7 +197,6 @@ def test_val_causes_oof(
         value=tx_value[v],
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=0,
-        nonce=1,
         access_list=tx_access_lists.get(d),
         error=_exc,
     )

@@ -88,7 +88,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_out_of_funds_old_types(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -98,7 +97,7 @@ def test_out_of_funds_old_types(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
+    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
     # Source: yul
     # berlin {
@@ -106,7 +105,6 @@ def test_out_of_funds_old_types(
     # }
     target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
-        balance=0xDE0B6B3A7640000,
     )
 
     expect_entries_: list[dict] = [
@@ -153,7 +151,6 @@ def test_out_of_funds_old_types(
         data=tx_data[d],
         gas_limit=tx_gas[g],
         value=tx_value[v],
-        nonce=1,
         gas_price=100000000000,
         access_list=tx_access_lists.get(d),
         error=_exc,
