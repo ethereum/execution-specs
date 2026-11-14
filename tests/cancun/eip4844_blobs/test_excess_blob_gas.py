@@ -494,6 +494,64 @@ def test_invalid_blob_gas_used_in_header(
     )
 
 
+@pytest.mark.parametrize(
+    "header_field,expected_exception",
+    [
+        pytest.param(
+            "excess_blob_gas",
+            [
+                BlockException.RLP_INVALID_FIELD_OVERFLOW_64,
+                BlockException.INCORRECT_EXCESS_BLOB_GAS,
+            ],
+            id="excess_blob_gas",
+        ),
+        pytest.param(
+            "blob_gas_used",
+            [
+                BlockException.RLP_INVALID_FIELD_OVERFLOW_64,
+                BlockException.BLOB_GAS_USED_ABOVE_LIMIT,
+                BlockException.INCORRECT_BLOB_GAS_USED,
+            ],
+            id="blob_gas_used",
+        ),
+    ],
+)
+@pytest.mark.parametrize("new_blobs", [1])
+@pytest.mark.blockchain_test_only
+@pytest.mark.exception_test
+def test_invalid_blob_gas_header_field_overflow(
+    blockchain_test: BlockchainTestFiller,
+    env: Environment,
+    pre: Mapping[Address, Account],
+    txs: List[Transaction],
+    header_field: str,
+    expected_exception: List[BlockException],
+) -> None:
+    """
+    Test rejection of blocks where `excessBlobGas` or `blobGasUsed` in the
+    header is 2**64, one more than the largest value of the 64-bit field.
+
+    Clients may reject the header while decoding it or, if they decode it
+    into a wider integer, when they compare it to the expected value, so
+    any of the listed exceptions is accepted.
+
+    The engine API payload holds these fields as 64-bit quantities, so
+    only the blockchain test format is generated.
+    """
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=txs,
+                rlp_modifier=Header(**{header_field: 2**64}),
+                exception=expected_exception,
+            )
+        ],
+        genesis_environment=env,
+    )
+
+
 def generate_invalid_excess_blob_gas_above_target_change_tests(
     fork: Fork,
 ) -> List:
