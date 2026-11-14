@@ -28,6 +28,7 @@ from ..invariants import (
     InvariantViolationError,
     check_bal_access_witness,
     check_bal_against_state_diff,
+    check_block_invariants,
     check_ether_conservation,
     check_gas_accounting,
     check_nonce_monotonicity,
@@ -401,3 +402,22 @@ def test_bal_state_diff_names_the_lowest_address_first() -> None:
     )
     assert violation is not None
     assert violation.message.startswith(str(low))
+
+
+def test_block_violation_carries_the_block_number() -> None:
+    """A block's violation is noted with the block it was found in."""
+    over_limit = totals(gas_used=30_000_001, receipts_gas_used=30_000_001)
+    violation = violated(
+        lambda: check_block_invariants(
+            fork=Osaka,
+            pre_alloc=alloc(balance=5),
+            post_alloc=alloc(balance=5),
+            result=result(30_000_001, [30_000_001]),
+            txs=[],
+            totals=over_limit,
+            block_number=3,
+        )
+    )
+    assert name_of(violation) == "gas_used_within_limit"
+    assert violation is not None
+    assert violation.__notes__ == ["block 3"]

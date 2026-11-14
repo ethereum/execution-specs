@@ -391,8 +391,7 @@ def check_block_invariants(
     list run: the blockchain form of a state test, whose state form
     checked the rest.
 
-    The raised violation carries the block number as a note when the test
-    has more than one block.
+    Given `block_number`, the raised violation carries it as a note.
     """
     try:
         if not block_access_list_only:
