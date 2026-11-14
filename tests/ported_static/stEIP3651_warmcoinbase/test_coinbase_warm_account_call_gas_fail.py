@@ -88,7 +88,6 @@ def test_coinbase_warm_account_call_gas_fail(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -108,7 +107,6 @@ def test_coinbase_warm_account_call_gas_fail(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -127,7 +125,6 @@ def test_coinbase_warm_account_call_gas_fail(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -146,7 +143,6 @@ def test_coinbase_warm_account_call_gas_fail(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -216,7 +212,6 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.ADD
         + Op.JUMP(pc=0x73),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
 
     tx_data = [
