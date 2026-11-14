@@ -1,5 +1,6 @@
 """Tests for the chain invariants checked on filled blocks."""
 
+import pickle
 from typing import Any, Callable, Dict, List, Optional
 
 import pytest
@@ -421,3 +422,11 @@ def test_block_violation_carries_the_block_number() -> None:
     assert name_of(violation) == "gas_used_within_limit"
     assert violation is not None
     assert violation.__notes__ == ["block 3"]
+
+
+def test_violation_survives_pickling() -> None:
+    """A violation crossing a process boundary keeps its fields and text."""
+    violation = InvariantViolationError(invariant="x", message="off by 1")
+    restored = pickle.loads(pickle.dumps(violation))
+    assert (restored.invariant, restored.message) == ("x", "off by 1")
+    assert str(restored) == "[x] off by 1"

@@ -30,7 +30,11 @@ class InvariantViolationError(Exception):
     def __init__(self, invariant: str, message: str) -> None:
         self.invariant = invariant
         self.message = message
-        super().__init__(f"[{invariant}] {message}")
+        super().__init__(invariant, message)
+
+    def __str__(self) -> str:
+        """Name the invariant ahead of the message."""
+        return f"[{self.invariant}] {self.message}"
 
 
 def _accepted_txs(
