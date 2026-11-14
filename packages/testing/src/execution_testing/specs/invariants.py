@@ -2,7 +2,7 @@
 Chain invariants checked on every valid block while filling.
 
 Enabled with `fill --invariant-checks`. A violation is raised as an
-`InvariantViolation`, which fails the fill on the first one found.
+`InvariantViolationError`, which fails the fill on the first one found.
 """
 
 from collections import Counter
@@ -24,7 +24,7 @@ from execution_testing.test_types.block_access_list import (
 from execution_testing.vm import Op
 
 
-class InvariantViolation(Exception):  # noqa: N818
+class InvariantViolationError(Exception):
     """A chain invariant a filled block broke."""
 
     def __init__(self, invariant: str, message: str) -> None:
@@ -97,7 +97,7 @@ def check_ether_conservation(
     )
     if delta == expected or (may_burn and delta < expected):
         return
-    raise InvariantViolation(
+    raise InvariantViolationError(
         invariant="ether_conservation",
         message=(
             f"balance delta {delta} != expected {expected} "
@@ -128,7 +128,7 @@ def check_gas_accounting(
     gas_used = totals.gas_used
 
     if gas_used > totals.gas_limit:
-        raise InvariantViolation(
+        raise InvariantViolationError(
             invariant="gas_used_within_limit",
             message=(
                 f"block gas_used {gas_used} exceeds "
@@ -140,7 +140,7 @@ def check_gas_accounting(
     for index, receipt in enumerate(result.receipts):
         cumulative = receipt.cumulative_gas_used
         if cumulative is None or int(cumulative) <= previous:
-            raise InvariantViolation(
+            raise InvariantViolationError(
                 invariant="receipt_gas_monotonicity",
                 message=(
                     f"receipt {index} cumulative gas {cumulative} "
@@ -157,7 +157,7 @@ def check_gas_accounting(
         quotient = fork.max_refund_quotient()
         highest = receipts_gas * quotient // (quotient - 1)
     if not lowest <= gas_used <= highest:
-        raise InvariantViolation(
+        raise InvariantViolationError(
             invariant="receipt_gas_totals",
             message=(
                 f"block gas_used {gas_used} outside [{lowest}, "
@@ -200,7 +200,7 @@ def check_nonce_monotonicity(
                 and post_nonce is not None
                 and post_nonce < pre_nonce
             ):
-                raise InvariantViolation(
+                raise InvariantViolationError(
                     invariant="nonce_never_decreases",
                     message=(
                         f"nonce of {address} decreased "
@@ -215,7 +215,7 @@ def check_nonce_monotonicity(
         pre_nonce = nonce_of(pre_alloc, sender) or 0
         post_nonce = nonce_of(post_alloc, sender)
         if post_nonce is not None and post_nonce < pre_nonce + count:
-            raise InvariantViolation(
+            raise InvariantViolationError(
                 invariant="sender_nonce_advances",
                 message=(
                     f"sender {sender} nonce {pre_nonce} -> "
@@ -236,12 +236,12 @@ def _check_changes(
     if not recorded:
         if pre_value == post_value:
             return
-        raise InvariantViolation(
+        raise InvariantViolationError(
             invariant="bal_state_diff",
             message=f"{address} {field} changed but the BAL has no entry",
         )
     if recorded[-1] != post_value:
-        raise InvariantViolation(
+        raise InvariantViolationError(
             invariant="bal_state_diff",
             message=(
                 f"{address} {field} last BAL value {recorded[-1]!r} "
@@ -251,7 +251,7 @@ def _check_changes(
     previous = pre_value
     for value in recorded:
         if value == previous:
-            raise InvariantViolation(
+            raise InvariantViolationError(
                 invariant="bal_state_diff",
                 message=(
                     f"{address} {field} BAL records a no-op change "
@@ -361,7 +361,7 @@ def check_bal_access_witness(
         sample = ", ".join(
             f"{address:#042x}:{slot:#x}" for address, slot in sorted(slots)[:3]
         )
-        raise InvariantViolation(
+        raise InvariantViolationError(
             invariant="bal_access_witness",
             message=f"{problem} ({len(slots)}): {sample}",
         )
@@ -399,7 +399,7 @@ def check_block_invariants(
             check_nonce_monotonicity(fork, pre_alloc, post_alloc, txs, result)
         check_bal_against_state_diff(pre_alloc, post_alloc, block_access_list)
         check_bal_access_witness(bal_witness, block_access_list)
-    except InvariantViolation as violation:
+    except InvariantViolationError as violation:
         if block_number is not None:
             violation.add_note(f"block {block_number}")
         raise
