@@ -143,7 +143,12 @@ def check_gas_accounting(
     previous = 0
     for index, receipt in enumerate(result.receipts):
         cumulative = receipt.cumulative_gas_used
-        if cumulative is None or int(cumulative) <= previous:
+        if cumulative is None:
+            raise InvariantViolationError(
+                invariant="receipt_gas_monotonicity",
+                message=f"receipt {index} has no cumulative gas",
+            )
+        if int(cumulative) <= previous:
             raise InvariantViolationError(
                 invariant="receipt_gas_monotonicity",
                 message=(

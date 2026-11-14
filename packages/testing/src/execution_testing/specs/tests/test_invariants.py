@@ -156,7 +156,9 @@ def test_receipt_without_cumulative_gas() -> None:
             Osaka, result(700, [200, None, 700]), totals(700, 700)
         )
     )
-    assert name_of(violation) == "receipt_gas_monotonicity"
+    assert violation is not None
+    assert violation.invariant == "receipt_gas_monotonicity"
+    assert violation.message == "receipt 1 has no cumulative gas"
 
 
 @pytest.mark.parametrize(
