@@ -589,6 +589,12 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def maximum_block_gas_limit(cls) -> int:
+        """Return the largest gas limit a block header may carry."""
+        pass
+
+    @classmethod
+    @abstractmethod
     def opcode_gas_map(
         cls,
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
