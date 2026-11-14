@@ -156,12 +156,22 @@ class PagePropsBase:
         path = top_level_nav_entry / Path(*self.path.parts[1:]).with_suffix("")
         return nav_path_to_sanitized_str_tuple(path)
 
+    @property
+    def edit_path(self) -> str:
+        """
+        Return the repo-relative source file for the page's edit and view
+        buttons, or an empty string for none.
+        """
+        return str(self.path)
+
     def write_page(
         self, file_opener: FileOpener, jinja2_env: Environment
     ) -> None:
         """Write the page to the target directory."""
         template = jinja2_env.get_template(self.template)
-        rendered_content = template.render(**asdict(self))
+        rendered_content = template.render(
+            **asdict(self), edit_path=self.edit_path
+        )
         with file_opener.open(self.target_output_file, "w") as destination:
             for line in rendered_content.splitlines(keepends=True):
                 destination.write(line)
@@ -325,6 +335,12 @@ class DirectoryPageProps(PagePropsBase):
         """Get the target output file for this page."""
         return self.path / "index.md"
 
+    @property
+    def edit_path(self) -> str:
+        """Return the package's `__init__.py`, which holds its docstring."""
+        init_file = self.path / "__init__.py"
+        return str(init_file) if init_file.is_file() else ""
+
 
 @dataclass
 class MarkdownPageProps(PagePropsBase):
@@ -351,7 +367,9 @@ class MarkdownPageProps(PagePropsBase):
         We read the md file and write it with the given file opener.
         """
         template = jinja2_env.get_template(self.template)
-        rendered_content = template.render(**asdict(self))
+        rendered_content = template.render(
+            **asdict(self), edit_path=self.edit_path
+        )
         with open(self.path, "r") as md_source:
             with file_opener.open(self.target_output_file, "w") as destination:
                 for line in rendered_content.splitlines(keepends=True):
