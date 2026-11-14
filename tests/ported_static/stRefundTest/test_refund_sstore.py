@@ -53,7 +53,6 @@ def test_refund_sstore(
     target = pre.deploy_contract(
         code=Op.SSTORE(key=Op.DUP1, value=0x0) + Op.STOP,
         storage={0: 24743},
-        nonce=1,
     )
 
     tx = Transaction(

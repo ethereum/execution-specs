@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
 )
@@ -44,7 +43,6 @@ def test_add11_yml(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(""),
         gas_limit=400000,
         value=0x186A0,
     )

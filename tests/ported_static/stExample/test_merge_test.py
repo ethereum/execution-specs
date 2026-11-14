@@ -44,7 +44,6 @@ def test_merge_test(
         + Op.SSTORE(key=0x1, value=Op.BASEFEE)
         + Op.SSTORE(key=0x2, value=Op.PREVRANDAO)
         + Op.STOP,
-        nonce=1,
     )
 
     prev_randao = 0x15 << 248

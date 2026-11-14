@@ -248,7 +248,6 @@ def test_trans_storage_ok(
         + Op.JUMPDEST
         + Op.TSTORE
         + Op.JUMP,
-        nonce=1,
     )
     # Source: yul
     # {
@@ -358,7 +357,6 @@ def test_trans_storage_ok(
         + Op.JUMPDEST
         + Op.TSTORE
         + Op.JUMP,
-        nonce=1,
     )
     # Source: yul
     # {
@@ -467,7 +465,6 @@ def test_trans_storage_ok(
         + Op.JUMPDEST
         + Op.TSTORE
         + Op.JUMP,
-        nonce=1,
     )
     # Source: yul
     # {
@@ -513,7 +510,6 @@ def test_trans_storage_ok(
         + Op.SWAP1
         + Op.JUMP,
         storage={0: 24743, 1: 24743},
-        nonce=1,
     )
     # Source: yul
     # {
@@ -646,7 +642,6 @@ def test_trans_storage_ok(
         + Op.JUMPDEST
         + Op.TSTORE
         + Op.JUMP,
-        nonce=1,
     )
     # Source: yul
     # {
@@ -778,7 +773,6 @@ def test_trans_storage_ok(
         + Op.JUMPDEST
         + Op.TSTORE
         + Op.JUMP,
-        nonce=1,
     )
     # Source: yul
     # {
@@ -811,7 +805,6 @@ def test_trans_storage_ok(
         + Op.JUMPDEST
         + Op.TSTORE
         + Op.JUMP,
-        nonce=1,
     )
     # Source: yul
     # {
@@ -934,7 +927,6 @@ def test_trans_storage_ok(
         + Op.JUMPDEST
         + Op.TSTORE
         + Op.JUMP,
-        nonce=1,
     )
     # Source: yul
     # {
@@ -980,7 +972,6 @@ def test_trans_storage_ok(
         + Op.JUMPDEST
         + Op.TSTORE
         + Op.JUMP,
-        nonce=1,
     )
     target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.CALLDATALOAD(offset=0x0))
@@ -990,7 +981,6 @@ def test_trans_storage_ok(
             value=Op.CALL(address=Op.CALLDATALOAD(offset=0x0), args_size=0x20),
         )
         + Op.STOP,
-        nonce=1,
     )
     # Source: yul
     # {
@@ -1102,7 +1092,6 @@ def test_trans_storage_ok(
         + Op.JUMPDEST
         + Op.TSTORE
         + Op.JUMP,
-        nonce=1,
     )
     # Source: yul
     # {
@@ -1196,7 +1185,6 @@ def test_trans_storage_ok(
         + Op.SWAP1
         + Op.JUMP,
         storage={0: 24743},
-        nonce=1,
     )
     # Source: yul
     # {
@@ -1256,7 +1244,6 @@ def test_trans_storage_ok(
         + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=Op.PUSH0))
         + Op.STOP,
         storage={2: 24743, 18: 24743},
-        nonce=1,
     )
 
     expect_entries_: list[dict] = [

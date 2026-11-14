@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
 )
@@ -43,7 +42,6 @@ def test_indexes_omit_example(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=400000,
         value=0x186A0,
     )

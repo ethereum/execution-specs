@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     GasFee,
     StateTestFiller,
     Transaction,
@@ -59,7 +58,6 @@ def test_refund_call_a_oog(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=31069,
         value=10,
     )

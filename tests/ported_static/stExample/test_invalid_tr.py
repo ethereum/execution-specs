@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -41,7 +40,6 @@ def test_invalid_tr(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=1000,
         value=0x186A0,
         error=TransactionException.INTRINSIC_GAS_TOO_LOW,

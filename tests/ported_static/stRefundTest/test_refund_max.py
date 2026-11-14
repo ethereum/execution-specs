@@ -81,7 +81,6 @@ def test_refund_max(
             6: 24743,
             7: 24743,
         },
-        nonce=1,
     )
 
     tx = Transaction(

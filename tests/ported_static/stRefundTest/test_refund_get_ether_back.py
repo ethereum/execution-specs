@@ -20,7 +20,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     GasFee,
     StateTestFiller,
     Transaction,
@@ -54,7 +53,6 @@ def test_refund_get_ether_back(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=228500,
         value=10,
     )

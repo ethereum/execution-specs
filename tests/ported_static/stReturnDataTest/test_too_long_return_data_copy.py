@@ -212,7 +212,6 @@ def test_too_long_return_data_copy(
         + Op.SSTORE(key=0x0, value=Op.DUP1)
         + Op.PUSH1[0x0]
         + Op.RETURN,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -237,7 +236,6 @@ def test_too_long_return_data_copy(
         + Op.SSTORE(key=0x0, value=Op.DUP1)
         + Op.PUSH1[0x0]
         + Op.REVERT,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -304,7 +302,6 @@ def test_too_long_return_data_copy(
         + Op.SSTORE(key=0x0, value=0xDEAD)
         + Op.STOP,
         storage={0: 24743},
-        nonce=1,
     )
 
     expect_entries_: list[dict] = [

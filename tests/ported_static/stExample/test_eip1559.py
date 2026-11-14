@@ -42,7 +42,6 @@ def test_eip1559(
         code=Op.SSTORE(key=0x0, value=Op.GASPRICE)
         + Op.SSTORE(key=0x1, value=Op.BASEFEE)
         + Op.STOP,
-        nonce=1,
     )
 
     env = Environment(base_fee_per_gas=1000)

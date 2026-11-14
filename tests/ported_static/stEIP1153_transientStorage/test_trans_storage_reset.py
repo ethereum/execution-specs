@@ -343,7 +343,6 @@ def test_trans_storage_reset(
         + Op.TSTORE
         + Op.JUMP,
         storage={16: 24743},
-        nonce=1,
     )
     # Source: yul
     # {
@@ -478,7 +477,6 @@ def test_trans_storage_reset(
         + Op.TSTORE
         + Op.JUMP,
         storage={1: 24743},
-        nonce=1,
     )
     # Source: yul
     # {
@@ -510,7 +508,6 @@ def test_trans_storage_reset(
         + Op.GAS
         + Op.SSTORE(key=0x1, value=Op.CALL)
         + Op.STOP,
-        nonce=1,
     )
 
     expect_entries_: list[dict] = [

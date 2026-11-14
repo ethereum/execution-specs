@@ -51,7 +51,6 @@ def test_refund_ff(
     # }
     target = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=addr),
-        nonce=1,
     )
 
     tx = Transaction(

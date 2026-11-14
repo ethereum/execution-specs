@@ -18,7 +18,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     GasFee,
     StateTestFiller,
     Transaction,
@@ -70,7 +69,6 @@ def test_refund_call_a_not_enough_gas_in_call(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=85000,
         value=10,
     )

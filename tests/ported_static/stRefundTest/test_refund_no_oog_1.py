@@ -19,7 +19,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     GasFee,
     StateTestFiller,
     Transaction,
@@ -73,7 +72,6 @@ def test_refund_no_oog_1(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=26006 + cold_clear_delta + intrinsic_delta,
     )
 
