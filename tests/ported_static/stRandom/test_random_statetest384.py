@@ -8,7 +8,6 @@ state_tests/stRandom/randomStatetest384Filler.yml
 import pytest
 from execution_testing import (
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
 )
@@ -258,7 +257,6 @@ def test_random_statetest384(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=16777216,
     )
 

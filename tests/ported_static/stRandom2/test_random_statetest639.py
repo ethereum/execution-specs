@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -135,7 +134,6 @@ def test_random_statetest639(
         sender=sender,
         gas_limit=16_777_216,
         to=target,
-        data=Bytes(""),
         value=0x49C00898,
     )
 
