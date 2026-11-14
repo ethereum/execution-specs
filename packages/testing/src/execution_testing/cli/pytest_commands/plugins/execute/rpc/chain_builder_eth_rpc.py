@@ -6,7 +6,7 @@ submitted.
 import time
 from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any, List, Mapping, Sequence, Tuple
+from typing import Any, List, Mapping, Sequence, Tuple, cast
 from urllib.parse import urlparse
 
 from filelock import FileLock
@@ -19,8 +19,11 @@ from execution_testing.base_types import (
     HexNumber,
     to_json,
 )
-from execution_testing.client_clis.cli_types import EnginePayloadMetadata
-from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.fixtures.blockchain import (
+    EngineNewPayloadParameters,
+    FixtureEngineNewPayload,
+    FixtureHeader,
+)
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc import (
     DEFAULT_REQUEST_TIMEOUT,
@@ -271,10 +274,11 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         self,
         payload: GetPayloadResponse,
         parent_beacon_block_root: Hash | None,
-    ) -> EnginePayloadMetadata:
+    ) -> FixtureEngineNewPayload:
         """
         Execute *payload* via ``engine_newPayload`` + ``forkchoiceUpdated``;
-        return the payload + version metadata.
+        return the ``engine_newPayload`` call the client accepted, as a
+        fixture payload.
         """
         new_payload_args: List[Any] = [
             payload.execution_payload,
@@ -317,11 +321,10 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         assert response.payload_status.status == PayloadStatusEnum.VALID, (
             "Payload was invalid"
         )
-        return EnginePayloadMetadata(
-            payload_response=payload,
+        return FixtureEngineNewPayload(
+            params=cast(EngineNewPayloadParameters, tuple(new_payload_args)),
             new_payload_version=new_payload_version,
             forkchoice_updated_version=fcu_version,
-            parent_beacon_block_root=parent_beacon_block_root,
         )
 
     def generate_block(self: "ChainBuilderEthRPC") -> None:
@@ -393,11 +396,11 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
     def build_block_with_transactions(
         self,
         transactions: Sequence[TransactionProtocol],
-    ) -> EnginePayloadMetadata:
+    ) -> FixtureEngineNewPayload:
         """
         Build + finalize a block via ``testing_buildBlockV1`` and return
-        the engine payload metadata (used by fill-stateful's pre-run
-        writer; ``send_transactions`` discards it).
+        its fixture payload (used by fill-stateful's pre-run writer;
+        ``send_transactions`` discards it).
         """
         assert self.testing_rpc is not None, (
             "build_block_with_transactions requires testing_rpc"
@@ -420,11 +423,11 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
     def fund_via_withdrawals(
         self,
         funding_targets: List[Tuple[Address, int]],
-    ) -> EnginePayloadMetadata | None:
+    ) -> FixtureEngineNewPayload | None:
         """
         Fund accounts by injecting CL withdrawals into a transaction-free
-        block. Returns the built engine payload metadata, or ``None``
-        when ``funding_targets`` is empty.
+        block. Returns the block's fixture payload, or ``None`` when
+        ``funding_targets`` is empty.
         """
         assert self.testing_rpc is not None, (
             "fund_via_withdrawals requires testing_rpc"

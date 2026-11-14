@@ -178,7 +178,7 @@ backends now exist behind a common protocol; the rest of fill is unchanged.
        BlockchainEngineFixture
 ```
 
-Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`). `ClientBackend.evaluate(...)` returns a `TransitionToolOutput` with an `EnginePayloadMetadata` attached (`GetPayloadResponse` + engine API versions); the spec receives it as `TestingBuildBlock(BuiltBlock)` and forwards the payload verbatim — no header rebuild, no side-channel capture.
+Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`) and return a `TransitionToolOutput` whose `Result` reports the block that was built. `ClientBackend.evaluate(...)` also reports the header fields the client chose itself (`gas_limit`, ...) and the `block_hash` it sealed. `generate_block_data` builds the header from the test's environment, lets every field the `Result` reports win, and then checks that the header hashes to the sealed `block_hash`. Both backends therefore produce the same `BuiltBlock`, and both build their engine payloads the same way.
 
 ### Plugins and shared code
 
@@ -188,9 +188,9 @@ Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`). `Client
 | `plugins/fill_stateful/fill_stateful.py` | Session pre-run + `t8n`/`session_t8n` overrides; CLI options. |
 | `plugins/shared/live_client_flags.py` | Live-client flags + fee fixtures factored out of `execute/execute.py`. |
 | `plugins/execute/pre_alloc.py` | Reused `Alloc`; `pending_transactions()` drains the queue without sending. |
-| `plugins/execute/rpc/chain_builder_eth_rpc.py` | `fund_via_withdrawals` + `build_block_with_transactions` — return `EnginePayloadMetadata`. |
+| `plugins/execute/rpc/chain_builder_eth_rpc.py` | `fund_via_withdrawals` + `build_block_with_transactions` — return the accepted `FixtureEngineNewPayload` (pre-run). |
 | `client_clis/client_backend.py` | `ClientBackend`: builds via `testing_buildBlockV1`, advances via `engine_newPayload` + `forkchoiceUpdated` (SYNCING-retry). |
-| `specs/blockchain.py` | `make_stateful_fixture`, `payload_metadata_to_fixture`, `Block.phase`, `_split_blocks_by_phase`, `TestingBuildBlock`. |
+| `specs/blockchain.py` | `make_stateful_fixture`, `generate_block_data`, `Block.phase`, `_split_blocks_by_phase`. |
 
 ### Flags introduced
 
@@ -226,7 +226,7 @@ Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`). `Client
 
 ### What's captured in each payload
 
-The client's `GetPayloadResponse` is recorded **verbatim**. Rebuilding from `FixtureHeader` would diverge on client-picked fields (e.g. `gas_limit`) and break `engine_newPayload` hash validation on replay.
+Each payload is rebuilt from the `BuiltBlock`, whose header is the block the client sealed: the fields the client picked (e.g. `gas_limit`) come from its payload, and the header must hash to the client's `block_hash`, so the payload replays exactly. A field the test sets on the `Block` must reach the built block, or filling fails. A test-corrupted block is the sealed block with `rlp_modifier` applied and its hash recomputed. The pre-run payloads, which have no `Block`, record the exact `engine_newPayload` call the client accepted.
 
 ### Replay (benchmarkoor)
 
@@ -244,4 +244,4 @@ pristine snapshot ───copy──▶ datadir ───▶ geth ───▶ 
                                                             └── re-fetch latest, verify hash
 ```
 
-Sanity check: each fixture's `benchmarkGasUsed` (recorded at fill) should equal benchmarkoor's measured `gas_used_total` for that test.
+Sanity check: each valid fixture's `benchmarkGasUsed` (recorded at fill) should equal benchmarkoor's measured `gas_used_total` for that test; an invalid payload has none.

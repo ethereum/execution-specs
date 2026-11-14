@@ -282,6 +282,18 @@ class FixtureHeader(CamelModel):
                         f"Field {field} is required for fork {self.fork}"
                     )
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Set a field and drop the encodings cached from the old header."""
+        super().__setattr__(name, value)
+        # A header is hashed before some fields are rewritten in place (an
+        # invalid block's access list hash), so a hash cached earlier would
+        # outlive the field it was computed from.
+        if name in self.__class__.model_fields:
+            # ``cached_property`` stores its value in the instance
+            # ``__dict__``; removing it there is how the cache is cleared.
+            for cached in ("rlp_encode_list", "rlp", "block_hash"):
+                self.__dict__.pop(cached, None)
+
     @cached_property
     def rlp_encode_list(self) -> List:
         """Compute the RLP of the header."""
