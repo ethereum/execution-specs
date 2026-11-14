@@ -8,6 +8,7 @@ from typing import (
     TYPE_CHECKING,
     Callable,
     Dict,
+    FrozenSet,
     List,
     Mapping,
     Sized,
@@ -41,6 +42,7 @@ from ..base_fork import (
     BlobGasPriceCalculator,
     CalldataGasCalculator,
     ExcessBlobGasCalculator,
+    GasDimension,
     MemoryExpansionGasCalculator,
     RefundTypes,
     SystemCallPhase,
@@ -1285,9 +1287,29 @@ class Frontier(BaseFork):
         return [Opcodes.CREATE]
 
     @classmethod
+    def selfdestruct_burns_balance(cls) -> bool:
+        """At Genesis, SELFDESTRUCT naming its own account burns ether."""
+        return True
+
+    @classmethod
+    def selfdestruct_deletes_existing_accounts(cls) -> bool:
+        """At Genesis, SELFDESTRUCT deletes any account."""
+        return True
+
+    @classmethod
     def max_refund_quotient(cls) -> int:
         """Return the max refund quotient at Genesis."""
         return 2
+
+    @classmethod
+    def block_gas_used_includes_refunds(cls) -> bool:
+        """At Genesis, the header's gas used is net of refunds."""
+        return False
+
+    @classmethod
+    def block_gas_dimensions(cls) -> FrozenSet[GasDimension]:
+        """At Genesis, all gas is metered in a single dimension."""
+        return frozenset({GasDimension.EXECUTION})
 
     @classmethod
     def max_request_type(cls) -> int:

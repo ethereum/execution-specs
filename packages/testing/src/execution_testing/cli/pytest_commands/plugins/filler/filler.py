@@ -714,6 +714,20 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "performed during filling."
         ),
     )
+    debug_group.addoption(
+        "--invariant-checks",
+        action="store_true",
+        dest="invariant_checks",
+        default=False,
+        help=(
+            "Check chain invariants (ether conservation, gas accounting, "
+            "nonces, block access list) on every filled block and fail "
+            "with InvariantViolationError on the first violation. The EELS "
+            "transition tool counts opcodes for the checks; any other is "
+            "taken to have run SELFDESTRUCT, which relaxes the ether and "
+            "nonce checks on forks before EIP-8246 and EIP-6780."
+        ),
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -859,6 +873,7 @@ def pytest_configure(config: pytest.Config) -> None:
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
     config.t8n = t8n  # type: ignore[attr-defined]
+    t8n.invariant_checks = config.getoption("invariant_checks")
 
     if "Tools" not in config.stash[metadata_key]:
         config.stash[metadata_key]["Tools"] = {
@@ -1681,6 +1696,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
             kwargs["is_exception_test"] = is_exception_test
             kwargs["is_inclusion_test"] = is_inclusion_test
             kwargs["invalid_tx_not_last"] = invalid_tx_not_last
+            kwargs["invariant_checks"] = request.config.getoption(
+                "invariant_checks"
+            )
             # Appended sync payloads: on unless the option or the
             # test's own opt-out (a caller-passed
             # ``sync_block=False``) withholds it. Only fixture

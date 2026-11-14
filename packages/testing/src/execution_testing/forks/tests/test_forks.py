@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from execution_testing.base_types import BlobSchedule
 from execution_testing.vm import Opcodes
 
-from ..base_fork import BaseFork, BaseForkMeta, SystemCallPhase
+from ..base_fork import BaseFork, BaseForkMeta, GasDimension, SystemCallPhase
 from ..forks.eips.paris.eip_3675 import EIP3675
 from ..forks.forks import (
     BPO1,
@@ -740,6 +740,65 @@ def test_bpo_fork() -> None:  # noqa: D103
     assert BPO1ToBPO2AtTime15k.fork_at().bpo_fork() is True
     assert BPO2ToBPO3AtTime15k.fork_at().bpo_fork() is True
     assert BPO3ToBPO4AtTime15k.fork_at().bpo_fork() is True
+
+
+def test_selfdestruct_burns_balance() -> None:
+    """SELFDESTRUCT can burn ether until EIP-8246."""
+    assert Frontier.selfdestruct_burns_balance() is True
+    assert BPO2.selfdestruct_burns_balance() is True
+    assert Amsterdam.selfdestruct_burns_balance() is False
+    assert Bogota.selfdestruct_burns_balance() is False
+    transition = BPO2ToAmsterdamAtTime15k
+    assert transition.fork_at(timestamp=14_999).selfdestruct_burns_balance()
+    assert not transition.fork_at(
+        timestamp=15_000
+    ).selfdestruct_burns_balance()
+
+
+def test_selfdestruct_deletes_existing_accounts() -> None:
+    """SELFDESTRUCT deletes any account until EIP-6780."""
+    assert Frontier.selfdestruct_deletes_existing_accounts() is True
+    assert Shanghai.selfdestruct_deletes_existing_accounts() is True
+    assert Cancun.selfdestruct_deletes_existing_accounts() is False
+    assert BPO2.selfdestruct_deletes_existing_accounts() is False
+    assert Amsterdam.selfdestruct_deletes_existing_accounts() is False
+    transition = ShanghaiToCancunAtTime15k
+    assert transition.fork_at(
+        timestamp=14_999
+    ).selfdestruct_deletes_existing_accounts()
+    assert not transition.fork_at(
+        timestamp=15_000
+    ).selfdestruct_deletes_existing_accounts()
+
+
+def test_block_gas_used_includes_refunds() -> None:
+    """The header's gas used counts refunds from EIP-7778."""
+    assert Frontier.block_gas_used_includes_refunds() is False
+    assert BPO2.block_gas_used_includes_refunds() is False
+    assert Amsterdam.block_gas_used_includes_refunds() is True
+    assert Bogota.block_gas_used_includes_refunds() is True
+    transition = BPO2ToAmsterdamAtTime15k
+    assert not transition.fork_at(
+        timestamp=14_999
+    ).block_gas_used_includes_refunds()
+    assert transition.fork_at(
+        timestamp=15_000
+    ).block_gas_used_includes_refunds()
+
+
+def test_block_gas_dimensions() -> None:
+    """EIP-8037 meters state gas apart from execution gas."""
+    execution = frozenset({GasDimension.EXECUTION})
+    both = frozenset({GasDimension.EXECUTION, GasDimension.STATE})
+    assert Frontier.block_gas_dimensions() == execution
+    assert BPO2.block_gas_dimensions() == execution
+    assert Amsterdam.block_gas_dimensions() == both
+    assert Bogota.block_gas_dimensions() == both
+    transition = BPO2ToAmsterdamAtTime15k
+    before = transition.fork_at(timestamp=14_999)
+    after = transition.fork_at(timestamp=15_000)
+    assert before.block_gas_dimensions() == execution
+    assert after.block_gas_dimensions() == both
 
 
 def test_fork_adapters() -> None:  # noqa: D103
