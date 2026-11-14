@@ -12,7 +12,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     Fork,
     GasFee,
     RecipientType,
@@ -39,7 +38,6 @@ def test_transaction_to_itself(
     tx = Transaction(
         sender=sender,
         to=sender,
-        data=Bytes(""),
         gas_limit=25000,
         value=1,
     )

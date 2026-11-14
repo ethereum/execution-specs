@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     Fork,
     StateTestFiller,
     Transaction,
@@ -36,7 +35,6 @@ def test_empty_transaction3(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes(""),
         gas_limit=2055000 if fork >= Amsterdam else 55000,
     )
 

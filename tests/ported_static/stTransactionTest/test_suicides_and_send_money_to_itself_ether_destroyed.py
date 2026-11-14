@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
 )
@@ -43,7 +42,6 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=31700,
         value=10,
     )

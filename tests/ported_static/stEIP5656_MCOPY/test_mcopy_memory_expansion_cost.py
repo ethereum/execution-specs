@@ -199,7 +199,6 @@ def test_mcopy_memory_expansion_cost(
         + Op.SSTORE(key=Op.PUSH0, value=Op.MSIZE)
         + Op.STOP,
         storage={0: 0xFA11ED},
-        nonce=1,
     )
 
     expect_entries_: list[dict] = [

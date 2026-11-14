@@ -2836,7 +2836,6 @@ def test_precomps_eip2929_cancun(
     # }
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=0x3) + Op.STOP,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -2845,7 +2844,6 @@ def test_precomps_eip2929_cancun(
     # }
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=0x3) + Op.STOP,
-        nonce=1,
     )
     # Source: yul
     # berlin optimise
@@ -3579,7 +3577,6 @@ def test_precomps_eip2929_cancun(
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.DUP3, Op.DUP1))
         + Op.POP * 9,
         storage={0: 24743, 1: 24743},
-        nonce=1,
     )
 
     # These measurements isolate repriced components applied per

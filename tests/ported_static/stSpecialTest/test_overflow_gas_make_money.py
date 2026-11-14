@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
 )
@@ -32,7 +31,6 @@ def test_overflow_gas_make_money(
     tx = Transaction(
         sender=sender,
         to=pre.nonexistent_account(),
-        data=Bytes(""),
         gas_limit=100000,
         value=501,
     )

@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -39,7 +38,6 @@ def test_high_gas_price_paris(
     tx = Transaction(
         sender=sender,
         to=addr,
-        data=Bytes(""),
         value=1,
         gas_price=5513909011300771210646237381366090850155713555506693525688456381329244268,  # noqa: E501
         error=[
