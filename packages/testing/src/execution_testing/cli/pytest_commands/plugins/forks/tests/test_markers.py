@@ -217,7 +217,6 @@ def test_case(state_test):
             ["--until=BPO1"],
             {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_until_bpo_fork_without_bpo_test_marker",
-            marks=pytest.mark.skip(reason="BPO tests are not supported yet"),
         ),
         pytest.param(
             generate_test(
@@ -228,7 +227,6 @@ def test_case(state_test):
             ["--until=BPO1"],
             {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_until_bpo_fork_with_bpo_test_marker",
-            marks=pytest.mark.skip(reason="BPO tests are not supported yet"),
         ),
         pytest.param(
             generate_test(
@@ -239,7 +237,6 @@ def test_case(state_test):
             ["--until=BPO1"],
             {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_at_transition_without_bpo_test_marker",
-            marks=pytest.mark.skip(reason="BPO tests are not supported yet"),
         ),
         pytest.param(
             generate_test(
@@ -251,7 +248,6 @@ def test_case(state_test):
             ["--until=BPO1"],
             {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_at_transition_with_bpo_test_marker",
-            marks=pytest.mark.skip(reason="BPO tests are not supported yet"),
         ),
         pytest.param(
             generate_test(
@@ -277,7 +273,6 @@ def test_case(state_test):
             ["--fork=Osaka"],
             {"passed": 0, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_at_transition_with_bpo_test_marker_fork_parent",
-            marks=pytest.mark.skip(reason="BPO tests are not supported yet"),
         ),
         pytest.param(
             generate_test(
@@ -287,7 +282,6 @@ def test_case(state_test):
             ["--from=Osaka", "--until=Osaka"],
             {"passed": 0, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_at_transition_with_bpo_test_marker_from_parent",
-            marks=pytest.mark.skip(reason="BPO tests are not supported yet"),
         ),
     ],
 )
