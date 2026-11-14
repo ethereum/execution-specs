@@ -15,7 +15,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
 )
@@ -50,7 +49,6 @@ def test_create_contract_via_transaction_cost53000(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Bytes(""),
         gas_limit=tx_gas_limit,
     )
 
