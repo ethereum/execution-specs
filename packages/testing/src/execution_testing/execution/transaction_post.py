@@ -11,6 +11,7 @@ from execution_testing.logging import get_logger
 from execution_testing.rpc import (
     EngineRPC,
     EthRPC,
+    LiveBlock,
     SendTransactionExceptionError,
 )
 from execution_testing.test_types import (
@@ -67,7 +68,7 @@ class RPCTransactionLanding(TransactionLanding):
             self._receipt = receipt
         return self._receipt
 
-    def block(self) -> Dict[str, Any]:
+    def block(self) -> LiveBlock:
         """Return the block the transaction landed in."""
         return self._context.block(Hash(self.receipt()["blockHash"]))
 
@@ -77,8 +78,8 @@ class RPCTransactionLanding(TransactionLanding):
 
     def base_fee_per_gas(self) -> int:
         """Return the block base fee, or zero before the London fork."""
-        base_fee = self.block().get("baseFeePerGas")
-        return int(base_fee, 16) if base_fee else 0
+        base_fee = self.block().base_fee_per_gas
+        return int(base_fee) if base_fee is not None else 0
 
     def blob_gas_price(self) -> int | None:
         """Return the blob gas price the transaction paid, if any."""
@@ -87,7 +88,7 @@ class RPCTransactionLanding(TransactionLanding):
 
     def fee_recipient(self) -> Address:
         """Return the block fee recipient."""
-        return Address(self.block()["miner"])
+        return self.block().fee_recipient
 
 
 class RPCPostStateContext(PostStateContext):
@@ -101,7 +102,7 @@ class RPCPostStateContext(PostStateContext):
 
     eth_rpc: EthRPC
     _landings: Dict[TransactionKey, RPCTransactionLanding]
-    _blocks: Dict[Hash, Dict[str, Any]]
+    _blocks: Dict[Hash, LiveBlock]
 
     def __init__(self, *, eth_rpc: EthRPC, txs: List[Transaction]) -> None:
         """Track the sent `txs`, without fetching anything yet."""
@@ -114,7 +115,7 @@ class RPCPostStateContext(PostStateContext):
         }
         self._blocks = {}
 
-    def block(self, block_hash: Hash) -> Dict[str, Any]:
+    def block(self, block_hash: Hash) -> LiveBlock:
         """Return the block `block_hash`, fetching it on first use."""
         if block_hash not in self._blocks:
             block = self.eth_rpc.get_block_by_hash(block_hash, full_txs=False)

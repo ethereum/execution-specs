@@ -330,7 +330,7 @@ class BlobTransaction(BaseExecute):
         latest_block = eth_rpc.get_block_by_number("latest")
         assert latest_block is not None, "Failed to fetch the latest block."
         forkchoice_state = ForkchoiceState(
-            head_block_hash=Hash(latest_block["hash"]),
+            head_block_hash=latest_block.hash,
         )
         for custody_columns in self.custody_columns_updates:
             if custody_columns is None:

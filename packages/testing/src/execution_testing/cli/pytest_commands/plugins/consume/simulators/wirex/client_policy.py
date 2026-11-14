@@ -29,7 +29,7 @@ import pytest
 from hive.client import Client, ClientType
 from hive.testing import HiveTest
 
-from execution_testing.base_types import Hash, HexNumber
+from execution_testing.base_types import Hash
 from execution_testing.devp2p.chain import Chain
 from execution_testing.devp2p.peer import MockPeer
 from execution_testing.devp2p.protocol import EthVersion, ForkSchedule
@@ -109,8 +109,8 @@ def client_head(client: Client) -> ClientHead:
     if head_block is None:
         raise LookupError("client returned no head block")
     return ClientHead(
-        number=int(HexNumber(head_block["number"])),
-        block_hash=Hash(head_block["hash"]),
+        number=int(head_block.number),
+        block_hash=head_block.hash,
     )
 
 
