@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -46,7 +45,6 @@ def test_recursive_create_return_value(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(""),
         value=0x186A0,
     )
 

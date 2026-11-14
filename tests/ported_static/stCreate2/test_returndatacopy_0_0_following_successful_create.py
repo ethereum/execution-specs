@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -52,7 +51,6 @@ def test_returndatacopy_0_0_following_successful_create(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(""),
     )
 
     post = {
