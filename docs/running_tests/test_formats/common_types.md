@@ -82,6 +82,42 @@ Storage of the account.
 
 State allocation represented as a JSON object, where the keys are the addresses of the accounts, and the values are the accounts.
 
+### `AuthorizationTuple`
+
+An [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) authorization tuple represented as a JSON object with the following fields:
+
+#### - `chainId`: [`ZeroPaddedHexNumber`](#zeropaddedhexnumber)
+
+Chain ID the authorization is valid on, or zero if it's valid on any chain.
+
+#### - `address`: [`Address`](#address)
+
+Address whose code the authority's account delegates to.
+
+#### - `nonce`: [`ZeroPaddedHexNumber`](#zeropaddedhexnumber)
+
+Nonce the authority's account must have when the authorization is processed.
+
+#### - `v`: [`ZeroPaddedHexNumber`](#zeropaddedhexnumber)
+
+Y parity of the authorization signature.
+
+#### - `r`: [`ZeroPaddedHexNumber`](#zeropaddedhexnumber)
+
+R value of the authorization signature.
+
+#### - `s`: [`ZeroPaddedHexNumber`](#zeropaddedhexnumber)
+
+S value of the authorization signature.
+
+#### - `yParity`: [`ZeroPaddedHexNumber`](#zeropaddedhexnumber)
+
+Same value as `v`, included for compatibility with tooling that uses the `yParity` name.
+
+#### - `signer`: [`Address`](#address)
+
+Address of the authority, as the test expects it to be recovered from the signature. Omitted if the test doesn't set it and no address can be recovered from the signature. Clients must recover the authority from the signature instead of reading this field.
+
 ### `BlobSchedule`: [`Mapping`](#mapping)`[`[`Fork`](#fork)`,`[`ForkBlobSchedule`](#forkblobschedule)`]`
 
 Maps forks to blob schedule configurations as defined by [EIP-7840](https://eips.ethereum.org/EIPS/eip-7840).
