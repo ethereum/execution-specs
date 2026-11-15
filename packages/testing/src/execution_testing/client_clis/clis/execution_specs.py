@@ -179,7 +179,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             )
 
         if temp_dir is not None:
-            self.collect_traces(
+            output.result.traces = self.collect_traces(
                 output.result.receipts, temp_dir, debug_output_path
             )
             temp_dir.cleanup()
