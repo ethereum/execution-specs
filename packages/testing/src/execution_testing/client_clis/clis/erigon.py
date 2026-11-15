@@ -44,9 +44,6 @@ class ErigonExceptionMapper(ExceptionMapper):
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
             "intrinsic gas too low"
         ),
-        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            "fee cap less than block base fee"
-        ),
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "tip higher than fee cap"
         ),
@@ -123,6 +120,10 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.GAS_USED_OVERFLOW: "block gas used overflow",
     }
     mapping_regex = {
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
+            r"fee cap less than block base fee|"
+            r"frame fee budget below base fees"
+        ),
         # In-range r that is not an x-coordinate on the curve: the range
         # check passes and libsecp256k1 recovery itself fails.
         TransactionException.INVALID_SIGNATURE_VRS: r"recovery failed",
@@ -174,7 +175,8 @@ class ErigonExceptionMapper(ExceptionMapper):
         ),
         TransactionException.GASPRICE_OVERFLOW: (
             r"rlp: input string too long for \*uint256.Int, "
-            r"decoding into \(types\.frameTransactionRLP\)\.Fees\.FeeCap$"
+            r"decoding into \(types\.frameTransactionRLP\)"
+            r"\.Fees\.(?:FeeCap|MaxFee)$"
         ),
         TransactionException.PRIORITY_OVERFLOW: (
             r"rlp: input string too long for \*uint256.Int, "
