@@ -24,6 +24,7 @@ from execution_testing.client_clis.clis.reth import RethExceptionMapper
 from execution_testing.exceptions import ExceptionMapper
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.logging import get_logger
+from execution_testing.rpc import LiveBlock
 
 logger = get_logger(__name__)
 
@@ -47,7 +48,7 @@ class GenesisBlockMismatchExceptionError(Exception):
         self,
         *,
         expected_header: FixtureHeader,
-        got_genesis_block: Dict[str, str],
+        got_genesis_block: LiveBlock,
     ):
         """
         Initialize the exception with the expected and received genesis block
@@ -56,10 +57,13 @@ class GenesisBlockMismatchExceptionError(Exception):
         message = (
             "Genesis block hash mismatch.\n\n"
             f"Expected: {expected_header.block_hash}\n"
-            f"     Got: {got_genesis_block['hash']}."
+            f"     Got: {got_genesis_block.hash}."
+        )
+        got_genesis_block_dict = got_genesis_block.model_dump(
+            by_alias=True, mode="json", exclude_none=True
         )
         differences, unexpected_fields = self.compare_models(
-            expected_header, FixtureHeader(**got_genesis_block)
+            expected_header, FixtureHeader(**got_genesis_block_dict)
         )
         if differences:
             message += (

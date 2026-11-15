@@ -58,11 +58,11 @@ class RPCRequest:
         assert res is not None, "Block not found"
 
         return Environment(
-            fee_recipient=res["miner"],
-            number=res["number"],
-            difficulty=res["difficulty"],
-            gas_limit=res["gasLimit"],
-            timestamp=res["timestamp"],
+            fee_recipient=res.fee_recipient,
+            number=res.number,
+            difficulty=res.difficulty,
+            gas_limit=res.gas_limit,
+            timestamp=res.timestamp,
         )
 
     def debug_trace_call(

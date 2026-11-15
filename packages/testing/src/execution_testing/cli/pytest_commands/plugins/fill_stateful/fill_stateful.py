@@ -16,7 +16,7 @@ setup-phase block prepended to ``self.blocks``.
 import os
 import secrets
 from pathlib import Path
-from typing import Any, Generator, List
+from typing import Generator, List
 from urllib.parse import urlparse, urlunparse
 
 import pytest
@@ -25,7 +25,6 @@ from filelock import FileLock
 from execution_testing.base_types import (
     Address,
     Hash,
-    HexNumber,
     Number,
 )
 from execution_testing.client_clis import ClientBackend
@@ -45,7 +44,7 @@ from execution_testing.forks import (
 )
 from execution_testing.logging import get_logger
 from execution_testing.recipient_type import RecipientType
-from execution_testing.rpc import DebugRPC, EngineRPC, EthRPC
+from execution_testing.rpc import DebugRPC, EngineRPC, EthRPC, LiveBlock
 from execution_testing.specs.blockchain import (
     payload_metadata_to_fixture,
 )
@@ -454,7 +453,7 @@ def worker_key(
     else:
         account = eth_rpc.get_account(
             session_worker_key,
-            block_number=int(start["number"], 16),
+            block_number=int(start.number),
             skip_code=True,
         )
     session_worker_key.nonce = Number(account.nonce)
@@ -599,9 +598,9 @@ def client_backend(
 @pytest.fixture(scope="session")
 def snapshot_block(
     request: pytest.FixtureRequest, eth_rpc: "ChainBuilderEthRPC"
-) -> Any:
+) -> LiveBlock:
     """
-    Resolve the snapshot anchor to a client block dict.
+    Resolve the snapshot anchor to a client block.
 
     Accepts a 32-byte hash (preferred — survives reorgs), an integer
     block number (hex/dec), or ``None`` for ``latest``. The returned
@@ -647,7 +646,7 @@ def _session_pre_run(
     eth_rpc: ChainBuilderEthRPC,
     session_worker_key: EOA,
     session_fork: Fork | TransitionFork,
-    snapshot_block: Any,
+    snapshot_block: LiveBlock,
     sender_funding_transactions_gas_price: int,
     session_temp_folder: Path,
     request: pytest.FixtureRequest,
@@ -673,8 +672,8 @@ def _session_pre_run(
     #    record — a later reorg can't silently re-anchor by block number.
     client_backend.snapshot_block = snapshot_block
     logger.info(
-        f"Snapshot block {snapshot_block['number']} "
-        f"hash={snapshot_block['hash'][:20]}..."
+        f"Snapshot block {snapshot_block.number} "
+        f"hash={str(snapshot_block.hash)[:20]}..."
     )
 
     # 2. Fund seed key via CL withdrawal, unless it is already funded (e.g.
@@ -723,8 +722,8 @@ def _session_pre_run(
     assert start_block is not None, "Failed to fetch start block"
     client_backend.start_block = start_block
     logger.info(
-        f"Start block {start_block['number']} "
-        f"hash={start_block['hash'][:20]}..."
+        f"Start block {start_block.number} "
+        f"hash={str(start_block.hash)[:20]}..."
     )
 
     # 5. Persist captured payloads to pre_run/<start_block_hash>.json.
@@ -738,12 +737,12 @@ def _session_pre_run(
         pre_run_dir.mkdir(parents=True, exist_ok=True)
         fork_at_genesis = session_fork.fork_at(block_number=0, timestamp=0)
         payloads = [payload_metadata_to_fixture(p) for p in captured]
-        start_block_hash = Hash(start_block["hash"])
+        start_block_hash = start_block.hash
         fixture = StatefulPreRunFixture(
             network=str(fork_at_genesis),
-            snapshot_block_number=HexNumber(snapshot_block["number"]),
-            snapshot_block_hash=Hash(snapshot_block["hash"]),
-            start_block_number=HexNumber(start_block["number"]),
+            snapshot_block_number=snapshot_block.number,
+            snapshot_block_hash=snapshot_block.hash,
+            start_block_number=start_block.number,
             start_block_hash=start_block_hash,
             payloads=payloads,
         )
@@ -807,11 +806,12 @@ def _reset_chain_between_tests(
     yield
     if client_backend.start_block is None:
         return
-    start_hex = client_backend.start_block["number"]
-    expected_hash = client_backend.start_block["hash"]
+    start_number = int(client_backend.start_block.number)
+    start_hex = str(client_backend.start_block.number)
+    expected_hash = str(client_backend.start_block.hash)
     # Skip when head already at start (geth rejects same-block setHead).
     current_head = eth_rpc.get_block_by_number("latest")
-    if current_head is not None and current_head["hash"] == expected_hash:
+    if current_head is not None and str(current_head.hash) == expected_hash:
         return
     try:
         debug_rpc.rewind_head(block_number=start_hex, block_hash=expected_hash)
@@ -823,9 +823,9 @@ def _reset_chain_between_tests(
     # tip, so "latest" is unreliable there. The block at start_block's number
     # is the start block on both geth (debug_setHead moves latest) and
     # nethermind (resetHead leaves it stale).
-    head = eth_rpc.get_block_by_number(start_hex)
-    if head is None or head["hash"] != expected_hash:
-        observed = head["hash"] if head is not None else "<none>"
+    head = eth_rpc.get_block_by_number(start_number)
+    if head is None or str(head.hash) != expected_hash:
+        observed = str(head.hash) if head is not None else "<none>"
         pytest.exit(
             f"head rewind landed on hash {observed} but expected "
             f"{expected_hash} (start_block at number {start_hex}). The "
