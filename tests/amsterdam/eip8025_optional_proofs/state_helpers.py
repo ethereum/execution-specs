@@ -8,7 +8,6 @@ from ethereum_types.bytes import Bytes as TrieBytes
 from ethereum_types.bytes import Bytes32
 from ethereum_types.numeric import U256, Uint
 from execution_testing import Account, Address, Alloc, Bytes, Storage
-from execution_testing.forks import Amsterdam
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.incremental_mpt import (
@@ -203,14 +202,6 @@ def find_account_ending_absence_proof(
         if _shared_secured_nibbles(target, address) >= depth:
             return address
     raise AssertionError("failed to find an address to end the proof")
-
-
-def merge_with_amsterdam_pre_alloc(pre: Alloc) -> Alloc:
-    """Merge test-local accounts with Amsterdam's implicit pre-allocation."""
-    return Alloc.merge(
-        Alloc.model_validate(Amsterdam.pre_allocation_blockchain()),
-        pre,
-    )
 
 
 def _storage_root_for_account(account: Account) -> Root:

@@ -20,7 +20,6 @@ from execution_testing import (
     Transaction,
     Withdrawal,
 )
-from execution_testing.forks import Amsterdam
 from execution_testing.test_types.execution_witness import ExecutionWitness
 from execution_testing.test_types.execution_witness.modifiers import (
     add_state_node,
@@ -45,12 +44,11 @@ from .state_helpers import (
     find_account_ending_absence_proof,
     find_account_with_shared_secured_nibble,
     large_storage_value,
-    merge_with_amsterdam_pre_alloc,
     storage_root_node,
     trie_node_kind,
 )
 
-pytestmark = pytest.mark.valid_at("Amsterdam")
+pytestmark = pytest.mark.valid_from("Amsterdam")
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8025.version
@@ -233,18 +231,18 @@ def test_validation_state_missing_delete_auxiliary_node(
 
 
 def test_validation_state_missing_sender_account_proof_leaf_node(
+    fork: Fork,
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """Removing the sender account proof leaf should fail a transfer."""
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=1)
-    full_alloc = merge_with_amsterdam_pre_alloc(pre)
-    proof_nodes = collect_account_proof_nodes(full_alloc, [sender, recipient])
+    proof_nodes = collect_account_proof_nodes(pre, [sender, recipient])
     sender_only_nodes = collect_account_path_only_nodes(
-        full_alloc,
+        pre,
         sender,
-        [recipient, *Amsterdam.execution_witness_implicit_code_addresses()],
+        [recipient, *fork.execution_witness_implicit_code_addresses()],
     )
     assert len(sender_only_nodes) == 1
     removed_node = _leaf_node(sender_only_nodes)
@@ -286,20 +284,19 @@ def test_validation_state_missing_absent_account_proof_node(
         {
             sender,
             recipient,
-            *Amsterdam.execution_witness_implicit_code_addresses(),
+            *fork.execution_witness_implicit_code_addresses(),
         },
     )
     pre.fund_address(sibling, 1)
-    full_alloc = merge_with_amsterdam_pre_alloc(pre)
     recipient_only_nodes = sorted(
         collect_account_path_only_nodes(
-            full_alloc,
+            pre,
             recipient,
-            [sender, *Amsterdam.execution_witness_implicit_code_addresses()],
+            [sender, *fork.execution_witness_implicit_code_addresses()],
         )
     )
     assert recipient_only_nodes
-    proof_nodes = collect_account_proof_nodes(full_alloc, [recipient])
+    proof_nodes = collect_account_proof_nodes(pre, [recipient])
     removed_node = _required_node(recipient_only_nodes)
 
     tx = Transaction(
@@ -358,8 +355,7 @@ def test_validation_state_missing_failed_call_target_account_proof_node(
         storage={0: 1},
     )
     sender = pre.fund_eoa()
-    full_alloc = merge_with_amsterdam_pre_alloc(pre)
-    proof_nodes = collect_account_proof_nodes(full_alloc, [target])
+    proof_nodes = collect_account_proof_nodes(pre, [target])
     assert proof_nodes
     removed_node = _leaf_node(proof_nodes)
 
@@ -563,27 +559,24 @@ def test_validation_state_unchanged_account_read(
         # branch or another account's leaf, which other proofs hold too. A
         # sibling whose leaf ends the target's proof gives it a node of its
         # own.
-        sibling = find_account_ending_absence_proof(
-            merge_with_amsterdam_pre_alloc(pre), target
-        )
+        sibling = find_account_ending_absence_proof(pre, target)
         pre.fund_address(sibling, 1)
 
-    full_alloc = merge_with_amsterdam_pre_alloc(pre)
-    proof_nodes = collect_account_proof_nodes(full_alloc, [target])
+    proof_nodes = collect_account_proof_nodes(pre, [target])
     if sibling is None:
         removed_node = _leaf_node(proof_nodes)
     else:
         # No other address the block names may need the sibling's leaf, or
         # the guest could reject the block for that address's read.
         named = {
-            *full_alloc,
+            *pre,
             *(tx.to for tx in txs if tx.to is not None),
             Environment().fee_recipient
             if fee_recipient is None
             else fee_recipient,
         }
         target_only_nodes = collect_account_path_only_nodes(
-            full_alloc, target, list(named - {target, sibling})
+            pre, target, list(named - {target, sibling})
         )
         assert len(target_only_nodes) == 1
         removed_node = _leaf_node(target_only_nodes)
@@ -709,8 +702,7 @@ def test_validation_state_unread_account(
     else:
         raise ValueError(f"Unknown block contents: {block_contents}")
 
-    full_alloc = merge_with_amsterdam_pre_alloc(pre)
-    proof_nodes = collect_account_proof_nodes(full_alloc, [target])
+    proof_nodes = collect_account_proof_nodes(pre, [target])
 
     blockchain_test(
         pre=pre,

@@ -29,7 +29,7 @@ from .stateless_input_helpers import (
     modify_stateless_input,
 )
 
-pytestmark = pytest.mark.valid_at("Amsterdam")
+pytestmark = pytest.mark.valid_from("Amsterdam")
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8025.version
@@ -47,13 +47,15 @@ def incomplete_schema_id(input_bytes: Bytes) -> Bytes:
 
 
 def unsupported_schema_revision(input_bytes: Bytes) -> Bytes:
-    """Replace the schema id with an unsupported Amsterdam revision."""
-    return Bytes(b"\x15\x02" + input_bytes[2:])
+    """Replace the schema id with the next revision of the same fork."""
+    fork_index, revision = input_bytes[:2]
+    return Bytes(bytes([fork_index, revision + 1]) + input_bytes[2:])
 
 
 def unsupported_schema_fork(input_bytes: Bytes) -> Bytes:
-    """Replace the schema id with an unsupported fork."""
-    return Bytes(b"\x16\x01" + input_bytes[2:])
+    """Replace the schema id with the same revision of the next fork."""
+    fork_index, revision = input_bytes[:2]
+    return Bytes(bytes([fork_index + 1, revision]) + input_bytes[2:])
 
 
 def missing_ssz_body(input_bytes: Bytes) -> Bytes:
@@ -79,9 +81,9 @@ def invalid_first_ssz_offset(input_bytes: Bytes) -> Bytes:
     Corrupt the first SSZ container offset.
 
     The stateless input starts with a 2-byte schema id, followed by the
-    encoded payload selected by that schema. For Amsterdam schema 0x1501,
-    the payload is an SSZ-encoded ``StatelessInput`` container. Its
-    first four SSZ bytes encode the offset to the first variable-size field.
+    encoded payload selected by that schema, which is an SSZ-encoded
+    ``StatelessInput`` container. Its first four SSZ bytes encode the
+    offset to the first variable-size field.
     Setting that offset to 1 makes it point inside the fixed-size section,
     so the SSZ decoder must reject the input before stateless validation
     can run.

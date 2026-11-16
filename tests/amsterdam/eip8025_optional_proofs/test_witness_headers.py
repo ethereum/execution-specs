@@ -11,20 +11,20 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     ExecutionWitnessHeadersExpectation,
+    Fork,
     Op,
     Transaction,
 )
 from execution_testing.client_clis import TransitionTool
 from execution_testing.fixtures import BlockchainFixture
 from execution_testing.fixtures.blockchain import FixtureBlock
-from execution_testing.forks import Amsterdam
 from execution_testing.test_types.execution_witness.modifiers import (
     prepend_header,
 )
 
 from .spec import ref_spec_8025
 
-pytestmark = pytest.mark.valid_at("Amsterdam")
+pytestmark = pytest.mark.valid_from("Amsterdam")
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8025.version
@@ -292,6 +292,7 @@ def test_witness_headers_blockhash_in_reverted_inner_call(
 
 
 def test_witness_headers_extra_unused_older_ancestor(
+    fork: Fork,
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     t8n: TransitionTool,
@@ -308,7 +309,7 @@ def test_witness_headers_extra_unused_older_ancestor(
 
     probe_fixture = (
         BlockchainTest(
-            fork=Amsterdam,
+            fork=fork,
             pre=deepcopy(pre),
             blocks=[Block(txs=[])],
             post={},
