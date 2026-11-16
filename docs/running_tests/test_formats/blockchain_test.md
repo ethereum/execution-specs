@@ -241,7 +241,7 @@ These rules apply to `executionWitness`, `statelessInputBytes`, and `statelessOu
 - All three are absent from blocks before Amsterdam, even in a test that transitions to Amsterdam. They are also absent when the test sets `skip_stateless_validation` or when the transition tool emits no witness.
 - The byte fields are absent when the block lacks a field that Amsterdam requires, or when its requests don't decode into SSZ execution requests, as with a request type that has no data. A block whose access list doesn't decode keeps both fields: the input carries the list's raw bytes.
 - `statelessOutputBytes` reports `successful_validation=true` for a valid block and `false` for an invalid one, unless a mutation test expects otherwise.
-- In benchmark mode with an external transition tool, the filler skips the guest for an unmutated block and writes an output that reports success.
+- In benchmark mode with an external transition tool, the filler skips the guest for an unmutated block. The tool has to say if its witness validates the block in the `successfulValidation` field of its result. The output reports that value, and the fill fails when it is `false` for a valid block or when the field is missing.
 
 Mutation tests change the stateless input and check the guest's result:
 
