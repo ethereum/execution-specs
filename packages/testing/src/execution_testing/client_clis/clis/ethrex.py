@@ -1,10 +1,18 @@
 """Ethrex execution client transition tool."""
 
+import re
+import subprocess
+from pathlib import Path
+from typing import FrozenSet, Optional
+
 from execution_testing.exceptions import (
     BlockException,
     ExceptionMapper,
     TransactionException,
 )
+from execution_testing.forks import Fork
+
+from ..transition_tool import TransitionTool
 
 
 class EthrexExceptionMapper(ExceptionMapper):
@@ -199,3 +207,73 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"Block access list accounts not in strictly ascending order.*"
         ),
     }
+
+
+class EthrexTransitionTool(TransitionTool):
+    """Ethrex `ethrex-evm t8n` Transition tool interface wrapper class."""
+
+    default_binary = Path("ethrex-evm")
+    detect_binary_pattern = re.compile(r"^ethrex-evm\b")
+    version_flag: str = "--version"
+    subcommand: Optional[str] = "t8n"
+    t8n_use_stream = True
+
+    supported_forks_pattern = re.compile(
+        r"^Supported forks: (.+)$", re.MULTILINE
+    )
+
+    binary: Path
+    cached_version: Optional[str] = None
+    trace: bool
+    supported_forks: FrozenSet[str]
+
+    def __init__(
+        self,
+        *,
+        binary: Optional[Path] = None,
+        trace: bool = False,
+    ):
+        """Initialize the Ethrex Transition tool interface."""
+        if trace:
+            raise Exception(
+                "ethrex-evm's t8n has no `--trace` flag, so it cannot "
+                "collect traces. Fill without `--traces`."
+            )
+        super().__init__(
+            exception_mapper=EthrexExceptionMapper(),
+            binary=binary,
+            trace=trace,
+        )
+        help_command = [str(self.binary), str(self.subcommand), "--help"]
+        try:
+            result = subprocess.run(
+                help_command, capture_output=True, text=True
+            )
+        except Exception as e:
+            raise Exception(
+                f"Unexpected exception calling ethrex-evm: {e}."
+            ) from e
+        if result.returncode != 0:
+            raise Exception(
+                "ethrex-evm process unexpectedly returned a non-zero status "
+                f"code: {result.returncode}. Stderr: {result.stderr}"
+            )
+        supported_forks = self.supported_forks_pattern.search(result.stdout)
+        if supported_forks is None:
+            raise Exception(
+                "ethrex-evm's t8n help does not list the supported forks, "
+                "so there is no way to know which forks it can fill. "
+                f"Help output: {result.stdout}"
+            )
+        self.supported_forks = frozenset(
+            name.strip() for name in supported_forks.group(1).split(",")
+        )
+
+    def is_fork_supported(self, fork: Fork) -> bool:
+        """
+        Return True if the fork is supported by the tool.
+
+        The tool lists the forks it supports in the help of its `t8n`
+        subcommand. It only supports forks from the Merge onwards.
+        """
+        return fork.transition_tool_name() in self.supported_forks

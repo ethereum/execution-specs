@@ -15,6 +15,7 @@ from execution_testing.base_types import StateCommitment
 from execution_testing.client_clis import (
     BesuTransitionTool,
     CLINotFoundInPathError,
+    EthrexTransitionTool,
     EvmOneTransitionTool,
     ExecutionSpecsTransitionTool,
     GethTransitionTool,
@@ -31,6 +32,7 @@ from execution_testing.client_clis.cli_types import (
     TransitionToolInput,
     TransitionToolOutput,
 )
+from execution_testing.forks import Cancun, Fork, London, Paris, Prague
 from execution_testing.test_types import Alloc, Environment
 
 
@@ -159,7 +161,13 @@ def test_a_matched_tool_that_cannot_be_built_raises(
 
 @pytest.mark.skipif(sys.platform == "win32", reason="uses a shell script")
 @pytest.mark.parametrize(
-    "tool", [GethTransitionTool, BesuTransitionTool, NimbusTransitionTool]
+    "tool",
+    [
+        GethTransitionTool,
+        BesuTransitionTool,
+        NimbusTransitionTool,
+        EthrexTransitionTool,
+    ],
 )
 def test_a_failing_help_probe_raises(
     tmp_path: Path, tool: Type[TransitionTool]
@@ -170,6 +178,86 @@ def test_a_failing_help_probe_raises(
     binary.chmod(0o755)
     with pytest.raises(Exception, match="cannot start"):
         tool(binary=binary)
+
+
+ETHREX_EVM_SCRIPT = """\
+#!/bin/sh
+if [ "$1" = "--version" ]; then
+    echo "ethrex-evm 4.0.0"
+    exit 0
+fi
+if [ "$1" = "t8n" ] && [ "$2" = "--help" ]; then
+    cat <<'HELP'
+T8N_HELP
+HELP
+    exit 0
+fi
+echo "error: unexpected argument '$1' found" >&2
+exit 2
+"""
+
+# The description of an option names a fork that the list leaves out.
+ETHREX_T8N_HELP = """\
+Usage: ethrex-evm t8n [OPTIONS] --state.fork <FORK>
+
+Options:
+      --state.reward <REWARD>
+          Mining reward. London and earlier forks are not supported
+
+Supported forks: Merge, Shanghai, Cancun"""
+
+
+def write_ethrex_evm(tmp_path: Path, t8n_help: str) -> Path:
+    """Write a stand-in `ethrex-evm` whose `t8n --help` prints `t8n_help`."""
+    binary = tmp_path / "ethrex-evm"
+    binary.write_text(ETHREX_EVM_SCRIPT.replace("T8N_HELP", t8n_help))
+    binary.chmod(0o755)
+    return binary
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="uses a shell script")
+def test_ethrex_is_detected_from_its_binary(tmp_path: Path) -> None:
+    """`from_binary_path` instantiates the Ethrex tool for `ethrex-evm`."""
+    binary = write_ethrex_evm(tmp_path, ETHREX_T8N_HELP)
+    tool = TransitionTool.from_binary_path(binary_path=binary)
+    assert isinstance(tool, EthrexTransitionTool)
+    assert tool.version() == "ethrex-evm 4.0.0"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="uses a shell script")
+@pytest.mark.parametrize(
+    "fork,supported",
+    [
+        pytest.param(Paris, True, id="listed-as-merge"),
+        pytest.param(Cancun, True, id="listed"),
+        pytest.param(Prague, False, id="not-listed"),
+        pytest.param(London, False, id="named-outside-the-list"),
+    ],
+)
+def test_ethrex_supports_the_forks_its_help_lists(
+    tmp_path: Path, fork: Fork, supported: bool
+) -> None:
+    """Only the forks in the "Supported forks" line of the help count."""
+    tool = EthrexTransitionTool(
+        binary=write_ethrex_evm(tmp_path, ETHREX_T8N_HELP)
+    )
+    assert tool.is_fork_supported(fork) is supported
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="uses a shell script")
+def test_ethrex_help_without_supported_forks_raises(tmp_path: Path) -> None:
+    """A help output that lists no supported forks raises."""
+    binary = write_ethrex_evm(tmp_path, "Usage: ethrex-evm t8n [OPTIONS]")
+    with pytest.raises(Exception, match="does not list the supported forks"):
+        EthrexTransitionTool(binary=binary)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="uses a shell script")
+def test_ethrex_refuses_to_collect_traces(tmp_path: Path) -> None:
+    """Asking for traces raises, because `ethrex-evm t8n` has no `--trace`."""
+    binary = write_ethrex_evm(tmp_path, ETHREX_T8N_HELP)
+    with pytest.raises(Exception, match="Fill without `--traces`"):
+        EthrexTransitionTool(binary=binary, trace=True)
 
 
 def test_unknown_binary_path() -> None:
