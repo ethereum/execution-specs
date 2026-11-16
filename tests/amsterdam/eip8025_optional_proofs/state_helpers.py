@@ -11,6 +11,7 @@ from execution_testing import Account, Address, Alloc, Bytes, Storage
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.incremental_mpt import (
+    IncrementalMPT,
     build_mpt,
     compact_to_nibbles,
     mpt_get,
@@ -204,6 +205,52 @@ def find_account_ending_absence_proof(
     raise AssertionError("failed to find an address to end the proof")
 
 
+def find_accounts_sharing_branch(
+    alloc: Alloc,
+    target: Address,
+) -> tuple[Address, Address]:
+    """
+    Return two addresses that would share a branch with `target` alone.
+
+    Once `target` and the first address are funded, their leaves are the
+    only children of one branch of the account trie. The second address is
+    for an account created later, whose leaf becomes a third child of that
+    branch. It sorts after `target` both as an address and as a secured key.
+    """
+    target_key = keccak256(bytes(target)).hex()
+    # The branch sits below every account in `alloc`, at the first depth
+    # where a secured key can sort after the target's.
+    depth = 1 + max(
+        (
+            _shared_secured_nibbles(target, address)
+            for address in alloc
+            if address != target
+        ),
+        default=0,
+    )
+    while target_key[depth] == "f":
+        depth += 1
+
+    sibling: Address | None = None
+    later: Address | None = None
+    taken_nibbles = {target_key[depth]}
+    for value in range(int.from_bytes(target, "big") + 1, 1 << 160):
+        address = Address(value)
+        key = keccak256(bytes(address)).hex()
+        if key[:depth] != target_key[:depth] or key[depth] in taken_nibbles:
+            continue
+        if later is None and key[depth] > target_key[depth]:
+            later = address
+        elif sibling is None:
+            sibling = address
+        else:
+            continue
+        taken_nibbles.add(key[depth])
+        if sibling is not None and later is not None:
+            return sibling, later
+    raise AssertionError("failed to find addresses sharing a branch")
+
+
 def _storage_root_for_account(account: Account) -> Root:
     """Compute the storage root for one execution-testing account."""
     if not account.storage.root:
@@ -230,11 +277,10 @@ def _state_account(account: Account) -> StateAccount:
     )
 
 
-def _collect_account_proof_node_rlps(
+def _build_account_mpt(
     alloc: Alloc,
-    addresses: Sequence[StateAddress | bytes],
-) -> set[bytes]:
-    """Collect witness node RLPs for hashed account proof-path nodes."""
+) -> IncrementalMPT[StateAddress, StateAccount | None]:
+    """Build the account trie of an allocation."""
     storage_roots: dict[StateAddress, Root] = {}
     accounts: dict[StateAddress, StateAccount | None] = {}
 
@@ -249,12 +295,20 @@ def _collect_account_proof_node_rlps(
     def get_storage_root(address: StateAddress) -> Root:
         return storage_roots.get(address, EMPTY_TRIE_ROOT)
 
-    account_mpt = build_mpt(
+    return build_mpt(
         accounts,
         secured=True,
         default=None,
         get_storage_root=get_storage_root,
     )
+
+
+def _collect_account_proof_node_rlps(
+    alloc: Alloc,
+    addresses: Sequence[StateAddress | bytes],
+) -> set[bytes]:
+    """Collect witness node RLPs for hashed account proof-path nodes."""
+    account_mpt = _build_account_mpt(alloc)
     for addr in addresses:
         mpt_get(account_mpt, StateAddress(bytes(addr)))
     return set(account_mpt.witness.accessed_nodes.values())
@@ -279,3 +333,17 @@ def collect_account_path_only_nodes(
         alloc, relative_to_addresses
     )
     return _nodes(address_nodes - reference_nodes)
+
+
+def collect_account_delete_auxiliary_nodes(
+    alloc: Alloc,
+    address_to_delete: StateAddress | bytes,
+) -> list[Bytes]:
+    """Collect nodes added only because a delete compressed the trie."""
+    account_mpt = _build_account_mpt(alloc)
+    address = StateAddress(bytes(address_to_delete))
+    mpt_get(account_mpt, address)
+    before = set(account_mpt.witness.accessed_nodes.values())
+    mpt_set(account_mpt, address, None)
+    after = set(account_mpt.witness.accessed_nodes.values())
+    return _nodes(after - before)

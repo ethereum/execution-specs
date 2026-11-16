@@ -972,6 +972,55 @@ class TestPartialWitness:
         ):
             mpt_set(mpt, Bytes(b"\x01"), b"")
 
+    def test_partial_witness_insert_before_delete_avoids_collapse(
+        self,
+    ) -> None:
+        """
+        Replay a deletion and an insertion under the same branch, from a
+        witness that lacks the node of the key that stays.
+
+        Deleting first leaves the branch with one child, so it collapses
+        onto the missing node. Inserting first keeps the branch populated,
+        as it is in the final trie.
+        """
+        # The three keys share their first nibble, so they hang from one
+        # branch. The values are long enough for each leaf to be hashed.
+        deleted, sibling, inserted = b"\x10", b"\x11", b"\x12"
+        data = {deleted: b"d" * 32, sibling: b"s" * 32}
+        inserted_value = b"i" * 32
+
+        inc_mpt = build_mpt(data, secured=False, default=b"")
+        mpt_get(inc_mpt, sibling)
+        sibling_nodes = set(inc_mpt.witness.accessed_nodes.values())
+
+        # The proofs of the two written keys are all the final trie needs.
+        inc_mpt = build_mpt(data, secured=False, default=b"")
+        mpt_get(inc_mpt, deleted)
+        mpt_get(inc_mpt, inserted)
+        node_db: dict[Bytes, Bytes] = dict(inc_mpt.witness.accessed_nodes)
+        pre_root = mpt_root(inc_mpt)
+        (sibling_leaf,) = sibling_nodes - set(node_db.values())
+        assert sibling_leaf.endswith(data[sibling])
+
+        delete_first: IncrementalMPT[Bytes, Bytes] = decode_witness_to_mpt(
+            node_db, pre_root, secured=False, default=b""
+        )
+        with pytest.raises(
+            AssertionError, match="Witness is missing a trie node"
+        ):
+            mpt_set(delete_first, deleted, b"")
+
+        insert_first: IncrementalMPT[Bytes, Bytes] = decode_witness_to_mpt(
+            node_db, pre_root, secured=False, default=b""
+        )
+        mpt_set(insert_first, inserted, inserted_value)
+        mpt_set(insert_first, deleted, b"")
+
+        final_trie: Trie[Bytes, Bytes] = Trie(secured=False, default=b"")
+        trie_set(final_trie, sibling, data[sibling])
+        trie_set(final_trie, inserted, inserted_value)
+        assert mpt_root(insert_first) == root(final_trie)
+
 
 def _encode_root_for_db(
     node: object,

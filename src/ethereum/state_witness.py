@@ -18,6 +18,7 @@ from ethereum.incremental_mpt import (
     mpt_get,
     mpt_root,
     mpt_set,
+    mpt_set_accounts,
     mpt_set_storage_slots,
 )
 from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT
@@ -195,7 +196,6 @@ class WitnessState:
                 return EMPTY_TRIE_ROOT
             return self._storage_root_cache.get(addr, EMPTY_TRIE_ROOT)
 
-        for address, account in account_changes.items():
-            mpt_set(state_mpt, address, account, get_storage_root(address))
+        mpt_set_accounts(state_mpt, account_changes, get_storage_root)
 
         return mpt_root(state_mpt)

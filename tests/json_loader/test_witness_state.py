@@ -40,6 +40,7 @@ from ethereum.stateless.witness_builder import build_execution_witness
 
 _ADDR1 = Address(b"\x01" * 20)
 _ADDR2 = Address(b"\x02" * 20)
+_ADDR3 = Address(b"\x03" * 20)
 
 _CODE = b"\x60\x00\x56"
 _CODE_HASH = Hash32(keccak256(_CODE))
@@ -54,11 +55,33 @@ def _acct(balance: int = 0, nonce: int = 1) -> Account:
     )
 
 
+# A block that deletes one of two accounts and creates a third one. The
+# secured keys of the three addresses start with different nibbles, so the
+# accounts are children of the root branch.
+_DELETION_PRE_ACCOUNTS: dict[Address, Optional[Account]] = {
+    _ADDR1: _acct(balance=1, nonce=0),
+    _ADDR2: _acct(balance=2),
+}
+_DELETION_ACCOUNT_CHANGES: dict[Address, Optional[Account]] = {
+    _ADDR1: None,
+    _ADDR3: _acct(balance=3, nonce=0),
+}
+_DELETION_POST_ACCOUNTS: dict[Address, Optional[Account]] = {
+    _ADDR2: _DELETION_PRE_ACCOUNTS[_ADDR2],
+    _ADDR3: _DELETION_ACCOUNT_CHANGES[_ADDR3],
+}
+
+
 def _build_witness(
     accounts: dict[Address, Optional[Account]],
     storage: dict[Address, dict[Bytes32, U256]],
+    proven_accounts: Optional[list[Address]] = None,
 ) -> tuple[Root, dict[Bytes, Bytes]]:
-    """Build a (state_root, node_db) witness from account and storage data."""
+    """
+    Build a (state_root, node_db) witness from account and storage data.
+
+    The witness proves every account, or only `proven_accounts` if given.
+    """
     storage_mpts: dict[Address, IncrementalMPT[Bytes32, U256]] = {}
     for addr, slots in storage.items():
         storage_mpt: IncrementalMPT[Bytes32, U256] = build_mpt(
@@ -76,7 +99,7 @@ def _build_witness(
     account_mpt: IncrementalMPT[Address, Optional[Account]] = build_mpt(
         accounts, secured=True, default=None, get_storage_root=get_storage_root
     )
-    for addr in accounts:
+    for addr in accounts if proven_accounts is None else proven_accounts:
         mpt_get(account_mpt, addr)
 
     state_root = mpt_root(account_mpt)
@@ -266,6 +289,31 @@ class TestComputeStateRoot:
         new_root = witness_state.compute_state_root(BlockDiff())
         assert new_root == state_root
 
+    def test_account_deletion_replayed_after_insertion(self) -> None:
+        """
+        Delete an account last, even when the diff lists its deletion first.
+
+        The witness lacks the leaf of the account that stays. Deleting first
+        would leave the root branch with that leaf as its only child and
+        collapse onto it, while the account created in the same block keeps
+        the branch populated.
+        """
+        state_root, node_db = _build_witness(
+            _DELETION_PRE_ACCOUNTS, {}, proven_accounts=[_ADDR1, _ADDR3]
+        )
+        _, full_node_db = _build_witness(_DELETION_PRE_ACCOUNTS, {})
+        assert len(full_node_db) == len(node_db) + 1
+        witness_state = WitnessState(
+            _node_db=node_db, _state_root=state_root, _code_db={}
+        )
+
+        new_root = witness_state.compute_state_root(
+            BlockDiff(account_changes=_DELETION_ACCOUNT_CHANGES)
+        )
+
+        expected_root, _ = _build_witness(_DELETION_POST_ACCOUNTS, {})
+        assert new_root == expected_root
+
 
 class TestCanonicalSecureTrieValidation:
     """Test state/storage-trie canonicality checks in WitnessState."""
@@ -400,3 +448,32 @@ class TestBuildExecutionWitness:
             _code_db={},
         )
         assert witness_state.get_account_optional(_ADDR1) == account
+
+    def test_deleted_account_sibling_left_out(self) -> None:
+        """
+        Leave the sibling of a deleted account out of the witness when an
+        account created in the same block keeps their branch populated.
+        """
+        accounts: Trie[Address, Optional[Account]] = Trie(
+            secured=True, default=None
+        )
+        for address, account in _DELETION_PRE_ACCOUNTS.items():
+            trie_set(accounts, address, account)
+        post_state_root, _ = _build_witness(_DELETION_POST_ACCOUNTS, {})
+        block_state = BlockState(
+            pre_state=State(_main_trie=accounts),
+            account_reads=set(_DELETION_ACCOUNT_CHANGES),
+            account_writes=dict(_DELETION_ACCOUNT_CHANGES),
+        )
+
+        witness = build_execution_witness(
+            block_state,
+            expected_post_state_root=post_state_root,
+            pre_state_accounts_data=accounts,
+            pre_state_storages_data={},
+        )
+
+        _, node_db = _build_witness(
+            _DELETION_PRE_ACCOUNTS, {}, proven_accounts=[_ADDR1, _ADDR3]
+        )
+        assert set(witness.state) == set(node_db.values())

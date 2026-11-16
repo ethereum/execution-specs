@@ -1,4 +1,4 @@
-"""Witness state collection scenarios for storage replay ordering."""
+"""Witness state collection scenarios for storage and account replay order."""
 
 import pytest
 from ethereum_types.bytes import Bytes32
@@ -11,6 +11,7 @@ from execution_testing import (
     ExecutionWitnessStateExpectation,
     Op,
     Transaction,
+    compute_create_address,
 )
 
 from ethereum.crypto.hash import keccak256
@@ -19,8 +20,12 @@ from .spec import ref_spec_8025
 from .state_helpers import (
     as_storage,
     build_large_storage,
+    collect_account_delete_auxiliary_nodes,
+    collect_account_path_only_nodes,
+    collect_account_proof_nodes,
     collect_storage_delete_auxiliary_nodes,
     collect_storage_proof_nodes,
+    find_accounts_sharing_branch,
     large_storage_value,
 )
 
@@ -183,4 +188,83 @@ def test_witness_state_block_diff_delete_insert_before_delete_order(
             sender: Account(nonce=2),
             contract: Account(storage=post_storage),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "insert",
+    [
+        pytest.param(False, id="delete_only"),
+        pytest.param(True, id="delete_then_insert"),
+    ],
+)
+def test_witness_state_account_delete_uses_insert_before_delete_order(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    insert: bool,
+) -> None:
+    """
+    EL post-state root calculation must insert accounts before deleting.
+
+    Deleting an account collapses its branch onto the only sibling, whose
+    leaf the witness then holds as an auxiliary node. Creating a third
+    account under that branch in the same block avoids the collapse only if
+    the insertion is replayed first. The deletion comes first in block
+    order, address order and secured key order, so a replay in any of them
+    deletes too early.
+    """
+    beneficiary_balance = 1
+    deleted_balance = 2
+    beneficiary = pre.fund_eoa(amount=beneficiary_balance)
+    creator = pre.fund_eoa()
+    # A funded address with no code and nonce 0 exists in the pre-state and
+    # can still be deployed to. A contract that self-destructs in the
+    # transaction that creates it is deleted.
+    deleted = compute_create_address(address=creator, nonce=0)
+    sibling, inserted = find_accounts_sharing_branch(pre, deleted)
+    pre.fund_address(sibling, 1)
+    pre.fund_address(deleted, deleted_balance)
+
+    # Deleting on its own needs one node beyond the proof: the sibling's leaf.
+    auxiliary_nodes = collect_account_delete_auxiliary_nodes(pre, deleted)
+    assert len(auxiliary_nodes) == 1
+    assert auxiliary_nodes == collect_account_path_only_nodes(
+        pre, sibling, [deleted]
+    )
+    assert deleted < inserted
+    assert keccak256(deleted) < keccak256(inserted)
+
+    txs = [
+        Transaction(sender=creator, to=None, data=Op.SELFDESTRUCT(beneficiary))
+    ]
+    post = {
+        deleted: Account.NONEXISTENT,
+        beneficiary: Account(balance=beneficiary_balance + deleted_balance),
+        sibling: Account(balance=1),
+    }
+    if insert:
+        txs.append(Transaction(sender=creator, to=inserted, value=1))
+        post[inserted] = Account(balance=1)
+        proof_nodes = collect_account_proof_nodes(pre, [deleted, inserted])
+        assert not set(proof_nodes) & set(auxiliary_nodes)
+        expectation = ExecutionWitnessStateExpectation(
+            nodes_present=proof_nodes,
+            nodes_absent=auxiliary_nodes,
+        )
+    else:
+        expectation = ExecutionWitnessStateExpectation(
+            nodes_present=collect_account_proof_nodes(pre, [deleted])
+            + auxiliary_nodes,
+        )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                expected_execution_witness_state=expectation,
+                expected_stateless_validation_success=True,
+            )
+        ],
+        post=post,
     )

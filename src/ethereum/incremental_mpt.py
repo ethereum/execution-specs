@@ -504,6 +504,29 @@ def mpt_set_storage_slots(
             mpt_set(storage_mpt, key, value)
 
 
+def mpt_set_accounts(
+    account_mpt: IncrementalMPT[Address, Optional[Account]],
+    accounts: Mapping[Address, Optional[Account]],
+    get_storage_root: Callable[[Address], Root],
+) -> None:
+    """
+    Write `accounts` to the account trie, with insertions and updates first.
+
+    An account mapped to `None` is deleted. Deletions go last for the same
+    reason as in [`mpt_set_storage_slots`][slots]: a branch then only
+    collapses if it stays collapsed in the post-state, and the host and the
+    guest must write in the same order here too.
+
+    [slots]: ref:ethereum.incremental_mpt.mpt_set_storage_slots
+    """
+    for address, account in accounts.items():
+        if account is not None:
+            mpt_set(account_mpt, address, account, get_storage_root(address))
+    for address, account in accounts.items():
+        if account is None:
+            mpt_set(account_mpt, address, account)
+
+
 def _mpt_insert_node(
     mpt: IncrementalMPT,
     node: MutableNode,
