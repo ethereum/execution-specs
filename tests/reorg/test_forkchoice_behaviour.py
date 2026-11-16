@@ -36,6 +36,10 @@ DISPUTED_ZERO_SAFE = (
     "execution-apis#892: whether a zero safeBlockHash is legal once a block "
     "is finalized"
 )
+DISPUTED_FINALITY_REVERSION = (
+    "execution-apis#983: whether a client may refuse a reorg that reverts "
+    "the latest known finalized block"
+)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -358,8 +362,20 @@ def test_safe_finalized_labels_follow_fcu(
             ForkchoiceUpdatedStep(
                 head="b3", safe="b3", finalized="b3", expect=applied("b3")
             ),
+            # Reverts the finalized b3. erigon keeps no unwind data below
+            # finality and refuses it at any depth.
             ForkchoiceUpdatedStep(
-                head="a3", safe="a3", finalized="a3", expect=applied("a3")
+                head="a3",
+                safe="a3",
+                finalized="a3",
+                expect=[
+                    *applied("a3"),
+                    Outcome(
+                        id="refused",
+                        error_code=EngineAPIError.TooDeepReorg,
+                        disputed=DISPUTED_FINALITY_REVERSION,
+                    ),
+                ],
             ),
         ]
 
