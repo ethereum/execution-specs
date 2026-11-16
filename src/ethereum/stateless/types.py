@@ -86,6 +86,7 @@ class ProtocolFork(IntEnum):
     BPO1 = 0x13
     BPO2 = 0x14
     Amsterdam = 0x15
+    Bogota = 0x16
 
 
 STATELESS_INPUT_SCHEMA_ID_SIZE = 2

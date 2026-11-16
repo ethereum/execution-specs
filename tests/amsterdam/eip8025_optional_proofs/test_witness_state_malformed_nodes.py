@@ -68,8 +68,6 @@ from ethereum.state_witness import (
     build_node_db,
 )
 
-from .state_helpers import merge_with_amsterdam_pre_alloc
-
 pytestmark = pytest.mark.valid_at("Amsterdam")
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -379,10 +377,7 @@ def _absent_target(pre: Alloc) -> Address:
     extension from `_extension_to_leaf` into its child instead of stopping
     where the paths would otherwise part.
     """
-    used_slots = {
-        _state_root_slot(address)
-        for address in merge_with_amsterdam_pre_alloc(pre)
-    }
+    used_slots = {_state_root_slot(address) for address in pre}
     assert len(used_slots) < 16, "the state trie root needs an empty slot"
     return next(
         Address(value)

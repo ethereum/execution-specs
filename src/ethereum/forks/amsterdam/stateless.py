@@ -50,7 +50,7 @@ class StatelessInput(SszContainer):
     new_payload_request: NewPayloadRequest
     """
     Consensus-layer payload request to validate statelessly. See
-    ``execution_engine.NewPayloadRequest`` for structure and links to
+    ``execution_engine.types.NewPayloadRequest`` for structure and links to
     consensus-specs.
     """
 

@@ -18,10 +18,9 @@ from .state_helpers import (
     collect_account_proof_nodes,
     collect_storage_path_only_nodes,
     collect_storage_proof_nodes,
-    merge_with_amsterdam_pre_alloc,
 )
 
-pytestmark = pytest.mark.valid_at("Amsterdam")
+pytestmark = pytest.mark.valid_from("Amsterdam")
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8025.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8025.version
@@ -144,8 +143,7 @@ def test_witness_state_failed_call_still_contains_target_account_proof(
         storage={0: 1},
     )
     sender = pre.fund_eoa()
-    full_alloc = merge_with_amsterdam_pre_alloc(pre)
-    proof_nodes = collect_account_proof_nodes(full_alloc, [target])
+    proof_nodes = collect_account_proof_nodes(pre, [target])
     assert proof_nodes
 
     tx = Transaction(sender=sender, to=caller, gas_limit=500_000)

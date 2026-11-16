@@ -8,6 +8,13 @@ import pytest
 from execution_testing.cli.pytest_commands.plugins.consume.simulators.simulator_logic.test_via_engine_witness import (  # noqa: E501
     test_blockchain_via_engine_witness as run_engine_witness,
 )
+from execution_testing.forks import (
+    Amsterdam,
+    Bogota,
+    BPO2ToAmsterdamAtTime15k,
+    Fork,
+    TransitionFork,
+)
 
 
 def test_mutated_execution_witness_fixture_is_skipped() -> None:
@@ -109,7 +116,6 @@ def test_ssz_unencodable_fixture_is_skipped_before_rest_discovery(
     from execution_testing.base_types.ssz import ssz_fields
     from execution_testing.exceptions import EngineAPIError
     from execution_testing.fixtures.blockchain import FixtureExecutionPayload
-    from execution_testing.forks import Amsterdam
 
     from ..timing import TimingData
 
@@ -191,7 +197,6 @@ def test_malformed_ssz_request_conformance(
     from execution_testing.cli.pytest_commands.plugins.consume.simulators.simulator_logic.test_via_engine_witness import (  # noqa: E501
         _assert_malformed_witness_request,
     )
-    from execution_testing.forks import Amsterdam
 
     from ..exceptions import LoggedError
 
@@ -208,6 +213,7 @@ def test_malformed_ssz_request_conformance(
         _assert_malformed_witness_request(
             engine_ssz_rpc=client,
             body=body,
+            fork=Bogota,
         )
 
     if accepted or (not body and problem == "invalid-request"):
@@ -215,19 +221,27 @@ def test_malformed_ssz_request_conformance(
     else:
         with pytest.raises(LoggedError, match="Malformed SSZ request"):
             run()
-    client.post_witness_request.assert_called_once_with(body, fork=Amsterdam)
+    client.post_witness_request.assert_called_once_with(body, fork=Bogota)
 
 
 @pytest.mark.parametrize("repeat_has_witness", [True, False])
-@pytest.mark.parametrize("transition", [True, False])
+@pytest.mark.parametrize(
+    "fixture_fork,witness_fork",
+    [
+        pytest.param(Amsterdam, Amsterdam, id="amsterdam"),
+        pytest.param(BPO2ToAmsterdamAtTime15k, Amsterdam, id="transition"),
+        pytest.param(Bogota, Bogota, id="bogota"),
+    ],
+)
 def test_rest_checks_already_known_payload(
-    repeat_has_witness: bool, transition: bool
+    repeat_has_witness: bool,
+    fixture_fork: Fork | TransitionFork,
+    witness_fork: Fork,
 ) -> None:
     """Require a complete witness again when a valid payload is repeated."""
     from unittest.mock import Mock
 
     from execution_testing.base_types import Bytes, Hash
-    from execution_testing.forks import Amsterdam, BPO2ToAmsterdamAtTime15k
     from execution_testing.rpc.rpc_types import (
         NewPayloadWithWitnessResponse,
         PayloadStatusEnum,
@@ -237,6 +251,7 @@ def test_rest_checks_already_known_payload(
     from ..exceptions import LoggedError
     from ..timing import TimingData
 
+    transition = fixture_fork is BPO2ToAmsterdamAtTime15k
     witness = ExecutionWitness(state=[], codes=[], headers=[Bytes(b"header")])
     valid = NewPayloadWithWitnessResponse(
         PayloadStatusEnum.VALID, Hash(1), None, witness
@@ -271,7 +286,7 @@ def test_rest_checks_already_known_payload(
     fixture = SimpleNamespace(
         payloads=[setup_payload, payload] if transition else [payload],
         genesis=genesis,
-        fork=BPO2ToAmsterdamAtTime15k if transition else Amsterdam,
+        fork=fixture_fork,
     )
     engine = Mock()
     forkchoice = SimpleNamespace(
@@ -331,11 +346,15 @@ def test_rest_checks_already_known_payload(
         + ["witness", "witness"]
         + (["forkchoice"] if repeat_has_witness else [])
     )
-    rest.check_witness_capability.assert_called_once_with(Amsterdam)
+    rest.check_witness_capability.assert_called_once_with(witness_fork)
     assert [
-        call.args[0] for call in rest.post_witness_request.call_args_list
-    ] == [b"", b"\x28", bytes(40)]
-    assert rest.new_payload_with_witness.call_count == 2
+        (call.args[0], call.kwargs["fork"])
+        for call in rest.post_witness_request.call_args_list
+    ] == [(body, witness_fork) for body in (b"", b"\x28", bytes(40))]
+    assert [
+        call.kwargs["fork"]
+        for call in rest.new_payload_with_witness.call_args_list
+    ] == [witness_fork, witness_fork]
 
 
 @pytest.mark.parametrize("use_ssz", [True, False])
@@ -411,6 +430,7 @@ def test_missing_advertised_rest_method_fails(use_ssz: bool) -> None:
                 engine_rpc=client,
                 engine_ssz_rpc=client,
                 payload=payload,
+                fork=Amsterdam,
             )
             is error
         )
@@ -421,4 +441,5 @@ def test_missing_advertised_rest_method_fails(use_ssz: bool) -> None:
                 engine_rpc=client,
                 engine_ssz_rpc=client,
                 payload=payload,
+                fork=Amsterdam,
             )

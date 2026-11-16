@@ -46,7 +46,7 @@ def _witness_endpoint_label(
     payload: FixtureEngineNewPayload,
     *,
     use_ssz_transport: bool,
-    fork: Fork = Amsterdam,
+    fork: Fork,
 ) -> str:
     """Return the timing label for the selected witness endpoint."""
     if use_ssz_transport:
@@ -93,7 +93,7 @@ def _send_payload_with_witness(
     engine_rpc: EngineRPC,
     engine_ssz_rpc: EngineSSZRPC,
     payload: FixtureEngineNewPayload,
-    fork: Fork = Amsterdam,
+    fork: Fork,
 ) -> NewPayloadWithWitnessResponse | JSONRPCError:
     """
     Execute one payload through the configured witness endpoint.
@@ -297,8 +297,13 @@ def test_blockchain_via_engine_witness(
             pytest.skip(str(e))
 
         with timing_data.time("Malformed SSZ requests"):
+            # A client can answer `unsupported-fork` for a fork that the
+            # fixture's chain never activates, so name one that it does.
+            malformed_request_fork = min(witness_forks)
             for body in (b"", b"\x28", bytes(40)):
-                _assert_malformed_witness_request(engine_ssz_rpc, body)
+                _assert_malformed_witness_request(
+                    engine_ssz_rpc, body, fork=malformed_request_fork
+                )
 
     with timing_data.time("Initial forkchoice update"):
         logger.info("Sending initial forkchoice update to genesis block...")
@@ -412,9 +417,11 @@ def test_blockchain_via_engine_witness(
 def _assert_malformed_witness_request(
     engine_ssz_rpc: EngineSSZRPC,
     body: bytes,
+    *,
+    fork: Fork,
 ) -> None:
     """Require malformed SSZ requests to fail at the HTTP decoding layer."""
-    response = engine_ssz_rpc.post_witness_request(body, fork=Amsterdam)
+    response = engine_ssz_rpc.post_witness_request(body, fork=fork)
     if response.status_code != 400:
         raise LoggedError(
             "Malformed SSZ request: expected HTTP 400, "

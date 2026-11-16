@@ -2,7 +2,8 @@
 
 import random
 from hashlib import sha256
-from typing import Tuple
+from types import SimpleNamespace
+from typing import Any, Tuple
 
 import pytest
 from ethereum_rlp import rlp
@@ -10,39 +11,6 @@ from ethereum_types.bytes import Bytes, Bytes8, Bytes32, Bytes48, Bytes96
 from ethereum_types.numeric import U16, U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
-from ethereum.forks.amsterdam.block_access_lists import BlockAccessList
-from ethereum.forks.amsterdam.blocks import Block, Header
-from ethereum.forks.amsterdam.execution_engine.requests import (
-    BuilderDepositRequest,
-    BuilderExitRequest,
-    DepositRequest,
-    ExecutionRequests,
-)
-from ethereum.forks.amsterdam.execution_engine.types import (
-    ExecutionPayload,
-    NewPayloadRequest,
-)
-from ethereum.forks.amsterdam.execution_engine.validation_helpers import (
-    _payload_block,
-)
-from ethereum.forks.amsterdam.fork_types import Bloom
-from ethereum.forks.amsterdam.stateless import (
-    STATELESS_INPUT_SCHEMA_FORK_INDEX,
-    STATELESS_INPUT_SCHEMA_ID,
-    STATELESS_INPUT_SCHEMA_ID_BYTES,
-    STATELESS_INPUT_SCHEMA_REVISION,
-    StatelessInput,
-    compute_new_payload_request_root,
-)
-from ethereum.forks.amsterdam.stateless_guest import (
-    deserialize_stateless_input,
-    run_stateless_guest,
-)
-from ethereum.forks.amsterdam.stateless_host import (
-    build_stateless_input,
-    serialize_stateless_input,
-)
-from ethereum.forks.amsterdam.transactions import LegacyTransaction
 from ethereum.state import Address, Root
 from ethereum.stateless.types import (
     MAX_BYTES_PER_CODE,
@@ -54,18 +22,50 @@ from ethereum.stateless.types import (
     StatelessValidationResult,
     deserialize_stateless_output,
     serialize_stateless_output,
+    stateless_input_schema_id,
 )
+
+from .stateless_forks import STATELESS_FORKS
 
 _RNG = random.Random(0xDEADBEEF)
 
 
-def test_stateless_input_schema_id_identifies_amsterdam_revision() -> None:
-    """Amsterdam stateless input schema id is fork_index || revision."""
-    assert STATELESS_INPUT_SCHEMA_FORK_INDEX is ProtocolFork.Amsterdam
-    assert STATELESS_INPUT_SCHEMA_FORK_INDEX == 0x15
-    assert STATELESS_INPUT_SCHEMA_REVISION == 0x01
-    assert STATELESS_INPUT_SCHEMA_ID == 0x1501
-    assert STATELESS_INPUT_SCHEMA_ID_BYTES == b"\x15\x01"
+@pytest.fixture(params=STATELESS_FORKS, ids=lambda fork: fork.short_name)
+def spec(request: pytest.FixtureRequest) -> SimpleNamespace:
+    """Return the modules that these tests use, for each fork."""
+    fork = request.param
+    return SimpleNamespace(
+        fork=fork,
+        blocks=fork.module("blocks"),
+        fork_types=fork.module("fork_types"),
+        transactions=fork.module("transactions"),
+        requests=fork.module("execution_engine.requests"),
+        engine_types=fork.module("execution_engine.types"),
+        validation_helpers=fork.module("execution_engine.validation_helpers"),
+        stateless=fork.module("stateless"),
+        guest=fork.module("stateless_guest"),
+        host=fork.module("stateless_host"),
+    )
+
+
+def test_protocol_fork_indices() -> None:
+    """Retain the fork indices that schema ids are built from."""
+    assert ProtocolFork.Amsterdam == 0x15
+    assert ProtocolFork.Bogota == 0x16
+
+
+def test_stateless_input_schema_id_identifies_fork_revision(
+    spec: SimpleNamespace,
+) -> None:
+    """A fork's stateless input schema id is its own fork_index || revision."""
+    fork_index = ProtocolFork[spec.fork.title_case_name.replace(" ", "")]
+    stateless = spec.stateless
+    assert stateless.STATELESS_INPUT_SCHEMA_FORK_INDEX is fork_index
+    assert stateless.STATELESS_INPUT_SCHEMA_REVISION == 0x01
+    assert stateless.STATELESS_INPUT_SCHEMA_ID == (fork_index << 8) | 0x01
+    assert stateless.STATELESS_INPUT_SCHEMA_ID_BYTES == bytes(
+        [fork_index, 0x01]
+    )
 
 
 def _rb(n: int) -> bytes:
@@ -73,13 +73,13 @@ def _rb(n: int) -> bytes:
     return bytes(_RNG.getrandbits(8) for _ in range(n))
 
 
-def _make_payload() -> ExecutionPayload:
-    return ExecutionPayload(
+def _make_payload(spec: SimpleNamespace) -> Any:
+    return spec.engine_types.ExecutionPayload(
         parent_hash=Hash32(_rb(32)),
         fee_recipient=Address(_rb(20)),
         state_root=Root(_rb(32)),
         receipts_root=Root(_rb(32)),
-        logs_bloom=Bloom(_rb(256)),
+        logs_bloom=spec.fork_types.Bloom(_rb(256)),
         prev_randao=Bytes32(_rb(32)),
         block_number=Uint(_RNG.randint(1, 2**32)),
         gas_limit=Uint(30_000_000),
@@ -97,15 +97,15 @@ def _make_payload() -> ExecutionPayload:
     )
 
 
-def _make_header() -> Header:
-    return Header(
+def _make_header(spec: SimpleNamespace) -> Any:
+    return spec.blocks.Header(
         parent_hash=Hash32(_rb(32)),
         ommers_hash=Hash32(_rb(32)),
         coinbase=Address(_rb(20)),
         state_root=Root(_rb(32)),
         transactions_root=Root(_rb(32)),
         receipt_root=Root(_rb(32)),
-        bloom=Bloom(_rb(256)),
+        bloom=spec.fork_types.Bloom(_rb(256)),
         difficulty=Uint(0),
         number=Uint(_RNG.randint(1, 2**32)),
         gas_limit=Uint(30_000_000),
@@ -125,17 +125,17 @@ def _make_header() -> Header:
     )
 
 
-def _make_block() -> Block:
-    return Block(
-        header=_make_header(),
+def _make_block(spec: SimpleNamespace) -> Any:
+    return spec.blocks.Block(
+        header=_make_header(spec),
         transactions=(),
         ommers=(),
         withdrawals=(),
     )
 
 
-def _make_deposit_request() -> DepositRequest:
-    return DepositRequest(
+def _make_deposit_request(spec: SimpleNamespace) -> Any:
+    return spec.requests.DepositRequest(
         pubkey=Bytes48(_rb(48)),
         withdrawal_credentials=Bytes32(_rb(32)),
         amount=U64(_RNG.randint(0, 2**64 - 1)),
@@ -144,8 +144,8 @@ def _make_deposit_request() -> DepositRequest:
     )
 
 
-def _make_builder_deposit_request() -> BuilderDepositRequest:
-    return BuilderDepositRequest(
+def _make_builder_deposit_request(spec: SimpleNamespace) -> Any:
+    return spec.requests.BuilderDepositRequest(
         pubkey=Bytes48(_rb(48)),
         withdrawal_credentials=Bytes32(_rb(32)),
         amount=U64(_RNG.randint(0, 2**64 - 1)),
@@ -153,29 +153,29 @@ def _make_builder_deposit_request() -> BuilderDepositRequest:
     )
 
 
-def _make_builder_exit_request() -> BuilderExitRequest:
-    return BuilderExitRequest(
+def _make_builder_exit_request(spec: SimpleNamespace) -> Any:
+    return spec.requests.BuilderExitRequest(
         source_address=Address(_rb(20)),
         pubkey=Bytes48(_rb(48)),
     )
 
 
-def _make_stateless_input() -> StatelessInput:
+def _make_stateless_input(spec: SimpleNamespace) -> Any:
     versioned_hashes: Tuple[Hash32, ...] = (Hash32(_rb(32)), Hash32(_rb(32)))
-    return StatelessInput(
-        new_payload_request=NewPayloadRequest(
-            execution_payload=_make_payload(),
+    return spec.stateless.StatelessInput(
+        new_payload_request=spec.engine_types.NewPayloadRequest(
+            execution_payload=_make_payload(spec),
             versioned_hashes=versioned_hashes,
             parent_beacon_block_root=Root(_rb(32)),
-            execution_requests=ExecutionRequests(
+            execution_requests=spec.requests.ExecutionRequests(
                 deposits=(
-                    _make_deposit_request(),
-                    _make_deposit_request(),
+                    _make_deposit_request(spec),
+                    _make_deposit_request(spec),
                 ),
                 withdrawals=(),
                 consolidations=(),
-                builder_deposits=(_make_builder_deposit_request(),),
-                builder_exits=(_make_builder_exit_request(),),
+                builder_deposits=(_make_builder_deposit_request(spec),),
+                builder_exits=(_make_builder_exit_request(spec),),
             ),
         ),
         witness=ExecutionWitness(
@@ -187,21 +187,21 @@ def _make_stateless_input() -> StatelessInput:
     )
 
 
-def _make_stateless_output() -> StatelessValidationResult:
+def _make_stateless_output(spec: SimpleNamespace) -> StatelessValidationResult:
     return StatelessValidationResult(
         new_payload_request_root=Hash32(_rb(32)),
         successful_validation=True,
         chain_id=U64(1),
-        schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
+        schema_id=U16(spec.stateless.STATELESS_INPUT_SCHEMA_ID),
     )
 
 
-def _make_known_stateless_input() -> StatelessInput:
+def _make_known_stateless_input(spec: SimpleNamespace) -> Any:
     """Return an order-independent input for the SSZ known-answer test."""
     state = _RNG.getstate()
     try:
         _RNG.seed(0xDEADBEEF)
-        return _make_stateless_input()
+        return _make_stateless_input(spec)
     finally:
         _RNG.setstate(state)
 
@@ -209,24 +209,23 @@ def _make_known_stateless_input() -> StatelessInput:
 class TestBuildStatelessInput:
     """Test host-side StatelessInput construction."""
 
-    def test_includes_chain_id(self) -> None:
+    def test_includes_chain_id(self, spec: SimpleNamespace) -> None:
         """Include the configured chain identifier."""
-        block_access_list: BlockAccessList = []
-        stateless_input = build_stateless_input(
-            _make_block(),
+        stateless_input = spec.host.build_stateless_input(
+            _make_block(spec),
             execution_witness=ExecutionWitness(
                 state=(),
                 codes=(),
                 headers=(),
             ),
-            execution_requests=ExecutionRequests(
+            execution_requests=spec.requests.ExecutionRequests(
                 deposits=(),
                 withdrawals=(),
                 consolidations=(),
                 builder_deposits=(),
                 builder_exits=(),
             ),
-            block_access_list=block_access_list,
+            block_access_list=[],
             chain_id=U64(123),
         )
         assert stateless_input.chain_id == U64(123)
@@ -239,10 +238,10 @@ class TestBuildStatelessInput:
         ],
     )
     def test_rejected_transaction_is_preserved(
-        self, v: int, r: int, s: int
+        self, spec: SimpleNamespace, v: int, r: int, s: int
     ) -> None:
         """Keep rejected transactions in the payload for guest validation."""
-        tx = LegacyTransaction(
+        tx = spec.transactions.LegacyTransaction(
             nonce=U256(0),
             gas_price=Uint(1),
             gas=Uint(21_000),
@@ -253,20 +252,20 @@ class TestBuildStatelessInput:
             r=U256(r),
             s=U256(s),
         )
-        block = Block(
-            header=_make_header(),
+        block = spec.blocks.Block(
+            header=_make_header(spec),
             transactions=(tx,),
             ommers=(),
             withdrawals=(),
         )
-        stateless_input = build_stateless_input(
+        stateless_input = spec.host.build_stateless_input(
             block,
             execution_witness=ExecutionWitness(
                 state=(),
                 codes=(),
                 headers=(),
             ),
-            execution_requests=ExecutionRequests(
+            execution_requests=spec.requests.ExecutionRequests(
                 deposits=(),
                 withdrawals=(),
                 consolidations=(),
@@ -280,9 +279,11 @@ class TestBuildStatelessInput:
         payload = stateless_input.new_payload_request.execution_payload
         assert payload.transactions == (Bytes(rlp.encode(tx)),)
 
-    def test_payload_round_trip_preserves_legacy_transaction_rlp(self) -> None:
+    def test_payload_round_trip_preserves_legacy_transaction_rlp(
+        self, spec: SimpleNamespace
+    ) -> None:
         """Preserve canonical legacy transaction RLP through the payload."""
-        tx = LegacyTransaction(
+        tx = spec.transactions.LegacyTransaction(
             nonce=U256(0),
             gas_price=Uint(1),
             gas=Uint(21_000),
@@ -293,20 +294,20 @@ class TestBuildStatelessInput:
             r=U256(0),
             s=U256(1),
         )
-        block = Block(
-            header=_make_header(),
+        block = spec.blocks.Block(
+            header=_make_header(spec),
             transactions=(tx,),
             ommers=(),
             withdrawals=(),
         )
-        execution_requests = ExecutionRequests(
+        execution_requests = spec.requests.ExecutionRequests(
             deposits=(),
             withdrawals=(),
             consolidations=(),
             builder_deposits=(),
             builder_exits=(),
         )
-        stateless_input = build_stateless_input(
+        stateless_input = spec.host.build_stateless_input(
             block,
             execution_witness=ExecutionWitness(
                 state=(),
@@ -318,7 +319,7 @@ class TestBuildStatelessInput:
             chain_id=U64(1),
         )
 
-        rebuilt_block = _payload_block(
+        rebuilt_block = spec.validation_helpers._payload_block(
             stateless_input.new_payload_request.execution_payload,
             block.header.parent_beacon_block_root,
             execution_requests,
@@ -333,38 +334,43 @@ class TestBuildStatelessInput:
 class TestSerializeStatelessInput:
     """Test serialize_stateless_input."""
 
-    def test_roundtrip(self) -> None:
+    def test_roundtrip(self, spec: SimpleNamespace) -> None:
         """Encoding then decoding recovers the original StatelessInput."""
-        original = _make_stateless_input()
-        encoded = serialize_stateless_input(original)
-        assert encoded[:2] == STATELESS_INPUT_SCHEMA_ID_BYTES
-        recovered = deserialize_stateless_input(encoded)
+        original = _make_stateless_input(spec)
+        encoded = spec.host.serialize_stateless_input(original)
+        assert encoded[:2] == spec.stateless.STATELESS_INPUT_SCHEMA_ID_BYTES
+        recovered = spec.guest.deserialize_stateless_input(encoded)
         assert recovered == original
 
-    def test_known_encoding_and_request_root(self) -> None:
+    def test_known_encoding_and_request_root(
+        self, spec: SimpleNamespace
+    ) -> None:
         """Retain the schema bytes and payload request hash-tree root."""
-        original = _make_known_stateless_input()
-        encoded = serialize_stateless_input(original)
+        original = _make_known_stateless_input(spec)
+        encoded = spec.host.serialize_stateless_input(original)
 
+        # Only the schema id differs between forks that share a payload.
         assert len(encoded) == 2938
-        assert sha256(encoded).hexdigest() == (
-            "6fda0f5d749cc2794ed04dd48fbff55439061c964bfc2c7672191e6c1b928710"
+        assert encoded[:2] == spec.stateless.STATELESS_INPUT_SCHEMA_ID_BYTES
+        assert sha256(encoded[2:]).hexdigest() == (
+            "bd8805d1d25b203bd305edef95bbbaaf4a8fd7c95f1b6a5cc02c611e6d8faf01"
         )
-        assert compute_new_payload_request_root(original) == Hash32(
+        root = spec.stateless.compute_new_payload_request_root(original)
+        assert root == Hash32(
             bytes.fromhex(
                 "43afdcfa2792c3fb237ddbf271fc3675"
                 "e3dc06ec37283f7f6956c2da6e917dd7"
             )
         )
 
-    def test_empty_witness(self) -> None:
+    def test_empty_witness(self, spec: SimpleNamespace) -> None:
         """Works with an empty witness."""
-        original = StatelessInput(
-            new_payload_request=NewPayloadRequest(
-                execution_payload=_make_payload(),
+        original = spec.stateless.StatelessInput(
+            new_payload_request=spec.engine_types.NewPayloadRequest(
+                execution_payload=_make_payload(spec),
                 versioned_hashes=(),
                 parent_beacon_block_root=Root(_rb(32)),
-                execution_requests=ExecutionRequests(
+                execution_requests=spec.requests.ExecutionRequests(
                     deposits=(),
                     withdrawals=(),
                     consolidations=(),
@@ -375,9 +381,9 @@ class TestSerializeStatelessInput:
             witness=ExecutionWitness(state=(), codes=(), headers=()),
             chain_id=U64(1),
         )
-        encoded = serialize_stateless_input(original)
-        assert encoded[:2] == STATELESS_INPUT_SCHEMA_ID_BYTES
-        recovered = deserialize_stateless_input(encoded)
+        encoded = spec.host.serialize_stateless_input(original)
+        assert encoded[:2] == spec.stateless.STATELESS_INPUT_SCHEMA_ID_BYTES
+        recovered = spec.guest.deserialize_stateless_input(encoded)
         assert recovered == original
 
     @pytest.mark.parametrize(
@@ -411,23 +417,26 @@ class TestSerializeStatelessInput:
     )
     def test_rejects_oversized_witness_item(
         self,
+        spec: SimpleNamespace,
         witness: ExecutionWitness,
     ) -> None:
         """Retain the structural byte limit for each witness item."""
-        original = _make_stateless_input()
-        invalid = StatelessInput(
+        original = _make_stateless_input(spec)
+        invalid = spec.stateless.StatelessInput(
             new_payload_request=original.new_payload_request,
             witness=witness,
             chain_id=original.chain_id,
         )
 
         with pytest.raises(Exception, match="cannot be more than limit"):
-            serialize_stateless_input(invalid)
+            spec.host.serialize_stateless_input(invalid)
 
-    def test_rejects_more_than_256_headers(self) -> None:
+    def test_rejects_more_than_256_headers(
+        self, spec: SimpleNamespace
+    ) -> None:
         """Retain the protocol-backed witness header count limit."""
-        original = _make_stateless_input()
-        invalid = StatelessInput(
+        original = _make_stateless_input(spec)
+        invalid = spec.stateless.StatelessInput(
             new_payload_request=original.new_payload_request,
             witness=ExecutionWitness(
                 state=(),
@@ -438,17 +447,17 @@ class TestSerializeStatelessInput:
         )
 
         with pytest.raises(Exception, match="too many list inputs: 257"):
-            serialize_stateless_input(invalid)
+            spec.host.serialize_stateless_input(invalid)
 
 
 class TestDeserializeStatelessInput:
     """Test deserialize_stateless_input."""
 
-    def test_roundtrip(self) -> None:
+    def test_roundtrip(self, spec: SimpleNamespace) -> None:
         """Encoding then decoding recovers the original StatelessInput."""
-        original = _make_stateless_input()
-        encoded = serialize_stateless_input(original)
-        recovered = deserialize_stateless_input(encoded)
+        original = _make_stateless_input(spec)
+        encoded = spec.host.serialize_stateless_input(original)
+        recovered = spec.guest.deserialize_stateless_input(encoded)
         assert recovered == original
         payload = recovered.new_payload_request.execution_payload
         assert type(payload.block_number) is Uint
@@ -456,14 +465,14 @@ class TestDeserializeStatelessInput:
         assert type(payload.transactions) is tuple
         assert type(recovered.witness.state) is tuple
 
-    def test_empty_witness(self) -> None:
+    def test_empty_witness(self, spec: SimpleNamespace) -> None:
         """Works with an empty witness."""
-        original = StatelessInput(
-            new_payload_request=NewPayloadRequest(
-                execution_payload=_make_payload(),
+        original = spec.stateless.StatelessInput(
+            new_payload_request=spec.engine_types.NewPayloadRequest(
+                execution_payload=_make_payload(spec),
                 versioned_hashes=(),
                 parent_beacon_block_root=Root(_rb(32)),
-                execution_requests=ExecutionRequests(
+                execution_requests=spec.requests.ExecutionRequests(
                     deposits=(),
                     withdrawals=(),
                     consolidations=(),
@@ -474,56 +483,84 @@ class TestDeserializeStatelessInput:
             witness=ExecutionWitness(state=(), codes=(), headers=()),
             chain_id=U64(1),
         )
-        encoded = serialize_stateless_input(original)
-        recovered = deserialize_stateless_input(encoded)
+        encoded = spec.host.serialize_stateless_input(original)
+        recovered = spec.guest.deserialize_stateless_input(encoded)
         assert recovered == original
 
-    def test_empty_input_rejected(self) -> None:
+    def test_empty_input_rejected(self, spec: SimpleNamespace) -> None:
         """Reject input that does not contain a schema id."""
         with pytest.raises(ValueError, match="missing schema id"):
-            deserialize_stateless_input(Bytes(b""))
+            spec.guest.deserialize_stateless_input(Bytes(b""))
 
-    def test_one_byte_input_rejected(self) -> None:
+    def test_one_byte_input_rejected(self, spec: SimpleNamespace) -> None:
         """Reject input that does not contain a full schema id."""
+        schema_id_bytes = spec.stateless.STATELESS_INPUT_SCHEMA_ID_BYTES
         with pytest.raises(ValueError, match="missing schema id"):
-            deserialize_stateless_input(Bytes(b"\x15"))
+            spec.guest.deserialize_stateless_input(Bytes(schema_id_bytes[:1]))
 
-    def test_unsupported_schema_revision_rejected(self) -> None:
-        """Reject an unsupported Amsterdam schema revision."""
-        encoded = serialize_stateless_input(_make_stateless_input())
-        with pytest.raises(ValueError, match="0x1502"):
-            deserialize_stateless_input(Bytes(b"\x15\x02" + encoded[2:]))
+    def test_unsupported_schema_revision_rejected(
+        self, spec: SimpleNamespace
+    ) -> None:
+        """Reject the next revision of the fork's own schema."""
+        encoded = spec.host.serialize_stateless_input(
+            _make_stateless_input(spec)
+        )
+        schema_id = stateless_input_schema_id(
+            spec.stateless.STATELESS_INPUT_SCHEMA_FORK_INDEX,
+            spec.stateless.STATELESS_INPUT_SCHEMA_REVISION + 1,
+        )
+        with pytest.raises(ValueError, match=f"0x{schema_id:04x}"):
+            spec.guest.deserialize_stateless_input(
+                Bytes(schema_id.to_bytes(2, "big") + encoded[2:])
+            )
 
-    def test_unsupported_schema_fork_rejected(self) -> None:
-        """Reject an unsupported stateless input schema fork."""
-        encoded = serialize_stateless_input(_make_stateless_input())
-        with pytest.raises(ValueError, match="0x1601"):
-            deserialize_stateless_input(Bytes(b"\x16\x01" + encoded[2:]))
+    def test_unsupported_schema_fork_rejected(
+        self, spec: SimpleNamespace
+    ) -> None:
+        """Reject the schema id that any other fork has at this revision."""
+        encoded = spec.host.serialize_stateless_input(
+            _make_stateless_input(spec)
+        )
+        own_fork_index = spec.stateless.STATELESS_INPUT_SCHEMA_FORK_INDEX
+        for fork_index in ProtocolFork:
+            if fork_index == own_fork_index:
+                continue
+            schema_id = stateless_input_schema_id(
+                fork_index, spec.stateless.STATELESS_INPUT_SCHEMA_REVISION
+            )
+            with pytest.raises(ValueError, match=f"0x{schema_id:04x}"):
+                spec.guest.deserialize_stateless_input(
+                    Bytes(schema_id.to_bytes(2, "big") + encoded[2:])
+                )
 
-    def test_legacy_raw_ssz_input_rejected(self) -> None:
+    def test_legacy_raw_ssz_input_rejected(
+        self, spec: SimpleNamespace
+    ) -> None:
         """Reject unprefixed SSZ input bytes."""
-        original = _make_stateless_input()
+        original = _make_stateless_input(spec)
         raw_ssz = Bytes(original.encode_bytes())
-        assert raw_ssz[:2] != STATELESS_INPUT_SCHEMA_ID_BYTES
+        assert raw_ssz[:2] != spec.stateless.STATELESS_INPUT_SCHEMA_ID_BYTES
         with pytest.raises(ValueError, match="Unsupported stateless input"):
-            deserialize_stateless_input(raw_ssz)
+            spec.guest.deserialize_stateless_input(raw_ssz)
 
 
 class TestSerializeStatelessOutput:
     """Test serialize_stateless_output."""
 
-    def test_roundtrip(self) -> None:
+    def test_roundtrip(self, spec: SimpleNamespace) -> None:
         """Encoding then decoding recovers the original result."""
-        original = _make_stateless_output()
+        schema_id = spec.stateless.STATELESS_INPUT_SCHEMA_ID
+        original = _make_stateless_output(spec)
         encoded = serialize_stateless_output(original)
-        assert encoded[-2:] == STATELESS_INPUT_SCHEMA_ID.to_bytes(2, "little")
+        assert encoded[-2:] == schema_id.to_bytes(2, "little")
         recovered = deserialize_stateless_output(encoded)
         assert recovered == original
         assert recovered.chain_id == U64(1)
-        assert recovered.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
+        assert recovered.schema_id == U16(schema_id)
 
-    def test_known_encoding(self) -> None:
+    def test_known_encoding(self, spec: SimpleNamespace) -> None:
         """Retain the fixed SSZ output encoding."""
+        schema_id = spec.stateless.STATELESS_INPUT_SCHEMA_ID
         original = StatelessValidationResult(
             new_payload_request_root=Hash32(
                 bytes.fromhex(
@@ -533,44 +570,49 @@ class TestSerializeStatelessOutput:
             ),
             successful_validation=True,
             chain_id=U64(1),
-            schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
+            schema_id=U16(schema_id),
         )
         assert serialize_stateless_output(original).hex() == (
             "0d663a7de3d811fbc797f605a65d2745df3a97d9f1994dfb685ff66d2917009f"
-            "0101000000000000000115"
+            "010100000000000000" + schema_id.to_bytes(2, "little").hex()
         )
 
-    def test_failed_validation(self) -> None:
+    def test_failed_validation(self, spec: SimpleNamespace) -> None:
         """Preserve the input schema when later validation fails."""
+        schema_id = spec.stateless.STATELESS_INPUT_SCHEMA_ID
         original = StatelessValidationResult(
             new_payload_request_root=Hash32(_rb(32)),
             successful_validation=False,
             chain_id=U64(1),
-            schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
+            schema_id=U16(schema_id),
         )
         encoded = serialize_stateless_output(original)
         recovered = deserialize_stateless_output(encoded)
         assert recovered == original
-        assert recovered.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
+        assert recovered.schema_id == U16(schema_id)
 
 
 class TestRunStatelessGuest:
     """Test stateless guest input and output handling."""
 
     def test_request_commitment_failure_returns_sentinel(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, spec: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Failure to compute the public commitment must fail closed."""
-        stateless_input = _make_stateless_input()
-        input_bytes = serialize_stateless_input(stateless_input)
+        stateless_input = _make_stateless_input(spec)
+        input_bytes = spec.host.serialize_stateless_input(stateless_input)
 
-        def fail_hash_tree_root(self: NewPayloadRequest) -> bytes:
+        def fail_hash_tree_root(self: Any) -> bytes:
             raise RuntimeError("Request commitment unavailable")
 
         monkeypatch.setattr(
-            NewPayloadRequest, "hash_tree_root", fail_hash_tree_root
+            spec.engine_types.NewPayloadRequest,
+            "hash_tree_root",
+            fail_hash_tree_root,
         )
-        result = deserialize_stateless_output(run_stateless_guest(input_bytes))
+        result = deserialize_stateless_output(
+            spec.guest.run_stateless_guest(input_bytes)
+        )
 
         assert result == StatelessValidationResult(
             new_payload_request_root=Hash32(b"\0" * 32),
@@ -579,10 +621,14 @@ class TestRunStatelessGuest:
             schema_id=U16(0),
         )
 
-    def test_noncanonical_ssz_returns_sentinel_failure(self) -> None:
+    def test_noncanonical_ssz_returns_sentinel_failure(
+        self, spec: SimpleNamespace
+    ) -> None:
         """Reject shifted container offsets that leave trailing data unread."""
-        stateless_input = _make_stateless_input()
-        encoded = bytearray(serialize_stateless_input(stateless_input))
+        stateless_input = _make_stateless_input(spec)
+        encoded = bytearray(
+            spec.host.serialize_stateless_input(stateless_input)
+        )
         # After the schema prefix: request offset, witness offset, chain ID.
         # Shift both offsets by one byte.
         for offset in (2, 6):
@@ -591,7 +637,7 @@ class TestRunStatelessGuest:
         encoded.append(0xFF)
 
         result = deserialize_stateless_output(
-            run_stateless_guest(Bytes(encoded))
+            spec.guest.run_stateless_guest(Bytes(encoded))
         )
 
         assert result == StatelessValidationResult(
@@ -601,9 +647,11 @@ class TestRunStatelessGuest:
             schema_id=U16(0),
         )
 
-    def test_invalid_input_bytes_return_failed_validation(self) -> None:
+    def test_invalid_input_bytes_return_failed_validation(
+        self, spec: SimpleNamespace
+    ) -> None:
         """Malformed input returns a failed result with sentinel fields."""
-        encoded = run_stateless_guest(Bytes(b""))
+        encoded = spec.guest.run_stateless_guest(Bytes(b""))
         result = deserialize_stateless_output(encoded)
 
         assert result.new_payload_request_root == Hash32(b"\0" * 32)
@@ -612,32 +660,36 @@ class TestRunStatelessGuest:
         assert result.schema_id == U16(0)
 
     def test_decodable_input_reports_schema_on_validation_failure(
-        self,
+        self, spec: SimpleNamespace
     ) -> None:
         """Decoded input reports its schema after execution failure."""
-        stateless_input = _make_stateless_input()
-        encoded = run_stateless_guest(
-            serialize_stateless_input(stateless_input)
+        stateless_input = _make_stateless_input(spec)
+        encoded = spec.guest.run_stateless_guest(
+            spec.host.serialize_stateless_input(stateless_input)
         )
         result = deserialize_stateless_output(encoded)
 
         assert not result.successful_validation
         assert result.chain_id == stateless_input.chain_id
-        assert result.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
+        assert result.schema_id == U16(
+            spec.stateless.STATELESS_INPUT_SCHEMA_ID
+        )
 
 
 class TestComputeNewPayloadRequestRoot:
     """Test compute_new_payload_request_root."""
 
-    def test_hash_tree_root_is_deterministic(self) -> None:
+    def test_hash_tree_root_is_deterministic(
+        self, spec: SimpleNamespace
+    ) -> None:
         """Same input produces the same root."""
-        si = _make_stateless_input()
-        root_a = compute_new_payload_request_root(si)
-        root_b = compute_new_payload_request_root(si)
+        si = _make_stateless_input(spec)
+        root_a = spec.stateless.compute_new_payload_request_root(si)
+        root_b = spec.stateless.compute_new_payload_request_root(si)
         assert root_a == root_b
 
-    def test_hash_tree_root_is_32_bytes(self) -> None:
+    def test_hash_tree_root_is_32_bytes(self, spec: SimpleNamespace) -> None:
         """Root is always 32 bytes."""
-        si = _make_stateless_input()
-        root = compute_new_payload_request_root(si)
+        si = _make_stateless_input(spec)
+        root = spec.stateless.compute_new_payload_request_root(si)
         assert len(root) == 32
