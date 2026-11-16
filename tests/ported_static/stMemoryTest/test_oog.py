@@ -70,12 +70,18 @@ OPERATIONS_BY_OPCODE = {
 # and so are covered by a test of their own.
 SPECIAL_CASED = {Op.REVERT}
 
+# Memory-touching opcodes that execute only inside an EIP-8141 frame
+# transaction. This test's legacy transaction halts them before they
+# touch memory, so the success flag observes nothing; the frame
+# transaction suite prices them.
+FRAME_TRANSACTION_ONLY = {Op.APPROVE, Op.FRAMEDATACOPY, Op.SIGDATACOPY}
+
 
 def operations_by_fork(fork: Fork) -> Generator[str, None, None]:
     """Return the list of operations per opcode that modifies the memory."""
     for opcode in fork.valid_opcodes():
         if "new_memory_size" in opcode.metadata:
-            if opcode in SPECIAL_CASED:
+            if opcode in SPECIAL_CASED | FRAME_TRANSACTION_ONLY:
                 continue
             if opcode not in OPERATIONS_BY_OPCODE:
                 operations = [opcode._name_.lower()]

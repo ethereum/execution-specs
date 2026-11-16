@@ -68,8 +68,9 @@ def test_no_options_no_validity_marker(pytester: pytest.Pytester) -> None:
     for test_fork in forks_under_test:
         for fixture_format in STATE_TEST_FILL_FORMATS:
             if isinstance(fixture_format, LabeledFixtureFormat):
+                # Keep the label: its `supports_fork` may veto forks the
+                # wrapped format supports, and the filler honors the label.
                 fixture_format_label = fixture_format.label
-                fixture_format = fixture_format.format
             else:
                 fixture_format_label = fixture_format.format_name.lower()
             if (
@@ -124,8 +125,9 @@ def test_from_london_option_no_validity_marker(
     for test_fork in forks_under_test:
         for fixture_format in STATE_TEST_FILL_FORMATS:
             if isinstance(fixture_format, LabeledFixtureFormat):
+                # Keep the label: its `supports_fork` may veto forks the
+                # wrapped format supports, and the filler honors the label.
                 fixture_format_label = fixture_format.label
-                fixture_format = fixture_format.format
             else:
                 fixture_format_label = fixture_format.format_name.lower()
             if (
@@ -190,8 +192,9 @@ def test_from_london_until_shanghai_option_no_validity_marker(
     for test_fork in forks_under_test:
         for fixture_format in STATE_TEST_FILL_FORMATS:
             if isinstance(fixture_format, LabeledFixtureFormat):
+                # Keep the label: its `supports_fork` may veto forks the
+                # wrapped format supports, and the filler honors the label.
                 fixture_format_label = fixture_format.label
-                fixture_format = fixture_format.format
             else:
                 fixture_format_label = fixture_format.format_name.lower()
             if (
@@ -247,11 +250,15 @@ def test_from_paris_until_paris_option_no_validity_marker(
     for test_fork in forks_under_test:
         for fixture_format in STATE_TEST_FILL_FORMATS:
             if isinstance(fixture_format, LabeledFixtureFormat):
+                # Keep the label: its `supports_fork` may veto forks the
+                # wrapped format supports, and the filler honors the label.
                 fixture_format_label = fixture_format.label
-                fixture_format = fixture_format.format
             else:
                 fixture_format_label = fixture_format.format_name.lower()
-            if "blockchain_test_engine_x" in fixture_format_label:
+            if (
+                not fixture_format.supports_fork(test_fork)
+                or "blockchain_test_engine_x" in fixture_format_label
+            ):
                 expected_passed -= 1
                 assert (
                     f":test_all_forks[fork_{test_fork}-{fixture_format_label}]"
