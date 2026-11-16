@@ -138,11 +138,13 @@ class FakeGh:
         issues: list[dict[str, Any]] | None = None,
         pulls: list[dict[str, Any]] | None = None,
         comments: dict[int, list[str]] | None = None,
+        permissions: dict[str, str] | None = None,
     ):
-        """Serve issues, pulls and comments."""
+        """Serve fixtures, giving unlisted logins `read` permission."""
         self.issues = {item["number"]: item for item in issues or []}
         self.pulls = pulls or []
         self.comments = comments or {}
+        self.permissions = permissions or {}
         self.reads: list[tuple[str, ...]] = []
         self.writes: list[tuple[str, ...]] = []
 
@@ -157,6 +159,10 @@ class FakeGh:
             return json.dumps({"default_branch": "forks/bogota"})
         if path.startswith("repos/o/r/pulls?"):
             return "\n".join(json.dumps(pr) for pr in self.pulls)
+        if path.endswith("/permission"):
+            login = path.split("/")[-2]
+            permission = self.permissions.get(login, "read")
+            return json.dumps({"permission": permission})
         if "/comments" in path:
             number = int(path.split("/")[-2])
             bodies = self.comments.get(number, [])
@@ -304,7 +310,8 @@ def test_pr_references_are_capped(
     body = " ".join(f"#{n}" for n in range(1, m.MAX_REFERENCES + 5))
     fake = FakeGh()
     run_event(monkeypatch, tmp_path, fake, pr_event(body))
-    assert len(fake.reads) == m.MAX_REFERENCES
+    issue_reads = [call for call in fake.reads if "/issues/" in call[0]]
+    assert len(issue_reads) == m.MAX_REFERENCES
     assert fake.writes == closed(7, PR_MESSAGE)
 
 
@@ -323,6 +330,17 @@ def test_pr_from_others_is_left_alone(
     event = pr_event("", association=association, sender=sender)
     run_event(monkeypatch, tmp_path, fake, event)
     assert fake.reads == []
+    assert fake.writes == []
+
+
+@pytest.mark.parametrize("permission", ["write", "admin"])
+def test_pr_from_private_member_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, permission: str
+) -> None:
+    """Skip an author with write access whose membership is hidden."""
+    fake = FakeGh(permissions={"alice": permission})
+    event = pr_event("Fix a typo.", association="CONTRIBUTOR")
+    run_event(monkeypatch, tmp_path, fake, event)
     assert fake.writes == []
 
 
@@ -384,6 +402,16 @@ def test_sweep_leaves_others_alone(
 ) -> None:
     """Skip the default branch, old pull requests, collaborators, reopens."""
     fake = FakeGh(pulls=[pr], comments=comments)
+    run_sweep(monkeypatch, fake)
+    assert fake.writes == []
+
+
+def test_sweep_leaves_private_member_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skip a recent pull request from a hidden member with write access."""
+    pr = pull(11, "forks/amsterdam", 1, association="CONTRIBUTOR")
+    fake = FakeGh(pulls=[pr], permissions={"alice": "write"})
     run_sweep(monkeypatch, fake)
     assert fake.writes == []
 
