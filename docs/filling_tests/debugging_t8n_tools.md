@@ -213,11 +213,10 @@ The `--invariant-checks` flag checks every valid block the transition tool produ
 
 A state test's own fill checks the first three rules; its blockchain form (`blockchain_test_from_state_test`) checks only the block access list.
 
-A violation is reported as an `InvariantViolationWarning`. To make it fail the fill, as CI does, turn the warning into an error:
+A violation raises `InvariantViolationError`, which fails the test and names the block, the invariant and the values that disagree:
 
 ```console
-fill tests/amsterdam --until Amsterdam --invariant-checks \
-    -W "error::execution_testing.specs.invariants.InvariantViolationWarning"
+fill tests/amsterdam --until Amsterdam --invariant-checks
 ```
 
 [^1]: <!-- markdownlint-disable MD053 (53=link-image-reference-definitions) -->
