@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 class ExecutionSpecsTransitionTool(TransitionTool):
     """Implementation of the EELS T8N for execution-spec-tests."""
 
-    supports_opcode_count: ClassVar[bool] = True
+    supports_opcode_count = True
     supports_blob_params: ClassVar[bool] = True
 
     def __init__(

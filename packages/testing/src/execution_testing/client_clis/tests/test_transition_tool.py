@@ -253,6 +253,28 @@ def test_ethrex_help_without_supported_forks_raises(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="uses a shell script")
+@pytest.mark.parametrize(
+    "t8n_help,supported",
+    [
+        pytest.param(
+            ETHREX_T8N_HELP.replace(
+                "Options:", "Options:\n      --opcode.count <FILE>"
+            ),
+            True,
+            id="flag-listed",
+        ),
+        pytest.param(ETHREX_T8N_HELP, False, id="flag-not-listed"),
+    ],
+)
+def test_ethrex_counts_opcodes_if_its_help_lists_the_flag(
+    tmp_path: Path, t8n_help: str, supported: bool
+) -> None:
+    """Only a build whose help lists `--opcode.count` counts opcodes."""
+    tool = EthrexTransitionTool(binary=write_ethrex_evm(tmp_path, t8n_help))
+    assert tool.supports_opcode_count is supported
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="uses a shell script")
 def test_ethrex_refuses_to_collect_traces(tmp_path: Path) -> None:
     """Asking for traces raises, because `ethrex-evm t8n` has no `--trace`."""
     binary = write_ethrex_evm(tmp_path, ETHREX_T8N_HELP)

@@ -221,6 +221,7 @@ class EthrexTransitionTool(TransitionTool):
     supported_forks_pattern = re.compile(
         r"^Supported forks: (.+)$", re.MULTILINE
     )
+    opcode_count_flag = "--opcode.count"
 
     binary: Path
     cached_version: Optional[str] = None
@@ -268,6 +269,8 @@ class EthrexTransitionTool(TransitionTool):
         self.supported_forks = frozenset(
             name.strip() for name in supported_forks.group(1).split(",")
         )
+        # Only the builds that list the flag can count opcodes.
+        self.supports_opcode_count = self.opcode_count_flag in result.stdout
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """
