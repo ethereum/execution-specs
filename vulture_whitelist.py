@@ -15,11 +15,6 @@ from ethereum.forks.amsterdam.execution_engine.requests import (
     ConsolidationRequest,
     WithdrawalRequest,
 )
-from ethereum.forks.amsterdam.execution_engine.types import (
-    BlobsBundle,
-    GetPayloadResponse,
-    PayloadAttributes,
-)
 from ethereum.stateless.types import ProtocolFork, deserialize_stateless_output
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
@@ -199,14 +194,6 @@ BuilderExitRequest.source_address
 # outside vulture's scanned paths
 deserialize_stateless_output
 ForkLoad.has_stateless
-
-# src/ethereum/forks/amsterdam/execution_engine/types.py - Engine API fields
-PayloadAttributes.suggested_fee_recipient
-BlobsBundle.commitments
-BlobsBundle.proofs
-BlobsBundle.blobs
-GetPayloadResponse.block_value
-GetPayloadResponse.blobs_bundle
 
 # src/ethereum/stateless/types.py - fork ids that no stateless input schema
 # uses yet

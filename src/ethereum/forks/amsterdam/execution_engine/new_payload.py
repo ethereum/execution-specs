@@ -9,14 +9,13 @@ from ethereum_rlp import rlp
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock
 from ethereum.state import BlockDiff, PreState, Root
-from ethereum.state_mpt import apply_changes_to_state
 
 from ..blocks import Block
-from ..fork import ChainContext, execute_block, get_last_256_block_hashes
+from ..fork import ChainContext, execute_block
 from ..fork_types import VersionedHash
 from ..transactions import BlobTransaction, decode_transaction
 from .requests import ExecutionRequests
-from .types import ExecutionEngine, ExecutionPayload, NewPayloadRequest
+from .types import ExecutionPayload, NewPayloadRequest
 from .validation_helpers import _payload_block, _payload_header
 
 
@@ -125,36 +124,3 @@ def execute_new_payload_request(
         chain_context,
     )
     return block_diff, block
-
-
-def verify_and_notify_new_payload(
-    chain: ExecutionEngine,
-    new_payload_request: NewPayloadRequest,
-) -> bool:
-    """
-    Validate the payload and, if valid, apply it to the chain.
-    """
-    chain_context = ChainContext(
-        chain_id=chain.chain_id,
-        block_hashes=get_last_256_block_hashes(chain),
-        parent_header=chain.blocks[-1].header,
-    )
-
-    try:
-        # TODO: This returning a block is a bit weird
-        # We could not return the block and then convert
-        # the payload into a block below
-        block_diff, block = execute_new_payload_request(
-            new_payload_request,
-            chain.state,
-            chain_context,
-        )
-    except InvalidBlock:
-        return False
-
-    apply_changes_to_state(chain.state, block_diff)
-    chain.blocks.append(block)
-    if len(chain.blocks) > 255:
-        chain.blocks = chain.blocks[-255:]
-
-    return True

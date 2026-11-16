@@ -1,11 +1,11 @@
 """
-Execution engine data structures and aliases.
+Execution engine data structures.
 """
 
 from dataclasses import dataclass
 from typing import Annotated, Tuple, final
 
-from ethereum_types.bytes import Bytes, Bytes8, Bytes32
+from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
@@ -21,15 +21,9 @@ from ethereum.utils.ssz import (
 )
 
 from ..blocks import Withdrawal
-from ..fork import BlockChain
 from ..fork_types import Bloom, VersionedHash
 from .requests import ExecutionRequests
 
-# In this module, the execution engine is the chain/state container used by
-# the fork's transition functions.
-ExecutionEngine = BlockChain
-PayloadId = Bytes8
-_ZERO_HASH32 = Hash32(b"\x00" * 32)
 MAX_EXTRA_DATA_BYTES = 32
 MAX_BLOB_COMMITMENTS_PER_BLOCK = 4096
 """
@@ -84,7 +78,7 @@ class NewPayloadRequest(ProgressiveSszContainer):
     """
     Contains an execution payload along with versioned hashes, the
     parent beacon block root, and execution requests for the
-    ``verify_and_notify_new_payload`` entry point.
+    consensus layer's ``verify_and_notify_new_payload`` entry point.
 
     This corresponds to the consensus-layer `NewPayloadRequest`
     container used for Engine API calls.
@@ -102,47 +96,4 @@ class NewPayloadRequest(ProgressiveSszContainer):
         Tuple[VersionedHash, ...], ssz_list(MAX_BLOB_COMMITMENTS_PER_BLOCK)
     ]
     parent_beacon_block_root: Root
-    execution_requests: ExecutionRequests
-
-
-@final
-@slotted_freezable
-@dataclass
-class PayloadAttributes:
-    """
-    Carry the parameters that the consensus layer supplies when it
-    requests the execution layer to build a new block.
-    """
-
-    timestamp: U256
-    prev_randao: Bytes32
-    suggested_fee_recipient: Address
-    withdrawals: Tuple[Withdrawal, ...]
-    parent_beacon_block_root: Root
-
-
-@final
-@slotted_freezable
-@dataclass
-class BlobsBundle:
-    """
-    Bundle of blobs data associated with a built payload.
-    """
-
-    commitments: Tuple[Bytes, ...]
-    proofs: Tuple[Bytes, ...]
-    blobs: Tuple[Bytes, ...]
-
-
-@final
-@slotted_freezable
-@dataclass
-class GetPayloadResponse:
-    """
-    Response returned by ``get_payload`` for a prepared payload build.
-    """
-
-    execution_payload: ExecutionPayload
-    block_value: U256
-    blobs_bundle: BlobsBundle
     execution_requests: ExecutionRequests
