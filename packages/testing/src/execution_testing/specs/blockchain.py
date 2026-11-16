@@ -976,6 +976,8 @@ def block_totals(block: BuiltBlock) -> BlockTotals:
         base_fee_per_gas=int(header.base_fee_per_gas or 0),
         blob_gas_used=int(header.blob_gas_used or 0),
         blob_gas_price=blob_gas_price,
+        # No ommer rewards: `Block.ommers` never reaches the t8n, which
+        # pays none. Count them here if a test ever builds real ommers.
         issued=block.fork.get_reward() + withdrawn * Wei("1 gwei"),
     )
 
