@@ -26,7 +26,7 @@ from execution_testing import (
     add_kzg_version,
 )
 
-from .helpers import verify_frame
+from .helpers import BASE_FEE, fee_budget, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -38,9 +38,6 @@ BLOB_COUNT = 2
 """Blobs the probed transaction carries, so an index past the first."""
 
 BLOB_COMMITMENT_VERSION_KZG = 1
-
-BASE_FEE = 7
-"""Base fee of the block the probed transaction lands in."""
 
 MAX_PRIORITY_FEE = 3
 """A tip, so the escrow includes the largest tip the budget allows."""
@@ -68,29 +65,6 @@ def blob_versioned_hashes(count: int) -> List[Hash]:
     """Return `count` versioned hashes for the probed transaction."""
     return add_kzg_version(
         list(range(1, count + 1)), BLOB_COMMITMENT_VERSION_KZG
-    )
-
-
-def escrow(fork: Fork, tx: Transaction) -> int:
-    """
-    Return what the payer of a signed frame transaction escrows: its
-    maximum gas at the base fee plus its blob gas at the blob base fee of
-    an empty excess, the worst case, plus the largest tip the rest of the
-    `max_fee` budget allows.
-    """
-    tx.sign()
-    assert tx.frames is not None and tx.signatures is not None
-    assert tx.blob_versioned_hashes is not None
-    assert tx.max_fee is not None and tx.max_priority_fee_per_gas is not None
-    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=tx.frames, signatures=tx.signatures
-    )
-    blob_gas = fork.blob_gas_per_blob() * len(tx.blob_versioned_hashes)
-    blob_base_fee = fork.blob_gas_price_calculator()(excess_blob_gas=0)
-    required_max_fee = max_gas * BASE_FEE + blob_gas * blob_base_fee
-    return required_max_fee + min(
-        int(tx.max_priority_fee_per_gas) * max_gas,
-        int(tx.max_fee) - required_max_fee,
     )
 
 
@@ -128,8 +102,9 @@ def test_blob_introspection(
         + Op.STOP
     )
     probe = pre.deploy_contract(code=probe_code)
+    sender = pre.fund_eoa(amount=SENDER_FUNDS)
     tx = Transaction(
-        sender=pre.fund_eoa(amount=SENDER_FUNDS),
+        sender=sender,
         max_fee=MAX_FEE,
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         blob_versioned_hashes=hashes,
@@ -142,6 +117,7 @@ def test_blob_introspection(
             ),
         ],
     )
+    assert tx.frames is not None
 
     storage: Dict[int, int | Hash] = {
         SLOT_FIRST_BLOBHASH + index: blob_hash
@@ -150,7 +126,14 @@ def test_blob_introspection(
     storage[SLOT_FIRST_BLOBHASH + len(hashes)] = 0
     storage[SLOT_BLOB_COUNT] = len(hashes)
     storage[SLOT_MAX_FEE] = MAX_FEE
-    storage[SLOT_ESCROW] = escrow(fork, tx)
+    storage[SLOT_ESCROW] = fee_budget(
+        fork,
+        sender,
+        tx.frames,
+        max_priority_fee_per_gas=MAX_PRIORITY_FEE,
+        max_fee=MAX_FEE,
+        blob_count=len(hashes),
+    ).max_cost
     state_test(
         env=Environment(base_fee_per_gas=BASE_FEE),
         pre=pre,
