@@ -1,26 +1,25 @@
-"""Tests for Amsterdam typed execution request codecs."""
+"""Tests for typed execution request codecs."""
+
+from typing import Any
 
 import pytest
 from ethereum_types.bytes import Bytes, Bytes32, Bytes48, Bytes96
 from ethereum_types.numeric import U64
 
 from ethereum.exceptions import InvalidBlock
-from ethereum.forks.amsterdam.execution_engine.requests import (
-    REQUEST_ITEM_TYPES,
-    BuilderDepositRequest,
-    BuilderExitRequest,
-    ConsolidationRequest,
-    DepositRequest,
-    ExecutionRequests,
-    WithdrawalRequest,
-    decode_execution_requests,
-    encode_execution_requests,
-)
 from ethereum.state import Address
 
+from .stateless_forks import STATELESS_FORKS
 
-def _builder_deposit() -> BuilderDepositRequest:
-    return BuilderDepositRequest(
+
+@pytest.fixture(params=STATELESS_FORKS, ids=lambda fork: fork.short_name)
+def spec(request: pytest.FixtureRequest) -> Any:
+    """Return the `execution_engine.requests` module of each fork."""
+    return request.param.module("execution_engine.requests")
+
+
+def _builder_deposit(spec: Any) -> Any:
+    return spec.BuilderDepositRequest(
         pubkey=Bytes48(b"\x11" * 48),
         withdrawal_credentials=Bytes32(b"\x22" * 32),
         amount=U64(0x0102030405060708),
@@ -28,17 +27,17 @@ def _builder_deposit() -> BuilderDepositRequest:
     )
 
 
-def _builder_exit() -> BuilderExitRequest:
-    return BuilderExitRequest(
+def _builder_exit(spec: Any) -> Any:
+    return spec.BuilderExitRequest(
         source_address=Address(b"\x44" * 20),
         pubkey=Bytes48(b"\x55" * 48),
     )
 
 
-def _all_execution_requests() -> ExecutionRequests:
-    return ExecutionRequests(
+def _all_execution_requests(spec: Any) -> Any:
+    return spec.ExecutionRequests(
         deposits=(
-            DepositRequest(
+            spec.DepositRequest(
                 pubkey=Bytes48(b"\x01" * 48),
                 withdrawal_credentials=Bytes32(b"\x02" * 32),
                 amount=U64(3),
@@ -47,28 +46,28 @@ def _all_execution_requests() -> ExecutionRequests:
             ),
         ),
         withdrawals=(
-            WithdrawalRequest(
+            spec.WithdrawalRequest(
                 source_address=Address(b"\x06" * 20),
                 validator_pubkey=Bytes48(b"\x07" * 48),
                 amount=U64(8),
             ),
         ),
         consolidations=(
-            ConsolidationRequest(
+            spec.ConsolidationRequest(
                 source_address=Address(b"\x09" * 20),
                 source_pubkey=Bytes48(b"\x0a" * 48),
                 target_pubkey=Bytes48(b"\x0b" * 48),
             ),
         ),
-        builder_deposits=(_builder_deposit(),),
-        builder_exits=(_builder_exit(),),
+        builder_deposits=(_builder_deposit(spec),),
+        builder_exits=(_builder_exit(spec),),
     )
 
 
-def test_builder_deposit_encode_decode() -> None:
+def test_builder_deposit_encode_decode(spec: Any) -> None:
     """Builder deposit amounts use little-endian wire encoding."""
-    request = _builder_deposit()
-    requests = ExecutionRequests(
+    request = _builder_deposit(spec)
+    requests = spec.ExecutionRequests(
         deposits=(),
         withdrawals=(),
         consolidations=(),
@@ -76,7 +75,7 @@ def test_builder_deposit_encode_decode() -> None:
         builder_exits=(),
     )
 
-    wire = encode_execution_requests(requests)
+    wire = spec.encode_execution_requests(requests)
 
     assert wire == (
         Bytes(
@@ -87,13 +86,13 @@ def test_builder_deposit_encode_decode() -> None:
             + bytes(request.signature)
         ),
     )
-    assert decode_execution_requests(wire) == requests
+    assert spec.decode_execution_requests(wire) == requests
 
 
-def test_builder_exit_encode_decode() -> None:
+def test_builder_exit_encode_decode(spec: Any) -> None:
     """Builder exits encode the source address followed by the pubkey."""
-    request = _builder_exit()
-    requests = ExecutionRequests(
+    request = _builder_exit(spec)
+    requests = spec.ExecutionRequests(
         deposits=(),
         withdrawals=(),
         consolidations=(),
@@ -101,22 +100,22 @@ def test_builder_exit_encode_decode() -> None:
         builder_exits=(request,),
     )
 
-    wire = encode_execution_requests(requests)
+    wire = spec.encode_execution_requests(requests)
 
     assert wire == (
         Bytes(b"\x04" + bytes(request.source_address) + bytes(request.pubkey)),
     )
-    assert decode_execution_requests(wire) == requests
+    assert spec.decode_execution_requests(wire) == requests
 
 
-def test_all_execution_request_types_roundtrip_in_order() -> None:
+def test_all_execution_request_types_roundtrip_in_order(spec: Any) -> None:
     """All five request types round trip in strict ascending order."""
-    requests = _all_execution_requests()
+    requests = _all_execution_requests(spec)
 
-    wire = encode_execution_requests(requests)
+    wire = spec.encode_execution_requests(requests)
 
     assert tuple(blob[0] for blob in wire) == (0, 1, 2, 3, 4)
-    assert decode_execution_requests(wire) == requests
+    assert spec.decode_execution_requests(wire) == requests
 
 
 @pytest.mark.parametrize(
@@ -127,6 +126,7 @@ def test_all_execution_request_types_roundtrip_in_order() -> None:
     ],
 )
 def test_decode_rejects_invalid_builder_request_payload_length(
+    spec: Any,
     type_byte: bytes,
     invalid_payload_size: int,
     message: str,
@@ -135,28 +135,38 @@ def test_decode_rejects_invalid_builder_request_payload_length(
     wire = (Bytes(type_byte + b"\x00" * invalid_payload_size),)
 
     with pytest.raises(InvalidBlock, match=message):
-        decode_execution_requests(wire)
+        spec.decode_execution_requests(wire)
 
 
 @pytest.mark.parametrize(
-    ("type_byte", "name"),
+    ("spec", "type_byte", "name"),
     [
-        pytest.param(type_byte, name, id=name.replace(" ", "-"))
-        for type_byte, (_, _, name) in REQUEST_ITEM_TYPES.items()
+        pytest.param(
+            fork,
+            type_byte,
+            name,
+            id=f"{fork.short_name}-{name.replace(' ', '-')}",
+        )
+        for fork in STATELESS_FORKS
+        for type_byte, (_, _, name) in fork.module(
+            "execution_engine.requests"
+        ).REQUEST_ITEM_TYPES.items()
     ],
+    indirect=["spec"],
 )
 def test_decode_rejects_empty_request_payload(
+    spec: Any,
     type_byte: Bytes,
     name: str,
 ) -> None:
     """A type byte without data has no typed equivalent."""
     with pytest.raises(InvalidBlock, match=f"Empty {name} request payload"):
-        decode_execution_requests((type_byte,))
+        spec.decode_execution_requests((type_byte,))
 
 
-def test_decode_rejects_non_ascending_builder_request_types() -> None:
+def test_decode_rejects_non_ascending_builder_request_types(spec: Any) -> None:
     """Builder request types cannot be duplicated or misordered."""
-    wire = encode_execution_requests(_all_execution_requests())
+    wire = spec.encode_execution_requests(_all_execution_requests(spec))
 
     with pytest.raises(InvalidBlock, match="strict ascending type order"):
-        decode_execution_requests((*wire[:3], wire[4], wire[3]))
+        spec.decode_execution_requests((*wire[:3], wire[4], wire[3]))
