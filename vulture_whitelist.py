@@ -180,8 +180,8 @@ _configure_client_manager  # autouse fixture
 test_suite_name  # hive test suite name fixture
 genesis_header  # genesis header fixture
 
-# src/ethereum/forks/amsterdam/execution_engine/requests.py - SSZ fields,
-# read by reflection when encoding and decoding
+# src/ethereum/forks/*/execution_engine/requests.py - SSZ fields, read by
+# reflection when encoding and decoding
 WithdrawalRequest.source_address
 WithdrawalRequest.validator_pubkey
 ConsolidationRequest.source_address
