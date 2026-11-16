@@ -159,6 +159,14 @@ returnData
 stateGas
 stateGasCost
 
+# packages/testing/src/execution_testing/evm_tools/t8n/evm_trace/
+# bal_witness.py - used from client_clis/ and specs/, which vulture does not
+# scan
+BalWitnessTracer
+witness
+started
+ended
+
 # packages/testing/src/execution_testing/evm_tools/daemon.py -
 # overrides `BaseHTTPRequestHandler.log_request`
 log_request

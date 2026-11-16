@@ -10,6 +10,7 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
+    FrozenSet,
     List,
     Mapping,
     Optional,
@@ -269,6 +270,13 @@ class SystemCallPhase(Enum):
     NONE = "none"
     BEFORE_TRANSACTIONS = "before_transactions"
     AFTER_TRANSACTIONS = "after_transactions"
+
+
+class GasDimension(Enum):
+    """A gas dimension metered separately against the block gas limit."""
+
+    EXECUTION = auto()
+    STATE = auto()
 
 
 class BaseForkMeta(ABCMeta):
@@ -795,6 +803,23 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @abstractmethod
     def max_refund_quotient(cls) -> int:
         """Return the max refund quotient at a given fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def block_gas_used_includes_refunds(cls) -> bool:
+        """
+        Return whether the header's gas used counts gas before refunds.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def block_gas_dimensions(cls) -> FrozenSet[GasDimension]:
+        """
+        Return the gas dimensions metered separately against the block gas
+        limit; the header's gas used is the largest of them.
+        """
         pass
 
     # Transaction cost calculators
@@ -1363,6 +1388,21 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         Return the list of refund types that are possible given current
         fork logic.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def selfdestruct_burns_balance(cls) -> bool:
+        """Return whether SELFDESTRUCT can burn ether."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def selfdestruct_deletes_existing_accounts(cls) -> bool:
+        """
+        Return whether SELFDESTRUCT deletes an account created before the
+        current transaction.
         """
         pass
 

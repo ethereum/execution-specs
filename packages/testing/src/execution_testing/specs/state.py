@@ -1,5 +1,6 @@
 """Ethereum state test spec definition and filler."""
 
+from dataclasses import replace
 from pprint import pprint
 from typing import (
     Any,
@@ -58,14 +59,55 @@ from execution_testing.test_types import (
     PostStateContext,
     Transaction,
 )
+from execution_testing.test_types.balance_expectations import transaction_key
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 
 from .base import BaseTest, FillResult, OpMode
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
 from .helpers import RecordedPostStateContext, verify_transactions
+from .invariants import BlockTotals, check_block_invariants
 
 logger = get_logger(__name__)
+
+
+def state_test_block_totals(
+    *,
+    fork: Fork,
+    tx: Transaction,
+    env: Environment,
+    result: Result,
+    context: PostStateContext,
+) -> BlockTotals:
+    """
+    Return the totals of a state test's transaction, priced as its
+    post-state is. A state test pays no reward and no withdrawals.
+    """
+    totals = BlockTotals(
+        gas_limit=int(env.gas_limit),
+        gas_used=int(result.gas_used),
+        receipts_gas_used=0,
+        base_fee_per_gas=0,
+        blob_gas_used=0,
+        blob_gas_price=0,
+        issued=0,
+    )
+    if tx.error is not None:
+        return totals
+    receipt_gas = result.receipts[-1].cumulative_gas_used
+    assert receipt_gas is not None, "receipt has no cumulative gas used"
+    blob_gas_used = 0
+    if tx.blob_versioned_hashes:
+        blob_count = len(tx.blob_versioned_hashes)
+        blob_gas_used = fork.blob_gas_per_blob() * blob_count
+    landing = context.landing(transaction_key(tx))
+    return replace(
+        totals,
+        receipts_gas_used=int(receipt_gas),
+        base_fee_per_gas=landing.base_fee_per_gas(),
+        blob_gas_used=blob_gas_used,
+        blob_gas_price=landing.blob_gas_price() or 0,
+    )
 
 
 class StateTest(BaseTest):
@@ -422,13 +464,14 @@ class StateTest(BaseTest):
                 block_number=self.env.number, timestamp=self.env.timestamp
             )
         )
-        return BlockchainTest.from_test(
+        blockchain_test = BlockchainTest.from_test(
             base_test=self,
             genesis_environment=self._generate_blockchain_genesis_environment(),
             pre=self.pre,
             post=self.post,
             blocks=self._generate_blockchain_blocks(),
         )
+        return blockchain_test
 
     def make_state_test_fixture(
         self,
@@ -472,17 +515,13 @@ class StateTest(BaseTest):
             slow_request=self.is_tx_gas_heavy_test,
         )
         output_alloc = transition_tool_output.alloc.materialize()
+        context = self.post_state_context(
+            tx=tx, env=env, fork=fork, result=transition_tool_output.result
+        )
 
         try:
             self.post.verify_post_alloc(
-                pre_alloc=pre_alloc,
-                got_alloc=output_alloc,
-                context=self.post_state_context(
-                    tx=tx,
-                    env=env,
-                    fork=fork,
-                    result=transition_tool_output.result,
-                ),
+                pre_alloc=pre_alloc, got_alloc=output_alloc, context=context
             )
         except Exception as e:
             print_traces(t8n.get_traces())
@@ -499,6 +538,24 @@ class StateTest(BaseTest):
             pprint(transition_tool_output.result)
             pprint(output_alloc)
             raise e
+
+        if self.invariant_checks:
+            # A state test runs no block finalization, so it has no block
+            # access list to check.
+            check_block_invariants(
+                fork=fork,
+                pre_alloc=pre_alloc,
+                post_alloc=output_alloc,
+                result=transition_tool_output.result,
+                txs=[tx],
+                totals=state_test_block_totals(
+                    fork=fork,
+                    tx=tx,
+                    env=env,
+                    result=transition_tool_output.result,
+                    context=context,
+                ),
+            )
 
         gas_optimization: int | None = None
 

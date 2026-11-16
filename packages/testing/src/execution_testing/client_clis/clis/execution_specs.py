@@ -104,6 +104,9 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         directly.
         """
         from execution_testing.evm_tools.t8n import T8N
+        from execution_testing.evm_tools.t8n.evm_trace.bal_witness import (
+            BalWitnessTracer,
+        )
         from execution_testing.evm_tools.t8n.evm_trace.count import (
             CountTracer,
         )
@@ -137,12 +140,35 @@ class ExecutionSpecsTransitionTool(TransitionTool):
                 )
             )
 
+        fork = transition_tool_data.fork
         count_tracer = None
-        if self.supports_opcode_count and self.opcode_count is not None:
+        # The invariant checks excuse an ether or nonce shortfall only
+        # when SELFDESTRUCT ran, and only on forks where it can cause one.
+        if self.supports_opcode_count and (
+            self.opcode_count is not None
+            or (
+                self.invariant_checks
+                and (
+                    fork.selfdestruct_burns_balance()
+                    or fork.selfdestruct_deletes_existing_accounts()
+                )
+            )
+        ):
             count_tracer = CountTracer()
             if tracers is None:
                 tracers = GroupTracer()
             tracers.add(count_tracer)
+
+        bal_tracer = None
+        if (
+            self.invariant_checks
+            and not transition_tool_data.state_test
+            and fork.header_bal_hash_required()
+        ):
+            bal_tracer = BalWitnessTracer()
+            if tracers is None:
+                tracers = GroupTracer()
+            tracers.add(bal_tracer)
 
         t8n = T8N(
             transition_tool_data,
@@ -156,6 +182,9 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             output.result.opcode_count = OpcodeCount.model_validate(
                 count_tracer.results()
             )
+
+        if bal_tracer is not None:
+            output.bal_witness = bal_tracer.witness()
 
         if debug_output_path:
             dump_files_to_directory(
