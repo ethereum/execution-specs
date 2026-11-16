@@ -29,12 +29,12 @@ from execution_testing.base_types import (
     Number,
 )
 from execution_testing.client_clis import ClientBackend
-from execution_testing.client_clis.cli_types import EnginePayloadMetadata
 from execution_testing.client_clis.client_backend import (
     DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT,
 )
 from execution_testing.fixtures import FixtureFillingPhase
 from execution_testing.fixtures.blockchain import (
+    FixtureEngineNewPayload,
     StatefulPreRunFixture,
 )
 from execution_testing.forks import (
@@ -46,9 +46,6 @@ from execution_testing.forks import (
 from execution_testing.logging import get_logger
 from execution_testing.recipient_type import RecipientType
 from execution_testing.rpc import DebugRPC, EngineRPC, EthRPC
-from execution_testing.specs.blockchain import (
-    payload_metadata_to_fixture,
-)
 from execution_testing.test_types import EOA
 from execution_testing.test_types.chain_config_types import (
     ChainConfigDefaults,
@@ -662,9 +659,8 @@ def _session_pre_run(
     room for multiple pre-run files (e.g. different setup variants off
     one snapshot) without coordinating filenames.
 
-    Pre-run helpers return their built ``EnginePayloadMetadata`` directly;
-    we collect them into ``captured`` and serialise via
-    ``payload_metadata_to_fixture``.
+    Pre-run helpers return the fixture payload of each block they build;
+    we collect them into ``captured``.
     """
     if is_help_or_collectonly_mode(request.config):
         return
@@ -684,7 +680,7 @@ def _session_pre_run(
     #    start_block sits one diff-layer above the snapshot and a test that
     #    builds many blocks (e.g. test_blockhash) can prune its state, making
     #    the per-test rewind collapse to the snapshot block and abort the run.
-    captured: List[EnginePayloadMetadata] = []
+    captured: List[FixtureEngineNewPayload] = []
     seed_address = Address(session_worker_key)
     if eth_rpc.get_balance(seed_address) >= SEED_FUNDING_WEI:
         logger.info(
@@ -737,7 +733,6 @@ def _session_pre_run(
         )
         pre_run_dir.mkdir(parents=True, exist_ok=True)
         fork_at_genesis = session_fork.fork_at(block_number=0, timestamp=0)
-        payloads = [payload_metadata_to_fixture(p) for p in captured]
         start_block_hash = Hash(start_block["hash"])
         fixture = StatefulPreRunFixture(
             network=str(fork_at_genesis),
@@ -745,14 +740,14 @@ def _session_pre_run(
             snapshot_block_hash=Hash(snapshot_block["hash"]),
             start_block_number=HexNumber(start_block["number"]),
             start_block_hash=start_block_hash,
-            payloads=payloads,
+            payloads=captured,
         )
         pre_run_file = pre_run_dir / f"{start_block_hash}.json"
         pre_run_file.write_text(
             fixture.model_dump_json(by_alias=True, indent=2, exclude_none=True)
         )
         logger.info(
-            f"Wrote {len(payloads)} pre-run payloads to {pre_run_file}"
+            f"Wrote {len(captured)} pre-run payloads to {pre_run_file}"
         )
 
 
