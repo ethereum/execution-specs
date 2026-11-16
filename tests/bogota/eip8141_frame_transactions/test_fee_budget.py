@@ -14,7 +14,6 @@ from typing import List
 
 import pytest
 from execution_testing import (
-    EOA,
     SECP256K1_SIGNATURE_LENGTH,
     Account,
     Alloc,
@@ -31,19 +30,19 @@ from execution_testing import (
 )
 
 from ...cancun.eip4844_blobs.spec import SpecHelpers as BlobSpecHelpers
-from .helpers import FrameCase, default_frame, verify_frame
+from .helpers import (
+    BASE_FEE,
+    PRIORITY_FEE,
+    default_frame,
+    fee_budget,
+    verify_frame,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
-
-BASE_FEE = 7
-"""Base fee of the block every transaction lands in."""
-
-PRIORITY_FEE = 5
-"""Tip per gas each transaction asks for."""
 
 FUNDS = 10**18
 """Sender balance before the transaction, which pays and escrows."""
@@ -53,37 +52,6 @@ PROBE_GAS = 100_000
 
 PROBE_STATE_GAS = 1_000_000
 """State budget of a probe frame, covering the slot it creates."""
-
-
-def worst_case(
-    fork: Fork,
-    sender: EOA,
-    frames: List[FrameCase],
-    blob_count: int = 0,
-    excess_blob_gas: int = 0,
-) -> tuple[int, int]:
-    """
-    Return the transaction's `max_gas` and the fee its `max_fee` must
-    cover, `max_gas` at the base fee plus the blob gas at the blob base
-    fee of `excess_blob_gas`.
-
-    The sender's default signature entry has an empty `msg`, so only its
-    length enters the intrinsic cost and the entry can be priced before
-    it is signed.
-    """
-    signature = FrameSignature(
-        scheme=Spec.SCHEME_SECP256K1,
-        signer=Bytes(sender),
-        signature=Bytes(bytes(SECP256K1_SIGNATURE_LENGTH)),
-    )
-    max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=frames, signatures=[signature]
-    )
-    blob_gas = blob_count * fork.blob_gas_per_blob()
-    blob_base_fee = fork.blob_gas_price_calculator()(
-        excess_blob_gas=excess_blob_gas
-    )
-    return max_gas, max_gas * BASE_FEE + blob_gas * blob_base_fee
 
 
 def blob_versioned_hashes(count: int) -> List[Hash]:
@@ -123,7 +91,9 @@ def test_max_fee_boundary(
     sender = pre.fund_eoa(amount=FUNDS)
     target = pre.deploy_contract(code=Op.STOP)
     frames = [verify_frame(state_gas_limit=0), default_frame(target=target)]
-    _, required_max_fee = worst_case(fork, sender, frames, blob_count)
+    required_max_fee = fee_budget(
+        fork, sender, frames, blob_count=blob_count
+    ).required_max_fee
 
     tx = Transaction(
         sender=sender,
@@ -142,6 +112,54 @@ def test_max_fee_boundary(
         pre=pre,
         tx=tx,
         post={sender: Account(nonce=0 if budget_delta < 0 else 1)},
+    )
+
+
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "budget_delta",
+    [
+        pytest.param(0, id="exact"),
+        pytest.param(-1, id="one_below"),
+    ],
+)
+def test_max_fee_checked_before_frames(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    budget_delta: int,
+) -> None:
+    """
+    Test that a `max_fee` one wei below the base fee cost is rejected
+    for its fee budget before any frame runs, although the only
+    `VERIFY` frame would revert. At the exact budget the frame runs, and
+    its revert invalidates the transaction instead.
+    """
+    # The sender can afford the transaction, so nothing but the fee
+    # budget or the reverting frame refuses it.
+    sender = pre.deploy_contract(code=Op.REVERT(0, 0), balance=FUNDS)
+    frames = [verify_frame()]
+    if budget_delta == 0:
+        error = TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+    elif budget_delta == -1:
+        error = TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS
+    else:
+        raise ValueError(f"unknown budget_delta: {budget_delta!r}")
+
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=frames,
+        max_fee=fee_budget(fork, sender, frames).required_max_fee
+        + budget_delta,
+        error=error,
+    )
+
+    state_test(
+        env=Environment(base_fee_per_gas=BASE_FEE),
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=1, balance_change=0)},
     )
 
 
@@ -183,7 +201,8 @@ def test_escrow(
             state_gas_limit=PROBE_STATE_GAS,
         ),
     ]
-    max_gas, required_max_fee = worst_case(fork, sender, frames)
+    fees = fee_budget(fork, sender, frames)
+    max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
     full_tip = PRIORITY_FEE * max_gas
     max_fee = {
         "full_tip": required_max_fee + full_tip,
@@ -249,7 +268,8 @@ def test_tip_settlement(
             state_gas_limit=0,
         ),
     ]
-    max_gas, required_max_fee = worst_case(fork, sender, frames)
+    fees = fee_budget(fork, sender, frames)
+    max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
     full_tip = PRIORITY_FEE * max_gas
     max_fee = {
         "full_tip": required_max_fee + full_tip,
@@ -340,7 +360,7 @@ def test_gasprice(
             state_gas_limit=PROBE_STATE_GAS,
         ),
     ]
-    max_gas, _ = worst_case(fork, sender, frames)
+    max_gas = fee_budget(fork, sender, frames).max_gas
     # A blob fee of at least a wei per unit of `max_gas`, so folding it
     # into `GASPRICE` would show.
     excess_blob_gas = (
@@ -351,9 +371,13 @@ def test_gasprice(
         if blob_count
         else 0
     )
-    _, required_max_fee = worst_case(
-        fork, sender, frames, blob_count, excess_blob_gas
-    )
+    required_max_fee = fee_budget(
+        fork,
+        sender,
+        frames,
+        blob_count=blob_count,
+        excess_blob_gas=excess_blob_gas,
+    ).required_max_fee
     assert required_max_fee - max_gas * BASE_FEE >= blob_count * max_gas
     max_fee, gas_price = {
         "full_tip": (

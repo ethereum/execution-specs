@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from execution_testing import Bytes, FrameSignature, Hash, keccak256
+from execution_testing import EOA, Bytes, FrameSignature, Hash, keccak256
 
 from .spec import Spec
 
@@ -118,3 +118,17 @@ def p256_entry(
     )
     kwargs.update(overrides)
     return FrameSignature(**kwargs)
+
+
+def canonical_entry(account: EOA, **overrides: Any) -> FrameSignature:
+    """
+    Return a secp256k1 entry over the canonical hash with `account` as
+    signer, sender or not; keyword arguments override single fields.
+    """
+    fields: Dict[str, Any] = dict(
+        scheme=Spec.SCHEME_SECP256K1,
+        signer=Bytes(account),
+        secret_key=account.key,
+    )
+    fields.update(overrides)
+    return FrameSignature(**fields)
