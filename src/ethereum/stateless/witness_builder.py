@@ -13,7 +13,7 @@ from ethereum.incremental_mpt import (
     build_mpt,
     mpt_get,
     mpt_root,
-    mpt_set,
+    mpt_set_accounts,
     mpt_set_storage_slots,
 )
 from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT, Trie
@@ -165,21 +165,23 @@ def _apply_account_writes(
     incr_account_mpt: IncrementalMPT[Address, Optional[Account]],
     incr_storage_mpts: Dict[Address, IncrementalMPT[Bytes32, U256]],
     block_state: TrackedBlockState,
-    all_dirty_accounts: Set[Address],
 ) -> None:
     """Apply final account values and post-storage roots to account trie."""
-    for address in all_dirty_accounts:
-        if address in block_state.account_writes:
-            account = block_state.account_writes[address]
-        else:
-            account = block_state.pre_state.get_account_optional(address)
+    accounts = dict(block_state.account_writes)
+    for address in block_state.storage_writes:
+        # A storage write changes the storage root in the account's leaf,
+        # even if the block left the rest of the account as it was.
+        if address not in accounts:
+            accounts[address] = block_state.pre_state.get_account_optional(
+                address
+            )
 
+    def get_post_storage_root(address: Address) -> Root:
         if address in incr_storage_mpts:
-            addr_storage_root = mpt_root(incr_storage_mpts[address])
-        else:
-            addr_storage_root = EMPTY_TRIE_ROOT
+            return mpt_root(incr_storage_mpts[address])
+        return EMPTY_TRIE_ROOT
 
-        mpt_set(incr_account_mpt, address, account, addr_storage_root)
+    mpt_set_accounts(incr_account_mpt, accounts, get_post_storage_root)
 
 
 def _collect_accessed_nodes(
@@ -241,12 +243,7 @@ def build_execution_witness(
     )
 
     # 4. Apply dirty accounts
-    _apply_account_writes(
-        incr_account_mpt,
-        incr_storage_mpts,
-        block_state,
-        all_dirty_accounts,
-    )
+    _apply_account_writes(incr_account_mpt, incr_storage_mpts, block_state)
 
     # Safety check: the post-state root implied by the witness construction
     # must match the canonical state-root calculation.
