@@ -43,6 +43,8 @@ def test_witness_state_sstore_delete_branch_collapse_adds_auxiliary_node(
 
     The witness should contain both the normal proof for the deleted slot
     and the auxiliary node needed to preserve the untouched sibling subtree.
+    The collapse only needs that node, so the witness should hold nothing
+    below it.
     """
     storage = build_large_storage([COLLAPSE_DELETED_SLOT, *sibling_slots])
     proof_nodes = collect_storage_proof_nodes(storage, [COLLAPSE_DELETED_SLOT])
@@ -54,6 +56,14 @@ def test_witness_state_sstore_delete_branch_collapse_adds_auxiliary_node(
     # exactly one MPT node of the expected type.
     assert len(auxiliary_nodes) == 1
     assert trie_node_kind(auxiliary_nodes[0]) == sibling_kind
+    # The rest of the sibling subtree, such as the child of an extension.
+    # A leaf has nothing below it.
+    below_auxiliary_nodes = [
+        node
+        for node in collect_storage_proof_nodes(storage, sibling_slots)
+        if node not in proof_nodes + auxiliary_nodes
+    ]
+    assert bool(below_auxiliary_nodes) == (sibling_kind != "leaf")
 
     contract = pre.deploy_contract(
         code=Op.SSTORE(COLLAPSE_DELETED_SLOT, 0) + Op.STOP,
@@ -70,6 +80,7 @@ def test_witness_state_sstore_delete_branch_collapse_adds_auxiliary_node(
                 expected_execution_witness_state=(
                     ExecutionWitnessStateExpectation(
                         nodes_present=proof_nodes + auxiliary_nodes,
+                        nodes_absent=below_auxiliary_nodes,
                     )
                 ),
             )
