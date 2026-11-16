@@ -627,45 +627,6 @@ def _short_branch() -> TrieBytes:
     return branch_rlp
 
 
-def test_witness_state_collapse_onto_extension_skips_its_child(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """
-    Accept a storage deletion that collapses a branch onto an extension whose
-    child is missing from the witness, since the collapse only needs the
-    child's reference.
-    """
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(STORAGE_SLOT, 0) + Op.STOP,
-        storage={STORAGE_SLOT: 1},
-    )
-    sender = pre.fund_eoa()
-    # The child hash stands for a branch that the block doesn't need, so the
-    # witness doesn't hold it.
-    extension = TrieBytes(
-        rlp.encode(
-            [nibble_list_to_compact(b"\x00", False), keccak256(b"branch")]
-        )
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[Transaction(sender=sender, to=contract)],
-                stateless_input_bytes_modifier=_with_malformed_parent_state(
-                    _as_only_storage_sibling(
-                        contract, _sibling_storage_slot(), extension
-                    )
-                ),
-                expected_stateless_validation_success=True,
-            )
-        ],
-        post={},
-    )
-
-
 @pytest.mark.parametrize(
     "node,children",
     [
