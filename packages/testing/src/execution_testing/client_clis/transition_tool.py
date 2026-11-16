@@ -337,6 +337,9 @@ class TransitionTool(EthereumCLI):
         reward: int
         blob_schedule: BlobSchedule | None
         state_test: bool = False
+        # The test corrupts the built block, so a backend that imports
+        # what it builds (``ClientBackend``) must leave this block out.
+        expect_invalid: bool = False
 
         @property
         def fork_name(self) -> str:

@@ -353,6 +353,40 @@ class TestClientFixture:
             ("completed", GROUP, "test[x]"),
         ]
 
+    def test_a_failed_isolated_start_opens_the_hive_test(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An isolated client that cannot start still leaves a test in hive."""
+        monkeypatch.setattr(
+            client_policy, "group_identifier_of", lambda _node: GROUP
+        )
+        requested: list[str] = []
+        cases = [
+            SimpleNamespace(
+                path=SimpleNamespace(index=index, total=2, name=f"t{index}")
+            )
+            for index in range(2)
+        ]
+        generator = fixture_body(client_policy.client)(
+            multi_test_hive_test=SimpleNamespace(
+                start_client=lambda **_kwargs: None
+            ),
+            multi_test_client_manager=_FakeManager(running=None),
+            client_type=SimpleNamespace(name="geth"),
+            environment={},
+            client_genesis={},
+            total_timing_data=TimingData("total"),
+            request=SimpleNamespace(
+                node=SimpleNamespace(nodeid="test[x]"),
+                getfixturevalue=requested.append,
+            ),
+            sync_target_cases=cases,
+            mock_peers={},
+        )
+        with pytest.raises(AssertionError, match="Unable to connect"):
+            next(generator)
+        assert requested == ["hive_test"]
+
 
 def _reason(
     monkeypatch: pytest.MonkeyPatch,

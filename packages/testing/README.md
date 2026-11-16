@@ -34,4 +34,4 @@ pipx inject --include-apps ethereum-execution ./execution-specs/packages/testing
 
 ## Documentation
 
-Repository documentation, including this framework's reference documentation: <https://steel.ethereum.foundation/docs/execution-specs/>
+Repository documentation, including this framework's reference documentation: <https://specs.ethereum.foundation/docs/execution-specs/>

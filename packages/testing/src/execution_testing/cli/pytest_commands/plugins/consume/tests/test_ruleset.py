@@ -13,13 +13,18 @@ from execution_testing.forks import (
     BPO2ToAmsterdamAtTime15k,
     BPO2ToBPO3AtTime15k,
     BPO3ToBPO4AtTime15k,
+    Byzantium,
     Fork,
+    Frontier,
+    Homestead,
+    SpuriousDragon,
+    TangerineWhistle,
     TransitionFork,
     transition_fork_from_to,
 )
 from execution_testing.forks.forks.forks import first_free_bpo_slot
 
-from ..simulators.helpers.ruleset import ruleset_format
+from ..simulators.helpers.ruleset import ruleset, ruleset_format
 
 
 @pytest.mark.parametrize(
@@ -106,3 +111,23 @@ def test_bpo_transition_ruleset(
     rules = ruleset_format(fork)
     assert rules[f"HIVE_{ancestor}_TIMESTAMP"] == 0
     assert rules[f"HIVE_{prefix}_TIMESTAMP"] == 15_000
+
+
+@pytest.mark.parametrize(
+    "fork, has_dao_block",
+    [
+        (Frontier, True),
+        (Homestead, True),
+        (TangerineWhistle, False),
+        (SpuriousDragon, False),
+        (Byzantium, False),
+    ],
+)
+def test_dao_block_only_before_tangerine_whistle(
+    fork: Fork, has_dao_block: bool
+) -> None:
+    """
+    The DAO fork is scheduled only where it would not follow an active
+    Tangerine Whistle, a fork order clients refuse at start.
+    """
+    assert ("HIVE_FORK_DAO_BLOCK" in ruleset[fork]) is has_dao_block

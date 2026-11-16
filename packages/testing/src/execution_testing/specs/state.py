@@ -336,19 +336,50 @@ class StateTest(BaseTest):
             )
 
         if self.env.excess_blob_gas:
-            # The excess blob gas environment value means the value of the
-            # context (block header) where the transaction is executed. In a
-            # blockchain test, we need to indirectly set the excess blob gas by
-            # setting the excess blob gas of the genesis block to the expected
-            # value plus the BLOB_TARGET_GAS_PER_BLOCK, which is the value that
-            # will be subtracted from the excess blob gas when the first block
-            # is mined.
-            kwargs["excess_blob_gas"] = self.env.excess_blob_gas + (
-                genesis_fork.target_blobs_per_block()
-                * genesis_fork.blob_gas_per_blob()
+            genesis_base_fee_per_gas = (
+                Environment(**kwargs)
+                .set_fork_requirements(genesis_fork)
+                .base_fee_per_gas
+            )
+            assert genesis_base_fee_per_gas is not None
+            kwargs["excess_blob_gas"] = self._genesis_excess_blob_gas(
+                excess_blob_gas=int(self.env.excess_blob_gas),
+                genesis_base_fee_per_gas=int(genesis_base_fee_per_gas),
             )
 
         return Environment(**kwargs)
+
+    def _genesis_excess_blob_gas(
+        self, *, excess_blob_gas: int, genesis_base_fee_per_gas: int
+    ) -> int:
+        """
+        Return the genesis excess blob gas from which the first block, which
+        uses no blob gas, computes the state test's `excess_blob_gas`.
+
+        That is usually one block's blob gas target more, taken from the
+        first block's fork, which a transition fork can change from the
+        genesis's. From EIP-7918 on, a parent base fee above the blob
+        reserve price leaves the excess unchanged instead. Raise when no
+        genesis can give that excess.
+        """
+        fork = self.fork.fork_at(
+            block_number=self.env.number, timestamp=self.env.timestamp
+        )
+        calculator = fork.excess_blob_gas_calculator()
+        target = fork.target_blobs_per_block() * fork.blob_gas_per_blob()
+        for candidate in (excess_blob_gas + target, excess_blob_gas):
+            child = calculator(
+                parent_excess_blob_gas=candidate,
+                parent_blob_gas_used=0,
+                parent_base_fee_per_gas=genesis_base_fee_per_gas,
+            )
+            if child == excess_blob_gas:
+                return candidate
+        raise ValueError(
+            f"no genesis gives block 1 an excess blob gas of "
+            f"{excess_blob_gas} at base fee {genesis_base_fee_per_gas}: "
+            "below one block's target the reserve price keeps the excess"
+        )
 
     def _generate_blockchain_blocks(self) -> List[Block]:
         """

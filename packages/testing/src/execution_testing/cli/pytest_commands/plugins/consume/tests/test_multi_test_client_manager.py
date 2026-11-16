@@ -186,6 +186,35 @@ class TestGroupClient:
         assert first.stopped
         assert manager.get_client(GROUP) is None
 
+    def test_a_failed_start_opens_the_hive_test(self) -> None:
+        """A client that cannot start still leaves a test in hive."""
+
+        class _DeadHive(_Hive):
+            def start_client(self, **kwargs: Any) -> None:  # type: ignore[override]
+                """Fail the way hive does when a client never comes up."""
+                del kwargs
+                return None
+
+        requested: List[str] = []
+        request = SimpleNamespace(
+            node=_Node(GROUP, "test-a"),
+            getfixturevalue=requested.append,
+        )
+        manager, _ = _manager({GROUP: 2})
+        fixture = group_client(
+            cast(Any, _DeadHive()),
+            manager,
+            cast(Any, SimpleNamespace(name="geth")),
+            {},
+            {},
+            cast(Any, SimpleNamespace(time=nullcontext)),
+            cast(Any, request),
+        )
+        with pytest.raises(AssertionError, match="Unable to connect"):
+            next(fixture)
+        assert requested == ["hive_test"]
+        assert manager.get_client(GROUP) is None
+
     def test_a_variant_group_boots_its_own_client(self) -> None:
         """A variant of the same pre-allocation group gets a new client."""
         hive = _Hive()
