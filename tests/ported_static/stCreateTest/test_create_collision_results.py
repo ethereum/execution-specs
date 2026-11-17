@@ -113,7 +113,10 @@ def test_create_collision_results(
     ]
     for collider in colliders:
         pre.deploy_contract(
-            code=collider_code, storage={0: UNTOUCHED}, address=collider
+            code=collider_code,
+            storage={0: UNTOUCHED},
+            nonce=0,
+            address=collider,
         )
 
     tx = Transaction(
@@ -140,6 +143,8 @@ def test_create_collision_results(
         ),
     }
     for collider in colliders:
-        post[collider] = Account(storage={0: 0x1D}, code=collider_code)
+        post[collider] = Account(
+            storage={0: 0x1D}, code=collider_code, nonce=0
+        )
 
     state_test(pre=pre, post=post, tx=tx)
