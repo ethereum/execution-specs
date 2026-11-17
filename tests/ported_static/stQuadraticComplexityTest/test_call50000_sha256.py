@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
 )
@@ -123,16 +122,12 @@ def test_call50000_sha256(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
-    tx_data = [
-        Bytes(""),
-    ]
     tx_gas = [150000, 2**24]
     tx_value = [10]
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=tx_data[d],
         gas_limit=tx_gas[g],
         value=tx_value[v],
         error=_exc,

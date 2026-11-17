@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
 )
@@ -119,16 +118,12 @@ def test_call20_kbytes_contract50_3(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
-    tx_data = [
-        Bytes(""),
-    ]
     tx_gas = [150000, 2**24]
     tx_value = [10]
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=tx_data[d],
         gas_limit=tx_gas[g],
         value=tx_value[v],
         error=_exc,
