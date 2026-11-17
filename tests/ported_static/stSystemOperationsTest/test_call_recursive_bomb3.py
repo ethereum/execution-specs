@@ -19,10 +19,10 @@ exact fork-derived replay of the recursion's gas flow (EIP-150 grants,
 returned-leftover propagation, warm/cold and SSTORE pricing via opcode
 metadata, EIP-8037 state-gas spill), validated against the ported
 Cancun depths (256 for CallRecursiveBomb1/2, whose tx gas limits differ
-by one gas). Under Amsterdam's revised storage-growth pricing even the
-top level cannot afford its zero-to-one flag store at the ported
-budget, so the whole transaction reverts and the post pins empty
-storage.
+by one gas). Under Amsterdam's revised storage-growth pricing, at the
+CallRecursiveBomb3 budget even the top level cannot afford its
+zero-to-one flag store, so the whole transaction reverts and the post
+pins empty storage.
 """
 
 import pytest
