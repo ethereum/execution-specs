@@ -55,11 +55,11 @@ def test_zero_value_suicide(
         beneficiary = pre.nonexistent_account()
         expected = Account.NONEXISTENT
     elif recipient == "funded_eoa":
-        beneficiary = pre.fund_eoa()
+        beneficiary = pre.fund_eoa(amount=1)
         expected = Account(balance_change=0)
     else:
         storage[0] = 1
-        beneficiary = pre.fund_eoa(storage=storage)
+        beneficiary = pre.fund_eoa(amount=1, storage=storage)
         expected = Account(storage=storage, balance_change=0)
 
     target_code = Op.SELFDESTRUCT(address=beneficiary) + Op.STOP

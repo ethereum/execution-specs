@@ -8,7 +8,6 @@ state_tests/stExample/add11_ymlFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     StateTestFiller,
     Transaction,
@@ -53,9 +52,7 @@ def test_add11_yml(
             code=contract_0_code,
         ),
         sender: Account(storage={}, code=b"", nonce=1),
-        Address(
-            0xE94F5374FCE5EDBC8E2A8697C15331677E6EBF0B
-        ): Account.NONEXISTENT,
+        pre.nonexistent_account(): Account.NONEXISTENT,
     }
 
     state_test(pre=pre, post=post, tx=tx)

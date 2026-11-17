@@ -75,11 +75,11 @@ def test_zero_value_transaction_call(
         to = pre.nonexistent_account()
         expected = Account.NONEXISTENT
     elif recipient == "funded_eoa":
-        to = pre.fund_eoa()
+        to = pre.fund_eoa(amount=1)
         expected = Account(balance_change=0)
     else:
         storage[0] = 1
-        to = pre.fund_eoa(storage=storage)
+        to = pre.fund_eoa(amount=1, storage=storage)
         expected = Account(storage=storage, balance_change=0)
 
     tx = Transaction(sender=sender, to=to, data=data)

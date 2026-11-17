@@ -12,7 +12,8 @@ state_tests/stNonZeroCallsTest/NonZeroValue_TransactionCALLwithData_ToNonNonZero
 state_tests/stNonZeroCallsTest/NonZeroValue_TransactionCALLwithData_ToOneStorageKey_ParisFiller.json
 
 @manually-enhanced: Do not overwrite. Eight fillers parametrized by data and
-recipient.
+recipient. The nonexistent recipient is also covered without a state gas
+reservoir.
 """
 
 import pytest
@@ -20,6 +21,7 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
+    Fork,
     StateTestFiller,
     Storage,
     Transaction,
@@ -27,6 +29,28 @@ from execution_testing import (
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+
+def recipients(fork: Fork) -> list:
+    """
+    Return the recipient kinds, with the state gas reservoir choice.
+
+    Only the nonexistent recipient is created, which costs state gas on forks
+    with the state gas reservoir; there it is covered both paying from the
+    reservoir (implicit gas limit above the cap) and from regular gas
+    (`state_gas_reservoir=0` pins the gas limit to the cap).
+    """
+    cases = [
+        pytest.param("nonexistent", None, id="nonexistent"),
+        pytest.param("funded_eoa", None, id="funded_eoa"),
+        pytest.param("eoa_with_storage", None, id="eoa_with_storage"),
+    ]
+    if fork.state_gas_reservoir_enabled():
+        cases.append(
+            pytest.param("nonexistent", 0, id="nonexistent_no_reservoir")
+        )
+    return cases
+
 
 TX_VALUE = 1
 
@@ -45,14 +69,6 @@ TX_VALUE = 1
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "recipient",
-    [
-        "nonexistent",
-        "funded_eoa",
-        "eoa_with_storage",
-    ],
-)
-@pytest.mark.parametrize(
     "data",
     [
         pytest.param(Bytes(), id="no_data"),
@@ -62,11 +78,13 @@ TX_VALUE = 1
         ),
     ],
 )
+@pytest.mark.parametrize_by_fork("recipient, state_gas_reservoir", recipients)
 def test_non_zero_value_transaction_call(
     state_test: StateTestFiller,
     pre: Alloc,
     data: Bytes,
     recipient: str,
+    state_gas_reservoir: int | None,
 ) -> None:
     """Send a value-1 transaction carrying `data` to `recipient`."""
     sender = pre.fund_eoa()
@@ -76,14 +94,26 @@ def test_non_zero_value_transaction_call(
         to = pre.nonexistent_account()
         expected = Account(storage={}, balance=TX_VALUE)
     elif recipient == "funded_eoa":
-        to = pre.fund_eoa()
+        to = pre.fund_eoa(amount=1)
         expected = Account(balance_change=TX_VALUE)
     else:
         storage[0] = 1
-        to = pre.fund_eoa(storage=storage)
+        to = pre.fund_eoa(amount=1, storage=storage)
         expected = Account(storage=storage, balance_change=TX_VALUE)
 
-    tx = Transaction(sender=sender, to=to, data=data, value=TX_VALUE)
+    # Leave the reservoir unset unless the case pins it to zero.
+    reservoir_kwargs = (
+        {}
+        if state_gas_reservoir is None
+        else {"state_gas_reservoir": state_gas_reservoir}
+    )
+    tx = Transaction(
+        sender=sender,
+        to=to,
+        data=data,
+        value=TX_VALUE,
+        **reservoir_kwargs,
+    )
 
     post = {to: expected}
 

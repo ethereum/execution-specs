@@ -93,9 +93,9 @@ def test_zero_value_suicide_to_eoa_oog_revert(
     storage = Storage()
     if recipient == "eoa_with_storage":
         storage[0] = 1
-        beneficiary = pre.fund_eoa(storage=storage)
+        beneficiary = pre.fund_eoa(amount=1, storage=storage)
     else:
-        beneficiary = pre.fund_eoa()
+        beneficiary = pre.fund_eoa(amount=1)
 
     addr = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=beneficiary) + Op.STOP,

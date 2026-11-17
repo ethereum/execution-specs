@@ -64,7 +64,7 @@ def test_non_zero_value_call(
 ) -> None:
     """Measure a value-1 `opcode` call to an EOA with a non-zero balance."""
     succeeds = caller_balance >= CALL_VALUE
-    callee = pre.fund_eoa()
+    callee = pre.fund_eoa(amount=1)
 
     store_code = Op.SSTORE(
         SUCCESS_SLOT,

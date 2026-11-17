@@ -91,11 +91,11 @@ def test_zero_value(
         callee = pre.nonexistent_account()
         expected = Account.NONEXISTENT
     elif recipient == "funded_eoa":
-        callee = pre.fund_eoa()
+        callee = pre.fund_eoa(amount=1)
         expected = Account(balance_change=0)
     else:
         storage[0] = 1
-        callee = pre.fund_eoa(storage=storage)
+        callee = pre.fund_eoa(amount=1, storage=storage)
         expected = Account(storage=storage, balance_change=0)
 
     store_code = Op.SSTORE(
