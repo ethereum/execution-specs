@@ -109,6 +109,11 @@ def queued_transaction(operation: Hash, to: Address, value: int) -> dict:
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(
+    pytest.mark.skip(
+        reason="Expects the block number and timestamp of the test env"
+    )
+)
 @pytest.mark.parametrize(
     "scenario",
     [
@@ -185,7 +190,7 @@ def test_wallet(
         data = REMOVE_OWNER + word(other_owner)
         post_storage = owners_storage(1, [sender]) | {LAST_DAY_SLOT: LAST_DAY}
     elif scenario in ("default", "default_with_out_value"):
-        storage = single_owner | {SPENT_TODAY_SLOT: LAST_DAY}
+        storage = single_owner
         post_storage = storage
         if scenario == "default":
             value = WALLET_BALANCE
@@ -217,18 +222,18 @@ def test_wallet(
         post_storage = storage | {SPENT_TODAY_SLOT: TRANSFER_VALUE}
         transferred = TRANSFER_VALUE
     elif scenario == "kill":
-        storage = single_owner | {SPENT_TODAY_SLOT: LAST_DAY}
+        storage = single_owner
         data = KILL + word(sender)
         post_storage = storage | {PENDING_INDEX_SLOT: 1}
         wallet_balance_change = -WALLET_BALANCE
     elif scenario == "kill_not_by_owner":
-        storage = owners_storage(1, [other_owner]) | {
-            SPENT_TODAY_SLOT: LAST_DAY
-        }
+        storage = owners_storage(1, [other_owner])
         data = KILL + word(recipient)
         post_storage = storage
+        value = WALLET_BALANCE
+        wallet_balance_change = value
     elif scenario == "kill_to_wallet":
-        storage = single_owner | {SPENT_TODAY_SLOT: LAST_DAY}
+        storage = single_owner
         post_storage = storage | {PENDING_INDEX_SLOT: 1}
     else:
         raise ValueError(f"Unknown scenario: {scenario}")

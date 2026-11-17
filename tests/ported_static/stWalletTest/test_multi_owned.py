@@ -52,6 +52,7 @@ REMOVE_OWNER = Bytes("173825d9")
 REVOKE = Bytes("b75c7dc6")
 
 RETURN_SENTINEL = 0x5E47
+CALL_VALUE = 100
 
 
 def word(value: int | Address) -> Hash:
@@ -196,5 +197,9 @@ def test_multi_owned(
         )
         post[to] = Account(storage=caller_storage)
 
-    tx = Transaction(sender=sender, to=to, data=data)
+    value = 0
+    if to == wallet:
+        value = CALL_VALUE
+        post[wallet] = Account(storage=post_storage, balance_change=value)
+    tx = Transaction(sender=sender, to=to, data=data, value=value)
     state_test(pre=pre, post=post, tx=tx)
