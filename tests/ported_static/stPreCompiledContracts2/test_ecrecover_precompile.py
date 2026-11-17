@@ -139,7 +139,9 @@ def test_ecrecover_precompile(
         ) + store_recovered(ret_offset=0x80)
         storage = {0: 0, 1: 0, 2: 1}
     elif case in ("gas2999", "gas3000"):
-        gas = 2999 if case == "gas2999" else 3000
+        gas = fork.gas_costs().PRECOMPILE_ECRECOVER
+        if case == "gas2999":
+            gas -= 1
         code = (
             signature()
             + Op.SSTORE(
