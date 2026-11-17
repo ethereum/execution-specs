@@ -8,7 +8,8 @@ state_tests/stEIP158Specific/CALL_ZeroVCallSuicideFiller.json
 
 @manually-enhanced: Do not overwrite. The measured slot captures the
 regular gas of a CALL to a cold contract that SELFDESTRUCTs to either
-its caller (warm) or a cold, alive beneficiary. EIP-8038 reprices the
+its caller (warm) or a cold, alive beneficiary: a contract, or an account
+alive only through its nonce (EIP-161). EIP-8038 reprices the
 cold account accesses and the CALL value transfer; the beneficiary is
 alive so there is no new-account write. Each delta is the fork's
 constant less Cancun's, exactly 0 before EIP-8038.
@@ -40,11 +41,18 @@ INITIAL_BALANCE = 100
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "call_value, to_caller, cancun_gas",
+    "call_value, beneficiary_kind, cancun_gas",
     [
-        pytest.param(1, True, 14336, id="one_v_call_suicide"),
-        pytest.param(1, False, 16937, id="one_v_call_suicide2"),
-        pytest.param(0, True, 7636, id="zero_v_call_suicide"),
+        pytest.param(1, "caller", 14336, id="one_v_call_suicide"),
+        pytest.param(
+            1,
+            "nonce_only",
+            16937,
+            id="one_v_call_suicide2",
+            marks=pytest.mark.pre_alloc_mutable,
+        ),
+        pytest.param(1, "contract", 16937, id="one_v_call_suicide2_contract"),
+        pytest.param(0, "caller", 7636, id="zero_v_call_suicide"),
     ],
 )
 def test_call_v_call_suicide(
@@ -52,7 +60,7 @@ def test_call_v_call_suicide(
     pre: Alloc,
     fork: Fork,
     call_value: int,
-    to_caller: bool,
+    beneficiary_kind: str,
     cancun_gas: int,
 ) -> None:
     """Store the gas spent around the CALL in slot 100."""
@@ -64,12 +72,16 @@ def test_call_v_call_suicide(
     sender = pre.fund_eoa()
 
     post: dict[Address, Account] = {}
-    if to_caller:
+    if beneficiary_kind == "caller":
         destructor = pre.deploy_contract(code=Op.SELFDESTRUCT(Op.CALLER))
         cold_accounts = 1
         caller_balance = INITIAL_BALANCE
     else:
-        beneficiary = pre.deploy_contract(code=Op.STOP)
+        beneficiary: Address
+        if beneficiary_kind == "nonce_only":
+            beneficiary = pre.fund_eoa(amount=0, nonce=1)
+        else:
+            beneficiary = pre.deploy_contract(code=Op.STOP)
         destructor = pre.deploy_contract(code=Op.SELFDESTRUCT(beneficiary))
         cold_accounts = 2
         caller_balance = INITIAL_BALANCE - call_value
