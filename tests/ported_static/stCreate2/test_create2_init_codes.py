@@ -80,9 +80,10 @@ def test_create2_init_codes(
     created = compute_create_address(
         address=creator, salt=0, initcode=initcode, opcode=Op.CREATE2
     )
-    tx_data = Op.MSTORE(
-        offset=0, value=int.from_bytes(initcode, "big")
-    ) + Op.SSTORE(
+    tx_data = Bytecode()
+    if case != "zero_memory":
+        tx_data += Op.MSTORE(offset=0, value=int.from_bytes(initcode, "big"))
+    tx_data += Op.SSTORE(
         key=0,
         value=Op.CREATE2(
             value=create_value,
