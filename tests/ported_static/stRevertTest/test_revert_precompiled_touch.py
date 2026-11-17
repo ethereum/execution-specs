@@ -37,10 +37,14 @@ PRECOMPILES = [Address(n) for n in range(1, 9)]
 @pytest.mark.parametrize(
     "precompile_state",
     [
-        pytest.param(Account(nonce=1), id="nonce"),
-        pytest.param(Account(nonce=1, storage={0: 1}), id="noncestorage"),
-        pytest.param(Account(balance=1), id="paris"),
-        pytest.param(Account(balance=10, storage={0: 1}), id="storage_paris"),
+        pytest.param(Account(nonce=1, balance=0, storage={}), id="nonce"),
+        pytest.param(
+            Account(nonce=1, balance=0, storage={0: 1}), id="noncestorage"
+        ),
+        pytest.param(Account(nonce=0, balance=1, storage={}), id="paris"),
+        pytest.param(
+            Account(nonce=0, balance=10, storage={0: 1}), id="storage_paris"
+        ),
     ],
 )
 @pytest.mark.parametrize(
