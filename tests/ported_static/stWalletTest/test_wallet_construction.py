@@ -60,6 +60,11 @@ CONTRACTS = {
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(
+    pytest.mark.skip(
+        reason="Expects the block number and timestamp of the test env"
+    )
+)
 @pytest.mark.parametrize("contract", list(CONTRACTS))
 @pytest.mark.parametrize("out_of_gas", [False, True], ids=["success", "oog"])
 def test_wallet_construction(
@@ -69,7 +74,12 @@ def test_wallet_construction(
     contract: str,
     out_of_gas: bool,
 ) -> None:
-    """Deploy the contract, with enough gas or short of the code deposit."""
+    """
+    Deploy the contract, with enough gas or without enough gas to deploy.
+
+    The short budget covers the intrinsic cost and the code deposit but not
+    the constructor, so the creation runs out of gas.
+    """
     constructor, runtime = CONTRACTS[contract]
     initcode = constructor + runtime
     sender = pre.fund_eoa()
@@ -83,7 +93,6 @@ def test_wallet_construction(
                 calldata=initcode, contract_creation=True
             )
             + fork.gas_costs().CODE_DEPOSIT_PER_BYTE * len(runtime)
-            - 1
         )
         post = {created: Account.NONEXISTENT}
     else:
