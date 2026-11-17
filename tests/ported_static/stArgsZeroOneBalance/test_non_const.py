@@ -50,6 +50,8 @@ state_tests/stArgsZeroOneBalance/sstoreNonConstFiller.yml
 state_tests/stArgsZeroOneBalance/subNonConstFiller.yml
 state_tests/stArgsZeroOneBalance/suicideNonConstFiller.yml
 state_tests/stArgsZeroOneBalance/xorNonConstFiller.yml
+
+@manually-enhanced: Do not overwrite. Merged files, dynamic balance operands.
 """
 
 from typing import Callable, Dict, Tuple

@@ -42,6 +42,8 @@ state_tests/stMemoryTest/mem64kb_singleByte+1Filler.json
 state_tests/stMemoryTest/mem64kb_singleByte+31Filler.json
 state_tests/stMemoryTest/mem64kb_singleByte+32Filler.json
 state_tests/stMemoryTest/mem64kb_singleByte+33Filler.json
+
+@manually-enhanced: Do not overwrite. Merged files, tx gas_limit removed.
 """
 
 import pytest
