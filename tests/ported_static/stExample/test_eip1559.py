@@ -26,6 +26,9 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stExample/eip1559Filler.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="Reads BASEFEE and GASPRICE from the test env")
+)
 def test_eip1559(
     state_test: StateTestFiller,
     pre: Alloc,

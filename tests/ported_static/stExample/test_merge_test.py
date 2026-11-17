@@ -26,6 +26,9 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stExample/mergeTestFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="Reads BASEFEE and PREVRANDAO from the test env")
+)
 def test_merge_test(
     state_test: StateTestFiller,
     pre: Alloc,
