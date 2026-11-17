@@ -26,8 +26,8 @@ C94F = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
 D94F = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
 FILLER_TARGET = Address(2**160 - 1)
 
-PUSH_ADDRESS = (Op.ADDRESS + Op.PUSH18[0] + Op.POP).hex()[2:]
-PUSH_CALLER = (Op.CALLER + Op.PUSH18[0] + Op.POP).hex()[2:]
+PUSH_ADDRESS = (Op.ADDRESS + Op.PUSH18[0] + Op.POP).hex()
+PUSH_CALLER = (Op.CALLER + Op.PUSH18[0] + Op.POP).hex()
 
 B94F_CODE = (
     "7b1db054ccc801c0666b34b3c6242bbfc5e98f20c14fb95e0118be9ad054326f"
@@ -201,7 +201,7 @@ TX_DATA = (
 def link(code: str, links: dict[Address, str]) -> Bytes:
     """Replace each `PUSH20 <filler address>` with a same-width push."""
     for old, new in links.items():
-        placeholder = Op.PUSH20[old].hex()[2:]
+        placeholder = Op.PUSH20[old].hex()
         assert placeholder in code
         assert len(new) == len(placeholder)
         code = code.replace(placeholder, new)
@@ -210,7 +210,7 @@ def link(code: str, links: dict[Address, str]) -> Bytes:
 
 def push20(address: Address) -> str:
     """Return the hex of a `PUSH20` of `address`."""
-    return Op.PUSH20[address].hex()[2:]
+    return Op.PUSH20[address].hex()
 
 
 @pytest.mark.ported_from(
