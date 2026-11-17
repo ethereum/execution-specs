@@ -42,6 +42,7 @@ GOAT = 0x60A7
 RECURSION_DEPTH = 1023
 RECURSION_GAS_LIMIT = 0x10000000000000
 CREATE2_SALT = 0x5A17
+FAILING_CALL_GAS = 25_000
 
 CALL_OPS = {
     "call": Op.CALL,
@@ -153,7 +154,7 @@ def test_diff_places(
             template
             + Op.SSTORE(1, Op.MLOAD(0))
             + Op.MSTORE(0, GOAT)
-            + Op.POP(Op.CALL(address=failing))
+            + Op.POP(Op.CALL(gas=FAILING_CALL_GAS, address=failing))
             + template
         )
         post[reverter] = Account(storage={0: GOAT})

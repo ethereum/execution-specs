@@ -30,6 +30,7 @@ CALL_OPS = {
     "staticcall": Op.STATICCALL,
 }
 REFUND_SLOTS = 16
+STATICCALL_GAS = 300_000
 
 
 def store_in_memory(data: bytes) -> Bytecode:
@@ -81,7 +82,10 @@ def test_sstore_change_from_external_call_in_init_code(
         + Op.STOP
     )
 
-    call = Op.POP(CALL_OPS[call_op](address=target))
+    if call_op == "staticcall":
+        call = Op.POP(Op.STATICCALL(gas=STATICCALL_GAS, address=target))
+    else:
+        call = Op.POP(CALL_OPS[call_op](address=target))
     changed = {0: 1, 1: 1}
     post: Dict[Address, Account | None] = {}
 
