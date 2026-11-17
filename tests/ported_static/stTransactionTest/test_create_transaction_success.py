@@ -32,16 +32,8 @@ def test_create_transaction_success(
 ) -> None:
     """Test_create_transaction_success."""
     sender = pre.fund_eoa(amount=0x5F5E100)
-
-    tx = Transaction(
-        sender=sender,
-        to=None,
-        data=Op.PUSH1[0x22]
-        + Op.CODECOPY(dest_offset=0x0, offset=0xC, size=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.RETURN
-        + Op.STOP
-        + Op.DIV(Op.CALLDATALOAD(offset=0x0), Op.EXP(0x2, 0xE0))
+    runtime_code = (
+        Op.DIV(Op.CALLDATALOAD(offset=0x0), Op.EXP(0x2, 0xE0))
         + Op.JUMPI(pc=0x14, condition=Op.EQ(0xF8A8FD6D, Op.DUP1))
         + Op.STOP
         + Op.JUMPDEST
@@ -50,7 +42,18 @@ def test_create_transaction_success(
         + Op.JUMPDEST
         + Op.RETURN(offset=0x0, size=0x0)
         + Op.JUMPDEST
-        + Op.JUMP,
+        + Op.JUMP
+    )
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        data=Op.PUSH1[len(runtime_code)]
+        + Op.CODECOPY(dest_offset=0x0, offset=0xC, size=Op.DUP1)
+        + Op.PUSH1[0x0]
+        + Op.RETURN
+        + Op.STOP
+        + runtime_code,
         gas_limit=2070000 if fork >= Amsterdam else 70000,
         value=100,
     )
@@ -58,9 +61,7 @@ def test_create_transaction_success(
     post = {
         compute_create_address(address=sender, nonce=0): Account(
             storage={},
-            code=bytes.fromhex(
-                "60e060020a600035048063f8a8fd6d14601457005b601a6020565b60006000f35b56"  # noqa: E501
-            ),
+            code=runtime_code,
             balance=100,
             nonce=1,
         ),
