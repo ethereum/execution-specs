@@ -7,9 +7,12 @@ state_tests/stMemoryStressTest/CREATE_Bounds2Filler.json
 state_tests/stMemoryStressTest/CREATE_Bounds3Filler.json
 """
 
+from typing import Dict
+
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Fork,
     StateTestFiller,
@@ -66,11 +69,13 @@ def test_create_bounds(
     offset: int,
     size: int,
 ) -> None:
-    """Call a contract that runs CREATE over memory[offset:offset+size]."""
+    """Call a contract that runs an empty CREATE, then one over the region."""
     sender = pre.fund_eoa()
     creator = pre.deploy_contract(
-        code=Op.CREATE(value=CREATE_VALUE, offset=offset, size=size) + Op.STOP,
-        balance=CREATE_VALUE,
+        code=Op.POP(Op.CREATE(value=CREATE_VALUE, offset=0, size=0))
+        + Op.CREATE(value=CREATE_VALUE, offset=offset, size=size)
+        + Op.STOP,
+        balance=2 * CREATE_VALUE,
     )
     entry = pre.deploy_contract(
         code=Op.SSTORE(key=0, value=Op.CALL(address=creator))
@@ -86,12 +91,13 @@ def test_create_bounds(
     )
 
     succeeds = size == 0
-    created = compute_create_address(address=creator, nonce=1)
-    post = {
-        entry: Account(storage={0: int(succeeds), 1: CANARY}),
-        created: Account(balance=CREATE_VALUE)
-        if succeeds
-        else Account.NONEXISTENT,
+    post: Dict[Address, Account | None] = {
+        entry: Account(storage={0: int(succeeds), 1: CANARY})
     }
+    for nonce in (1, 2):
+        created = compute_create_address(address=creator, nonce=nonce)
+        post[created] = (
+            Account(balance=CREATE_VALUE) if succeeds else Account.NONEXISTENT
+        )
 
     state_test(pre=pre, post=post, tx=tx)
