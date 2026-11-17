@@ -92,7 +92,8 @@ def test_static_log(
 ) -> None:
     """
     Verify a LOG in a STATICCALL frame fails the call, for every topic
-    count and memory range.
+    count and memory range. The `*_too_high` ranges fail earlier, on the
+    memory expansion charge, before the static check.
 
     The result slot is seeded with a sentinel, so the stored 0 is
     observable, and a final store shows the caller completed.
