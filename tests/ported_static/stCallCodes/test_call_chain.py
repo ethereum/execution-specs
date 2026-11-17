@@ -1284,6 +1284,22 @@ def static_call_chains(depth: int) -> list:
     ]
 
 
+def static_value_chains() -> list:
+    """
+    Return every two- and three-level static chain without value, and with
+    value when it has a CALL or CALLCODE to carry it, as a pytest parameter.
+    """
+    params = []
+    for chain in static_call_chains(2) + static_call_chains(3):
+        opcodes = chain.values[0]
+        params.append(pytest.param(opcodes, 0, id=f"{chain.id}-no_value"))
+        if any(opcode in (Op.CALL, Op.CALLCODE) for opcode in opcodes):
+            params.append(
+                pytest.param(opcodes, 1, id=f"{chain.id}-with_value")
+            )
+    return params
+
+
 def static_fault_positions() -> list:
     """
     Return every two- and three-level static chain with a write or an
@@ -1559,13 +1575,10 @@ def run_static_call_chain(
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize("value", [0, 1], ids=["no_value", "with_value"])
 @pytest.mark.parametrize(
     "leaf_writes", [False, True], ids=["leaf_reads", "leaf_writes"]
 )
-@pytest.mark.parametrize(
-    "chain", static_call_chains(2) + static_call_chains(3)
-)
+@pytest.mark.parametrize("chain, value", static_value_chains())
 def test_static_call_chain(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1720,23 +1733,24 @@ def test_static_call_chain_fault(
         pytest.param(True, id="suicide_middle"),
     ],
 )
-@pytest.mark.parametrize(
-    "chain", static_call_chains(2) + static_call_chains(3)
-)
+@pytest.mark.parametrize("chain, value", static_value_chains())
 def test_static_call_chain_self_destruct(
     state_test: StateTestFiller,
     pre: Alloc,
     chain: tuple[Op, ...],
+    value: int,
     before_call: bool,
 ) -> None:
     """
     Call down a chain with a STATICCALL in it, where the frame calling the
-    innermost code self-destructs before or after its call.
+    innermost code self-destructs before or after its call, with and
+    without value on the calls that carry one.
     """
     run_static_call_chain(
         state_test,
         pre,
         chain,
+        value=value,
         fault="self_destruct",
         fault_level=len(chain) - 1,
         before_call=before_call,
