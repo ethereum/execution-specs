@@ -234,11 +234,6 @@ CASES = [
     ),
     pytest.param(Op.SDIV(Op.SUB(0, 9), 5), MAX_UINT, id="sdiv-sdiv_neg9_5"),
     pytest.param(
-        Op.SDIV(Op.SUB(0, INT_MIN), Op.SUB(0, 1)),
-        INT_MIN,
-        id="sdiv-sdiv_2pow255_neg1_2nd",
-    ),
-    pytest.param(
         Op.SDIV(Op.SUB(0, Op.SUB(INT_MIN, 1)), Op.SUB(0, 1)),
         INT_MAX,
         id="sdiv-sdiv_minint_neg1",
