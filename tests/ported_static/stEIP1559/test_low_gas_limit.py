@@ -135,11 +135,8 @@ def test_low_gas_limit(
         Bytes("00"),
     ]
     tx_gas = [90000, 50000, 25000, intrinsic - 1]
-    tx_access_lists: dict[int, list] = {
-        0: [],
-    }
 
-    env = Environment(base_fee_per_gas=1000, gas_limit=80000)
+    env = Environment(gas_limit=80000)
 
     tx = Transaction(
         sender=sender,
@@ -148,7 +145,6 @@ def test_low_gas_limit(
         gas_limit=tx_gas[g],
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=1000,
-        access_list=tx_access_lists.get(d),
         error=_exc,
     )
 

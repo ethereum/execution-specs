@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -36,8 +35,6 @@ def test_tip_too_high(
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
     )
 
-    env = Environment(base_fee_per_gas=1000)
-
     tx = Transaction(
         sender=sender,
         to=target,
@@ -46,10 +43,9 @@ def test_tip_too_high(
         value=0x186A0,
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=1001,
-        access_list=[],
         error=TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS,
     )
 
     post: dict = {}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

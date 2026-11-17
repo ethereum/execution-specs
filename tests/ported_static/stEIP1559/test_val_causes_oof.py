@@ -9,7 +9,6 @@ import pytest
 from execution_testing import (
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -173,12 +172,6 @@ def test_val_causes_oof(
     ]
     tx_gas = [100000, 90000, 110000]
     tx_value = [0, 1]
-    tx_access_lists: dict[int, list] = {
-        0: [],
-        1: [],
-    }
-
-    env = Environment(base_fee_per_gas=1000)
 
     tx = Transaction(
         sender=sender,
@@ -188,8 +181,7 @@ def test_val_causes_oof(
         value=tx_value[v],
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=0,
-        access_list=tx_access_lists.get(d),
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
