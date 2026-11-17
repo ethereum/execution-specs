@@ -26,6 +26,9 @@ SENTINEL = 0x0BAD
     ["state_tests/VMTests/vmTests/blockInfoFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="Asserts the block fields of the test env")
+)
 @pytest.mark.parametrize(
     "opcode, field",
     [
