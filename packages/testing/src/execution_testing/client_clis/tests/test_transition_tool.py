@@ -4,14 +4,16 @@ import json
 import shutil
 import subprocess
 import sys
+from datetime import timedelta
 from pathlib import Path
-from typing import Any, Type
+from typing import Any, Dict, Type
 
 import ijson  # type: ignore[import-untyped]
 import pytest
+import requests
 from tenacity import retry, retry_if_exception_type, stop_after_attempt
 
-from execution_testing.base_types import StateCommitment
+from execution_testing.base_types import Hash, StateCommitment
 from execution_testing.client_clis import (
     BesuTransitionTool,
     CLINotFoundInPathError,
@@ -28,9 +30,11 @@ from execution_testing.client_clis.cli_types import (
     LazyAllocStr,
     OpcodeCount,
     Result,
+    TransactionTraces,
     TransitionToolInput,
     TransitionToolOutput,
 )
+from execution_testing.forks import Cancun
 from execution_testing.test_types import Alloc, Environment
 
 
@@ -582,3 +586,150 @@ def test_an_opcode_count_accepts_every_name_geth_reports() -> None:
         "ADD": 3,
         "0xb8": 2,
     }
+
+
+def _evaluate_besu_with_mocked_trace_file(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    write_trace_file: bool,
+) -> tuple[TransitionToolOutput, BesuTransitionTool]:
+    """
+    Evaluate a mocked `BesuTransitionTool` request with `trace=True`.
+
+    Returns `(output, tool)` after verifying the trace file has been cleaned
+    up and calling `shutdown()`.
+    """
+    tx_hash = Hash(0x11)
+
+    class _DummyCompletedProcess:
+        stdout = "Besu evm"
+
+    class _DummyProcess:
+        def kill(self) -> None:
+            pass
+
+    class _DummyResponse:
+        status_code = 200
+        elapsed = timedelta(0)
+
+        def __init__(self, payload: Dict[str, Any]) -> None:
+            self._payload = payload
+            self.text = json.dumps(payload)
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> Dict[str, Any]:
+            return self._payload
+
+    def mock_which(cmd: str | Path) -> str:
+        del cmd
+        return "evm"
+
+    def mock_run(*args: Any, **kwargs: Any) -> _DummyCompletedProcess:
+        del args, kwargs
+        return _DummyCompletedProcess()
+
+    monkeypatch.setattr(shutil, "which", mock_which)
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    tool = BesuTransitionTool(trace=True)
+    assert tool.besu_trace_dir is not None
+    expected_trace_path = (
+        Path(tool.besu_trace_dir.name) / f"trace-0-{tx_hash}.jsonl"
+    )
+    tool.reset_traces()
+    monkeypatch.setattr(tool, "process", _DummyProcess())
+    monkeypatch.setattr(tool, "server_url", "http://localhost:0/")
+
+    def mock_post(*args: Any, **kwargs: Any) -> _DummyResponse:
+        del args, kwargs
+        if write_trace_file:
+            trace_lines = [
+                json.dumps(
+                    {
+                        "pc": 0,
+                        "op": 0,
+                        "gas": "0x5208",
+                        "gasCost": "0x0",
+                        "memSize": 0,
+                        "stack": [],
+                        "depth": 1,
+                        "refund": 0,
+                        "opName": "STOP",
+                    }
+                ),
+                json.dumps({"output": "", "gasUsed": "0x5208"}),
+            ]
+            expected_trace_path.write_text("\n".join(trace_lines))
+
+        return _DummyResponse(
+            {
+                "alloc": TEST_ALLOC.model_dump(mode="json"),
+                "result": {
+                    "stateRoot": "0x" + "00" * 32,
+                    "txRoot": "0x" + "00" * 32,
+                    "receiptsRoot": "0x" + "00" * 32,
+                    "logsHash": "0x" + "00" * 32,
+                    "logsBloom": "0x" + "00" * 256,
+                    "receipts": [{"transactionHash": str(tx_hash)}],
+                    "gasUsed": "0x5208",
+                },
+            }
+        )
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    data = TransitionTool.TransitionToolData(
+        alloc=TEST_ALLOC,
+        txs=[],
+        env=Environment(),
+        fork=Cancun,
+        chain_id=1,
+        reward=0,
+        blob_schedule=Cancun.blob_schedule(),
+    )
+    try:
+        output = tool.evaluate(transition_tool_data=data)
+        trace_exists_after_evaluate = expected_trace_path.exists()
+    finally:
+        tool.shutdown()
+
+    assert not trace_exists_after_evaluate
+    return output, tool
+
+
+def test_besu_evaluate_assigns_result_traces(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    `BesuTransitionTool._evaluate` populates `output.result.traces` in
+    addition to recording traces via `self.traces`, and removes the
+    temporary `.jsonl` trace file afterward.
+    """
+    output, tool = _evaluate_besu_with_mocked_trace_file(
+        monkeypatch, write_trace_file=True
+    )
+
+    assert output.result.traces is not None
+    assert len(output.result.traces.root) == 1
+    assert [line.op_name for line in output.result.traces.root[0].traces] == [
+        "STOP"
+    ]
+    assert tool.get_traces() == [output.result.traces]
+
+
+def test_besu_evaluate_tolerates_missing_trace_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    When a receipt has no trace file on disk, `BesuTransitionTool._evaluate`
+    records an empty `TransactionTraces` entry without raising
+    `FileNotFoundError` during cleanup.
+    """
+    output, tool = _evaluate_besu_with_mocked_trace_file(
+        monkeypatch, write_trace_file=False
+    )
+
+    assert output.result.traces is not None
+    assert output.result.traces.root == [TransactionTraces(traces=[])]
+    assert tool.get_traces() == [output.result.traces]

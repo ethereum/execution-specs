@@ -1,7 +1,6 @@
 """Hyperledger Besu Transition tool frontend."""
 
 import json
-import os
 import re
 import shlex
 import shutil
@@ -287,13 +286,13 @@ class BesuTransitionTool(TransitionTool):
             )
 
         if self.trace and self.besu_trace_dir:
-            self.collect_traces(
+            output.result.traces = self.collect_traces(
                 output.result.receipts, self.besu_trace_dir, debug_output_path
             )
             for i, r in enumerate(output.result.receipts):
                 trace_file_name = f"trace-{i}-{r.transaction_hash}.jsonl"
-                os.remove(
-                    os.path.join(self.besu_trace_dir.name, trace_file_name)
+                (Path(self.besu_trace_dir.name) / trace_file_name).unlink(
+                    missing_ok=True
                 )
 
         return output
