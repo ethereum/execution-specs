@@ -9,9 +9,11 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Fork,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -26,6 +28,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 def test_returndatacopy_after_failing_create(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Returndatacopy after failing create case due to 0xfd code."""
@@ -49,6 +52,7 @@ def test_returndatacopy_after_failing_create(
     tx = Transaction(
         sender=sender,
         to=target,
+        gas_limit=2100000 if fork >= Amsterdam else 100000,
     )
 
     post = {target: Account(storage={0: 32, 1: 2})}
