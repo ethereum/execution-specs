@@ -38,9 +38,22 @@ def test_random_statetest111(
     # Source: raw
     # 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c35059a17f0000000000000000000000000000000000000000000000000000000000000001f38f07bf60005155  # noqa: E501
     target = pre.deploy_contract(
-        code=bytes.fromhex(
-            "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c35059a17f0000000000000000000000000000000000000000000000000000000000000001f38f07bf60005155"  # noqa: E501
-        ),
+        code=Op.PUSH32[
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        ]
+        + Op.PUSH32[0xC350]
+        + Op.LOG1(
+            offset=Op.MSIZE,
+            size=Op.PUSH32[0xC350],
+            topic_1=Op.PUSH32[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF],
+        )
+        + Op.PUSH32[0x1]
+        + Op.RETURN
+        + Op.DUP16
+        + Op.SMOD
+        + Bytes("bf")
+        + Op.MLOAD(offset=0x0)
+        + Op.SSTORE,
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
