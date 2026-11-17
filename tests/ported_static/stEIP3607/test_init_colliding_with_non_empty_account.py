@@ -3,6 +3,8 @@ Create a contract at an address that already holds code.
 
 Ported from:
 state_tests/stEIP3607/initCollidingWithNonEmptyAccountFiller.yml
+
+@manually-enhanced: Do not overwrite. Collapsed into one checked case.
 """
 
 import pytest

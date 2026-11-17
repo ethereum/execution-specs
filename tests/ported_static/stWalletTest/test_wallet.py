@@ -16,6 +16,8 @@ state_tests/stWalletTest/walletKillFiller.json
 state_tests/stWalletTest/walletKillNotByOwnerFiller.json
 state_tests/stWalletTest/walletKillToWalletFiller.json
 state_tests/stWalletTest/walletRemoveOwnerRemovePendingTransactionFiller.json
+
+@manually-enhanced: Do not overwrite. Merged; fixed the vacuous cases.
 """
 
 from typing import Dict

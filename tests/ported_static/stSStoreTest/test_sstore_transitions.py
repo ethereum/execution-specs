@@ -24,6 +24,8 @@ state_tests/stSStoreTest/sstore_XtoYto0Filler.json
 state_tests/stSStoreTest/sstore_XtoYtoXFiller.json
 state_tests/stSStoreTest/sstore_XtoYtoYFiller.json
 state_tests/stSStoreTest/sstore_XtoYtoZFiller.json
+
+@manually-enhanced: Do not overwrite. Merged; fixed the CREATE2 0toX case.
 """
 
 from typing import Dict

@@ -6,6 +6,8 @@ state_tests/stEIP1559/baseFeeDiffPlacesFiller.yml
 state_tests/stEIP1559/baseFeeDiffPlacesOsakaFiller.yml
 state_tests/stEIP1559/gasPriceDiffPlacesFiller.yml
 state_tests/stEIP1559/gasPriceDiffPlacesOsakaFiller.yml
+
+@manually-enhanced: Do not overwrite. Merged into one parametrized test.
 """
 
 from typing import Dict

@@ -6,6 +6,8 @@ state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_callsFiller.yml
 state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_callsItselfFiller.yml
 state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_init_ParisFiller.yml
 state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_send_ParisFiller.yml
+
+@manually-enhanced: Do not overwrite. Merged the sender-with-code cases.
 """
 
 import pytest

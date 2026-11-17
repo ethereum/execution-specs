@@ -18,6 +18,8 @@ state_tests/stWalletTest/multiOwnedRemoveOwnerByNonOwnerFiller.json
 state_tests/stWalletTest/multiOwnedRemoveOwner_mySelfFiller.json
 state_tests/stWalletTest/multiOwnedRemoveOwner_ownerIsNotOwnerFiller.json
 state_tests/stWalletTest/multiOwnedRevokeNothingFiller.json
+
+@manually-enhanced: Do not overwrite. Merged; checks the isOwner result.
 """
 
 import pytest

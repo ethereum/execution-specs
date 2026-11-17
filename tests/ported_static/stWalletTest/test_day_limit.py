@@ -5,6 +5,8 @@ Ported from:
 state_tests/stWalletTest/dayLimitResetSpentTodayFiller.json
 state_tests/stWalletTest/dayLimitSetDailyLimitFiller.json
 state_tests/stWalletTest/dayLimitSetDailyLimitNoDataFiller.json
+
+@manually-enhanced: Do not overwrite. Merged; derived storage slots.
 """
 
 import pytest

@@ -3,6 +3,8 @@ Change a pre-existing slot X -> 0 -> X from a call made in init code.
 
 Ported from:
 state_tests/stSStoreTest/sstore_changeFromExternalCallInInitCodeFiller.json
+
+@manually-enhanced: Do not overwrite. Parametrized over call and context.
 """
 
 from typing import Dict

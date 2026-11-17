@@ -11,6 +11,8 @@ state_tests/stWalletTest/multiOwnedConstructionNotEnoughGasPartialFiller.json
 state_tests/stWalletTest/walletConstructionFiller.json
 state_tests/stWalletTest/walletConstructionOOGFiller.json
 state_tests/stWalletTest/walletConstructionPartialFiller.json
+
+@manually-enhanced: Do not overwrite. Merged; derived the gas budget.
 """
 
 from typing import Dict
@@ -88,12 +90,9 @@ def test_wallet_construction(
     gas_limit = None
     post: Dict[Address, Account | None]
     if out_of_gas:
-        gas_limit = (
-            fork.transaction_intrinsic_cost_calculator()(
-                calldata=initcode, contract_creation=True
-            )
-            + fork.gas_costs().CODE_DEPOSIT_PER_BYTE * len(runtime)
-        )
+        gas_limit = fork.transaction_intrinsic_cost_calculator()(
+            calldata=initcode, contract_creation=True
+        ) + fork.gas_costs().CODE_DEPOSIT_PER_BYTE * len(runtime)
         post = {created: Account.NONEXISTENT}
     else:
         post = {
