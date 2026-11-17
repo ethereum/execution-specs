@@ -1,62 +1,57 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Reject a transaction the sender cannot pay for.
 
 Ported from:
 state_tests/stEIP1559/outOfFundsFiller.yml
+state_tests/stEIP1559/outOfFundsOldTypesFiller.yml
+
+@manually-enhanced: Do not overwrite. Merged over the transaction type.
 """
 
 import pytest
 from execution_testing import (
+    Account,
     Alloc,
-    Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
     TransactionException,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+SENDER_BALANCE = 10**18
+GAS_PRICE = 10**11
+HIGH_GAS_LIMIT = 2**24
+LOW_GAS_LIMIT = 40_000
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stEIP1559/outOfFundsFiller.yml"],
+    [
+        "state_tests/stEIP1559/outOfFundsFiller.yml",
+        "state_tests/stEIP1559/outOfFundsOldTypesFiller.yml",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("tx_type", [0, 1, 2])
 @pytest.mark.parametrize(
-    "d, g, v",
+    "gas_limit, value",
     [
         pytest.param(
-            0,
-            0,
-            0,
-            id="declaredKeyWrite-g0-v0",
+            HIGH_GAS_LIMIT, 0, id="high_gas", marks=pytest.mark.exception_test
+        ),
+        pytest.param(
+            HIGH_GAS_LIMIT,
+            SENDER_BALANCE,
+            id="high_gas_with_value",
             marks=pytest.mark.exception_test,
         ),
+        pytest.param(LOW_GAS_LIMIT, 0, id="low_gas"),
         pytest.param(
-            0,
-            0,
-            1,
-            id="declaredKeyWrite-g0-v1",
-            marks=pytest.mark.exception_test,
-        ),
-        pytest.param(
-            0,
-            1,
-            0,
-            id="declaredKeyWrite-g1-v0",
-        ),
-        pytest.param(
-            0,
-            1,
-            1,
-            id="declaredKeyWrite-g1-v1",
+            LOW_GAS_LIMIT,
+            SENDER_BALANCE,
+            id="low_gas_with_value",
             marks=pytest.mark.exception_test,
         ),
     ],
@@ -64,65 +59,33 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_out_of_funds(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    tx_type: int,
+    gas_limit: int,
+    value: int,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    """Send a transaction whose gas and value may exceed the balance."""
+    sender = pre.fund_eoa(amount=SENDER_BALANCE)
+    target = pre.deploy_contract(code=Op.SSTORE(0, 2) + Op.STOP)
 
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
+    affordable = gas_limit * GAS_PRICE + value <= SENDER_BALANCE
+    fees = (
+        {"max_fee_per_gas": GAS_PRICE, "max_priority_fee_per_gas": GAS_PRICE}
+        if tx_type == 2
+        else {"gas_price": GAS_PRICE}
     )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {},
-            "expect_exception": {
-                ">=Cancun": TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {},
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": 1},
-            "network": [">=Cancun"],
-            "result": {},
-            "expect_exception": {
-                ">=Cancun": TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes("00"),
-    ]
-    tx_gas = [16777216, 40000]
-    tx_value = [0, 1000000000000000000]
-    tx_access_lists: dict[int, list] = {
-        0: [],
-    }
-
-    env = Environment(base_fee_per_gas=1000)
-
     tx = Transaction(
+        ty=tx_type,
         sender=sender,
         to=target,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        max_fee_per_gas=100000000000,
-        max_priority_fee_per_gas=100000000000,
-        access_list=tx_access_lists.get(d),
-        error=_exc,
+        gas_limit=gas_limit,
+        value=value,
+        error=(
+            None
+            if affordable
+            else TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+        ),
+        **fees,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    post = {sender: Account(nonce=1 if affordable else 0)}
+    state_test(pre=pre, post=post, tx=tx)
