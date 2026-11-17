@@ -52,6 +52,9 @@ CREATE2_SALT = 0x5A17
     ["state_tests/stEIP2930/variedContextFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="Expects address zero to be empty")
+)
 @pytest.mark.parametrize(
     "d, g, v",
     [

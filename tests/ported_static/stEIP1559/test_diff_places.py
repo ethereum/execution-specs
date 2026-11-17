@@ -97,6 +97,9 @@ def run_and_create(
 
 @pytest.mark.ported_from(PORTED_FROM)
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="Expects the base fee of the test env")
+)
 @OPCODES
 @pytest.mark.parametrize("action", ACTIONS)
 def test_diff_places(
@@ -191,6 +194,9 @@ def test_diff_places(
 
 @pytest.mark.ported_from(PORTED_FROM)
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="Expects the base fee of the test env")
+)
 @pytest.mark.valid_until("Prague")
 @OPCODES
 def test_diff_places_deep_recursion(

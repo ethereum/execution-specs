@@ -41,6 +41,9 @@ MEASUREMENT_OVERHEAD = 0x21
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="Expects the coinbase of the test env")
+)
 @pytest.mark.parametrize(
     "tx_type, access_list",
     [
