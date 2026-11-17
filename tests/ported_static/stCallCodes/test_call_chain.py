@@ -347,9 +347,8 @@ Every frame returns how many frames below it returned, plus the innermost
 frame's CALLER, CALLVALUE and ADDRESS, so a static frame's outcome reaches
 the top level, which stores it. Non-static frames also store their call's
 success, as above. A write, a CALL with value or a SELFDESTRUCT in a static
-frame halts it; a SELFDESTRUCT in a non-static frame (reached through
-CALLCODE or DELEGATECALL above the first STATICCALL) succeeds and moves the
-balance to a fresh beneficiary.
+frame halts it. A SELFDESTRUCT in a non-static frame (any frame above the
+first STATICCALL) succeeds and moves the balance to a fresh beneficiary.
 """
 
 from dataclasses import dataclass
