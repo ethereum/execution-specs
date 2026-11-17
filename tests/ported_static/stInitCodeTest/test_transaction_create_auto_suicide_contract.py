@@ -3,6 +3,8 @@ Self-destruct a contract from its own creation transaction init code.
 
 Ported from:
 state_tests/stInitCodeTest/TransactionCreateAutoSuicideContractFiller.json
+@manually-enhanced: Do not overwrite. Rewritten by hand; tx `gas_limit`
+removed.
 """
 
 import pytest

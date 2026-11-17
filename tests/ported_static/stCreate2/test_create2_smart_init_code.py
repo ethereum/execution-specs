@@ -3,6 +3,8 @@ Create2SmartInitCode. create2 works different each time you call it.
 
 Ported from:
 state_tests/stCreate2/create2SmartInitCodeFiller.json
+@manually-enhanced: Do not overwrite. Rewritten by hand; tx `gas_limit`
+removed.
 """
 
 import pytest

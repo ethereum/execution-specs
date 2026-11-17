@@ -3,6 +3,8 @@ Test_transaction_create_stop_in_initcode.
 
 Ported from:
 state_tests/stInitCodeTest/TransactionCreateStopInInitcodeFiller.json
+@manually-enhanced: Do not overwrite. Rewritten by hand; tx `gas_limit`
+removed.
 """
 
 import pytest

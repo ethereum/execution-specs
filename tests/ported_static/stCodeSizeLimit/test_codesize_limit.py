@@ -4,6 +4,8 @@ Deploy code below, at and over the maximum code size from a creation tx.
 Ported from:
 state_tests/stCodeSizeLimit/codesizeValidFiller.json
 state_tests/stCodeSizeLimit/codesizeOOGInvalidSizeFiller.json
+@manually-enhanced: Do not overwrite. Rewritten by hand; tx `gas_limit`
+removed.
 """
 
 import pytest

@@ -3,6 +3,8 @@ CREATE2 init code returning each possible first byte of the deployed code.
 
 Ported from:
 state_tests/stCreate2/CREATE2_FirstByte_loopFiller.yml
+@manually-enhanced: Do not overwrite. Rewritten by hand; tx `gas_limit`
+removed.
 """
 
 import pytest

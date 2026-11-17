@@ -6,6 +6,8 @@ called (or static-called, where SELFDESTRUCT fails).
 
 Ported from:
 state_tests/stCreate2/CREATE2_SuicideFiller.json
+@manually-enhanced: Do not overwrite. Rewritten by hand; tx `gas_limit`
+removed.
 """
 
 import pytest

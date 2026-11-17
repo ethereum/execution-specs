@@ -9,6 +9,8 @@ state_tests/stCreateTest/CreateOOGafterInitCodeReturndataFiller.json
 state_tests/stCreateTest/CreateOOGafterInitCodeReturndata2Filler.json
 state_tests/stCreate2/Create2OOGafterInitCodeReturndataFiller.json
 state_tests/stCreate2/Create2OOGafterInitCodeReturndata2Filler.json
+@manually-enhanced: Do not overwrite. Rewritten by hand; tx `gas_limit`
+removed.
 """
 
 import pytest

@@ -6,6 +6,8 @@ directly or from the init code of another CREATE2.
 
 Ported from:
 state_tests/stCreate2/create2checkFieldsInInitcodeFiller.json
+@manually-enhanced: Do not overwrite. Rewritten by hand; tx `gas_limit`
+removed.
 """
 
 import pytest

@@ -13,6 +13,8 @@ state_tests/stCreate2/create2collisionNonceFiller.json
 state_tests/stCreate2/create2collisionSelfdestructedFiller.json
 state_tests/stCreate2/create2collisionSelfdestructed2Filler.json
 state_tests/stCreate2/create2collisionSelfdestructedRevertFiller.json
+@manually-enhanced: Do not overwrite. Rewritten by hand; tx `gas_limit`
+removed.
 """
 
 from dataclasses import dataclass
