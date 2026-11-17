@@ -68,7 +68,7 @@ def test_call1024_pre_calls(
         + Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
         + Op.SSTORE(1, opcode(gas=0xFFFFFFFFFFF, address=Op.ADDRESS))
         + Op.STOP,
-        balance=2024,
+        balance=2 * (MAX_CALL_DEPTH + 1),
     )
 
     tx = Transaction(sender=sender, to=target, gas_limit=tx_gas, value=10)
