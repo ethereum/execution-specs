@@ -38,7 +38,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytecode,
     Fork,
     Op,
     StateTestFiller,
@@ -56,6 +55,9 @@ SUCCESS_SLOT = 2
 SHORT_WORD = 0xF34578907F
 FULL_WORD = 2**256 - 1
 LARGE_INPUT_SIZE = 1_000_000
+OUTPUT_SENTINEL = (
+    0x1122334455667788990011223344556677889900112233445566778899001122
+)
 VALUE = 19
 
 
@@ -135,6 +137,14 @@ def precompile_gas(fork: Fork, precompile: int, size: int) -> int:
         pytest.param(
             FULL_WORD, 0, LARGE_INPUT_SIZE, 0, False, id="large_input"
         ),
+        pytest.param(
+            FULL_WORD,
+            0,
+            LARGE_INPUT_SIZE,
+            1,
+            False,
+            id="large_input_one_gas_short",
+        ),
     ],
 )
 @pytest.mark.parametrize(
@@ -162,9 +172,13 @@ def test_static_call_hash_precompiles(
 
     With `with_value`, the caller then CALLs and CALLCODEs the precompile
     with value, which only the CALL moves to it.
+
+    The output goes to a separate area seeded with a sentinel, so a call
+    that fails or returns no data leaves it in place.
     """
     memory = bytearray(max(size, word_offset + 32))
-    code = Bytecode()
+    output_offset = (len(memory) + 31) // 32 * 32
+    code = Op.MSTORE(output_offset, OUTPUT_SENTINEL)
     if word is not None:
         code += Op.MSTORE(word_offset, word)
         memory[word_offset : word_offset + 32] = word.to_bytes(32, "big")
@@ -172,9 +186,13 @@ def test_static_call_hash_precompiles(
     code += Op.SSTORE(
         SUCCESS_SLOT,
         Op.STATICCALL(
-            gas=call_gas, address=precompile, args_size=size, ret_size=32
+            gas=call_gas,
+            address=precompile,
+            args_size=size,
+            ret_offset=output_offset,
+            ret_size=32,
         ),
-    ) + Op.SSTORE(OUTPUT_SLOT, Op.MLOAD(0))
+    ) + Op.SSTORE(OUTPUT_SLOT, Op.MLOAD(output_offset))
     if with_value:
         code += Op.POP(Op.CALL(address=precompile, value=VALUE)) + Op.POP(
             Op.CALLCODE(address=precompile, value=VALUE)
@@ -189,7 +207,7 @@ def test_static_call_hash_precompiles(
         if succeeds
         else b""
     )
-    returned = bytearray(memory[:32])
+    returned = bytearray(OUTPUT_SENTINEL.to_bytes(32, "big"))
     returned[: len(output)] = output
     post: dict = {
         target: Account(
