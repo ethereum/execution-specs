@@ -21,6 +21,8 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+UNTOUCHED = 0x60A7
+
 
 @pytest.mark.ported_from(
     ["state_tests/stCreateTest/createLargeResultFiller.yml"],
@@ -72,7 +74,9 @@ def test_create_large_result(
     )
     if deployed:
         code += Op.SSTORE(key=2, value=Op.EXTCODEHASH(Op.MLOAD(offset=0x40)))
-    creator = pre.deploy_contract(code=code + Op.STOP)
+    creator = pre.deploy_contract(
+        code=code + Op.STOP, storage={0: UNTOUCHED, 1: UNTOUCHED}
+    )
     created = compute_create_address(
         address=creator, nonce=1, salt=salt, initcode=initcode, opcode=opcode
     )
@@ -85,13 +89,14 @@ def test_create_large_result(
         created_code = (b"\xff" * 32).ljust(result_size, b"\0")
         post = {
             creator: Account(
-                storage={0: created, 1: 1, 2: keccak256(created_code)}
+                storage={0: created, 1: 1, 2: keccak256(created_code)},
+                nonce=2,
             ),
             created: Account(code=created_code, nonce=1),
         }
     else:
         post = {
-            creator: Account(storage={0: 0, 1: 0 if halted else 1}),
+            creator: Account(storage={0: 0, 1: 0 if halted else 1}, nonce=2),
             created: Account.NONEXISTENT,
         }
 
