@@ -19,6 +19,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -28,7 +29,7 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 ECRECOVER = 0x1
-ECRECOVER_GAS = 3000
+GAS_MARGIN = 10_000
 MESSAGE_HASH = (
     0x18C547E4F7B0F325AD1E56F57E26C745B09A3E503D86E00E5255FF7F715D3D1C
 )
@@ -60,33 +61,30 @@ MSIZE_SLOT = 3
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "call_gas, v, misaligned, ret_offset, succeeds, recovers",
+    "gas_offset, v, misaligned, ret_offset, succeeds, recovers",
     [
         pytest.param(
-            ECRECOVER_GAS + 10_000, 28, False, 0x80, True, True,
+            GAS_MARGIN, 28, False, 0x80, True, True,
             id="complete_return_value",
         ),
+        pytest.param(0, 28, False, 0x80, True, True, id="gas3000"),
+        pytest.param(-1, 28, False, 0x80, False, False, id="gas2999"),
+        pytest.param(None, 28, False, 0x80, False, False, id="no_gas"),
         pytest.param(
-            ECRECOVER_GAS, 28, False, 0x80, True, True, id="gas3000"
-        ),
-        pytest.param(
-            ECRECOVER_GAS - 1, 28, False, 0x80, False, False, id="gas2999"
-        ),
-        pytest.param(0, 28, False, 0x80, False, False, id="no_gas"),
-        pytest.param(
-            300_000, 28, False, 0x40, True, True,
+            GAS_MARGIN, 28, False, 0x40, True, True,
             id="overlapping_input_output",
         ),
         pytest.param(
-            100_000, 28, True, 0x61, True, False, id="misaligned_input"
+            GAS_MARGIN, 28, True, 0x61, True, False, id="misaligned_input"
         ),
-        pytest.param(300_000, 29, False, 0x80, True, False, id="wrong_v"),
+        pytest.param(GAS_MARGIN, 29, False, 0x80, True, False, id="wrong_v"),
     ],
 )  # fmt: skip
 def test_static_call_ecrecover(
     state_test: StateTestFiller,
     pre: Alloc,
-    call_gas: int,
+    fork: Fork,
+    gas_offset: int | None,
     v: int,
     misaligned: bool,
     ret_offset: int,
@@ -95,11 +93,18 @@ def test_static_call_ecrecover(
 ) -> None:
     """
     Verify the success flag, the output word and the memory size after a
-    STATICCALL to ECRECOVER.
+    STATICCALL to ECRECOVER given its gas cost plus `gas_offset`, or no
+    gas when `gas_offset` is None.
 
     The output area holds a sentinel beforehand, so a call that fails or
-    returns no data leaves it in place.
+    returns no data leaves it in place. With a `ret_offset` of 0x40, the
+    output area is the input's R word, which replaces the sentinel.
     """
+    call_gas = (
+        0
+        if gas_offset is None
+        else fork.gas_costs().PRECOMPILE_ECRECOVER + gas_offset
+    )
     r_offset = 0x21 if misaligned else 0x40
     input_size = r_offset + 0x40
     code = (
