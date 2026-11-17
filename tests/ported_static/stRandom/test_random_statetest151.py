@@ -35,14 +35,10 @@ def test_random_statetest151(
     """Test_random_statetest151."""
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    # Source: raw
-    # 0x41424143445a42f35b10773574016c9f
     target = pre.deploy_contract(
         code=bytes.fromhex("41424143445a42f35b10773574016c9f"),
         balance=0xDE0B6B3A7640000,
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,

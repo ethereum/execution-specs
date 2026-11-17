@@ -35,8 +35,6 @@ def test_random_statetest146(
     """Test_random_statetest146."""
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    # Source: raw
-    # 0x434243434444424350303614f20a
     target = pre.deploy_contract(
         code=Op.NUMBER
         + Op.TIMESTAMP
@@ -47,8 +45,6 @@ def test_random_statetest146(
         + Op.EXP(Op.CALLCODE, Op.EQ(Op.CALLDATASIZE, Op.ADDRESS)),
         balance=0xDE0B6B3A7640000,
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,

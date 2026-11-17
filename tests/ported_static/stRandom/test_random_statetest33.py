@@ -31,8 +31,6 @@ def test_random_statetest33(
     """Test_random_statetest33."""
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    # Source: raw
-    # 0x7f000000000000000000000000000000000000000000000000000000000000c3507f00000000000000000000000000000000000000000000000000000000000000015a7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3506f6940566279386017a362876372698f5560005155  # noqa: E501
     target = pre.deploy_contract(
         code=Op.PUSH32[0xC350]
         + Op.PUSH32[0x1]
@@ -50,8 +48,6 @@ def test_random_statetest33(
             key=Op.MLOAD(offset=0x0), value=0x6940566279386017A362876372698F55
         ),
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,

@@ -31,8 +31,6 @@ def test_random_statetest246(
     """Test_random_statetest246."""
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    # Source: raw
-    # 0x434241314441434293170955
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.NUMBER
         + Op.TIMESTAMP
@@ -45,8 +43,6 @@ def test_random_statetest246(
         + Op.SSTORE(key=Op.MULMOD, value=Op.OR),
         balance=0xDE0B6B3A7640000,
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x9,

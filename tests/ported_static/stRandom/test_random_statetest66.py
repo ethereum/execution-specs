@@ -33,8 +33,6 @@ def test_random_statetest66(
     """Test_random_statetest66."""
     sender = pre.fund_eoa()
 
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x9,
@@ -47,8 +45,6 @@ def test_random_statetest66(
         ),
         balance=46,
     )
-    # Source: raw
-    # 0x457fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff417fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe097f000000000000000000000001000000000000000000000000000000000000000055  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.GASLIMIT
         + Op.PUSH32[
