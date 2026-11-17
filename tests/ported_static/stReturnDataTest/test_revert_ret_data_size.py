@@ -11,10 +11,12 @@ dispatcher; the jump and CREATE2 init codes fail as the filler intended.
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Bytecode,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -63,7 +65,13 @@ def test_revert_ret_data_size(
     opcode: str,
     failure: str,
 ) -> None:
-    """Verify a failed call or create clears the previous return data."""
+    """
+    Verify a call or create after a successful call leaves no return data.
+
+    Every `failure` makes the call or create fail, except
+    `nonexistent_account`, where the call succeeds and the create deploys
+    an empty contract.
+    """
     sender = pre.fund_eoa()
 
     # Source: lll
@@ -114,15 +122,33 @@ def test_revert_ret_data_size(
     contract = pre.deploy_contract(
         code=Op.POP(succeeding_call)
         + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
-        + Op.POP(failing_call)
+        + Op.SSTORE(key=0x3, value=failing_call)
         + Op.SSTORE(key=0x1, value=Op.RETURNDATASIZE)
         + Op.SSTORE(key=0x2, value=CANARY)
         + Op.STOP,
-        storage={0: CANARY, 1: CANARY},
+        storage={0: CANARY, 1: CANARY, 3: CANARY},
     )
+
+    post: dict[Address, Account | None] = {}
+    if opcode in CALL_OPCODES:
+        result = 1 if failure == "nonexistent_account" else 0
+    else:
+        created = compute_create_address(
+            address=contract,
+            nonce=1,
+            salt=CREATE2_SALT,
+            initcode=initcode,
+            opcode=Op.CREATE if opcode == "create" else Op.CREATE2,
+        )
+        if failure == "nonexistent_account":
+            result = int.from_bytes(created, "big")
+            post[created] = Account(nonce=1, code=b"")
+        else:
+            result = 0
+            post[created] = Account.NONEXISTENT
 
     tx = Transaction(sender=sender, to=contract, gas_limit=16777216)
 
-    post = {contract: Account(storage={0: 0x40, 1: 0, 2: CANARY})}
+    post[contract] = Account(storage={0: 0x40, 1: 0, 2: CANARY, 3: result})
 
     state_test(pre=pre, post=post, tx=tx)
