@@ -28,7 +28,7 @@ def test_returndatacopy_after_failing_delegatecall(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test_returndatacopy_after_failing_delegatecall."""
+    """Test an out-of-bounds RETURNDATACOPY after a failed DELEGATECALL."""
     sender = pre.fund_eoa()
 
     # Source: raw
