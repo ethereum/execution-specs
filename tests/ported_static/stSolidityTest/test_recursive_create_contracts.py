@@ -166,25 +166,6 @@ def test_recursive_create_contracts(
         calldata_offset=len(initcode_2) + len(initcode_1),
     )
 
-    # Source: solidity
-    # contract main
-    # {
-    #     address maincontract;
-    #     uint depp;
-    #     function run(uint depth)
-    #     {
-    #         maincontract = 0x095e7baea6a6c7c4c2dfeb977efac326af552d87;
-    #         depp = depth;
-    #         recursiveCreate1 rec1 = new recursiveCreate1(maincontract,depth);
-    #     }
-    #
-    #     function create2(uint depth)
-    #     {
-    #         recursiveCreate2 rec2 = new recursiveCreate2(maincontract,depth);
-    #         address(rec2).send(2);
-    #     }
-    # }
-
     dispatcher = Op.JUMPI(
         pc=Op.PUSH2(data_placeholder="tx_entry_func_offset"),
         condition=Op.EQ(1, Op.CALLVALUE),
@@ -220,7 +201,7 @@ def test_recursive_create_contracts(
                     offset=0,
                     size=len(initcode_2) + len(initcode_1) + 0x40,
                 ),
-                value=1,
+                value=2,
             ),
         )
         + Op.INVALID  # Send fails
@@ -291,7 +272,7 @@ def test_recursive_create_contracts(
     }
     if not runs_dry:
         # recursiveCreate1 (odd steps) and recursiveCreate2 (even steps,
-        # sent 1 wei) alternate; the factory creates every
+        # sent 2 wei) alternate; the factory creates every
         # recursiveCreate2, each recursiveCreate2 its recursiveCreate1.
         post[factory] = Account(
             storage={0: factory, 1: max_depth}, nonce=2 + max_depth // 2
@@ -308,7 +289,7 @@ def test_recursive_create_contracts(
             else:
                 post[created] = Account(
                     storage={0: remaining - 1},
-                    balance=1,
+                    balance=2,
                     nonce=2 if remaining > 1 else 1,
                 )
                 creator, creator_nonce = created, 1
