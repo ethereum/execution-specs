@@ -4,6 +4,9 @@ Calldepth with subcall.
 Ported from:
 state_tests/stCallCreateCallCodeTest/Call1024PreCallsFiller.json
 state_tests/stDelegatecallTestHomestead/Call1024PreCallsFiller.json
+
+@manually-enhanced: Do not overwrite. CALL and DELEGATECALL merged; the target
+is funded to the depth limit.
 """
 
 import pytest
@@ -60,8 +63,6 @@ def test_call1024_pre_calls(
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     recipient = pre.fund_eoa()
 
-    # Source: lll
-    # { [[ 2 ]] (CALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) [[ 3 ]] (CALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0)  [[ 0 ]] (ADD @@0 1) [[ 1 ]] (CALL 0xfffffffffff <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) }  # noqa: E501
     target = pre.deploy_contract(
         code=Op.SSTORE(2, Op.CALL(gas=0xFFFF, address=recipient, value=1))
         + Op.SSTORE(3, Op.CALL(gas=0xFFFF, address=recipient, value=1))

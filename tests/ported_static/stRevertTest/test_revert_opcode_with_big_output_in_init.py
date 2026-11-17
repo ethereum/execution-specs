@@ -3,6 +3,8 @@ A REVERT with a big output should not be confused with a big code...
 
 Ported from:
 state_tests/stRevertTest/RevertOpcodeWithBigOutputInInitFiller.json
+
+@manually-enhanced: Do not overwrite. Environment overrides dropped.
 """
 
 import pytest

@@ -4,6 +4,9 @@ Callcode to a contract that is being created in the same transaction.
 Ported from:
 state_tests/stCallCodes/callcodeDynamicCodeFiller.json
 state_tests/stDelegatecallTestHomestead/delegatecodeDynamicCodeFiller.json
+
+@manually-enhanced: Do not overwrite. CALLCODE and DELEGATECALL merged; the
+DELEGATECALL case delegates into the created child.
 """
 
 import pytest
@@ -24,8 +27,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 SALT = 0
 
-# Source: lll
-# (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)   )0)
 CHILD_CODE = (
     Op.SSTORE(0x0, 1)
     + Op.SSTORE(0x14, Op.ADDRESS)
@@ -67,8 +68,6 @@ def test_callcode_dynamic_code(
     """
     sender = pre.fund_eoa()
 
-    # Source: lll
-    # {(seq [[10]] (CREATE 0 0 (lll(...)0)) [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64))}  # noqa: E501
     if create_opcode == Op.CREATE:
         create = Op.CREATE(0, 0, len(CHILD_INITCODE))
     else:
@@ -83,8 +82,6 @@ def test_callcode_dynamic_code(
     )
 
     if in_initcode:
-        # Source: lll
-        # {(seq (CREATE 0 0 (lll(seq <creator code> )0)) )}
         target = pre.deploy_contract(
             code=Om.MSTORE(creator_code, 0)
             + Op.CREATE(0, 0, len(creator_code))

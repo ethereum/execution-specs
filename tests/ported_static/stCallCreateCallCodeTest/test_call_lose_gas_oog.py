@@ -6,6 +6,8 @@ state_tests/stCallCreateCallCodeTest/CallLoseGasOOGFiller.json
 state_tests/stCallCreateCallCodeTest/CallcodeLoseGasOOGFiller.json
 state_tests/stDelegatecallTestHomestead/CallLoseGasOOGFiller.json
 state_tests/stDelegatecallTestHomestead/CallcodeLoseGasOOGFiller.json
+
+@manually-enhanced: Do not overwrite. Opcodes and tx gas limits merged.
 """
 
 import pytest
@@ -69,8 +71,6 @@ def test_call_lose_gas_oog(
         pytest.skip("EIP-8037 state gas exceeds the tight budget")
     sender = pre.fund_eoa()
 
-    # Source: lll
-    # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (CALL (ADD 1(MUL @@0 100000)) <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[ 2 ]] (ADD 1(MUL @@0 1000)) }  # noqa: E501
     target = pre.deploy_contract(
         code=Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
         + Op.SSTORE(

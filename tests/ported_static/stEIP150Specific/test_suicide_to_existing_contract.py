@@ -43,14 +43,10 @@ def test_suicide_to_existing_contract(
     )
     sender = pre.fund_eoa()
 
-    # Source: lll
-    # { (SELFDESTRUCT <contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }  # noqa: E501
     addr = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=Op.CALLER) + Op.STOP,
     )
 
-    # Source: lll
-    # { [0] (GAS) (CALL 60000 <contract:0x1000000000000000000000000000000000000118> 0 0 0 0 0) [[1]] (SUB @0 (GAS)) }  # noqa: E501
     target = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(

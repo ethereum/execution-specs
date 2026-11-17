@@ -10,6 +10,9 @@ state_tests/stRevertTest/RevertPrefoundEmpty_ParisFiller.json
 state_tests/stRevertTest/RevertPrefoundEmptyOOG_ParisFiller.json
 state_tests/stRevertTest/RevertPrefoundEmptyCall_ParisFiller.json
 state_tests/stRevertTest/RevertPrefoundEmptyCallOOG_ParisFiller.json
+
+@manually-enhanced: Do not overwrite. Eight fillers merged; the CREATE case
+prefunds the CREATE address.
 """
 
 import pytest

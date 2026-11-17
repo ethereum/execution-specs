@@ -3,6 +3,8 @@ God knows what is happening in this test.
 
 Ported from:
 state_tests/stSystemOperationsTest/extcodecopyFiller.json
+
+@manually-enhanced: Do not overwrite. Addresses unpinned.
 """
 
 import pytest
@@ -34,8 +36,6 @@ def test_extcodecopy(
     """God knows what is happening in this test."""
     sender = pre.fund_eoa()
 
-    # Source: raw
-    # 0x7f15688566a82f5f946c68028bf626b349e495daa43e33529a76437ac416cd1b7d6e7dae7454bb193b1c28e64a6a935bc373cea0c5cc171fa61277e5604a3bc8aef4de3d38820658600b80797ada6e82e95f6520383f95f5c7dae56b4dc13b6f22ecabfce07c3cff51  # noqa: E501
     target = pre.deploy_contract(
         code=Op.PUSH32[
             0x15688566A82F5F946C68028BF626B349E495DAA43E33529A76437AC416CD1B7D

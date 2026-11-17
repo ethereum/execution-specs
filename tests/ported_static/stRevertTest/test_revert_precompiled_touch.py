@@ -6,6 +6,9 @@ state_tests/stRevertTest/RevertPrecompiledTouch_nonceFiller.json
 state_tests/stRevertTest/RevertPrecompiledTouch_noncestorageFiller.json
 state_tests/stRevertTest/RevertPrecompiledTouch_ParisFiller.json
 state_tests/stRevertTest/RevertPrecompiledTouch_storage_ParisFiller.json
+
+@manually-enhanced: Do not overwrite. Four precompile pre-states merged; all
+their fields pinned.
 """
 
 import pytest
@@ -73,8 +76,6 @@ def test_revert_precompiled_touch(
     for precompile in PRECOMPILES:
         pre[precompile] = precompile_state
 
-    # Source: lll
-    # { (CALL 50000 1 0 0 0 0 0) ... (CALL 50000 8 0 0 0 0 0) [[1]] (GAS) [[2]] (GAS) [[3]] (GAS) }  # noqa: E501
     caller_code = Bytecode()
     for precompile in PRECOMPILES:
         caller_code += Op.POP(opcode(gas=0xC350, address=precompile))
@@ -86,8 +87,6 @@ def test_revert_precompiled_touch(
     )
     caller = pre.deploy_contract(code=caller_code)
 
-    # Source: lll
-    # {  (CALLCODE (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     target = pre.deploy_contract(
         code=Op.CALLCODE(address=Op.CALLDATALOAD(offset=0x0)) + Op.STOP,
     )

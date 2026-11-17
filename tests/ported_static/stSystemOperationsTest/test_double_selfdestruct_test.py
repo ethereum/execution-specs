@@ -8,6 +8,9 @@ Implements: SUC007.0, SUC007.1, SUC007.2, SUC007.3,
 
 Ported from:
 state_tests/stSystemOperationsTest/doubleSelfdestructTestFiller.yml
+
+@manually-enhanced: Do not overwrite. Addresses unpinned; beneficiaries passed
+as calldata.
 """
 
 import pytest
@@ -58,17 +61,8 @@ def test_double_selfdestruct_test(
     caller_beneficiary = pre.nonexistent_account()
     other_beneficiary = pre.nonexistent_account()
 
-    # Source: yul
-    # berlin
-    # {
-    #    if gt(calldatasize(), 2) {
-    #      ... call/callcode/delegatecall/staticcall(gas(), 0xc0de, ...)
-    #      selfdestruct(caller_ff)
-    #    }
-    #    if eq(calldatasize(), 2) { selfdestruct(called_ff) }
-    # }
-    # The beneficiaries are now full 20-byte calldata fields: the
-    # caller's at offset 0, the called frame's at offset 20.
+    # Calldata holds the caller's beneficiary at offset 0 and the called
+    # frame's at offset 20.
     contract = pre.deploy_contract(
         code=Conditional(
             condition=Op.EQ(Op.CALLDATASIZE, 20),

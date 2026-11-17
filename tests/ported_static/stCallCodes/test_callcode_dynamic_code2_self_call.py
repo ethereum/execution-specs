@@ -5,6 +5,9 @@ contract (to itself).
 Ported from:
 state_tests/stCallCodes/callcodeDynamicCode2SelfCallFiller.json
 state_tests/stDelegatecallTestHomestead/delegatecodeDynamicCode2SelfCallFiller.json
+
+@manually-enhanced: Do not overwrite. CALLCODE and DELEGATECALL merged; the
+self calls are restored.
 """
 
 import pytest
@@ -22,8 +25,6 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
-# Source: lll
-# (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)   )0)
 CHILD_CODE = (
     Op.SSTORE(0x0, 1)
     + Op.SSTORE(0x14, Op.ADDRESS)
@@ -61,8 +62,6 @@ def test_callcode_dynamic_code2_self_call(
     self_call = opcode(address=Op.ADDRESS, args_size=0x40, ret_size=0x40)
 
     if then_call_child:
-        # Source: lll
-        # {(seq [[10]] (CREATE 0 0 (lll(seq  [[122]] (CALLCODE 100000 <self> 0 0 64 0 64)  (RETURN 0 (lll(...)0) )  )0)   )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)                   )}  # noqa: E501
         child_initcode = Initcode(
             deploy_code=CHILD_CODE, initcode_prefix=Op.SSTORE(0x7A, self_call)
         )
@@ -90,8 +89,6 @@ def test_callcode_dynamic_code2_self_call(
             child: Account(code=CHILD_CODE, storage={0x7A: 1}),
         }
     else:
-        # Source: lll
-        # {  (MSTORE 0 0x604060006040600060007313136008b64ff592819b2fa6d43f2835c452020e62) (MSTORE 32 0x0186a0f2600b5533600c55000000000000000000000000000000000000000000)  (CREATE 1 0 64) }  # noqa: E501
         init_only = Op.SSTORE(0xB, self_call) + Op.SSTORE(0xC, Op.CALLER)
         target = pre.deploy_contract(
             code=Om.MSTORE(init_only, 0)

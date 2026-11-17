@@ -4,6 +4,8 @@ Recursive call.
 Ported from:
 state_tests/stCallCreateCallCodeTest/CallRecursiveBombPreCallFiller.json
 state_tests/stDelegatecallTestHomestead/CallRecursiveBombPreCallFiller.json
+
+@manually-enhanced: Do not overwrite. CALL and DELEGATECALL merged.
 """
 
 import pytest
@@ -48,8 +50,6 @@ def test_call_recursive_bomb_pre_call(
     env = Environment(gas_limit=HIGH_GAS_LIMIT)
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-    # Source: lll
-    # { [[ 0 ]] (+ (SLOAD 0) 1) [[ 1 ]] (CALL (- (GAS) 224000) (ADDRESS) 0 0 0 0 0) }  # noqa: E501
     bomb = pre.deploy_contract(
         code=Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
         + Op.CALLDATACOPY(dest_offset=0, offset=0, size=0x20)
@@ -63,8 +63,6 @@ def test_call_recursive_bomb_pre_call(
         ),
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # { (CALL 100000 0xbad304eb96065b2a98b57a48a06ae28d285a71b5 23 0 0 0 0)  (CALL 0x7ffffffffffffff <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 23 0 0 0 0)  }  # noqa: E501
     if opcode == Op.CALL:
         enter_bomb = Op.CALL(
             gas=0x7FFFFFFFFFFFFFF, address=bomb, value=23, args_size=0x20

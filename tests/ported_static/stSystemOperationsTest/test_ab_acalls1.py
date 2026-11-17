@@ -3,6 +3,8 @@ Test_ab_acalls1.
 
 Ported from:
 state_tests/stSystemOperationsTest/ABAcalls1Filler.json
+
+@manually-enhanced: Do not overwrite. Addresses unpinned, Prague cap dropped.
 """
 
 import pytest
@@ -36,8 +38,6 @@ def test_ab_acalls1(
     """
     sender = pre.fund_eoa()
 
-    # Source: lll
-    # { [[ (PC) ]] (ADD 1 (CALL (- (GAS) 100000) <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87> 23 0 0 0 0)) }  # noqa: E501
     b_value = Op.ADD(
         1,
         Op.CALL(
@@ -48,8 +48,6 @@ def test_ab_acalls1(
         code=Op.SSTORE(key=Op.PC, value=b_value) + Op.STOP,
         balance=23,
     )
-    # Source: lll
-    # {  [[ (PC) ]] (CALL (- (GAS) 100000) <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 24 0 0 0 0) }  # noqa: E501
     a_value = Op.CALL(
         gas=Op.SUB(Op.GAS, GAS_RESERVE), address=contract_b, value=0x18
     )

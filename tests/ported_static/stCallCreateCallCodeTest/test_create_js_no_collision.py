@@ -3,6 +3,8 @@ Deploy legacy contract normally.
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/createJS_NoCollisionFiller.json
+
+@manually-enhanced: Do not overwrite. Environment overrides dropped.
 """
 
 import pytest

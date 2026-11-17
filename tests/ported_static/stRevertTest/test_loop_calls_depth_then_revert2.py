@@ -4,6 +4,8 @@ Test a CREATE whose init code CREATEs again near the call depth limit.
 Ported from:
 state_tests/stRevertTest/LoopCallsDepthThenRevert2Filler.json
 state_tests/stRevertTest/LoopCallsDepthThenRevert3Filler.json
+
+@manually-enhanced: Do not overwrite. LoopCallsDepthThenRevert2 and 3 merged.
 """
 
 import pytest
@@ -57,8 +59,6 @@ def test_loop_calls_depth_then_revert2(
     create = Op.MSTORE(offset=0x0, value=0x600060006002F0) + Op.POP(
         Op.CREATE(value=0x3, offset=0x19, size=0x7)
     )
-    # Source: raw
-    # 0x6103ff60005414603f576001600054016000556000600060006000600073a0000000000000000000000000000000000000005af15061041a600054106053575b66600060006002f0600052600760196003f0505b  # noqa: E501
     contract = pre.deploy_contract(
         code=Conditional(
             condition=Op.EQ(Op.SLOAD(key=0x0), create_depth),

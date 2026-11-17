@@ -3,6 +3,8 @@ Legacy Test from Christoph. J.
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/createNameRegistratorPerTxsFiller.json
+
+@manually-enhanced: Do not overwrite. Environment overrides dropped.
 """
 
 import pytest

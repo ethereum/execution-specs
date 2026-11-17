@@ -3,6 +3,8 @@ Danno Ferrin danno.ferrin@gmail.com.
 
 Ported from:
 state_tests/stEIP150Specific/Transaction64Rule_integerBoundariesFiller.yml
+
+@manually-enhanced: Do not overwrite. Each call's success is asserted.
 """
 
 import pytest
@@ -60,30 +62,10 @@ def test_transaction64_rule_integer_boundaries(
     """
     sender = pre.fund_eoa()
 
-    # Source: raw
-    # 0x600060FF00
     callee = pre.deploy_contract(
         code=Op.PUSH1[0x0] + Op.PUSH1[0xFF] + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: yul
-    # berlin
-    # {
-    #   let initialgas := gas()
-    #   let callgas := calldataload(0)
-    #
-    #   pop(call(callgas, 0x1000, 0, 0, 0, 0, 0x20))
-    #   sstore(0, lt(gas(), initialgas))
-    #
-    #   pop(callcode(callgas, 0x1000, 0, 0, 0, 0, 0x20))
-    #   sstore(1, lt(gas(), initialgas))
-    #
-    #   pop(delegatecall(callgas, 0x1000, 0, 0x20, 0, 0x20))
-    #   sstore(2, lt(gas(), initialgas))
-    #
-    #   pop(staticcall(callgas, 0x1000, 0, 0x20, 0, 0x20))
-    #   sstore(3, lt(gas(), initialgas))
-    # }
     gas = Op.CALLDATALOAD(offset=0x0)
     calls = [
         Op.CALL(gas=gas, address=callee, ret_size=0x20),

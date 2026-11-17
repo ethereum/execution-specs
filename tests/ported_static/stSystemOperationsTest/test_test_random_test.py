@@ -3,6 +3,9 @@ Test_test_random_test.
 
 Ported from:
 state_tests/stSystemOperationsTest/testRandomTestFiller.json
+
+@manually-enhanced: Do not overwrite. Addresses unpinned; skipped in execute
+mode.
 """
 
 import pytest
@@ -36,8 +39,6 @@ def test_test_random_test(
     """Test_test_random_test."""
     sender = pre.fund_eoa()
 
-    # Source: raw
-    # 0x424443444243434383f0155af055
     contract_0 = pre.deploy_contract(
         code=Op.TIMESTAMP
         + Op.PREVRANDAO

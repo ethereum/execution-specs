@@ -6,6 +6,9 @@ state_tests/stCallCreateCallCodeTest/Call1024BalanceTooLowFiller.json
 state_tests/stCallCreateCallCodeTest/Callcode1024BalanceTooLowFiller.json
 state_tests/stDelegatecallTestHomestead/Call1024BalanceTooLowFiller.json
 state_tests/stDelegatecallTestHomestead/Delegatecall1024Filler.json
+
+@manually-enhanced: Do not overwrite. Opcodes merged; every case reaches a
+balance too low.
 """
 
 import pytest
@@ -62,8 +65,6 @@ def test_call1024_balance_too_low(
     env = Environment(gas_limit=HIGH_GAS_LIMIT)
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-    # Source: lll
-    # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (CALL 0xfffffffffff <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> @@0 0 0 0 0) }  # noqa: E501
     if opcode == Op.DELEGATECALL:
         recurse = Op.DELEGATECALL(gas=0xFFFFFFFFFFF, address=Op.ADDRESS)
     else:

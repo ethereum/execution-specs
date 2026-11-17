@@ -8,6 +8,9 @@ state_tests/stStaticFlagEnabled/CallcodeToPrecompileFromContractInitializationFi
 state_tests/stStaticFlagEnabled/DelegatecallToPrecompileFromTransactionFiller.yml
 state_tests/stStaticFlagEnabled/DelegatecallToPrecompileFromCalledContractFiller.yml
 state_tests/stStaticFlagEnabled/DelegatecallToPrecompileFromContractInitializationFiller.yml
+
+@manually-enhanced: Do not overwrite. Six CALLCODE and DELEGATECALL fillers
+merged.
 """
 
 from typing import Dict, List, Tuple

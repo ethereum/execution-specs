@@ -20,6 +20,9 @@ state_tests/stDelegatecallTestHomestead/callOutput3Filler.json
 state_tests/stDelegatecallTestHomestead/callOutput3partialFiller.json
 state_tests/stDelegatecallTestHomestead/callOutput3partialFailFiller.json
 state_tests/stDelegatecallTestHomestead/callcodeOutput3Filler.json
+
+@manually-enhanced: Do not overwrite. Opcode, memory-window and callee-failure
+fillers merged.
 """
 
 import pytest
@@ -89,14 +92,10 @@ def test_call_output(
     """
     sender = pre.fund_eoa()
 
-    # Source: raw
-    # 0x6001600101600055 (0x01 prefix: stack underflow)
     callee_code = Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1))
     if callee_fails:
         callee_code = Op.ADD + callee_code
     callee = pre.deploy_contract(code=callee_code)
-    # Source: lll
-    # { (MSTORE 0 0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6) (CALL 150000 <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0 0) [[ 0 ]] (MLOAD 0) }  # noqa: E501
     target = pre.deploy_contract(
         code=Op.MSTORE(0, MEMORY_WORD)
         + Op.SSTORE(
