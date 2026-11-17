@@ -81,7 +81,7 @@ def test_revert_prefound(
     code = Op.SSTORE(0, result) + Op.SSTORE(1, 12)
     if oog:
         code += Op.SHA3(offset=0, size=OOG_MEMORY_SIZE)
-    target = pre.deploy_contract(code=code, balance=1)
+    target = pre.deploy_contract(code=code, balance=prefund)
     if touch == "create":
         prefound = compute_create_address(address=target, nonce=1)
         pre.fund_address(prefound, prefund)
