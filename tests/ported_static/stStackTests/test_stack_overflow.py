@@ -10,6 +10,8 @@ state_tests/stStackTests/stackOverflowPUSHFiller.json
 state_tests/stStackTests/stackOverflowM1PUSHFiller.json
 state_tests/stStackTests/stackOverflowSWAPFiller.json
 state_tests/stStackTests/stacksanitySWAPFiller.json
+
+@manually-enhanced: Do not overwrite. Merged files, fork stack limit.
 """
 
 import pytest
@@ -73,7 +75,11 @@ def fill_stack(opcode: Op, height: int) -> Bytecode:
 )
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
-    "overflow", [pytest.param(False, id="at_limit"), True]
+    "overflow",
+    [
+        pytest.param(False, id="at_limit"),
+        pytest.param(True, id="overflow"),
+    ],
 )
 @pytest.mark.parametrize(
     "opcode",
