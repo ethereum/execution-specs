@@ -81,6 +81,11 @@ pytestmark = [
     pytest.mark.pre_alloc_group(
         "separate", reason="Asserts the shape of the whole account trie."
     ),
+    # A live network's account trie holds other accounts under the mined
+    # prefixes, so the asserted shapes cannot be set up there.
+    pytest.mark.execute(
+        pytest.mark.skip(reason="Requires a specific account trie")
+    ),
 ]
 
 FUNDING = 10**18
