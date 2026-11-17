@@ -36,16 +36,12 @@ def test_delegatecall_transition(
     sender = pre.fund_eoa()
     tx_value = 17
 
-    # Source: lll
-    # {[[ 1 ]] (CALLER) [[ 2 ]] (CALLVALUE) }
     callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=Op.CALLER)
         + Op.SSTORE(key=0x2, value=Op.CALLVALUE)
         + Op.STOP,
         balance=23,
     )
-    # Source: lll
-    # {  [[ 0 ]] (DELEGATECALL 500000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 64 0 2 ) }  # noqa: E501
     target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,

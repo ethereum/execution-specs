@@ -14,7 +14,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -61,12 +60,17 @@ def test_create_message_reverted(
 ) -> None:
     """CreateMessageReverted for CREATE2."""
     sender = pre.fund_eoa()
-    initcode = bytes.fromhex("600c600055600d600155")
-    # Source: lll
-    # {(MSTORE 0 0x600c600055600d600155) (CREATE2 0 22 10 0)}
+    initcode = Op.SSTORE(key=0, value=0xC) + Op.SSTORE(key=1, value=0xD)
     contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x600C600055600D600155)
-        + Op.CREATE2(value=0x0, offset=0x16, size=0xA, salt=0x0)
+        code=Op.MSTORE(
+            offset=0x0, value=int.from_bytes(bytes(initcode), "big")
+        )
+        + Op.CREATE2(
+            value=0x0,
+            offset=32 - len(initcode),
+            size=len(initcode),
+            salt=0x0,
+        )
         + Op.STOP,
     )
 
@@ -95,9 +99,6 @@ def test_create_message_reverted(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
-    tx_data = [
-        Bytes(""),
-    ]
     tx_gas = [80000, 150000]
     if fork.is_eip_enabled(8037):
         tx_gas = [80000, 500_000]
@@ -106,7 +107,6 @@ def test_create_message_reverted(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=tx_data[d],
         gas_limit=tx_gas[g],
         value=tx_value[v],
         error=_exc,

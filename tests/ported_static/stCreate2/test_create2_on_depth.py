@@ -21,9 +21,19 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
-INNER_CREATE2_INITCODE = bytes.fromhex("6000600060006000f5600155")
-NESTED_CREATE2_INITCODE = bytes.fromhex(
-    "686000600060006000f56000526000600960176000f5600155"
+CREATE2_EMPTY = Op.CREATE2(value=0, offset=0, size=0, salt=0)
+INNER_CREATE2_INITCODE = bytes(Op.SSTORE(key=1, value=CREATE2_EMPTY))
+NESTED_CREATE2_INITCODE = bytes(
+    Op.MSTORE(offset=0, value=int.from_bytes(bytes(CREATE2_EMPTY), "big"))
+    + Op.SSTORE(
+        key=1,
+        value=Op.CREATE2(
+            value=0,
+            offset=32 - len(CREATE2_EMPTY),
+            size=len(CREATE2_EMPTY),
+            salt=0,
+        ),
+    )
 )
 
 
@@ -51,15 +61,11 @@ def test_create2_on_depth(
     env = Environment(gas_limit=9223372036854775807)
     sender = pre.fund_eoa(amount=2**250)
 
-    # Source: lll
-    # { (MSTORE 0 (CALLDATALOAD 0)) (CALL (GAS) <caller> 0 0 32 0 0) }
     bouncer = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
         + Op.CALL(address=Op.CALLER, args_size=0x20)
         + Op.STOP,
     )
-    # Source: lll
-    # { (MSTORE 0 (CALLDATALOAD 0)) (MSTORE 0 (ADD 2 (MLOAD 0))) (if (EQ (MLOAD 0) 0x0400) (seq (MSTORE 32 <initcode>) [[1]] (CREATE2 0 <64 - len> <len> 0))  (CALL (GAS) <bouncer> (EQ (MLOAD 0) 0x0400) 0 32 0 0)) }  # noqa: E501
     recurser = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
         + Op.MSTORE(offset=0x0, value=Op.ADD(0x2, Op.MLOAD(offset=0x0)))
@@ -93,11 +99,10 @@ def test_create2_on_depth(
         post[created] = Account(storage={1: inner})
         post[inner] = Account(nonce=1)
     else:
-        inner_initcode = NESTED_CREATE2_INITCODE[1:10]
         inner = compute_create_address(
             address=created,
             salt=0,
-            initcode=inner_initcode,
+            initcode=CREATE2_EMPTY,
             opcode=Op.CREATE2,
         )
         post[created] = Account(storage={1: inner})

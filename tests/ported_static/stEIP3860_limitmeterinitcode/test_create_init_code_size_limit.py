@@ -51,21 +51,18 @@ def test_create_init_code_size_limit(
     sender = pre.fund_eoa()
     initcode_size = fork.max_initcode_size() + oversize
     salt = 0xDEADBEEF
-    runtime_code = bytes.fromhex("600a80600080396000f3")
+    runtime_code = bytes(
+        Op.PUSH1[0xA]
+        + Op.DUP1
+        + Op.PUSH1[0x0]
+        + Op.DUP1
+        + Op.CODECOPY
+        + Op.PUSH1[0x0]
+        + Op.RETURN
+    )
     initcode = runtime_code.ljust(initcode_size, b"\0")
 
-    # Source: yul
-    # berlin
-    # {
-    #   // :yul { codecopy(0x00, 0x00, 0x0a) return(0x00, 0x0a) }
-    #   mstore(0, 0x600a80600080396000f300000000000000000000000000000000000000000000)  # noqa: E501
-    #   // get initcode size from calldata
-    #   let initcode_size := calldataload(0)
-    #   let gas_before := gas()
-    #   let create_result := create2(0, 0, initcode_size, 0xdeadbeef)
-    #   sstore(10, sub(gas_before, gas()))
-    #   sstore(0, create_result)
-    # }
+    # Store the gas the creation uses in slot 10 and its result in slot 0.
     creator_code = (
         Op.SHL(0xB0, int.from_bytes(runtime_code, "big"))
         + Op.PUSH1[0x0]
@@ -95,14 +92,6 @@ def test_create_init_code_size_limit(
         + Op.STOP
     )
     creator = pre.deploy_contract(code=creator_code)
-    # Source: yul
-    # berlin
-    # {
-    #   mstore(0, calldataload(0))
-    #   let call_result := call(10000000, <creator>, 0, 0, calldatasize(), 0, 0)  # noqa: E501
-    #   sstore(0, call_result)
-    #   sstore(1, 1)
-    # }
     caller = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
         + Op.SSTORE(

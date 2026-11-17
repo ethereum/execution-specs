@@ -48,10 +48,6 @@ def test_create_refund_ef(
 ) -> None:
     """Earn a gas refund in init code that returns 0xEF-prefixed code."""
     sender = pre.fund_eoa()
-    # Source: yul
-    # london {
-    #   sstore(0,0)
-    # }
     refund_provider = pre.deploy_contract(
         code=Op.SSTORE(key=0, value=0) + Op.STOP,
         storage={0: 1},

@@ -35,12 +35,23 @@ REFERENCE_SPEC_VERSION = "N/A"
 COLLIDER_BALANCE = 1
 TX_VALUE = 1
 
+STORE_CODE = Op.SSTORE(key=1, value=1)
+
+
+def deploy(code: bytes) -> bytes:
+    """Return init code that deploys `code`."""
+    return bytes(
+        Op.MSTORE(offset=0, value=int.from_bytes(code, "big"))
+        + Op.RETURN(offset=32 - len(code), size=len(code))
+    )
+
+
 INITCODES = {
     "empty": b"",
-    "store": bytes.fromhex("6001600155"),
-    "deploy": bytes.fromhex("6460016001556000526005601bf3"),
-    "deploy_010203": bytes.fromhex("620102036000526003601df3"),
-    "deploy_6010ff": bytes.fromhex("626010ff6000526003601df3"),
+    "store": bytes(STORE_CODE),
+    "deploy": deploy(bytes(STORE_CODE)),
+    "deploy_010203": deploy(bytes.fromhex("010203")),
+    "deploy_6010ff": deploy(bytes.fromhex("6010ff")),
 }
 
 
@@ -270,9 +281,7 @@ def test_create2collision(
             storage={0: target}, balance=TX_VALUE - create_value, nonce=2
         )
         post[target] = Account(
-            code=bytes.fromhex("6001600155")
-            if initcode_name == "deploy"
-            else b"",
+            code=STORE_CODE if initcode_name == "deploy" else b"",
             storage={1: 1} if initcode_name == "store" else {},
             balance=kind.balance + create_value,
             nonce=1,

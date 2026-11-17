@@ -1,5 +1,8 @@
 """
-Test_recursive_create_return_value.
+CREATE that runs its own code as init code, storing each result plus one.
+
+Each level copies its code into memory and CREATEs from it, so every
+init code creates the next level in turn.
 
 Ported from:
 state_tests/stRecursiveCreate/recursiveCreateReturnValueFiller.json
@@ -27,7 +30,7 @@ def test_recursive_create_return_value(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test_recursive_create_return_value."""
+    """Store CREATE results plus one along a recursive creation chain."""
     sender = pre.fund_eoa()
 
     # Source: lll

@@ -24,9 +24,12 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
-INITCODE_WORD = 0x6460016001556000526005601BF3
-INITCODE = INITCODE_WORD.to_bytes(32, "big")[0x12:]
-DEPLOYED_CODE = bytes.fromhex("6001600155")
+DEPLOYED_CODE = Op.SSTORE(key=1, value=1)
+INITCODE = Op.MSTORE(
+    offset=0, value=int.from_bytes(bytes(DEPLOYED_CODE), "big")
+) + Op.RETURN(offset=32 - len(DEPLOYED_CODE), size=len(DEPLOYED_CODE))
+INITCODE_WORD = int.from_bytes(bytes(INITCODE), "big")
+INITCODE_OFFSET = 32 - len(INITCODE)
 UNTOUCHED = 0xFF
 
 
@@ -53,12 +56,12 @@ def test_create_oo_gafter_init_code_returndata(
     """Read return data after a successful CREATE/CREATE2."""
     sender = pre.fund_eoa()
 
-    # Source: lll
-    # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE2 0 18 14 0) [[ 1 ]] (RETURNDATASIZE) (RETURNDATACOPY 0 0 32) [[ 2 ]] (MLOAD 0) }  # noqa: E501
     if opcode == Op.CREATE2:
-        create = Op.CREATE2(value=0, offset=0x12, size=len(INITCODE), salt=0)
+        create = Op.CREATE2(
+            value=0, offset=INITCODE_OFFSET, size=len(INITCODE), salt=0
+        )
     else:
-        create = Op.CREATE(value=0, offset=0x12, size=len(INITCODE))
+        create = Op.CREATE(value=0, offset=INITCODE_OFFSET, size=len(INITCODE))
     contract = pre.deploy_contract(
         code=Op.MSTORE(offset=0, value=INITCODE_WORD)
         + Op.POP(create)

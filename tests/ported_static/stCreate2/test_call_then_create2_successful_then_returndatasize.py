@@ -43,8 +43,6 @@ def test_call_then_create2_successful_then_returndatasize(
     """RETURNDATASIZE is zero after a successful CREATE2 after a CALL."""
     sender = pre.fund_eoa()
 
-    # Source: lll
-    # { (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (RETURN 0 32) (STOP) ) }  # noqa: E501
     returner = pre.deploy_contract(
         code=Op.MSTORE(
             offset=0x0,
@@ -56,8 +54,6 @@ def test_call_then_create2_successful_then_returndatasize(
         offset=0, size=0x20
     )
 
-    # Source: lll
-    # { (seq (CALL 0x0900000000 <returner> 0 0 0 0 0) (CREATE2 0 0 (lll (seq (mstore 0 0x112233) (RETURN 0 32) (STOP) ) 0) 0) (SSTORE 0 (RETURNDATASIZE)) (STOP) )}  # noqa: E501
     def creator_code(initcode_offset: int) -> Bytecode:
         return (
             Op.POP(Op.CALL(address=returner, ret_size=call_ret_size))

@@ -37,8 +37,7 @@ def test_transaction_create_auto_suicide_contract(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Op.CODECOPY(dest_offset=0x0, offset=0xC, size=0xA)
-        + Op.SELFDESTRUCT(address=beneficiary),
+        data=Op.SELFDESTRUCT(address=beneficiary),
         value=tx_value,
     )
 
