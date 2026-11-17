@@ -55,7 +55,7 @@ def test_jump_to_push(
         + getattr(Op, f"PUSH{push_size}")[b"\x5b" * push_size]
         + Op.JUMPDEST
     )
-    assert bytes(code)[dest] == Op.JUMPDEST.int()
+    assert (dest == len(code) - 1) == (target == "after_data")
     contract = pre.deploy_contract(code=code, storage={0: SENTINEL})
     tx = Transaction(sender=pre.fund_eoa(), to=contract)
     expected = 1 if target == "after_data" else SENTINEL
