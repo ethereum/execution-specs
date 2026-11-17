@@ -33,6 +33,7 @@ MAX_NONCE = 2**64 - 1
     ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(pytest.mark.skip(reason="needs a max-nonce contract"))
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
 @pytest.mark.parametrize(
     "creator_nonce",
@@ -49,14 +50,13 @@ def test_create_high_nonce(
 ) -> None:
     """CREATE/CREATE2 from a contract at and below the maximum nonce."""
     sender = pre.fund_eoa()
-    # initcode: { return(0, 1) }
-    initcode = bytes.fromhex("60016000f3")
+    initcode = Op.RETURN(offset=0, size=1)
     if opcode == Op.CREATE2:
         create = Op.CREATE2(value=0, offset=0, size=len(initcode), salt=0)
     else:
         create = Op.CREATE(value=0, offset=0, size=len(initcode))
     creator = pre.deploy_contract(
-        code=Op.MSTORE(offset=0, value=initcode.ljust(32, b"\0"))
+        code=Op.MSTORE(offset=0, value=bytes(initcode).ljust(32, b"\0"))
         + Op.SSTORE(key=0, value=create)
         + Op.SSTORE(key=1, value=1)
         + Op.STOP,

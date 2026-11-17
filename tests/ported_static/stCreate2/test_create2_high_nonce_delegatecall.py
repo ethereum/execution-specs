@@ -14,6 +14,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytecode,
     Bytes,
     Hash,
     StateTestFiller,
@@ -29,9 +30,17 @@ MAX_NONCE = 2**64 - 1
 NONCE_SLOT = 0xFFFF
 CALL_TYPES = {"DelegateCall": 0, "CallCode": 1, "Call": 2}
 CREATE_TYPES = {"Create": 0, "Create2": 1}
-# initcode: { codecopy(0, 12, 5); return(0, 5); sstore(1, 1) }
-INITCODE = bytes.fromhex("6005600c60003960056000f36001600155")
-DEPLOYED_CODE = bytes.fromhex("6001600155")
+DEPLOYED_CODE = Op.SSTORE(key=1, value=1)
+
+
+def deploy_prefix(code_offset: int) -> Bytecode:
+    """Return init code that returns the code found at `code_offset`."""
+    return Op.CODECOPY(
+        dest_offset=0, offset=code_offset, size=len(DEPLOYED_CODE)
+    ) + Op.RETURN(offset=0, size=len(DEPLOYED_CODE))
+
+
+INITCODE = deploy_prefix(len(deploy_prefix(0))) + DEPLOYED_CODE
 
 
 def created_address(creator: Address, nonce: int, create_type: str) -> Address:
@@ -52,6 +61,7 @@ def nonce_id(nonce: int) -> str:
     ["state_tests/stCreate2/CREATE2_HighNonceDelegatecallFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(pytest.mark.skip(reason="needs a max-nonce contract"))
 @pytest.mark.parametrize("create_type", list(CREATE_TYPES))
 @pytest.mark.parametrize("b_nonce", [MAX_NONCE - 1, MAX_NONCE], ids=nonce_id)
 @pytest.mark.parametrize("call_type", list(CALL_TYPES))
@@ -91,7 +101,7 @@ def test_create2_high_nonce_delegatecall(
     b_code = (
         Op.CALLDATALOAD(offset=0x0)
         + Op.SLOAD(key=0xFFFF)
-        + Op.MSTORE(offset=0x0, value=0x6005600C60003960056000F36001600155)
+        + Op.MSTORE(offset=0x0, value=bytes(INITCODE))
         + Op.PUSH1[0x0]
         + Op.SWAP2
         + Op.JUMPI(pc=0x5E, condition=Op.EQ(Op.DUP2, 0x0))
