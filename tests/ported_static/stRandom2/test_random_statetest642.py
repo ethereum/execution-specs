@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom2/randomStatetest642Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(pytest.mark.skip(reason="needs a high-nonce contract"))
 def test_random_statetest642(
     state_test: StateTestFiller,
     pre: Alloc,
