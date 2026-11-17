@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test the gas of SELFDESTRUCT to a cold or pre-warmed beneficiary.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/eip2929-ffFiller.yml
@@ -133,7 +133,7 @@ def test_eip2929_minus_ff(
     g: int,
     v: int,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
+    """Store the gas of a CALL into a SELFDESTRUCT after a warm-up."""
     # EIP-8038 raises COLD_ACCOUNT_ACCESS, 0 on earlier forks.
     cold_account_delta = (
         fork.gas_costs().COLD_ACCOUNT_ACCESS
@@ -141,51 +141,13 @@ def test_eip2929_minus_ff(
     )
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
-    # Source: raw
-    # 0x00
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
     )
-    # Source: lll
-    # {
-    #      (selfdestruct 0xDE57)
-    # }
     contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=contract_0) + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #    (def 'operation $4)
-    #
-    #    (def 'measurementCost 0x08)
-    #
-    #    ; Make sure not to be overwritten by extcodecopy
-    #    (def 'gasB4     0x100)
-    #    (def 'gasAfter  0x120)
-    #
-    #    ; Write something so the storage won't be new
-    #    [gasB4] 0xFF
-    #    [gasAfter] 0xFF
-    #
-    #    (def 'NOP 0)
-    #    (def 'dest 0xDE57)   ; destination address
-    #
-    #    ; Read so access to that account later won't trigger EIP2929 costs
-    #    (balance 0xca11)
-    #
-    #    ; If we need to add the destination address to the active set,
-    #    ; do so.
-    #    (if (= operation 0x31) (balance dest) NOP)
-    #    (if (= operation 0x3B) (extcodesize dest) NOP)
-    #    (if (= operation 0x3C) (extcodecopy dest 0 0 1) NOP)
-    #    (if (= operation 0x3F) (extcodehash dest) NOP)
-    #    (if (= operation 0xF1) (call 0x10000 dest 0 0 0 0 0) NOP)
-    #    (if (= operation 0xF2) (callcode 0x10000 dest 0 0 0 0 0) NOP)
-    #    (if (= operation 0xF4) (delegatecall 0x10000 dest 0 0 0 0) NOP)
-    #    (if (= operation 0xFA) (staticcall 0x10000 dest 0 0 0 0) NOP)
-    #
-    # ... (18 more lines)
     warm_ups = [
         (0x31, Op.BALANCE(address=contract_0), True),
         (0x3B, Op.EXTCODESIZE(address=contract_0), True),
