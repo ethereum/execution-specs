@@ -345,8 +345,8 @@ ABCB_RECURSIVE ones only zeros), and they embedded each other's addresses.
 They collapse to chains of all four opcodes with at least one STATICCALL.
 Every frame returns how many frames below it returned, plus the innermost
 frame's CALLER, CALLVALUE and ADDRESS, so a static frame's outcome reaches
-the top level, which stores it. Non-static frames also store their call's
-success, as above. A write, a CALL with value or a SELFDESTRUCT in a static
+the top level, which stores it and then sets a done flag. Non-static
+frames also store their call's success, as above. A write, a CALL with value or a SELFDESTRUCT in a static
 frame halts it. A SELFDESTRUCT in a non-static frame (any frame above the
 first STATICCALL) succeeds and moves the balance to a fresh beneficiary.
 """
@@ -1264,6 +1264,7 @@ RETURN_SIZE = 0x80
 SUCCESS_OFFSET = 0x80
 RESULT_SLOTS = {"count": 0x10, "caller": 0x11, "value": 0x12, "address": 0x13}
 FAULT_SLOT = 0x1F
+DONE_SLOT = 0x1E
 
 
 def static_call_chains(depth: int) -> list:
@@ -1307,8 +1308,9 @@ def run_static_call_chain(
     Every frame below the top returns `RETURN_SIZE` bytes: the number of
     frames below it that returned, plus one for its own call's success,
     followed by the innermost frame's CALLER, CALLVALUE and ADDRESS. The
-    top level stores them in `RESULT_SLOTS`; a non-static level `n` also
-    stores its call's success in slot `n`. CALL and CALLCODE carry `value`.
+    top level stores them in `RESULT_SLOTS` and then sets `DONE_SLOT`; a
+    non-static level `n` also stores its call's success in slot `n`. CALL
+    and CALLCODE carry `value`.
 
     `fault` is injected in the frame at `fault_level` (the innermost frame
     when it equals the chain's length), before or after its call:
@@ -1382,6 +1384,7 @@ def run_static_call_chain(
                 + Op.SSTORE(RESULT_SLOTS["caller"], Op.MLOAD(0x20))
                 + Op.SSTORE(RESULT_SLOTS["value"], Op.MLOAD(0x40))
                 + Op.SSTORE(RESULT_SLOTS["address"], Op.MLOAD(0x60))
+                + Op.SSTORE(DONE_SLOT, 1)
                 + Op.STOP
             )
         else:
@@ -1463,6 +1466,7 @@ def run_static_call_chain(
         if level == 0:
             for key, word in zip(RESULT_SLOTS.values(), returned, strict=True):
                 effects.append(("store", contracts[0], key, word))
+            effects.append(("store", contracts[0], DONE_SLOT, 1))
         return StaticChainResult(True, returned, effects)
 
     # Apply the simulated effects to the pre-state.
