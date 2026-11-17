@@ -31,8 +31,6 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
     """Test_suicides_and_send_money_to_itself_ether_destroyed."""
     sender = pre.fund_eoa(amount=0x7459280)
 
-    # Source: lll
-    # {(SELFDESTRUCT <contract:target:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>)}  # noqa: E501
     target_code = Op.SELFDESTRUCT(address=Op.ADDRESS) + Op.STOP
     target = pre.deploy_contract(
         code=target_code,
