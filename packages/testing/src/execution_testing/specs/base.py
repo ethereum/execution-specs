@@ -24,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Self
 
 from execution_testing.base_types import to_hex
-from execution_testing.client_clis import Result, TransitionTool
+from execution_testing.client_clis import LazyAlloc, Result, TransitionTool
 from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.execution import (
     BaseExecute,
@@ -485,17 +485,19 @@ class BaseTest(BaseModel):
         *,
         result: Result,
         block_number: int,
+        alloc: Alloc | LazyAlloc | None,
     ) -> None:
         """
         Run all block verification rules.
 
-        Dispatch every rule in ``self.verifications``
-        against the transition tool result for a block.
+        Dispatch every rule in ``self.verifications`` against the
+        transition tool result and post-state ``alloc`` of a block.
         """
         for v in self.verifications:
             v.verify(
                 result=result,
                 block_number=block_number,
+                alloc=alloc,
             )
 
 
