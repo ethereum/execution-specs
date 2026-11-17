@@ -49,7 +49,7 @@ state_tests/stLogTests/log4_nonEmptyMem_logMemSize1Filler.json
 state_tests/stLogTests/log4_nonEmptyMem_logMemSize1_logMemStart31Filler.json
 """
 
-from typing import List
+from typing import List, Tuple
 
 import pytest
 from execution_testing import (
@@ -57,8 +57,11 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Fork,
+    Hash,
     StateTestFiller,
     Transaction,
+    TransactionLog,
+    TransactionReceipt,
 )
 from execution_testing.vm import Op
 
@@ -83,13 +86,14 @@ CASES_WITHOUT_TOPICS = [
 CASES_WITH_TOPICS = ["max_topic", "caller", "pc"]
 
 
-def logger_code(topic_count: int, case: str) -> Bytecode:
-    """Return the logger code for a case."""
+def logger_code(topic_count: int, case: str) -> Tuple[Bytecode, bytes]:
+    """Return the logger code for a case and the memory it writes."""
     topics: List[int | Bytecode] = [0] * topic_count
     memory = Op.MSTORE(offset=0, value=MEMORY_WORD)
+    memory_bytes = MEMORY_WORD.to_bytes(32, "big")
     offset, size = 0, 32
     if case == "empty_mem":
-        memory, size = Bytecode(), 0
+        memory, memory_bytes, size = Bytecode(), b"", 0
     elif case == "log_mem_start_too_high":
         offset, size = MAX_WORD, 1
     elif case == "log_memsize_too_high":
@@ -98,6 +102,7 @@ def logger_code(topic_count: int, case: str) -> Bytecode:
         offset, size = 1, 0
     elif case == "non_empty_mem":
         memory = Op.MSTORE(offset=0, value=MAX_WORD)
+        memory_bytes = MAX_WORD.to_bytes(32, "big")
     elif case == "non_empty_mem_log_mem_size1":
         size = 1
     elif case == "non_empty_mem_log_mem_size1_log_mem_start31":
@@ -106,14 +111,30 @@ def logger_code(topic_count: int, case: str) -> Bytecode:
         topics = [MAX_WORD] * topic_count
     elif case == "caller":
         memory = Op.MSTORE8(offset=0, value=0xFF)
+        memory_bytes = b"\xff" + bytes(31)
         topics[-1] = Op.CALLER
     elif case == "pc":
         memory = Op.MSTORE8(offset=0, value=0xFF)
+        memory_bytes = b"\xff" + bytes(31)
         topics = [Op.PC] * topic_count
     else:
         raise ValueError(f"Unknown case: {case}")
     log = LOG_OPCODES[topic_count](offset, size, *topics)
-    return memory + log + Op.STOP
+    data = memory_bytes[offset : offset + size]
+    return memory + log + Op.STOP, data
+
+
+def pc_values(code: Bytecode) -> List[int]:
+    """Return the program counter of every PC opcode in `code`."""
+    raw = bytes(code)
+    pcs, i = [], 0
+    while i < len(raw):
+        if raw[i] == Op.PC.int():
+            pcs.append(i)
+        if Op.PUSH1.int() <= raw[i] <= Op.PUSH32.int():
+            i += raw[i] - Op.PUSH1.int() + 1
+        i += 1
+    return pcs
 
 
 @pytest.mark.ported_from(
@@ -181,22 +202,45 @@ def test_log(
     topic_count: int,
     case: str,
 ) -> None:
-    """Call a logger contract and store whether the call succeeded."""
+    """Call a logger contract and check its call result and log."""
     sender = pre.fund_eoa()
-    logger = pre.deploy_contract(code=logger_code(topic_count, case))
+    code, data = logger_code(topic_count, case)
+    logger = pre.deploy_contract(code=code)
     caller = pre.deploy_contract(
         code=Op.SSTORE(key=0, value=Op.CALL(address=logger))
         + Op.SSTORE(key=1, value=CANARY)
         + Op.STOP,
     )
 
+    if case == "max_topic":
+        topics = [MAX_WORD] * topic_count
+    elif case == "pc":
+        topics = list(reversed(pc_values(code)))
+    else:
+        topics = [0] * topic_count
+        if case == "caller":
+            topics[-1] = int.from_bytes(caller, "big")
+
+    succeeds = case not in ("log_mem_start_too_high", "log_memsize_too_high")
+    logs = (
+        [
+            TransactionLog(
+                address=logger,
+                topics=[Hash(topic) for topic in topics],
+                data=data,
+            )
+        ]
+        if succeeds
+        else []
+    )
+
     tx = Transaction(
         sender=sender,
         to=caller,
         protected=fork.supports_protected_txs(),
+        expected_receipt=TransactionReceipt(logs=logs),
     )
 
-    succeeds = case not in ("log_mem_start_too_high", "log_memsize_too_high")
     post = {caller: Account(storage={0: int(succeeds), 1: CANARY})}
 
     state_test(pre=pre, post=post, tx=tx)
