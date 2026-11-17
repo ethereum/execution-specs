@@ -14,6 +14,11 @@ being filled, and after it over the block's filled post-state
 group, so an uncontrolled account sharing the group's prefix fails the
 fill, whether genesis holds it or the block creates it.
 
+Every test is a blockchain test: the tests describe the account trie at
+the end of a block, which is where `AccountShapeAfterBlock` runs. A state
+test applies its transaction without the block's system operations, so
+its post-state is not that trie.
+
 A committed account leaf can only be deleted by a contract created in the
 same transaction (EIP-6780). The deletion tests fund a mined address at
 genesis and CREATE2 onto it through the deterministic factory with init
@@ -44,7 +49,6 @@ from execution_testing import (
     Hash,
     Initcode,
     Op,
-    StateTestFiller,
     Transaction,
     Withdrawal,
     compute_create2_address,
@@ -157,7 +161,7 @@ def _fund_collapse_pair(pre: Alloc) -> Tuple[Address, Address, EOA]:
 
 
 def test_genesis_extension_and_branch(
-    state_test: StateTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
     Two funded addresses sharing four nibbles sit under one branch.
@@ -171,15 +175,15 @@ def test_genesis_extension_and_branch(
     sender, recipient = pre.fund_eoa(), pre.fund_eoa(amount=1)
     assert node_at(account_shape(pre, a), 4) == ("branch", 2)
 
-    state_test(
+    blockchain_test(
         pre=pre,
-        tx=Transaction(sender=sender, to=recipient),
         post={a: Account(balance=1), b: Account(balance=2)},
+        blocks=[Block(txs=[Transaction(sender=sender, to=recipient)])],
     )
 
 
 def test_genesis_full_branch_arity_sixteen(
-    state_test: StateTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
     Sixteen funded addresses sharing four nibbles fill one branch.
@@ -193,10 +197,10 @@ def test_genesis_full_branch_arity_sixteen(
     sender, recipient = pre.fund_eoa(), pre.fund_eoa(amount=1)
     assert node_at(account_shape(pre, addresses[0]), 4) == ("branch", 16)
 
-    state_test(
+    blockchain_test(
         pre=pre,
-        tx=Transaction(sender=sender, to=recipient),
         post={a: Account(balance=i + 1) for i, a in enumerate(addresses)},
+        blocks=[Block(txs=[Transaction(sender=sender, to=recipient)])],
     )
 
 
@@ -212,7 +216,7 @@ def _pay_each(addresses: List[Address]) -> Bytecode:
 
 
 def test_insert_full_branch_during_execution(
-    state_test: StateTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
     A contract pays sixteen mined addresses, creating their leaves.
@@ -225,13 +229,13 @@ def test_insert_full_branch_during_execution(
     sender = pre.fund_eoa()
     assert covering(account_shape(pre, addresses[0]), 4)[1] != "branch"
 
-    state_test(
+    blockchain_test(
         pre=pre,
-        tx=Transaction(sender=sender, to=payer),
         post={
             payer: Account(balance=0),
             **{a: Account(balance=1) for a in addresses},
         },
+        blocks=[Block(txs=[Transaction(sender=sender, to=payer)])],
         verifications=[
             AccountShapeAfterBlock(addresses[0], _is_node_at(4, "branch", 16))
         ],
@@ -239,7 +243,7 @@ def test_insert_full_branch_during_execution(
 
 
 def test_insert_splits_extension_above_deep_branch(
-    state_test: StateTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
     Create an account between an unchanged subtree and a deeper branch.
@@ -289,13 +293,13 @@ def test_insert_splits_extension_above_deep_branch(
     assert key[left][:2] == "1f" and key[new][:3] == "200"
     assert key[deep][:4] == "201b" and key[committed[6]][:4] == "201c"
 
-    state_test(
+    blockchain_test(
         pre=pre,
-        tx=Transaction(sender=sender, to=new, value=1),
         post={
             new: Account(balance=1),
             **{a: Account(balance=i + 1) for i, a in enumerate(committed)},
         },
+        blocks=[Block(txs=[Transaction(sender=sender, to=new, value=1)])],
         verifications=[
             AccountShapeAfterBlock(
                 deep, lambda shape: shape[1:] == deep_after
@@ -352,7 +356,7 @@ def test_insert_splits_extension_above_deep_branch_across_blocks(
 
 
 def test_insert_before_deep_branch_below_extension(
-    state_test: StateTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
     Create an account before a deep branch without splitting the extension.
@@ -377,13 +381,13 @@ def test_insert_before_deep_branch_below_extension(
         (6, "leaf", 58),
     ]
 
-    state_test(
+    blockchain_test(
         pre=pre,
-        tx=Transaction(sender=sender, to=new, value=1),
         post={
             new: Account(balance=1),
             **{a: Account(balance=i + 1) for i, a in enumerate(committed)},
         },
+        blocks=[Block(txs=[Transaction(sender=sender, to=new, value=1)])],
         verifications=[
             AccountShapeAfterBlock(
                 deep, lambda shape: shape[1:] == deep_after
@@ -396,7 +400,7 @@ def test_insert_before_deep_branch_below_extension(
 
 
 def test_touched_empty_account_never_persists(
-    state_test: StateTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
     A zero-value call to a never-seen address creates no leaf.
@@ -407,10 +411,12 @@ def test_touched_empty_account_never_persists(
     target = pre.fund_eoa(amount=0)
     assert target not in pre
 
-    state_test(
+    blockchain_test(
         pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=target, value=0),
         post={target: Account.NONEXISTENT},
+        blocks=[
+            Block(txs=[Transaction(sender=pre.fund_eoa(), to=target, value=0)])
+        ],
     )
 
 
@@ -742,7 +748,7 @@ def _fund_collapse(
     ],
 )
 def test_delete_collapses_under_controlled_parent(
-    state_test: StateTestFiller,
+    blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     funded: List[int],
     salt: int,
@@ -765,19 +771,19 @@ def test_delete_collapses_under_controlled_parent(
         pre, addresses, salt, depth, parent_kind, survivor_kind
     )
 
-    state_test(
+    blockchain_test(
         pre=pre,
-        tx=_delete_tx(sender, salt),
         post={
             **{a: Account(balance=1) for a in addresses},
             doomed: Account.NONEXISTENT,
         },
+        blocks=[Block(txs=[_delete_tx(sender, salt)])],
         verifications=[collapsed],
     )
 
 
 def test_delete_from_three_child_branch(
-    state_test: StateTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
     Delete one of three accounts under one branch.
@@ -794,14 +800,14 @@ def test_delete_from_three_child_branch(
     sender = pre.fund_eoa()
     assert node_at(account_shape(pre, p), 4) == ("branch", 3)
 
-    state_test(
+    blockchain_test(
         pre=pre,
-        tx=_delete_tx(sender, COLLAPSE_SALT),
         post={
             p: Account(balance=1),
             q: Account(balance=2),
             doomed: Account.NONEXISTENT,
         },
+        blocks=[Block(txs=[_delete_tx(sender, COLLAPSE_SALT)])],
         verifications=[AccountShapeAfterBlock(p, _is_node_at(4, "branch", 2))],
     )
 
@@ -845,7 +851,7 @@ def test_mass_delete_sixteen_to_one(
 
 
 def test_bulk_account_creations_under_full_root_branch(
-    state_test: StateTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
     """
     A contract pays 300 fresh addresses spread over all 16 root children.
@@ -861,8 +867,8 @@ def test_bulk_account_creations_under_full_root_branch(
     assert not any(a in pre for a in new)
     payer = pre.deploy_contract(code=_pay_each(new), balance=len(new))
 
-    state_test(
+    blockchain_test(
         pre=pre,
-        tx=Transaction(sender=pre.fund_eoa(), to=payer),
         post={a: Account(balance=1) for a in new},
+        blocks=[Block(txs=[Transaction(sender=pre.fund_eoa(), to=payer)])],
     )
