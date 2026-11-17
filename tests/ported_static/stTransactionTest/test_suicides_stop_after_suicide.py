@@ -45,7 +45,6 @@ def test_suicides_stop_after_suicide(
     tx = Transaction(sender=sender, to=caller, value=10)
 
     post = {
-        CALLEE_BENEFICIARY: Account.NONEXISTENT,
         callee: Account(balance=1110 + 10000 + 10),
         caller: Account(code=caller_code, balance=0),
         sender: Account(nonce=1),

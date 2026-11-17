@@ -59,7 +59,6 @@ def test_suicides_and_internal_call_suicides_bonus_gas_at_call(
     tx = Transaction(sender=sender, to=caller, value=10)
 
     post = {
-        CALLEE_BENEFICIARY: Account.NONEXISTENT,
         callee: Account(code=callee_code, balance=1 + 20),
         caller: Account(code=caller_code, balance=0),
     }
