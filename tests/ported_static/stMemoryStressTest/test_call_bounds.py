@@ -100,13 +100,14 @@ def test_call_bounds(
     offset: int,
     size: int,
 ) -> None:
-    """Call a storage counter with args and return data at the region."""
+    """Call a storage counter twice, the second time over the region."""
     sender = pre.fund_eoa()
     counter = pre.deploy_contract(
         code=Op.SSTORE(key=0, value=Op.ADD(1, Op.SLOAD(key=0))) + Op.STOP,
     )
     target = pre.deploy_contract(
-        code=opcode(
+        code=Op.POP(opcode(address=counter))
+        + opcode(
             address=counter,
             args_offset=offset,
             args_size=size,
@@ -130,10 +131,12 @@ def test_call_bounds(
 
     target_succeeds = size == 0
     counted = target_succeeds and opcode != Op.STATICCALL
-    counter_holder = counter if opcode == Op.CALL else target
+    counter_holder = (
+        target if opcode in (Op.CALLCODE, Op.DELEGATECALL) else counter
+    )
     post = {
         entry: Account(storage={0: int(target_succeeds), 1: CANARY}),
-        counter_holder: Account(storage={0: int(counted)}),
+        counter_holder: Account(storage={0: 2 * int(counted)}),
     }
 
     state_test(pre=pre, post=post, tx=tx)
