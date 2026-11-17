@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test the gas of state access operations run back to back.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/eip2929Filler.yml
@@ -318,63 +318,21 @@ def test_eip2929(
     g: int,
     v: int,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
+    """Store the gas of three state access operations from calldata."""
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
-    # Source: raw
-    # 0x00
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #     @@0x100
-    # }
     contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SLOAD(key=0x100) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #      (balance 0xca11)
-    # }
     contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.BALANCE(address=contract_0) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #    (def 'oper1 $4)
-    #    (def 'oper2 $36)
-    #    (def 'oper3 $68)
-    #
-    #    (def 'NOP 0)
-    #    (def 'measurementCost 0x022a)
-    #
-    #    (def 'gasB4     0x00)
-    #    (def 'gasAfter  0x20)
-    #    (def 'operation 0x40)
-    #
-    #    ; Write to the memory so memory allocation won't affect the
-    #    ; measurement
-    #    [gasB4] (gas)
-    #    [gasAfter] (gas)
-    #
-    #    ; Read addresses so that won't affect the measurement
-    #    (balance 0xca1100ca11)
-    #    (balance   0xca110100)
-    #
-    #    (def 'tests {
-    #        (if (= @operation 1) @@0x100 NOP) ; SLOAD
-    #        (if (= @operation 2) [[0x100]] 5 NOP) ; SSTORE
-    #        (if (= @operation 11) (balance 0xca11) NOP) ; BALANCE
-    #        (if (= @operation 12) (extcodesize 0xca11) NOP) ; EXTCODESIZE
-    #        (if (= @operation 13) (extcodecopy 0xca11 0 0 0) NOP) ; EXTCODECOPY  # noqa: E501
-    #        (if (= @operation 14) (extcodehash 0xca11) NOP) ; EXTCODEHASH
-    #        (if (= @operation 21) (call 0x1000 0xca11 0 0 0 0 0) NOP) ; CALL
-    #        (if (= @operation 22) (callcode 0x1000 0xca11 0 0 0 0 0) NOP) ; CALLCODE  # noqa: E501
-    # ... (35 more lines)
     measured = [
         (0x1, Op.SLOAD(key=0x100), True),
         (0x2, Op.SSTORE(key=0x100, value=0x5), False),
