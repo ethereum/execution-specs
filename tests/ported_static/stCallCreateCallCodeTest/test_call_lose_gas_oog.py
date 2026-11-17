@@ -12,6 +12,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -19,6 +20,10 @@ from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+# Just enough for the outer frame to finish after the inner frame burns
+# its whole grant, before EIP-8037 state gas.
+TIGHT_TX_GAS = 170000
 
 
 @pytest.mark.ported_from(
@@ -42,6 +47,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     "tx_gas",
     [
         pytest.param(None, id="enough_gas"),
+        pytest.param(TIGHT_TX_GAS, id="tight_gas"),
         pytest.param(166262, id="tx_oog"),
         pytest.param(156262, id="tx_oog_lower"),
     ],
@@ -49,6 +55,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_lose_gas_oog(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     opcode: Op,
     tx_gas: int | None,
 ) -> None:
@@ -58,6 +65,8 @@ def test_call_lose_gas_oog(
     The inner frame runs out of gas, its gas is lost and the outer frame
     finishes, unless the tx gas limit cannot cover the lost gas.
     """
+    if tx_gas == TIGHT_TX_GAS and fork.is_eip_enabled(8037):
+        pytest.skip("EIP-8037 state gas exceeds the tight budget")
     sender = pre.fund_eoa()
 
     # Source: lll
@@ -77,7 +86,7 @@ def test_call_lose_gas_oog(
 
     tx = Transaction(sender=sender, to=target, gas_limit=tx_gas)
 
-    if tx_gas is None:
+    if tx_gas is None or tx_gas == TIGHT_TX_GAS:
         storage = {0: 1, 1: 0, 2: 1001}
     else:
         storage = {}
