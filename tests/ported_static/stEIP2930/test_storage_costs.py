@@ -277,23 +277,6 @@ def test_storage_costs(
     """Ori Pomerantz qbzzt1@gmail."""
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    # Source: lll
-    # {
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x02
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; If the storage cell is declared the cost in @@1 should be 20003
-    #  ; If the storage cell is not declared the cost    should be 22103
-    # }
     contract_0 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x2)
@@ -305,18 +288,6 @@ def test_storage_costs(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #  ; Read @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #    @@0
-    #    [0]   (- @0 (gas) 19)
-    #   [[1]] @0
-    #
-    #  ; If the storage cell is declared the cost in @@1 should be  100
-    #  ; If the storage cell is not declared the cost    should be 2100
-    # }
     contract_1 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(Op.SLOAD(key=0x0))
@@ -328,26 +299,6 @@ def test_storage_costs(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x00
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; If the storage cell is declared the cost in @@1 should be 2903
-    #  ; If the storage cell is not declared the cost    should be 5003
-    #  ;
-    #  ; The refund for freeing memory happens at the end of the transaction,
-    #  ; so we don't see it
-    # }
     contract_2 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x0)
@@ -360,23 +311,6 @@ def test_storage_costs(
         storage={0: 24743},
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0xBEEF
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; If the storage cell is declared the cost in @@1 should be  103
-    #  ; If the storage cell is not declared the cost    should be 2203
-    # }
     contract_3 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0xBEEF)
@@ -389,22 +323,6 @@ def test_storage_costs(
         storage={0: 24743},
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x60A7
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; This costs 103, regadless of whether it is declared or not
-    # }
     contract_4 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x60A7)
@@ -417,22 +335,6 @@ def test_storage_costs(
         storage={0: 24743},
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x00
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; This costs 103, regadless of whether it is declared or not
-    # }
     contract_5 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x0)
@@ -445,27 +347,6 @@ def test_storage_costs(
         storage={0: 0},
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #
-    #   [[0]] 0x60A7
-    #
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x02
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; Since this is second access, it will cost 103
-    #  ; regardless of whether it was declared or not
-    #
-    # }
     contract_6 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x60A7)
         + Op.MSTORE(offset=0x0, value=Op.GAS)
@@ -478,20 +359,6 @@ def test_storage_costs(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #   [[0]] 0x60A7
-    #
-    #  ; Read @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #    @@0
-    #    [0]   (- @0 (gas) 19)
-    #   [[1]] @0
-    #
-    #  ; Since this is second access, it will cost 100
-    #  ; regardless of whether it was declared or not
-    # }
     contract_7 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x60A7)
         + Op.MSTORE(offset=0x0, value=Op.GAS)
@@ -504,26 +371,6 @@ def test_storage_costs(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #   [0x20] @@0
-    #
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x02
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; Since this is second access, it will cost 20k
-    #  ; regardless of whether it was declared or not
-    #
-    # }
     contract_8 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x20, value=Op.SLOAD(key=0x0))
         + Op.MSTORE(offset=0x0, value=Op.GAS)
@@ -536,19 +383,6 @@ def test_storage_costs(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #   [0x20] @@0
-    #
-    #  ; Read @@0, and see how much gas that cost.
-    #    [0]   (gas)
-    #    @@0
-    #    [0]   (- @0 (gas) 19)
-    #   [[1]] @0
-    #
-    #  ; Since this is second access, it will cost 97
-    #  ; regardless of whether it was declared or not
-    # }
     contract_9 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x20, value=Op.SLOAD(key=0x0))
         + Op.MSTORE(offset=0x0, value=Op.GAS)
@@ -561,32 +395,6 @@ def test_storage_costs(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # { ; TO_ADDR_VALID   TO_ADDR_INVALID_ADDR    TO_ADDR_INVALID_CELL
-    #   ; Call a different contract
-    #   (call (gas) (+ 0x1000 $4) 0 0 0 0 0)
-    #
-    #   ; Read @@0, and see how much gas that cost.
-    #     [0]   (gas)
-    #     @@0x60A7
-    #     [0]   (- @0 (gas) 19)
-    #    [[1]] @0
-    #
-    #
-    #   ; Write to @@0, and see how much gas that cost. It should
-    #   ; cost more when it is not declared storage
-    #     [0]   (gas)
-    #    [[0]]  0x02
-    #     [0]   (- @0 (gas) 17)
-    #    [[2]] @0
-    #
-    #   ; The 17 is the cost of the extra opcodes:
-    #   ; PUSH1 0x00, MSTORE
-    #   ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #   ; GAS
-    #
-    #
-    # }
     contract_10 = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(

@@ -59,10 +59,6 @@ def test_low_gas_price_old_types(
     """Ori Pomerantz qbzzt1@gmail."""
     sender = pre.fund_eoa()
 
-    # Source: yul
-    # berlin {
-    #     sstore(0, add(1,1))
-    # }
     target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
     )

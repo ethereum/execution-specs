@@ -46,7 +46,6 @@ def test_sender_balance(
 
     sender = pre.fund_eoa(amount=sender_balance)
 
-    # Source: yul: { sstore(0, balance(caller())) }
     target_code = (
         Op.SSTORE(
             key=0x0,

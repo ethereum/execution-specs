@@ -124,15 +124,6 @@ def test_val_causes_oof(
     """Ori Pomerantz qbzzt1@gmail."""
     sender = pre.fund_eoa(amount=0x5F5E100)
 
-    # Source: yul
-    # london
-    # {
-    #     // This loop runs a number of times specified in the data,
-    #     // so the gas cost depends on the data
-    #     for { let i := calldataload(4) } gt(i,0) { i := sub(i,1) } {
-    #        sstore(i, 0x60A7)
-    #     }     // for loop
-    # }
     target = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x4)
         + Op.JUMPDEST

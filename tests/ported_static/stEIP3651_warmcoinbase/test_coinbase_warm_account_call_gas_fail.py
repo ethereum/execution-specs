@@ -70,12 +70,6 @@ def test_coinbase_warm_account_call_gas_fail(
     """Test_coinbase_warm_account_call_gas_fail."""
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(call(0, cb, 0, 0, 0, 0, 0))
-    # }
     addr = pre.deploy_contract(
         code=Op.CALL(
             gas=Op.DUP2,
@@ -89,12 +83,6 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(callcode(0, cb, 0, 0, 0, 0, 0))
-    # }
     addr_2 = pre.deploy_contract(
         code=Op.CALLCODE(
             gas=Op.DUP2,
@@ -108,12 +96,6 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(delegatecall(0, cb, 0, 0, 0, 0))
-    # }
     addr_3 = pre.deploy_contract(
         code=Op.DELEGATECALL(
             gas=Op.DUP2,
@@ -126,12 +108,6 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(staticcall(0, cb, 0, 0, 0, 0))
-    # }
     addr_4 = pre.deploy_contract(
         code=Op.STATICCALL(
             gas=Op.DUP2,
@@ -144,36 +120,6 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: yul
-    # berlin
-    # {
-    #    // Depending on the called contract here, the subcall will perform
-    #    // another call/delegatecall/staticcall/callcode that will only succeed  # noqa: E501
-    #    // if coinbase is considered warm by default (post-Shanghai).
-    #    let calladdr := calldataload(4)
-    #
-    #    let callgas := 100
-    #    switch calladdr
-    #    case <contract:0x0000000000000000000000000000000000001000> {
-    #      // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 27)
-    #    }
-    #    case <contract:0x0000000000000000000000000000000000002000> {
-    #      // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 27)
-    #    }
-    #    case <contract:0x0000000000000000000000000000000000003000> {
-    #      // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 24)
-    #    }
-    #    case <contract:0x0000000000000000000000000000000000004000> {
-    #      // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 24)
-    #    }
-    #    // Call and save result
-    #    sstore(0, call(callgas, calladdr, 0, 0, 0, 0, 0))
-    #
-    # }
     target = pre.deploy_contract(
         code=Op.PUSH1[0x0]
         + Op.DUP1 * 4

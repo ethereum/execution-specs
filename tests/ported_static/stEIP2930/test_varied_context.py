@@ -287,34 +287,6 @@ def test_varied_context(
     """Ori Pomerantz qbzzt1@gmail."""
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    # Source: lll
-    # {
-    #    ; 0xC057: DELEGATE_VALID DELEGATE_INVALID
-    #    ;         CALL_INVALID CALL_VALID
-    #    ;         CALLCODE_VALID CALLCODE_INVALID
-    #
-    #
-    #  ; Write to [[0]], and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x02
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; Read [[0x60A7]], and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [0x20] @@0x60A7
-    #    [0]   (- @0 (gas) 16)
-    #   [[2]] @0
-    #
-    #  ; The 16 is the cost of the extra opcodes
-    # }
     contract_3 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x2)
@@ -334,20 +306,6 @@ def test_varied_context(
         storage={24743: 57005},
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #  ;   STATICCALL_VALID  STATICCALL_INVALID
-    #
-    #
-    #  ; Read [[0x60A7]], and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #  [0x20] @@0x60A7
-    #    [0]   (- @0 (gas) 19)
-    #  ; The 19 is the cost of the extra opcodes
-    #
-    #  (return 0x00 0x20) ; a.k.a. @0
-    # }
     contract_5 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.MSTORE(offset=0x20, value=Op.SLOAD(key=0x60A7))
@@ -360,33 +318,6 @@ def test_varied_context(
         storage={24743: 57005},
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #  ;   CALL_REVERT_VALID     CALL_REVERT_INVALID
-    #
-    #  ; Write to [[0]], and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x02
-    #    [0]   (- @0 (gas) 17)
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; Read [[0x60A7]], and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #   [0x20] (gas)
-    #   [0x40] @@0x60A7
-    #   [0x20] (- @0x20 (gas) 26)
-    #
-    #  ; The 29 is the cost of the extra opcodes
-    #
-    #  ; Send the results the only way we can
-    #
-    #  (revert 0 0x40)
-    # }
     contract_6 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x2)
@@ -405,26 +336,12 @@ def test_varied_context(
         storage={24743: 48879},
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #    ; CALL_WRITE_SUICIDE_VALID      CALL_WRITE_SUICIDE_INVALID
-    #    [[0]] 0xDEAD
-    #
-    #    (selfdestruct 0)
-    # }
     contract_8 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0xDEAD)
         + Op.SELFDESTRUCT(address=0x0)
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #    ; CALL_READ_SUICIDE_VALID      CALL_READ_SUICIDE_INVALID
-    #    @@0
-    #
-    #    (selfdestruct 0)
-    # }
     contract_10 = pre.deploy_contract(
         code=Op.POP(Op.SLOAD(key=0x0))
         + Op.SELFDESTRUCT(address=0x0)
@@ -432,14 +349,6 @@ def test_varied_context(
         storage={0: 0xDEAD0060A7},
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {  ; STATIC_WRITE_VALID     STATIC_WRITE_INVALID
-    #    [[0]] 0xDEAD60A7
-    #
-    #    ; If we get here, GOOD
-    #    [0] 0x600D
-    #    (return 0 0x20)
-    # }
     contract_12 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0xDEAD60A7)
         + Op.MSTORE(offset=0x0, value=0x600D)
@@ -447,21 +356,11 @@ def test_varied_context(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {  ; WRITE_INVALID_OOG    WRITE_VALID_NO_OOG
-    #
-    #   [[0]] 0x600D
-    # }
     contract_14 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x600D) + Op.STOP,
         storage={0: 2989},
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {  ; READ_INVALID_OOG    READ_VALID_NO_OOG
-    #    [0] @@0x60A7
-    #    [[0]] 0x600D
-    # }
     contract_16 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.SLOAD(key=0x60A7))
         + Op.SSTORE(key=0x0, value=0x600D)
@@ -469,38 +368,6 @@ def test_varied_context(
         storage={0: 2989, 24743: 57005},
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #   ; CREATE_VALID   CREATE_INVALID
-    #
-    #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
-    #   ; code buffers that get 0x100 (256 bytes)
-    #   (def 'constructorCode   0x000)
-    #   (def 'contractCode      0x100)
-    #   (def 'contractLength    0x200)
-    #   (def 'constructorLength 0x220)
-    #   (def 'addr              0x240)
-    #
-    #   (def 'bufLength         0x100)
-    #
-    #   ; Create the contract code
-    #   [contractLength]
-    #     (lll
-    #       {
-    #          [[0]] 0xFF
-    #       } contractCode
-    #     )     ; contract lll
-    #
-    #   ; Create the constructor code, which runs with the contract address
-    #   ; of the newly created contract. If we declare that address in the
-    #   ; transaction's access list we get the discount
-    #   [constructorLength]
-    #     (lll
-    #       {
-    #          ; write to storage
-    #          [0] (gas)
-    #          [[0]] 0xFFFF
-    # ... (14 more lines)
     contract_18 = pre.deploy_contract(
         code=Op.PUSH1[0x6]
         + Op.CODECOPY(dest_offset=0x100, offset=0x33, size=Op.DUP1)
@@ -531,38 +398,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #   ; CREATE2_VALID   CREATE2_INVALID
-    #
-    #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
-    #   ; code buffers that get 0x100 (256 bytes)
-    #   (def 'constructorCode   0x000)
-    #   (def 'contractCode      0x100)
-    #   (def 'contractLength    0x200)
-    #   (def 'constructorLength 0x220)
-    #   (def 'addr              0x240)
-    #
-    #   (def 'bufLength         0x100)
-    #
-    #   ; Create the contract code
-    #   [contractLength]
-    #     (lll
-    #       {
-    #          [[0]] 0xFF
-    #       } contractCode
-    #     )     ; contract lll
-    #
-    #   ; Create the constructor code, which runs with the contract address
-    #   ; of the newly created contract. If we declare that address in the
-    #   ; transaction's access list we get the discount
-    #   [constructorLength]
-    #     (lll
-    #       {
-    #          ; write to storage
-    #          [0] (gas)
-    #          [[0]] 0xFFFF
-    # ... (14 more lines)
     contract_19 = pre.deploy_contract(
         code=Op.PUSH1[0x6]
         + Op.CODECOPY(dest_offset=0x100, offset=0x36, size=Op.DUP1)
@@ -594,38 +429,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #   ; CALL_CREATED_VALID     CALL_CREATED_INVALID
-    #
-    #
-    #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
-    #   ; code buffers that get 0x100 (256 bytes)
-    #   (def 'constructorCode   0x000)
-    #   (def 'contractCode      0x100)
-    #   (def 'contractLength    0x200)
-    #   (def 'constructorLength 0x220)
-    #   (def 'addr              0x240)
-    #
-    #   (def 'bufLength         0x100)
-    #
-    #   ; Create the contract code
-    #   [contractLength]
-    #     (lll
-    #       {
-    #          ; write to storage
-    #          [0] (gas)
-    #          [[0]] 0xFFFF
-    #          [[1]] (- @0 (gas))
-    #       } contractCode
-    #     )     ; contract lll
-    #
-    #
-    #   ; Create the constructor code
-    #   [constructorLength]
-    #     (lll
-    #       {
-    # ... (13 more lines)
     contract_20 = pre.deploy_contract(
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x44, size=Op.DUP1)
@@ -666,38 +469,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #   ; CALL_CREATE2_ED_VALID     CALL_CREATE2_ED_INVALID
-    #
-    #
-    #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
-    #   ; code buffers that get 0x100 (256 bytes)
-    #   (def 'constructorCode   0x000)
-    #   (def 'contractCode      0x100)
-    #   (def 'contractLength    0x200)
-    #   (def 'constructorLength 0x220)
-    #   (def 'addr              0x240)
-    #
-    #   (def 'bufLength         0x100)
-    #
-    #   ; Create the contract code
-    #   [contractLength]
-    #     (lll
-    #       {
-    #          ; write to storage
-    #          [0] (gas)
-    #          [[0]] 0xFFFF
-    #          [[1]] (- @0 (gas))
-    #       } contractCode
-    #     )     ; contract lll
-    #
-    #
-    #   ; Create the constructor code
-    #   [constructorLength]
-    #     (lll
-    #       {
-    # ... (13 more lines)
     contract_21 = pre.deploy_contract(
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x47, size=Op.DUP1)
@@ -739,38 +510,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #   ; CREATE_&_CALL_VALID           CREATE_&_CALL_INVALID
-    #
-    #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
-    #   ; code buffers that get 0x100 (256 bytes)
-    #   (def 'constructorCode   0x000)
-    #   (def 'contractCode      0x100)
-    #   (def 'contractLength    0x200)
-    #   (def 'constructorLength 0x220)
-    #   (def 'addr              0x240)
-    #
-    #   (def 'bufLength         0x100)
-    #
-    #   ; Create the contract code
-    #   [contractLength]
-    #     (lll
-    #       {
-    #          ; write to storage
-    #          [0] (gas)
-    #          [[0]] 0xFFFF
-    #          [[2]] (- @0 (gas))
-    #       } contractCode
-    #     )     ; contract lll
-    #
-    #
-    #   ; Create the constructor code
-    #   [constructorLength]
-    #     (lll
-    #       {
-    #          ; write to storage
-    # ... (18 more lines)
     contract_22 = pre.deploy_contract(
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x44, size=Op.DUP1)
@@ -814,38 +553,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #   ; CREATE2_&_CALL_VALID           CREATE2_&_CALL_INVALID
-    #
-    #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
-    #   ; code buffers that get 0x100 (256 bytes)
-    #   (def 'constructorCode   0x000)
-    #   (def 'contractCode      0x100)
-    #   (def 'contractLength    0x200)
-    #   (def 'constructorLength 0x220)
-    #   (def 'addr              0x240)
-    #
-    #   (def 'bufLength         0x100)
-    #
-    #   ; Create the contract code
-    #   [contractLength]
-    #     (lll
-    #       {
-    #          ; write to storage
-    #          [0] (gas)
-    #          [[0]] 0xFFFF
-    #          [[2]] (- @0 (gas))
-    #       } contractCode
-    #     )     ; contract lll
-    #
-    #
-    #   ; Create the constructor code
-    #   [constructorLength]
-    #     (lll
-    #       {
-    #          ; write to storage
-    # ... (18 more lines)
     contract_23 = pre.deploy_contract(
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x47, size=Op.DUP1)
@@ -890,17 +597,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #   ; CALL_TWICE_VALID     CALL_TWICE_INVALID
-    #   [0] (gas)
-    #   [[0x00]] 0x60A7
-    #   [0] (- @0 (gas))
-    #
-    #   ; If @@1 is empty, write to it. Otherwise, write to @@2
-    #   (if (= @@1 0) {[[1]] @0} {[[2]] @0})
-    #
-    # }
     contract_25 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x60A7)
@@ -914,12 +610,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #    ; DELEGATE_VALID   DELEGATE_INVALID
-    #
-    #    (delegatecall (gas) 0xC057 0 0 0 0)
-    # }
     contract_0 = pre.deploy_contract(
         code=Op.DELEGATECALL(
             gas=Op.GAS,
@@ -932,11 +622,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #    ; CALLCODE_VALID       CALLCODE_INVALID
-    #    (callcode (gas) 0xC057 0 0 0 0 0)
-    # }
     contract_2 = pre.deploy_contract(
         code=Op.CALLCODE(
             gas=Op.GAS,
@@ -950,11 +635,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #    ; CALL_VALID    CALL_INVALID
-    #    (call (gas) 0xC057 0 0 0 0 0)
-    # }
     contract_1 = pre.deploy_contract(
         code=Op.CALL(
             gas=Op.GAS,
@@ -968,14 +648,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #    ; STATICCALL_VALID  STATICCALL_INVALID
-    #
-    #    ; Need to store the result here, because static call is, well, static
-    #    (staticcall (gas) 0xEAD0C057 0 0 0 0x20)
-    #    [[0]] @0
-    # }
     contract_4 = pre.deploy_contract(
         code=Op.POP(
             Op.STATICCALL(
@@ -991,13 +663,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #    ; CALL_WRITE_SUICIDE_VALID      CALL_WRITE_SUICIDE_INVALID
-    #    [0] (gas)
-    #    (call (gas) 0xDEAD0111 0 0 0 0 0)
-    #    [[0]] (- @0 (gas) 0x7fe8)
-    # }
     contract_7 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(
@@ -1017,13 +682,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #    ; CALL_READ_SUICIDE_VALID      CALL_READ_SUICIDE_INVALID
-    #    [0] (gas)
-    #    (call (gas) 0xDEAD0112 0 0 0 0 0)
-    #    [[0]] (- @0 (gas) 0x7fe8)
-    # }
     contract_9 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(
@@ -1043,16 +701,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {  ; STATIC_WRITE_VALID     STATIC_WRITE_INVALID
-    #
-    #    [0x00] 0x0BAD
-    #
-    #    ; If the call is successful @0 becomes 0x600D
-    #    (staticcall (gas) 0xF113 0 0 0 0x20)
-    #
-    #    [[0]] @0x00
-    # }
     contract_11 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0xBAD)
         + Op.POP(
@@ -1070,10 +718,6 @@ def test_varied_context(
         storage={0: 24743},
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {  ; WRITE_INVALID_OOG    WRITE_VALID_NO_OOG
-    #    (call 0x0B65 0xF114 0 0 0 0 0x20)
-    # }
     # EIP-8038 raises the inner SSTORE-write cost. Bump the "valid" gas
     # these callers forward by exactly that increase so their success
     # path stays funded at Amsterdam (preserving the original Cancun
@@ -1106,10 +750,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {  ; READ_INVALID_OOG    READ_VALID_NO_OOG
-    #    (call 0x1800 0xF115 0 0 0 0 0x20)
-    # }
     contract_15 = pre.deploy_contract(
         code=Op.CALL(
             gas=valid_read_gas,
@@ -1123,12 +763,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
     )
-    # Source: lll
-    # {
-    #   ; CALL_TWICE_VALID     CALL_TWICE_INVALID
-    #   (call (gas) 0xF126 0 0 0 0 0)
-    #   (call (gas) 0xF126 0 0 0 0 0)
-    # }
     contract_24 = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(
@@ -1153,15 +787,6 @@ def test_varied_context(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #     ; ccc...ccc  revert and suicide contract
-    #     (call (gas) (+ 0x1000 $4) 0 0 0 0 0x40)
-    #
-    #     ; Write the returned results, if any
-    #     [[0]] @0x00
-    #     [[1]] @0x20
-    # }
     contract_26 = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(
@@ -1178,38 +803,6 @@ def test_varied_context(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
         + Op.STOP,
     )
-    # Source: lll
-    # {  ; RECURSE_VALID   RECURSE_INVALID
-    #    (def 'NOP 0)
-    #
-    #    ; Read storage cell zero, so the first time we read it to won't
-    #    ; be added to the cost
-    #    @@0
-    #
-    #    ; Write to [[0xBEEF]], and see how much gas that cost. It should
-    #    ; cost more when it is not declared storage
-    #      [0]   (gas)
-    #     [[0xBEEF]]  0x02
-    #      [0]   (- @0 (gas) 17)
-    #
-    #    ; Read [[0x60A7]], and see how much gas that cost. It should
-    #    ; cost more when it is not declared storage
-    #    [0x20] (gas)
-    #    [0xA0] @@0x60A7
-    #    [0x20] (- @0x20 (gas) 35)
-    #
-    #    ; Write to a different cell each time
-    #    [0x40] (gas)
-    #    [[(+ 0xF000 @@0)]] 0xBEEF
-    #    [0x40] (- @0x40 (gas) 0x78)
-    #
-    #    ; Read from a different cell each time
-    #    [0x60] (gas)
-    #    @@(+ 0xF010 @@0)
-    #    [0x60] (- @0x60 (gas) 0x7a)
-    #
-    #
-    # ... (13 more lines)
     contract_17 = pre.deploy_contract(
         code=Op.POP(Op.SLOAD(key=0x0))
         + Op.MSTORE(offset=0x0, value=Op.GAS)

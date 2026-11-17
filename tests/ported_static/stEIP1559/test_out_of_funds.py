@@ -72,10 +72,6 @@ def test_out_of_funds(
     """Ori Pomerantz qbzzt1@gmail."""
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    # Source: yul
-    # berlin {
-    #     sstore(0, add(1,1))
-    # }
     target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
     )

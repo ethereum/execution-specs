@@ -32,11 +32,6 @@ def test_tip_too_high(
     """Ori Pomerantz qbzzt1@gmail."""
     sender = pre.fund_eoa()
 
-    # Source: yul
-    # london
-    # {
-    #     sstore(0, add(1,1))
-    # }
     target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
     )
