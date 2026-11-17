@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
@@ -48,7 +47,6 @@ def test_random_statetest647(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=5786929,
     )
 
