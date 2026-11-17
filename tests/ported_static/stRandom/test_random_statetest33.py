@@ -69,7 +69,6 @@ def test_random_statetest33(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=16_777_216,
         to=target,
         data=Bytes(
             "7f000000000000000000000000000000000000000000000000000000000000c3507f00000000000000000000000000000000000000000000000000000000000000015a7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3506f6940566279386017a362876372698f"  # noqa: E501

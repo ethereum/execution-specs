@@ -66,7 +66,6 @@ def test_random_statetest226(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=16_777_216,
         to=target,
         data=(
             Op.CALLDATALOAD(offset=Op.PUSH32[0xC350])
