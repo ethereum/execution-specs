@@ -26,7 +26,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -89,109 +88,109 @@ REFERENCE_SPEC_VERSION = "N/A"
             6,
             0,
             0,
-            id="undeclaredKeyWrite",
+            id="undeclaredKeyWrite_otherKey",
         ),
         pytest.param(
             7,
             0,
             0,
-            id="undeclaredKeyRead",
+            id="undeclaredKeyRead_otherKey",
         ),
         pytest.param(
             8,
             0,
             0,
-            id="undeclaredKeyDel",
+            id="undeclaredKeyDel_otherKey",
         ),
         pytest.param(
             9,
             0,
             0,
-            id="undeclaredKeyUpdate",
+            id="undeclaredKeyUpdate_otherKey",
         ),
         pytest.param(
             10,
             0,
             0,
-            id="undeclaredKeyNOP",
+            id="undeclaredKeyNOP_otherKey",
         ),
         pytest.param(
             11,
             0,
             0,
-            id="undeclaredKeyNOP0",
+            id="undeclaredKeyNOP0_otherKey",
         ),
         pytest.param(
             12,
             0,
             0,
-            id="undeclaredKeyWrite",
+            id="undeclaredKeyWrite_otherAddress",
         ),
         pytest.param(
             13,
             0,
             0,
-            id="undeclaredKeyRead",
+            id="undeclaredKeyRead_otherAddress",
         ),
         pytest.param(
             14,
             0,
             0,
-            id="undeclaredKeyDel",
+            id="undeclaredKeyDel_otherAddress",
         ),
         pytest.param(
             15,
             0,
             0,
-            id="undeclaredKeyUpdate",
+            id="undeclaredKeyUpdate_otherAddress",
         ),
         pytest.param(
             16,
             0,
             0,
-            id="undeclaredKeyNOP",
+            id="undeclaredKeyNOP_otherAddress",
         ),
         pytest.param(
             17,
             0,
             0,
-            id="undeclaredKeyNOP0",
+            id="undeclaredKeyNOP0_otherAddress",
         ),
         pytest.param(
             18,
             0,
             0,
-            id="undeclaredKeyWrite",
+            id="undeclaredKeyWrite_noAccessList",
         ),
         pytest.param(
             19,
             0,
             0,
-            id="undeclaredKeyRead",
+            id="undeclaredKeyRead_noAccessList",
         ),
         pytest.param(
             20,
             0,
             0,
-            id="undeclaredKeyDel",
+            id="undeclaredKeyDel_noAccessList",
         ),
         pytest.param(
             21,
             0,
             0,
-            id="undeclaredKeyUpdate",
+            id="undeclaredKeyUpdate_noAccessList",
         ),
         pytest.param(
             22,
             0,
             0,
-            id="undeclaredKeyNOP",
+            id="undeclaredKeyNOP_noAccessList",
         ),
         pytest.param(
             23,
             0,
             0,
-            id="undeclaredKeyNOP0",
+            id="undeclaredKeyNOP0_noAccessList",
         ),
         pytest.param(
             24,
@@ -251,23 +250,22 @@ REFERENCE_SPEC_VERSION = "N/A"
             33,
             0,
             0,
-            id="undeclaredTo",
+            id="undeclaredTo_otherAddress",
         ),
         pytest.param(
             34,
             0,
             0,
-            id="undeclaredTo",
+            id="undeclaredTo_otherKeys",
         ),
         pytest.param(
             35,
             0,
             0,
-            id="declaredKeyWrite",
+            id="declaredKeyWrite_manyEntries",
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_storage_costs(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -277,46 +275,9 @@ def test_storage_costs(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001000)
-    contract_1 = Address(0x0000000000000000000000000000000000001001)
-    contract_2 = Address(0x0000000000000000000000000000000000001002)
-    contract_3 = Address(0x0000000000000000000000000000000000001003)
-    contract_4 = Address(0x0000000000000000000000000000000000001004)
-    contract_5 = Address(0x0000000000000000000000000000000000001005)
-    contract_6 = Address(0x0000000000000000000000000000000000001010)
-    contract_7 = Address(0x0000000000000000000000000000000000001011)
-    contract_8 = Address(0x0000000000000000000000000000000000001020)
-    contract_9 = Address(0x0000000000000000000000000000000000001021)
-    contract_10 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    # Source: lll
-    # {
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x02
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; If the storage cell is declared the cost in @@1 should be 20003
-    #  ; If the storage cell is not declared the cost    should be 22103
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x2)
         + Op.MSTORE(
@@ -326,22 +287,8 @@ def test_storage_costs(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #  ; Read @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #    @@0
-    #    [0]   (- @0 (gas) 19)
-    #   [[1]] @0
-    #
-    #  ; If the storage cell is declared the cost in @@1 should be  100
-    #  ; If the storage cell is not declared the cost    should be 2100
-    # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(Op.SLOAD(key=0x0))
         + Op.MSTORE(
@@ -351,30 +298,8 @@ def test_storage_costs(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x00
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; If the storage cell is declared the cost in @@1 should be 2903
-    #  ; If the storage cell is not declared the cost    should be 5003
-    #  ;
-    #  ; The refund for freeing memory happens at the end of the transaction,
-    #  ; so we don't see it
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
+    contract_2 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x0)
         + Op.MSTORE(
@@ -385,27 +310,8 @@ def test_storage_costs(
         + Op.STOP,
         storage={0: 24743},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0xBEEF
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; If the storage cell is declared the cost in @@1 should be  103
-    #  ; If the storage cell is not declared the cost    should be 2203
-    # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
+    contract_3 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0xBEEF)
         + Op.MSTORE(
@@ -416,26 +322,8 @@ def test_storage_costs(
         + Op.STOP,
         storage={0: 24743},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x60A7
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; This costs 103, regadless of whether it is declared or not
-    # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
+    contract_4 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x60A7)
         + Op.MSTORE(
@@ -446,26 +334,8 @@ def test_storage_costs(
         + Op.STOP,
         storage={0: 24743},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001004),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x00
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; This costs 103, regadless of whether it is declared or not
-    # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
+    contract_5 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x0)
         + Op.MSTORE(
@@ -476,31 +346,8 @@ def test_storage_costs(
         + Op.STOP,
         storage={0: 0},
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001005),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #
-    #   [[0]] 0x60A7
-    #
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x02
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; Since this is second access, it will cost 103
-    #  ; regardless of whether it was declared or not
-    #
-    # }
-    contract_6 = pre.deploy_contract(  # noqa: F841
+    contract_6 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x60A7)
         + Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x2)
@@ -511,24 +358,8 @@ def test_storage_costs(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001010),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #   [[0]] 0x60A7
-    #
-    #  ; Read @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #    @@0
-    #    [0]   (- @0 (gas) 19)
-    #   [[1]] @0
-    #
-    #  ; Since this is second access, it will cost 100
-    #  ; regardless of whether it was declared or not
-    # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
+    contract_7 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x60A7)
         + Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(Op.SLOAD(key=0x0))
@@ -539,30 +370,8 @@ def test_storage_costs(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001011),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #   [0x20] @@0
-    #
-    #  ; Write to @@0, and see how much gas that cost. It should
-    #  ; cost more when it is not declared storage
-    #    [0]   (gas)
-    #   [[0]]  0x02
-    #    [0]   (- @0 (gas) 17)
-    #   [[1]] @0
-    #
-    #  ; The 17 is the cost of the extra opcodes:
-    #  ; PUSH1 0x00, MSTORE
-    #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #  ; GAS
-    #
-    #  ; Since this is second access, it will cost 20k
-    #  ; regardless of whether it was declared or not
-    #
-    # }
-    contract_8 = pre.deploy_contract(  # noqa: F841
+    contract_8 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x20, value=Op.SLOAD(key=0x0))
         + Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x0, value=0x2)
@@ -573,23 +382,8 @@ def test_storage_costs(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001020),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #   [0x20] @@0
-    #
-    #  ; Read @@0, and see how much gas that cost.
-    #    [0]   (gas)
-    #    @@0
-    #    [0]   (- @0 (gas) 19)
-    #   [[1]] @0
-    #
-    #  ; Since this is second access, it will cost 97
-    #  ; regardless of whether it was declared or not
-    # }
-    contract_9 = pre.deploy_contract(  # noqa: F841
+    contract_9 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x20, value=Op.SLOAD(key=0x0))
         + Op.MSTORE(offset=0x0, value=Op.GAS)
         + Op.POP(Op.SLOAD(key=0x0))
@@ -600,40 +394,12 @@ def test_storage_costs(
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
         + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001021),  # noqa: E501
     )
-    # Source: lll
-    # { ; TO_ADDR_VALID   TO_ADDR_INVALID_ADDR    TO_ADDR_INVALID_CELL
-    #   ; Call a different contract
-    #   (call (gas) (+ 0x1000 $4) 0 0 0 0 0)
-    #
-    #   ; Read @@0, and see how much gas that cost.
-    #     [0]   (gas)
-    #     @@0x60A7
-    #     [0]   (- @0 (gas) 19)
-    #    [[1]] @0
-    #
-    #
-    #   ; Write to @@0, and see how much gas that cost. It should
-    #   ; cost more when it is not declared storage
-    #     [0]   (gas)
-    #    [[0]]  0x02
-    #     [0]   (- @0 (gas) 17)
-    #    [[2]] @0
-    #
-    #   ; The 17 is the cost of the extra opcodes:
-    #   ; PUSH1 0x00, MSTORE
-    #   ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
-    #   ; GAS
-    #
-    #
-    # }
-    contract_10 = pre.deploy_contract(  # noqa: F841
+    contract_10 = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(
                 gas=Op.GAS,
-                address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+                address=Op.CALLDATALOAD(offset=0x4),
                 value=0x0,
                 args_offset=0x0,
                 args_size=0x0,
@@ -658,8 +424,6 @@ def test_storage_costs(
         + Op.STOP,
         storage={24743: 57005},
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
     # EIP-8037 moves the bulk of storage-write cost into a per-storage
@@ -842,53 +606,46 @@ def test_storage_costs(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    no_target = pre.nonexistent_account()
+    other_address = pre.nonexistent_account()
     tx_data = [
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x1),
-        Bytes("693c6139") + Hash(0x2),
-        Bytes("693c6139") + Hash(0x3),
-        Bytes("693c6139") + Hash(0x4),
-        Bytes("693c6139") + Hash(0x5),
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x1),
-        Bytes("693c6139") + Hash(0x2),
-        Bytes("693c6139") + Hash(0x3),
-        Bytes("693c6139") + Hash(0x4),
-        Bytes("693c6139") + Hash(0x5),
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x1),
-        Bytes("693c6139") + Hash(0x2),
-        Bytes("693c6139") + Hash(0x3),
-        Bytes("693c6139") + Hash(0x4),
-        Bytes("693c6139") + Hash(0x5),
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x1),
-        Bytes("693c6139") + Hash(0x2),
-        Bytes("693c6139") + Hash(0x3),
-        Bytes("693c6139") + Hash(0x4),
-        Bytes("693c6139") + Hash(0x5),
-        Bytes("693c6139") + Hash(0x10),
-        Bytes("693c6139") + Hash(0x10),
-        Bytes("693c6139") + Hash(0x11),
-        Bytes("693c6139") + Hash(0x11),
-        Bytes("693c6139") + Hash(0x20),
-        Bytes("693c6139") + Hash(0x20),
-        Bytes("693c6139") + Hash(0x21),
-        Bytes("693c6139") + Hash(0x21),
-        Bytes("693c6139") + Hash(0xFFF),
-        Bytes("693c6139") + Hash(0xFFF),
-        Bytes("693c6139") + Hash(0xFFF),
-        Bytes("693c6139") + Hash(0x0),
+        Bytes("693c6139") + Hash(contract_0, left_padding=True),
+        Bytes("693c6139") + Hash(contract_1, left_padding=True),
+        Bytes("693c6139") + Hash(contract_2, left_padding=True),
+        Bytes("693c6139") + Hash(contract_3, left_padding=True),
+        Bytes("693c6139") + Hash(contract_4, left_padding=True),
+        Bytes("693c6139") + Hash(contract_5, left_padding=True),
+        Bytes("693c6139") + Hash(contract_0, left_padding=True),
+        Bytes("693c6139") + Hash(contract_1, left_padding=True),
+        Bytes("693c6139") + Hash(contract_2, left_padding=True),
+        Bytes("693c6139") + Hash(contract_3, left_padding=True),
+        Bytes("693c6139") + Hash(contract_4, left_padding=True),
+        Bytes("693c6139") + Hash(contract_5, left_padding=True),
+        Bytes("693c6139") + Hash(contract_0, left_padding=True),
+        Bytes("693c6139") + Hash(contract_1, left_padding=True),
+        Bytes("693c6139") + Hash(contract_2, left_padding=True),
+        Bytes("693c6139") + Hash(contract_3, left_padding=True),
+        Bytes("693c6139") + Hash(contract_4, left_padding=True),
+        Bytes("693c6139") + Hash(contract_5, left_padding=True),
+        Bytes("693c6139") + Hash(contract_0, left_padding=True),
+        Bytes("693c6139") + Hash(contract_1, left_padding=True),
+        Bytes("693c6139") + Hash(contract_2, left_padding=True),
+        Bytes("693c6139") + Hash(contract_3, left_padding=True),
+        Bytes("693c6139") + Hash(contract_4, left_padding=True),
+        Bytes("693c6139") + Hash(contract_5, left_padding=True),
+        Bytes("693c6139") + Hash(contract_6, left_padding=True),
+        Bytes("693c6139") + Hash(contract_6, left_padding=True),
+        Bytes("693c6139") + Hash(contract_7, left_padding=True),
+        Bytes("693c6139") + Hash(contract_7, left_padding=True),
+        Bytes("693c6139") + Hash(contract_8, left_padding=True),
+        Bytes("693c6139") + Hash(contract_8, left_padding=True),
+        Bytes("693c6139") + Hash(contract_9, left_padding=True),
+        Bytes("693c6139") + Hash(contract_9, left_padding=True),
+        Bytes("693c6139") + Hash(no_target, left_padding=True),
+        Bytes("693c6139") + Hash(no_target, left_padding=True),
+        Bytes("693c6139") + Hash(no_target, left_padding=True),
+        Bytes("693c6139") + Hash(contract_0, left_padding=True),
     ]
-    # The test's CALL chain does two SSTORE-sets in each measured
-    # contract; EIP-8037 spills both state-gas charges into regular gas
-    # when the reservoir is empty, pushing total consumption over the
-    # original 400 000 budget. Bump on EIP-8037; pre-EIP-8037 keeps the
-    # original value.
-    outer_tx_gas = 400_000
-    if fork.is_eip_enabled(8037):
-        outer_tx_gas = 1_000_000
-    tx_gas = [outer_tx_gas]
     tx_value = [100000]
     tx_access_lists: dict[int, list] = {
         0: [
@@ -1013,7 +770,7 @@ def test_storage_costs(
         ],
         12: [
             AccessList(
-                address=Address(0xF000000000000000000000000000000000000100),
+                address=other_address,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1023,7 +780,7 @@ def test_storage_costs(
         ],
         13: [
             AccessList(
-                address=Address(0xF000000000000000000000000000000000000101),
+                address=other_address,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1033,7 +790,7 @@ def test_storage_costs(
         ],
         14: [
             AccessList(
-                address=Address(0xF000000000000000000000000000000000000101),
+                address=other_address,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1043,7 +800,7 @@ def test_storage_costs(
         ],
         15: [
             AccessList(
-                address=Address(0xF000000000000000000000000000000000000101),
+                address=other_address,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1053,7 +810,7 @@ def test_storage_costs(
         ],
         16: [
             AccessList(
-                address=Address(0xF000000000000000000000000000000000000101),
+                address=other_address,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1063,7 +820,7 @@ def test_storage_costs(
         ],
         17: [
             AccessList(
-                address=Address(0xF000000000000000000000000000000000000101),
+                address=other_address,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1172,7 +929,7 @@ def test_storage_costs(
         ],
         33: [
             AccessList(
-                address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC000000),
+                address=other_address,
                 storage_keys=[
                     Hash(
                         "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -1293,10 +1050,10 @@ def test_storage_costs(
         sender=sender,
         to=contract_10,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
         value=tx_value[v],
         access_list=tx_access_lists.get(d),
+        state_gas_reservoir=0,
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

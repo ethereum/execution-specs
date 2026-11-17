@@ -17,7 +17,6 @@ cost, or from EIP-7623 the calldata floor.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -71,7 +70,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_low_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -81,28 +79,11 @@ def test_low_gas_limit(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=1000,
-        gas_limit=80000,
-    )
-
-    # Source: yul
-    # berlin
-    # {
-    #     sstore(0, add(1,1))
-    # }
-    target = pre.deploy_contract(  # noqa: F841
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
         storage={0: 24743},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     intrinsic_cost_calculator = fork.transaction_intrinsic_cost_calculator()
@@ -154,9 +135,8 @@ def test_low_gas_limit(
         Bytes("00"),
     ]
     tx_gas = [90000, 50000, 25000, intrinsic - 1]
-    tx_access_lists: dict[int, list] = {
-        0: [],
-    }
+
+    env = Environment(gas_limit=80000)
 
     tx = Transaction(
         sender=sender,
@@ -165,8 +145,6 @@ def test_low_gas_limit(
         gas_limit=tx_gas[g],
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=1000,
-        nonce=1,
-        access_list=tx_access_lists.get(d),
         error=_exc,
     )
 

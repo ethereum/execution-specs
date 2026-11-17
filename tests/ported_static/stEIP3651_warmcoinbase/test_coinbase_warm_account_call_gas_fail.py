@@ -11,10 +11,8 @@ to cover EIP-8037 state-gas spill; pre-EIP-8037 unchanged.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -61,7 +59,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_coinbase_warm_account_call_gas_fail(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -71,16 +68,8 @@ def test_coinbase_warm_account_call_gas_fail(
     v: int,
 ) -> None:
     """Test_coinbase_warm_account_call_gas_fail."""
-    coinbase = Address(0x50228C44ED92561D94511E8518A75AA463BD444B)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
-    pre[coinbase] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(call(0, cb, 0, 0, 0, 0, 0))
-    # }
     addr = pre.deploy_contract(
         code=Op.CALL(
             gas=Op.DUP2,
@@ -93,14 +82,7 @@ def test_coinbase_warm_account_call_gas_fail(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(callcode(0, cb, 0, 0, 0, 0, 0))
-    # }
     addr_2 = pre.deploy_contract(
         code=Op.CALLCODE(
             gas=Op.DUP2,
@@ -113,14 +95,7 @@ def test_coinbase_warm_account_call_gas_fail(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(delegatecall(0, cb, 0, 0, 0, 0))
-    # }
     addr_3 = pre.deploy_contract(
         code=Op.DELEGATECALL(
             gas=Op.DUP2,
@@ -132,14 +107,7 @@ def test_coinbase_warm_account_call_gas_fail(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
-    # Source: yul
-    # berlin
-    # {
-    #    let cb := coinbase()
-    #    pop(staticcall(0, cb, 0, 0, 0, 0))
-    # }
     addr_4 = pre.deploy_contract(
         code=Op.STATICCALL(
             gas=Op.DUP2,
@@ -151,38 +119,7 @@ def test_coinbase_warm_account_call_gas_fail(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
-    # Source: yul
-    # berlin
-    # {
-    #    // Depending on the called contract here, the subcall will perform
-    #    // another call/delegatecall/staticcall/callcode that will only succeed  # noqa: E501
-    #    // if coinbase is considered warm by default (post-Shanghai).
-    #    let calladdr := calldataload(4)
-    #
-    #    let callgas := 100
-    #    switch calladdr
-    #    case <contract:0x0000000000000000000000000000000000001000> {
-    #      // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 27)
-    #    }
-    #    case <contract:0x0000000000000000000000000000000000002000> {
-    #      // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 27)
-    #    }
-    #    case <contract:0x0000000000000000000000000000000000003000> {
-    #      // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 24)
-    #    }
-    #    case <contract:0x0000000000000000000000000000000000004000> {
-    #      // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
-    #      callgas := add(callgas, 24)
-    #    }
-    #    // Call and save result
-    #    sstore(0, call(callgas, calladdr, 0, 0, 0, 0, 0))
-    #
-    # }
     target = pre.deploy_contract(
         code=Op.PUSH1[0x0]
         + Op.DUP1 * 4
@@ -221,7 +158,6 @@ def test_coinbase_warm_account_call_gas_fail(
         + Op.ADD
         + Op.JUMP(pc=0x73),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
     )
 
     tx_data = [
@@ -236,8 +172,6 @@ def test_coinbase_warm_account_call_gas_fail(
         outer_tx_gas = 500_000
     tx_gas = [outer_tx_gas]
 
-    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
-
     tx = Transaction(
         sender=sender,
         to=target,
@@ -247,4 +181,4 @@ def test_coinbase_warm_account_call_gas_fail(
 
     post = {target: Account(storage={0: 1})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -1,20 +1,22 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Reject a transaction whose fee cap is below the base fee.
 
 Ported from:
 state_tests/stEIP1559/lowFeeCapFiller.yml
+state_tests/stEIP1559/lowGasPriceOldTypesFiller.yml
+
+@manually-enhanced: Do not overwrite. Merged over the transaction type.
 """
 
 import pytest
 from execution_testing import (
-    Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
     TransactionException,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -22,51 +24,42 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stEIP1559/lowFeeCapFiller.yml"],
+    [
+        "state_tests/stEIP1559/lowFeeCapFiller.yml",
+        "state_tests/stEIP1559/lowGasPriceOldTypesFiller.yml",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="Expects the base fee of the test env")
+)
 @pytest.mark.exception_test
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize("tx_type", [0, 1, 2])
 def test_low_fee_cap(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
+    tx_type: int,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
+    """Send a transaction whose gas price or fee cap is one below the fee."""
+    base_fee = Environment().set_fork_requirements(fork).base_fee_per_gas
+    assert base_fee is not None
+    sender = pre.fund_eoa()
+    target = pre.deploy_contract(code=Op.SSTORE(0, 2) + Op.STOP)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=1000,
-        gas_limit=71794957647893862,
+    fee = int(base_fee) - 1
+    fees = (
+        {"max_fee_per_gas": fee, "max_priority_fee_per_gas": 0}
+        if tx_type == 2
+        else {"gas_price": fee}
     )
-
-    # Source: yul
-    # berlin {
-    #     sstore(0, add(1,1))
-    # }
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-    )
-
     tx = Transaction(
+        ty=tx_type,
         sender=sender,
         to=target,
-        data=Bytes("00"),
-        gas_limit=400000,
-        value=0x186A0,
-        max_fee_per_gas=999,
-        max_priority_fee_per_gas=100,
-        nonce=1,
-        access_list=[],
+        value=100_000,
         error=TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS,
+        **fees,
     )
 
-    post: dict = {}
-
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post={}, tx=tx)
