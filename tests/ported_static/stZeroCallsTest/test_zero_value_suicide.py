@@ -39,7 +39,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     [
         "nonexistent",
         "funded_eoa",
-        pytest.param("eoa_with_storage", marks=pytest.mark.pre_alloc_mutable),
+        "eoa_with_storage",
     ],
 )
 def test_zero_value_suicide(
@@ -59,7 +59,7 @@ def test_zero_value_suicide(
         expected = Account(balance_change=0)
     else:
         storage[0] = 1
-        beneficiary = pre.fund_eoa(storage=storage, nonce=0)
+        beneficiary = pre.fund_eoa(storage=storage)
         expected = Account(storage=storage, balance_change=0)
 
     # Source: lll

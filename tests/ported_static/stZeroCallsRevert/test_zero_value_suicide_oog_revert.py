@@ -80,7 +80,7 @@ def test_zero_value_suicide_oog_revert(
     "recipient",
     [
         "funded_eoa",
-        pytest.param("eoa_with_storage", marks=pytest.mark.pre_alloc_mutable),
+        "eoa_with_storage",
     ],
 )
 def test_zero_value_suicide_to_eoa_oog_revert(
@@ -93,7 +93,7 @@ def test_zero_value_suicide_to_eoa_oog_revert(
     storage = Storage()
     if recipient == "eoa_with_storage":
         storage[0] = 1
-        beneficiary = pre.fund_eoa(storage=storage, nonce=0)
+        beneficiary = pre.fund_eoa(storage=storage)
     else:
         beneficiary = pre.fund_eoa()
 

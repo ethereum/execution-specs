@@ -65,7 +65,7 @@ SUCCESS_SLOT = 0x1
     [
         "nonexistent",
         "funded_eoa",
-        pytest.param("eoa_with_storage", marks=pytest.mark.pre_alloc_mutable),
+        "eoa_with_storage",
     ],
 )
 @pytest.mark.parametrize(
@@ -95,7 +95,7 @@ def test_zero_value(
         expected = Account(balance_change=0)
     else:
         storage[0] = 1
-        callee = pre.fund_eoa(storage=storage, nonce=0)
+        callee = pre.fund_eoa(storage=storage)
         expected = Account(storage=storage, balance_change=0)
 
     # Source: lll
