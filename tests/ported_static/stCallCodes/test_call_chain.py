@@ -339,16 +339,18 @@ KECCAK256, which takes about 19.2M gas. Only the call into that frame
 is given bounded gas, so its caller keeps enough to record the failure.
 
 The stStaticCall fillers are the same chains with STATICCALL in them, and
-copies of each with CALLCODE or DELEGATECALL swapped in. Their frames below
-a STATICCALL only wrote memory, so their posts asserted almost nothing (the
-ABCB_RECURSIVE ones only zeros), and they embedded each other's addresses.
-They collapse to chains of all four opcodes with at least one STATICCALL.
-Every frame returns how many frames below it returned, plus the innermost
-frame's CALLER, CALLVALUE and ADDRESS, so a static frame's outcome reaches
-the top level, which stores it and then sets a done flag. Non-static
-frames also store their call's success, as above. A write, a CALL with value or a SELFDESTRUCT in a static
-frame halts it. A SELFDESTRUCT in a non-static frame (any frame above the
-first STATICCALL) succeeds and moves the balance to a fresh beneficiary.
+copies of each with CALLCODE or DELEGATECALL swapped in. Their frames below a
+STATICCALL only wrote memory, so their posts asserted almost nothing (the
+ABCB_RECURSIVE ones only zeros), and they embedded each other's addresses. They
+collapse to chains of all four opcodes with at least one STATICCALL. Every
+frame returns how many frames below it returned, plus the innermost frame's
+CALLER, CALLVALUE and ADDRESS, so a static frame's outcome reaches the top
+level, which stores it and then sets a done flag. Non-static frames also store
+their call's success, as above. A write or an out-of-gas fault is injected in
+each frame below the top in turn, before or after its call. A write, a CALL
+with value or a SELFDESTRUCT in a static frame halts it. A SELFDESTRUCT in a
+non-static frame (any frame above the first STATICCALL) succeeds and moves the
+balance to a fresh beneficiary.
 """
 
 from dataclasses import dataclass
@@ -1282,6 +1284,37 @@ def static_call_chains(depth: int) -> list:
     ]
 
 
+def static_fault_positions() -> list:
+    """
+    Return every two- and three-level static chain with a write or an
+    out-of-gas fault in each frame below the top, before or after its call,
+    as a pytest parameter. The innermost frame has no call, and a write
+    there is left to `test_static_call_chain`.
+    """
+    positions = []
+    for chain in static_call_chains(2) + static_call_chains(3):
+        opcodes = chain.values[0]
+        for fault, level, before_call in product(
+            ("sstore", "out_of_gas"),
+            range(1, len(opcodes) + 1),
+            (True, False),
+        ):
+            innermost = level == len(opcodes)
+            if innermost and (not before_call or fault == "sstore"):
+                continue
+            position = "before" if before_call else "after"
+            positions.append(
+                pytest.param(
+                    opcodes,
+                    fault,
+                    level,
+                    before_call,
+                    id=f"{chain.id}-{fault}-level_{level}-{position}",
+                )
+            )
+    return positions
+
+
 @dataclass
 class StaticChainResult:
     """Outcome of one frame of a simulated static call chain."""
@@ -1619,33 +1652,26 @@ def test_static_call_chain(
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "from_end, before_call",
-    [
-        pytest.param(0, False, id="ooge"),
-        pytest.param(1, True, id="oogm_before"),
-        pytest.param(1, False, id="oogm_after"),
-    ],
+    "chain, fault, fault_level, before_call", static_fault_positions()
 )
-@pytest.mark.parametrize(
-    "chain", static_call_chains(2) + static_call_chains(3)
-)
-def test_static_call_chain_out_of_gas(
+def test_static_call_chain_fault(
     state_test: StateTestFiller,
     pre: Alloc,
     chain: tuple[Op, ...],
-    from_end: int,
+    fault: str,
+    fault_level: int,
     before_call: bool,
 ) -> None:
     """
-    Call down a chain with a STATICCALL in it, where the innermost frame,
-    or the frame calling it (before or after its call), runs out of gas.
+    Call down a chain with a STATICCALL in it, where a frame below the top
+    writes storage or runs out of gas, before or after its own call.
     """
     run_static_call_chain(
         state_test,
         pre,
         chain,
-        fault="out_of_gas",
-        fault_level=len(chain) - from_end,
+        fault=fault,
+        fault_level=fault_level,
         before_call=before_call,
     )
 
