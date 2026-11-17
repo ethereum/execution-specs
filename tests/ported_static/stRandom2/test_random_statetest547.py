@@ -24,6 +24,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom2/randomStatetest547Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_until("Prague")
 def test_random_statetest547(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -57,7 +58,6 @@ def test_random_statetest547(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=16_777_216,
         to=target,
         data=Bytes(
             "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000001417fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c35014623971943854a0097682"  # noqa: E501

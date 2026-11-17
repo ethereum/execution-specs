@@ -24,6 +24,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom2/randomStatetest583Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_until("Prague")
 def test_random_statetest583(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -71,7 +72,6 @@ def test_random_statetest583(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=16_777_216,
         to=target,
         data=(
             Op.PUSH32[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
