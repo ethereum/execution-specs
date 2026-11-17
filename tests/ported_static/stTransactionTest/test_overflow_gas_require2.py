@@ -26,7 +26,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 GAS_LIMIT = 2**60
-BLOCK_ENV = Environment(gas_limit=2**63 - 1, base_fee_per_gas=10)
+BLOCK_ENV = Environment(gas_limit=2**63 - 1)
 
 
 def overflow_tx(pre: Alloc, error: TransactionException | None) -> Transaction:
