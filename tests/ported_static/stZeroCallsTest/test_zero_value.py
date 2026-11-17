@@ -98,8 +98,6 @@ def test_zero_value(
         callee = pre.fund_eoa(storage=storage)
         expected = Account(storage=storage, balance_change=0)
 
-    # Source: lll
-    # { [[0]](GAS) [[1]] (CALL 60000 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 0 0 0) [[100]] 1 }  # noqa: E501
     store_code = Op.SSTORE(
         SUCCESS_SLOT,
         opcode(gas=FORWARDED_GAS, address=callee),

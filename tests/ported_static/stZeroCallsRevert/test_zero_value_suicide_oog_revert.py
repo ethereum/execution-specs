@@ -97,14 +97,10 @@ def test_zero_value_suicide_to_eoa_oog_revert(
     else:
         beneficiary = pre.fund_eoa()
 
-    # Source: lll
-    # { (SELFDESTRUCT <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
     addr = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=beneficiary) + Op.STOP,
         storage=storage,
     )
-    # Source: lll
-    # { (CALL 50000 <contract:0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]]12 [[3]]12 [[4]]12 }  # noqa: E501
     target = pre.deploy_contract(
         code=Op.POP(Op.CALL(gas=0xC350, address=addr))
         + Op.SSTORE(key=0x2, value=0xC)

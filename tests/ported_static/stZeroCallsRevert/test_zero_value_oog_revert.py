@@ -88,8 +88,6 @@ def test_zero_value_oog_revert(
         callee = pre.fund_eoa(storage=storage)
         expected = Account(storage=storage, balance_change=0)
 
-    # Source: lll
-    # { [[0]](GAS) [[1]] (CALL 60000 <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]]12 [[3]]12 [[4]]12 [[100]] (GAS) }  # noqa: E501
     target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x1, value=opcode(gas=0xEA60, address=callee))

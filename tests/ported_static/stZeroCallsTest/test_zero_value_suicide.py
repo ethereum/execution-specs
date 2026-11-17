@@ -62,8 +62,6 @@ def test_zero_value_suicide(
         beneficiary = pre.fund_eoa(storage=storage)
         expected = Account(storage=storage, balance_change=0)
 
-    # Source: lll
-    # { (SELFDESTRUCT <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
     target_code = Op.SELFDESTRUCT(address=beneficiary) + Op.STOP
     target = pre.deploy_contract(
         code=target_code,

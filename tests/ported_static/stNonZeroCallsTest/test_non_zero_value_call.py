@@ -66,8 +66,6 @@ def test_non_zero_value_call(
     succeeds = caller_balance >= CALL_VALUE
     callee = pre.fund_eoa()
 
-    # Source: lll
-    # { [0](GAS) [[1]] (CALL 60000 <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) [[100]] (SUB @0 (GAS)) }  # noqa: E501
     store_code = Op.SSTORE(
         SUCCESS_SLOT,
         opcode(
