@@ -818,13 +818,13 @@ def calculate_frame_transaction_intrinsic_cost(
             data_length += ulen(data)
         signature_length = ulen(signature.signature)
         if len(signature.message) == 0:
-            tokens += signature_length * GasCosts.TX_DATA_TOKEN_STANDARD
+            tokens += signature_length * Uint(4)
         else:
             tokens += count_tokens_in_data(signature.signature)
         data_length += signature_length
 
     # EIP-7976 floor tokens: all charged bytes count uniformly.
-    floor_tokens = data_length * GasCosts.TX_DATA_TOKEN_STANDARD
+    floor_tokens = data_length * Uint(4)
 
     base_execution_gas = (
         GasCosts.TX_FRAME_INTRINSIC

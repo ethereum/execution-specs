@@ -909,7 +909,6 @@ class FixtureTransaction(
     model_config = CamelModel.model_config | {"extra": "ignore"}
 
     authorization_list: List[FixtureAuthorizationTuple] | None = None
-    initcodes: List[Bytes] | None = None
     frames: List[FixtureFrame] | None = None
     signatures: List[FixtureFrameSignature] | None = None
 

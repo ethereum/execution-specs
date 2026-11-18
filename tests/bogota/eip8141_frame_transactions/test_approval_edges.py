@@ -12,6 +12,7 @@ from typing import Dict, List
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
     Alloc,
     Bytes,
@@ -37,7 +38,7 @@ from .helpers import (
     fee_budget,
     verify_frame,
 )
-from .signature_helpers import canonical_entry
+from .signature_helpers import canonical_entry, signed_digest_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -604,6 +605,74 @@ def test_default_code_approval_refusals(
         ),
     }
     state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "scope",
+    [
+        pytest.param(Spec.APPROVE_EXECUTION, id="execution"),
+        pytest.param(Spec.APPROVE_PAYMENT, id="payment"),
+        pytest.param(
+            Spec.APPROVE_EXECUTION_AND_PAYMENT, id="execution_and_payment"
+        ),
+    ],
+)
+def test_default_code_refuses_explicit_digest_entry(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    scope: int,
+) -> None:
+    """
+    Test that default code refuses an authorizing entry signed over an
+    explicit digest rather than the canonical signature hash. The entry
+    is a valid secp256k1 signature from the frame's target, so only its
+    `msg` sets it apart from an authorizing one.
+    """
+    sender = pre.fund_eoa(amount=FUNDS)
+    payer = pre.fund_eoa(amount=FUNDS)
+
+    def digest_entry(account: EOA) -> FrameSignature:
+        """Return an entry from `account` over an explicit digest."""
+        assert account.key is not None
+        return signed_digest_entry(account.key, signer=Bytes(account))
+
+    sponsored = [
+        verify_frame(flags=Spec.APPROVE_EXECUTION),
+        verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+    ]
+    if scope == Spec.APPROVE_EXECUTION:
+        # The sender's default code reads the entry at index 0.
+        frames = sponsored
+        signatures = [digest_entry(sender), canonical_entry(payer)]
+    elif scope == Spec.APPROVE_PAYMENT:
+        # The payer's default code reads the entry at index 1.
+        frames = sponsored
+        signatures = [canonical_entry(sender), digest_entry(payer)]
+    elif scope == Spec.APPROVE_EXECUTION_AND_PAYMENT:
+        frames = [verify_frame()]
+        signatures = [digest_entry(sender)]
+    else:
+        raise ValueError(f"unknown scope: {scope}")
+
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        payer=payer if frames is sponsored else sender,
+        frames=frames,
+        signatures=signatures,
+        error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=0, balance=FUNDS),
+            payer: Account(nonce=0, balance=FUNDS),
+        },
+    )
 
 
 @pytest.mark.parametrize(

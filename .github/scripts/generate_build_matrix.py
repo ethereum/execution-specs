@@ -155,43 +155,31 @@ def validate_inputs(feature: str, version: str, branch: str, evm: str) -> None:
                 )
 
 
-def parse_fork_bounds(fill_params: str) -> tuple[str | None, str | None]:
+def parse_until_fork(fill_params: str) -> str | None:
     """
-    Extract the ``--from``/``--until`` forks from fill-params.
+    Extract the `--until` value from fill-params.
 
-    Return ``(None, None)`` when ``--fork`` is used instead (single-fork
-    feature that should not be split).  Either element may be ``None``
-    when the corresponding flag is absent.
+    Return `None` when `--fork` is used instead (single-fork
+    feature that should not be split).
     """
     if re.search(r"--fork\b", fill_params):
-        return None, None
-    m_from = re.search(r"--from[=\s]+(\S+)", fill_params)
-    m_until = re.search(r"--until[=\s]+(\S+)", fill_params)
-    return (
-        m_from.group(1) if m_from else None,
-        m_until.group(1) if m_until else None,
-    )
+        return None
+    m = re.search(r"--until[=\s]+(\S+)", fill_params)
+    return m.group(1) if m else None
 
 
-def applicable_ranges(
-    fork_ranges: list[dict], from_fork: str | None, until_fork: str
-) -> list[dict]:
+def applicable_ranges(fork_ranges: list[dict], until_fork: str) -> list[dict]:
     """
-    Return fork ranges overlapping ``[from_fork, until_fork]``.
+    Return fork ranges whose `from` is at or before *until_fork*.
 
-    A range is applicable when it intersects the feature's declared
-    ``--from``/``--until`` boundary; its ends are clamped so we never
-    fill outside that boundary.  When ``from_fork`` is ``None`` the
-    lower bound defaults to the earliest fork.
+    Clamp the last applicable range's `until` to *until_fork* so we
+    never fill beyond the feature's declared boundary.
     """
-    lower = FORK_INDEX[from_fork] if from_fork else 0
     limit = FORK_INDEX[until_fork]
     result = []
     for r in fork_ranges:
-        if FORK_INDEX[r["from"]] <= limit and FORK_INDEX[r["until"]] >= lower:
+        if FORK_INDEX[r["from"]] <= limit:
             entry = dict(r)
-            if FORK_INDEX[r["from"]] < lower:
-                entry["from"] = from_fork
             if FORK_INDEX[r["until"]] > limit:
                 entry["until"] = until_fork
             result.append(entry)
@@ -209,9 +197,9 @@ def build_matrix(
     the combine step.  Unsplit features produce a single entry with
     empty labels.
     """
-    from_fork, until = parse_fork_bounds(feature["fill-params"])
+    until = parse_until_fork(feature["fill-params"])
     if until and fork_ranges:
-        ranges = applicable_ranges(fork_ranges, from_fork, until)
+        ranges = applicable_ranges(fork_ranges, until)
         if len(ranges) > 1:
             build = [
                 {

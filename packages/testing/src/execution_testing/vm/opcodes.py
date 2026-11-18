@@ -6022,12 +6022,13 @@ class Opcodes(Opcode, Enum):
     Description
     ----
     Push transaction-scoped information of the executing EIP-8141 frame
-    transaction (type, nonce, sender, fees, max cost, signature hash,
-    frame count, current frame index, signature count).
+    transaction (type, nonce, sender, max priority fee per gas, max fee,
+    blob count, signature hash, frame count, current frame index,
+    signature count, state gas left).
 
     Inputs
     ----
-    - param: parameter selector (0x00-0x0B)
+    - param: parameter selector (0x00-0x0C)
 
     Outputs
     ----
@@ -6118,14 +6119,15 @@ class Opcodes(Opcode, Enum):
     Description
     ----
     Push frame-scoped information of the chosen frame of the executing
-    EIP-8141 frame transaction (resolved target, gas limit, mode,
-    flags, data length, status, allowed approval scope, atomic batch
-    bit, value).
+    EIP-8141 frame transaction (resolved target, execution gas limit,
+    mode, flags, data length, status, allowed approval scope, atomic
+    batch bit, value, state gas limit, execution gas used, state gas
+    used).
 
     Inputs
     ----
     - frame_index: index of the frame
-    - param: parameter selector (0x00-0x08)
+    - param: parameter selector (0x00-0x0B)
 
     Outputs
     ----
