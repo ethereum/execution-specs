@@ -71,6 +71,7 @@ from .test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     EOA,
     SECP256K1_SIGNATURE_LENGTH,
+    SECP256R1N,
     Account,
     Alloc,
     AuthorizationTuple,
@@ -118,6 +119,7 @@ from .test_types import (
     compute_deterministic_create2_address,
     fee_increment_blocks,
     keccak256,
+    p256_public_key,
     relay_contract_code,
 )
 from .tools import (
@@ -252,6 +254,7 @@ __all__ = (
     "Removable",
     "Requests",
     "SECP256K1_SIGNATURE_LENGTH",
+    "SECP256R1N",
     "SequentialAddressLayout",
     "StateTest",
     "StateTestFiller",
@@ -300,5 +303,6 @@ __all__ = (
     "generate_system_contract_deploy_test",
     "generate_system_contract_error_test",
     "keccak256",
+    "p256_public_key",
     "relay_contract_code",
 )

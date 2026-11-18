@@ -1,8 +1,7 @@
 """Signature entry helpers for EIP-8141 frame transaction tests."""
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
-from cryptography.hazmat.primitives.asymmetric import ec
 from execution_testing import EOA, Bytes, FrameSignature, Hash, keccak256
 
 from .spec import Spec
@@ -13,9 +12,6 @@ DIGEST = Hash(b"\x01" * 32)
 SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 """Order of the secp256k1 curve."""
 
-SECP256R1N = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
-"""Order of the NIST P-256 (secp256r1) curve."""
-
 P256_SIGNATURE = bytes.fromhex(
     "344372728b2e7d992e76fc836b134606b3ed88ad8934c020aa8946b90fc09a4f"
     "1695256f5464dda72bfbd6cb0d3fd89ca7380da0e476cbb5d94dc1507b77a88d"
@@ -24,9 +20,7 @@ P256_SIGNATURE = bytes.fromhex(
 )
 """
 A valid P256 signature payload over `DIGEST`: `r || s || qx || qy`
-with low `s`, produced with the NIST P-256 private key `1`. Embedded
-as a constant because P256 signing is randomized and fixtures must be
-deterministic.
+with low `s`, produced with the NIST P-256 private key `1`.
 """
 
 P256_R, P256_S, P256_QX, P256_QY = (
@@ -88,16 +82,18 @@ def resized_signature(entry: FrameSignature, length: int) -> FrameSignature:
     return entry
 
 
-def valid_p256_entry(**components: int) -> FrameSignature:
+def valid_p256_entry(
+    signer: Bytes = P256_SIGNER, **components: int
+) -> FrameSignature:
     """
     Return the P256 signature entry over `DIGEST` built from
     `P256_SIGNATURE`'s words and the signer they hash to, with the
-    given components replaced, for variants that break the rule on one
-    component and nothing else.
+    given components or signer replaced, for variants that break the
+    rule on one component and nothing else.
     """
     words = dict(r=P256_R, s=P256_S, qx=P256_QX, qy=P256_QY)
     words.update(components)
-    return p256_entry(**words, signer=P256_SIGNER)
+    return p256_entry(**words, signer=signer)
 
 
 def p256_entry(
@@ -133,10 +129,3 @@ def canonical_entry(account: EOA, **overrides: Any) -> FrameSignature:
     )
     fields.update(overrides)
     return FrameSignature(**fields)
-
-
-def p256_public_key(private_key: int) -> Tuple[int, int]:
-    """Return the coordinates `(qx, qy)` of `private_key * G` on P-256."""
-    key = ec.derive_private_key(private_key, ec.SECP256R1())
-    numbers = key.public_key().public_numbers()
-    return numbers.x, numbers.y

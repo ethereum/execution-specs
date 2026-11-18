@@ -33,9 +33,11 @@ from execution_testing import (
     Fork,
     FrameSignature,
     GasFee,
+    Hash,
     StateTestFiller,
     TransactionException,
     keccak256,
+    p256_public_key,
 )
 
 from .helpers import (
@@ -44,13 +46,7 @@ from .helpers import (
     FrameTransaction,
     verify_frame,
 )
-from .signature_helpers import (
-    DIGEST,
-    SECP256R1N,
-    canonical_entry,
-    p256_entry,
-    p256_public_key,
-)
+from .signature_helpers import DIGEST, canonical_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -100,6 +96,14 @@ ENTRY_SELECTION_CASES = [
         id="sender_pays_separately_duplicate_entry",
     ),
     pytest.param(
+        # A missing entry at index 0, read by a frame that may approve
+        # execution: no entry at all.
+        lambda _: ([verify_frame()], []),
+        None,
+        id="no_entry_at_index_0",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
         # §Default code: "a `SECP256K1` signature". An `ARBITRARY` entry
         # has an empty signer, which a client skipping the scheme check
         # could resolve to the sender, the frame's resolved target.
@@ -111,13 +115,26 @@ ENTRY_SELECTION_CASES = [
             [
                 canonical_entry(a["sender"]),
                 FrameSignature(
-                    scheme=Spec.SCHEME_ARBITRARY,
-                    signature=Bytes(b"\x01" * 65),
+                    scheme=Spec.SCHEME_ARBITRARY, signature=Bytes(b"\x01")
                 ),
             ],
         ),
         None,
         id="arbitrary_entry_at_index_1",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The same at index 0, read by a frame that may approve execution.
+        lambda _: (
+            [verify_frame()],
+            [
+                FrameSignature(
+                    scheme=Spec.SCHEME_ARBITRARY, signature=Bytes(b"\x01")
+                )
+            ],
+        ),
+        None,
+        id="arbitrary_entry_at_index_0",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
@@ -132,6 +149,14 @@ ENTRY_SELECTION_CASES = [
         ),
         None,
         id="index_1_signed_by_third_account",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The same at index 0: a valid entry from an account other than
+        # the sender.
+        lambda a: ([verify_frame()], [canonical_entry(a["third"])]),
+        None,
+        id="index_0_signed_by_third_account",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
@@ -289,7 +314,7 @@ def test_default_code_rejects_p256_entry(
     `sig` at index `sig_index` such that `resolved_signer ==
     resolved_target` and `sig.msg == Bytes()`, revert."
     """
-    key, k = 0x8141, 0x1234
+    key = 0x8141
     qx, qy = p256_public_key(key)
     sender = Address(
         keccak256(qx.to_bytes(32, "big") + qy.to_bytes(32, "big"))[12:]
@@ -299,27 +324,19 @@ def test_default_code_rejects_p256_entry(
     else:
         pre[sender] = Account(code=sender_code, balance=10**18)
 
-    def with_signature(r: int, s: int) -> FrameTransaction:
-        return FrameTransaction.build(
-            fork=fork,
-            sender=sender,
-            frames=[verify_frame(code=sender_code)],
-            signatures=[p256_entry(r, s, qx, qy, msg=Bytes())],
-            error=(
-                TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
-                if sender_code is None
-                else None
-            ),
-        )
-
-    # The signature hash commits to the entry's length, not its bytes,
-    # so a placeholder entry gives the hash to sign. ECDSA with a fixed
-    # nonce `k` keeps the fixture the same on every fill.
-    sig_hash = with_signature(0, 0).rlp_signing_bytes().keccak256()
-    z = int.from_bytes(sig_hash, "big")
-    r = p256_public_key(k)[0] % SECP256R1N
-    s = pow(k, -1, SECP256R1N) * (z + r * key) % SECP256R1N
-    tx = with_signature(r, min(s, SECP256R1N - s))
+    tx = FrameTransaction.build(
+        fork=fork,
+        sender=sender,
+        frames=[verify_frame(code=sender_code)],
+        signatures=[
+            FrameSignature(scheme=Spec.SCHEME_P256, secret_key=Hash(key))
+        ],
+        error=(
+            TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+            if sender_code is None
+            else None
+        ),
+    )
 
     if sender_code is None:
         sender_post = Account(nonce_change=0, balance_change=0)

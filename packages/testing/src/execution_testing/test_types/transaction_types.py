@@ -4,9 +4,25 @@ import numbers
 from dataclasses import dataclass
 from enum import IntEnum, IntFlag
 from functools import cached_property
-from typing import Any, ClassVar, Dict, Generic, List, Literal, Self, Sequence
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Generic,
+    List,
+    Literal,
+    Self,
+    Sequence,
+    Tuple,
+)
 
 import ethereum_rlp as eth_rlp
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.utils import (
+    Prehashed,
+    decode_dss_signature,
+)
+from cryptography.hazmat.primitives.hashes import SHA256
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -324,22 +340,65 @@ class FrameSignatureGeneric(
 SECP256K1_SIGNATURE_LENGTH = 65
 """Length of an EIP-8141 secp256k1 signature: `v || r || s`."""
 
+P256_SIGNATURE_LENGTH = 128
+"""Length of an EIP-8141 P256 signature: `r || s || qx || qy`."""
+
+SECP256R1N = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
+"""Order of the NIST P-256 (secp256r1) curve."""
+
+
+def p256_public_key(key: int) -> Tuple[int, int]:
+    """Return the coordinates `(qx, qy)` of `key * G` on P-256."""
+    private_key = ec.derive_private_key(key, ec.SECP256R1())
+    numbers = private_key.public_key().public_numbers()
+    return numbers.x, numbers.y
+
 
 class FrameSignature(FrameSignatureGeneric[HexNumber]):
     """
     Signature entry within an EIP-8141 frame transaction (test authoring).
 
-    When `secret_key` is set (or the entry's `signer` matches the
-    transaction sender), the raw `signature` bytes are filled in
-    automatically when the transaction is signed: entries with an
-    explicit 32-byte `msg` sign that digest, while entries with an empty
-    `msg` sign the canonical transaction signature hash.
+    When `secret_key` is set (or, for a secp256k1 entry, the entry's
+    `signer` matches the transaction sender), the raw `signature` bytes
+    of a secp256k1 or P256 entry are filled in automatically when the
+    transaction is signed: entries with an explicit 32-byte `msg` sign
+    that digest, while entries with an empty `msg` sign the canonical
+    transaction signature hash.
     """
 
     secret_key: Hash | None = Field(None, exclude=True)
 
     def signed_over(self, digest: bytes, key: Hash) -> None:
-        """Fill the raw signature bytes by signing `digest` with `key`."""
+        """
+        Fill the raw signature bytes by signing `digest` with `key`, as a
+        P256 signature for a P256 entry and a secp256k1 one otherwise.
+        """
+        if self.scheme == FrameSignatureScheme.P256:
+            private_key = ec.derive_private_key(
+                int.from_bytes(key, "big"), ec.SECP256R1()
+            )
+            # The digest is signed as is; SHA-256 only derives the RFC 6979
+            # nonce, which keeps the signature the same on every fill.
+            r, s = decode_dss_signature(
+                private_key.sign(
+                    digest,
+                    ec.ECDSA(Prehashed(SHA256()), deterministic_signing=True),
+                )
+            )
+            public_key = private_key.public_key().public_numbers()
+            # EIP-8141 P256 encoding: r || s || qx || qy, with low s.
+            self.signature = Bytes(
+                b"".join(
+                    value.to_bytes(32, "big")
+                    for value in (
+                        r,
+                        min(s, SECP256R1N - s),
+                        public_key.x,
+                        public_key.y,
+                    )
+                )
+            )
+            return
         signature_bytes = PrivateKey(key).sign_recoverable(digest)
         # EIP-8141 secp256k1 encoding: v (1 byte) || r || s, v in {0, 1}.
         self.signature = Bytes(
@@ -779,7 +838,8 @@ class Transaction(
         A missing signature list defaults to a single secp256k1 entry
         from the sender over the canonical signature hash. Entries with
         an explicit 32-byte `msg` are signed first since their raw bytes
-        are committed to by the canonical hash.
+        are committed to by the canonical hash. P256 entries are signed
+        only with their own `secret_key`.
         """
         assert self.frames is not None
         if self.signatures is None:
@@ -804,20 +864,23 @@ class Transaction(
             if sig.secret_key is not None:
                 return sig.secret_key
             if (
-                self.sender is not None
+                sig.scheme == FrameSignatureScheme.SECP256K1
+                and self.sender is not None
                 and Bytes(self.sender) == sig.signer
                 and self.sender.key is not None
             ):
                 return self.sender.key
             return None
 
+        signed_schemes = (
+            FrameSignatureScheme.SECP256K1,
+            FrameSignatureScheme.P256,
+        )
+
         # Explicit-digest entries first: their raw bytes are part of the
         # canonical signature hash signed by empty-msg entries.
         for sig in self.signatures:
-            if (
-                sig.scheme != FrameSignatureScheme.SECP256K1
-                or len(sig.signature) > 0
-            ):
+            if sig.scheme not in signed_schemes or len(sig.signature) > 0:
                 continue
             if len(sig.msg) != 32:
                 continue
@@ -830,16 +893,19 @@ class Transaction(
         # before hashing.
         empty_msg_entries = []
         for sig in self.signatures:
-            if (
-                sig.scheme != FrameSignatureScheme.SECP256K1
-                or len(sig.signature) > 0
-            ):
+            if sig.scheme not in signed_schemes or len(sig.signature) > 0:
                 continue
             if len(sig.msg) != 0:
                 continue
             key = resolve_key(sig)
             if key is not None:
-                sig.signature = Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))
+                sig.signature = Bytes(
+                    bytes(
+                        P256_SIGNATURE_LENGTH
+                        if sig.scheme == FrameSignatureScheme.P256
+                        else SECP256K1_SIGNATURE_LENGTH
+                    )
+                )
                 empty_msg_entries.append((sig, key))
 
         sig_hash = self.rlp_signing_bytes().keccak256()

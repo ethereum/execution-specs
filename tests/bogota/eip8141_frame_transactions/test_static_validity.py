@@ -28,6 +28,7 @@ import pytest
 from execution_testing import (
     EOA,
     SECP256K1_SIGNATURE_LENGTH,
+    SECP256R1N,
     Account,
     Address,
     Alloc,
@@ -42,6 +43,7 @@ from execution_testing import (
     TransactionException,
     TransactionTestFiller,
     keccak256,
+    p256_public_key,
 )
 
 from .helpers import (
@@ -52,18 +54,13 @@ from .helpers import (
 )
 from .signature_helpers import (
     DIGEST,
-    P256_QX,
-    P256_QY,
-    P256_R,
     P256_S,
     P256_SIGNATURE,
     P256_SIGNER,
     SECP256K1N,
-    SECP256R1N,
     canonical_entry,
     high_s_complement,
     p256_entry,
-    p256_public_key,
     resized_signature,
     signed_digest_entry,
     valid_p256_entry,
@@ -1079,15 +1076,13 @@ SIGNATURE_CASES = [
     pytest.param(
         # The empty signer resolves to the sender (§Transaction
         # Signatures: "If absent, `tx.sender` is used").
-        [p256_entry(P256_R, P256_S, P256_QX, P256_QY)],
+        [valid_p256_entry(signer=Bytes())],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="p256_signer_mismatch",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        lambda _pre, sender: [
-            p256_entry(P256_R, P256_S, P256_QX, P256_QY, signer=Bytes(sender))
-        ],
+        lambda _pre, sender: [valid_p256_entry(signer=Bytes(sender))],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="p256_valid_signature_explicit_foreign_signer",
         marks=pytest.mark.exception_test,
@@ -1107,15 +1102,7 @@ SIGNATURE_CASES = [
         # The matching signer with a byte appended. A client that reads
         # the first 20 bytes sees the matching signer, so only the width
         # rule rejects the entry.
-        [
-            p256_entry(
-                P256_R,
-                P256_S,
-                P256_QX,
-                P256_QY,
-                signer=Bytes(bytes(P256_SIGNER) + b"\x00"),
-            )
-        ],
+        [valid_p256_entry(signer=Bytes(bytes(P256_SIGNER) + b"\x00"))],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="p256_signer_21_bytes",
         marks=pytest.mark.exception_test,

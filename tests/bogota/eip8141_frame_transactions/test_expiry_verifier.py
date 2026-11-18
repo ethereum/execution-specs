@@ -16,9 +16,9 @@ from execution_testing import (
     Bytes,
     Environment,
     Fork,
+    GasFee,
     Op,
     StateTestFiller,
-    Transaction,
     TransactionException,
 )
 
@@ -102,7 +102,7 @@ def test_expiry_verifier_frame(
     )
 
 
-# Replacing the expiry verifier's pre-state mutates the shared pre-alloc.
+# Removing the expiry verifier mutates the shared pre-alloc.
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize(
     "verifier_deployed",
@@ -116,6 +116,7 @@ def test_expiry_verifier_frame(
 def test_expiry_frame_without_verifier_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     verifier_deployed: bool,
 ) -> None:
     """
@@ -126,15 +127,18 @@ def test_expiry_frame_without_verifier_code(
     EIP-8141 §Expiry Verifier Frame: "it is not installed by the
     protocol at activation", and §Default code: "If `allowed_scope ==
     APPROVE_SCOPE_NONE`, revert." An expiry verifier frame must carry
-    `frame.flags == 0`. The address holds a balance only because the
-    pre-state cannot hold an empty account.
+    `frame.flags == 0`.
     """
     if not verifier_deployed:
-        pre[Spec.EXPIRY_VERIFIER] = Account(balance=1)
+        del pre[Spec.EXPIRY_VERIFIER]
     sender = pre.fund_eoa()
-    tx = Transaction(
+    tx = FrameTransaction.build(
+        fork=fork,
         sender=sender,
-        frames=[verify_frame(), expiry_frame()],
+        frames=[
+            verify_frame(),
+            expiry_frame(execution_gas=expiry_verifier_gas(fork)),
+        ],
         error=(
             None
             if verifier_deployed
@@ -143,7 +147,10 @@ def test_expiry_frame_without_verifier_code(
     )
 
     if verifier_deployed:
-        sender_post = Account(nonce_change=1)
+        sender_post = Account(
+            nonce_change=1,
+            balance_change=-GasFee(tx, gas=tx.payer_gas_used()),
+        )
     else:
         sender_post = Account(nonce_change=0, balance_change=0)
     state_test(pre=pre, tx=tx, post={sender: sender_post})
