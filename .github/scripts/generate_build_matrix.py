@@ -19,6 +19,8 @@ for `strategy.matrix` in GitHub Actions.
 Features whose `fill-params` contain `--until` are split across the
 shared fork ranges defined in `.github/configs/fork-ranges.yaml`.
 Features using `--fork` (single fork) produce a single unsplit entry.
+Each name in a feature's `also-builds` adds one unsplit entry after the
+feature's own, so one release fills and attaches both from one commit.
 """
 
 import json
@@ -86,6 +88,30 @@ def fail(message: str) -> NoReturn:
     sys.exit(1)
 
 
+def config_key(name: str, config: dict) -> str:
+    """
+    Return the key of `feature.yaml` that holds the entry of *name*.
+
+    `<feat>-devnet` releases (e.g. bal-devnet) share the `devnet`
+    entry, while keeping their friendly name in the matrix and artifact
+    outputs.
+    """
+    if name.endswith("-devnet") and "devnet" in config:
+        return "devnet"
+    return name
+
+
+def also_builds(config: dict, key: str) -> list[str]:
+    """Return the names in the `also-builds` of the *key* entry."""
+    entry = config.get(key)
+    if not isinstance(entry, dict):
+        return []
+    names = entry.get("also-builds", [])
+    if not isinstance(names, list):
+        fail(f"also-builds of '{key}' in {FEATURE_CONFIG} must be a list")
+    return names
+
+
 def validate_inputs(feature: str, version: str, branch: str, evm: str) -> None:
     """
     Validate the release dispatch inputs before building a matrix.
@@ -100,6 +126,11 @@ def validate_inputs(feature: str, version: str, branch: str, evm: str) -> None:
     equal its devnet number `<n>`, so a `bal-devnet` release from
     `devnets/bal/7` must be tagged `v7.*.*`. A branch outside that
     namespace (e.g. `eips/amsterdam/eip-8141`) is not checked.
+
+    A feature in the `also-builds` of another one is only released with
+    that one, so it is rejected. An `evm` override is rejected for a
+    feature with `also-builds`, since it would replace the t8n tool of
+    every build of the release.
     """
     if not feature:
         fail("feature name is empty")
@@ -109,6 +140,21 @@ def validate_inputs(feature: str, version: str, branch: str, evm: str) -> None:
     # An `evm` override must name a key in evm.yaml.
     if evm and evm not in load_config(EVM_CONFIG):
         fail(f"evm '{evm}' is not a key in {EVM_CONFIG}")
+
+    config = load_config(FEATURE_CONFIG)
+    for parent in config:
+        if feature in also_builds(config, parent):
+            fail(
+                f"'{feature}' is released with feature={parent}; "
+                f"dispatch feature={parent} instead"
+            )
+
+    extra_builds = also_builds(config, config_key(feature, config))
+    if evm and extra_builds:
+        fail(
+            f"an evm override would replace the t8n tool of every build "
+            f"of '{feature}', which also builds {', '.join(extra_builds)}"
+        )
 
     # A bare `devnet` has no friendly `<feat>-` prefix to tag with.
     if feature in ("devnet", "-devnet"):
@@ -186,6 +232,16 @@ def applicable_ranges(fork_ranges: list[dict], until_fork: str) -> list[dict]:
     return result
 
 
+def unsplit_entry(name: str) -> dict:
+    """Return the matrix entry of a build that fills *name* in one job."""
+    return {
+        "feature": name,
+        "label": "",
+        "from_fork": "",
+        "until_fork": "",
+    }
+
+
 def build_matrix(
     feature: dict, name: str, fork_ranges: list[dict]
 ) -> tuple[list[dict], str]:
@@ -213,14 +269,32 @@ def build_matrix(
             labels = " ".join(r["label"] for r in ranges)
             return build, labels
 
-    return [
-        {
-            "feature": name,
-            "label": "",
-            "from_fork": "",
-            "until_fork": "",
-        }
-    ], ""
+    return [unsplit_entry(name)], ""
+
+
+def also_build_entries(config: dict, key: str) -> list[dict]:
+    """
+    Return the matrix entries of the `also-builds` of the *key* entry.
+
+    Each name is one unsplit build, so the `combine` job, which merges
+    the fork ranges of the released feature, never sees its output.
+    Fail if a name is not a key of `feature.yaml`, or if its entry has
+    `also-builds` itself.
+    """
+    entries = []
+    for name in also_builds(config, key):
+        if not isinstance(config.get(name), dict):
+            fail(
+                f"'{name}' in the also-builds of '{key}' is not a key "
+                f"in {FEATURE_CONFIG}"
+            )
+        if also_builds(config, name):
+            fail(
+                f"'{name}' in the also-builds of '{key}' can't have "
+                "also-builds itself"
+            )
+        entries.append(unsplit_entry(name))
+    return entries
 
 
 def main() -> None:
@@ -244,11 +318,7 @@ def main() -> None:
     config = load_config(FEATURE_CONFIG)
     fork_ranges = load_config(FORK_RANGES_CONFIG) or []
 
-    # `<feat>-devnet` releases (e.g. bal-devnet) share the `devnet` entry,
-    # while keeping their friendly name in the matrix and artifact outputs.
-    lookup = (
-        "devnet" if name.endswith("-devnet") and "devnet" in config else name
-    )
+    lookup = config_key(name, config)
 
     if lookup not in config or not isinstance(config[lookup], dict):
         print(
@@ -258,6 +328,7 @@ def main() -> None:
         sys.exit(1)
 
     build, labels = build_matrix(config[lookup], name, fork_ranges)
+    build += also_build_entries(config, lookup)
 
     print(f"build_matrix={json.dumps(build)}")
     print(f"feature_name={name}")

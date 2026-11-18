@@ -3,7 +3,7 @@
 Test fixtures are published as feature-scoped releases on the
 [`ethereum/execution-specs`](https://github.com/ethereum/execution-specs/releases)
 repository: `tests@vX.Y.Z`, `<feat>-devnet@vX.Y.Z`, `benchmark@vX.Y.Z`, and
-`zkevm-benchmark@vX.Y.Z`. Each release is
+`zkevm@vX.Y.Z`. Each release is
 a self-contained `.tar.gz` of JSON fixtures that execution clients consume in CI.
 
 This page describes the release types, their versioning, the fixture formats they contain,
@@ -29,7 +29,7 @@ and cadence.
 | Tests     | `tests@vX.Y.Z`         | `fixtures.tar.gz`               | All forks, all tests (eventually including `ethereum/tests` state tests)        | latest `forks/*` branch |
 | Devnet    | `<feat>-devnet@vX.Y.Z` | `fixtures_<feat>-devnet.tar.gz` | All forks, all tests, for an upcoming-fork feature under active devnet testing   | the devnet or EIP branch |
 | Benchmark | `benchmark@vX.Y.Z`     | `fixtures_benchmark.tar.gz`     | EVM benchmarking tests                                                          | latest `forks/*` branch |
-| zkEVM benchmark | `zkevm-benchmark@vX.Y.Z` | `fixtures_zkevm-benchmark_<gas>.tar.gz`, one per gas value | Amsterdam compute benchmarks with [stateless input and output bytes](./test_formats/blockchain_test.md#fixtureblock) | matching `tests-zkevm@vX.Y.Z` tag |
+| zkEVM     | `zkevm@vX.Y.Z`         | `fixtures_zkevm.tar.gz`, and `fixtures_zkevm-benchmark_<gas>.tar.gz`, one per gas value | Amsterdam tests, and Amsterdam compute benchmarks with [stateless input and output bytes](./test_formats/blockchain_test.md#fixtureblock) | `projects/zkevm` branch |
 
 - "Tests" releases aim to match clients' master branches. Once clients have merged the
   upcoming fork into those branches ahead of a pending client release, the `tests` release
@@ -40,7 +40,10 @@ and cadence.
   They are advisory/non-blocking and may not yet cover every EIP; see the corresponding
   release notes for the coverage provided.
 - "Benchmark" releases are produced separately for their specialized consumers.
-- "zkEVM benchmark" releases contain 10M, 30M, and 60M `blockchain_test` fixtures. Their versions match their source `tests-zkevm` releases.
+- "zkEVM" releases contain the Amsterdam `blockchain_test` and `blockchain_test_engine`
+  fixtures in `fixtures_zkevm.tar.gz`, and the compute benchmarks as `blockchain_test`
+  fixtures at 30M, 60M, 100M, 150M, and 200M gas, one tarball per gas value. Both are
+  filled from the same commit.
 
 ## Versioning Scheme
 
@@ -67,8 +70,6 @@ spec change in your target, so read the release notes before adopting it.
 
 This also lets two devnets of the same feature be maintained in parallel (e.g. `v3.0.1`
 alongside `v7.0.0`) without ambiguity, the same way `2.x` and `3.x` coexist under semver.
-
-A `zkevm-benchmark` version must match its source `tests-zkevm` version. A benchmark-only correction requires a new `tests-zkevm` source release.
 
 ## Fixture Formats
 
@@ -185,7 +186,7 @@ Raw tarballs can also be fetched directly with the GitHub CLI:
 
 ```bash
 gh release download tests-bal-devnet@v7.0.0 --repo ethereum/execution-specs --pattern '*.tar.gz'
-gh release download tests-zkevm-benchmark@v0.9.0 --repo ethereum/execution-specs --pattern '*_0060M.tar.gz'
+gh release download tests-zkevm@v21.0.8 --repo ethereum/execution-specs --pattern '*_0060M.tar.gz'
 ```
 
 ## Hive Simulator Images
