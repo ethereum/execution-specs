@@ -1505,6 +1505,10 @@ def test_leaf_replaced_by_two_siblings(
         (1, "branch", 2),
         (2, "leaf", 62),
     ]
+    assert storage_shape([old, first, second], old)[:2] == [
+        (0, "ext", 1),
+        (1, "branch", 2),
+    ]
     contract = pre.deploy_contract(
         code=_writer_code([(old, 0), (first, 3), (second, 4)]),
         storage={old: 1, other: 2},
