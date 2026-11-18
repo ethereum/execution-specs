@@ -636,6 +636,27 @@ def charge_state_gas(evm: "Evm", amount: StateGas) -> None:
         charge_frame_state_gas(frame_context, amount)
 
 
+def refund_state_gas(evm: "Evm", amount: StateGas) -> None:
+    """
+    Refund `amount` of state gas to the source that the current call
+    frame's own charge drew it from.
+
+    This is the refunding counterpart of [`charge_state_gas`][charge],
+    for a charge the current call frame paid and that bought no state:
+    a frame transaction refills the executing frame's declared pool,
+    while every other transaction type refills its meter's reservoir.
+
+    [charge]: ref:ethereum.forks.bogota.vm.gas.charge_state_gas
+    """
+    frame_context = evm.tx_env.frame_context
+    if frame_context is None:
+        credit_state_gas_refund(evm.gas_meter, amount)
+    else:
+        credit_frame_state_gas_refund(
+            frame_context, frame_context.current_frame_index, amount
+        )
+
+
 def commit_state_gas(gas_meter: GasMeter) -> None:
     """
     Mark the state gas spent so far as non-refillable.

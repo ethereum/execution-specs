@@ -717,17 +717,25 @@ REFUSED_RETURN_DATA_SIZE = 1024
 
 
 @pytest.mark.parametrize(
-    "call_opcode,scope",
+    "call_opcode,scope,payer_set",
     [
-        pytest.param(Op.CALL, Spec.APPROVE_PAYMENT, id="caller_not_target"),
         pytest.param(
-            Op.DELEGATECALL, Spec.ATOMIC_BATCH_FLAG, id="scope_beyond_mask"
+            Op.CALL, Spec.APPROVE_PAYMENT, False, id="caller_not_target"
         ),
         pytest.param(
-            Op.DELEGATECALL, Spec.APPROVE_EXECUTION, id="scope_not_allowed"
+            Op.DELEGATECALL,
+            Spec.ATOMIC_BATCH_FLAG,
+            False,
+            id="scope_beyond_mask",
         ),
         pytest.param(
-            Op.DELEGATECALL, Spec.APPROVE_PAYMENT, id="payer_already_set"
+            Op.DELEGATECALL,
+            Spec.APPROVE_EXECUTION,
+            False,
+            id="scope_not_allowed",
+        ),
+        pytest.param(
+            Op.DELEGATECALL, Spec.APPROVE_PAYMENT, True, id="payer_already_set"
         ),
     ],
 )
@@ -737,20 +745,23 @@ def test_refused_approval_charges_memory_expansion(
     fork: Fork,
     call_opcode: Op,
     scope: int,
+    payer_set: bool,
 ) -> None:
     """
     A refused `APPROVE` still pays the memory expansion of its
     return-data region: the expansion is the instruction's gas cost,
     charged before any of the checks that refuse it.
 
-    The frame allows only payment approval and the sender has already
-    approved payment, so each case fails one check: `CALL` runs the
+    The frame allows only payment approval and its target can cover
+    the transaction, so each case fails one check: `CALL` runs the
     inner code at its own address rather than the frame's target, and
     `DELEGATECALL` keeps the target's address but asks for a scope
     outside the approval mask, outside the frame's flags, or already
     granted.
     """
     sender = pre.fund_eoa()
+    payer_code = Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT)
+    payer = pre.deploy_contract(code=payer_code, balance=10**18)
 
     inner_code = Op.APPROVE(
         0,
@@ -764,20 +775,35 @@ def test_refused_approval_charges_memory_expansion(
         call_opcode(gas=Op.GAS, address=inner),
         new_value=0,
     ) + Op.SSTORE(SLOT_EXECUTED, 1)
-    target = pre.deploy_contract(code=target_code)
+    # Funded, so that a payment approval on the target's behalf would
+    # not be refused for its balance.
+    target = pre.deploy_contract(code=target_code, balance=10**18)
+
+    refusing_frame = default_frame(
+        flags=Spec.APPROVE_PAYMENT,
+        target=target,
+        code=target_code,
+        execution_gas=target_code.execution_cost(fork)
+        + inner_code.execution_cost(fork),
+    )
+    payment_frame = verify_frame(
+        flags=Spec.APPROVE_PAYMENT, target=payer, code=payer_code
+    )
+    # Only the already-granted case runs with a payer set: in the
+    # others the payer's approval comes after the refusal, leaving the
+    # check under test as the only one that refuses.
+    if payer_set:
+        ordered_frames = [payment_frame, refusing_frame]
+    else:
+        ordered_frames = [refusing_frame, payment_frame]
 
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
+        payer=payer,
         frames=[
-            verify_frame(logs=[]),
-            default_frame(
-                flags=Spec.APPROVE_PAYMENT,
-                target=target,
-                code=target_code,
-                execution_gas=target_code.execution_cost(fork)
-                + inner_code.execution_cost(fork),
-            ),
+            verify_frame(flags=Spec.APPROVE_EXECUTION, logs=[]),
+            *ordered_frames,
         ],
     )
 
@@ -786,6 +812,9 @@ def test_refused_approval_charges_memory_expansion(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            target: Account(storage={SLOT_CALL_OUTCOME: 0, SLOT_EXECUTED: 1}),
+            target: Account(
+                balance_change=0,
+                storage={SLOT_CALL_OUTCOME: 0, SLOT_EXECUTED: 1},
+            ),
         },
     )
