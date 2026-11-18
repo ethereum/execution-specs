@@ -29,7 +29,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.ported_from(
     ["state_tests/stEIP1559/lowGasPriceOldTypesFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("London")
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -62,7 +62,8 @@ def test_low_gas_price_old_types(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
 
-    env = Environment(
+    env = Environment.for_fork(
+        fork,
         fee_recipient=coinbase,
         number=1,
         timestamp=1000,
@@ -84,10 +85,10 @@ def test_low_gas_price_old_types(
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
+            "network": [">=London"],
             "result": {},
             "expect_exception": {
-                ">=Cancun": TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS
+                ">=London": TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS
             },
         },
     ]
