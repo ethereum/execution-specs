@@ -7,6 +7,7 @@ import pytest
 from execution_testing.client_clis import (
     BesuFixtureConsumer,
     BesuTransitionTool,
+    EthrexTransitionTool,
     EvmOneBlockchainFixtureConsumer,
     EvmOneStateFixtureConsumer,
     EvmOneTransitionTool,
@@ -88,6 +89,9 @@ def claimants(
         ),
         pytest.param(
             "Nimbus-t8n 0.1.2", NimbusTransitionTool, None, id="nimbus"
+        ),
+        pytest.param(
+            "ethrex-evm 4.0.0", EthrexTransitionTool, None, id="ethrex"
         ),
         pytest.param("Geth 1.2.3", None, None, id="unknown"),
     ],
