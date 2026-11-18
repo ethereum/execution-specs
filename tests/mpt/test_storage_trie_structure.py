@@ -510,39 +510,6 @@ def test_insert_splits_extension_above_deep_branch(
     )
 
 
-def test_insert_splits_extension_above_deep_branch_across_blocks(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
-) -> None:
-    """
-    Build the deep-branch trie in one block, insert into the gap in the next.
-
-    pre:  empty; block 1 writes the committed slots
-    post: block 2 writes the new slot and splits the extension, as in
-          `test_insert_splits_extension_above_deep_branch`
-    The committed nodes come from block 1 instead of genesis, so block 2's
-    root is computed from nodes the client wrote itself.
-    """
-    committed = EXT_ABOVE_DEEP_BRANCH
-    new = EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2
-    storage = _storage(committed)
-    contract = pre.deploy_contract(code=SLOT_WRITER)
-    sender = pre.fund_eoa()
-
-    blockchain_test(
-        pre=pre,
-        post={contract: Account(storage={**storage, new: 9})},
-        blocks=[
-            Block(
-                txs=[
-                    _write(sender, contract, s, storage[s]) for s in committed
-                ],
-                expected_post_state={contract: Account(storage=storage)},
-            ),
-            Block(txs=[_write(sender, contract, new, 9)]),
-        ],
-    )
-
-
 def test_insert_before_deep_branch_below_extension(
     state_test: StateTestFiller, pre: Alloc
 ) -> None:
@@ -578,37 +545,6 @@ def test_insert_before_deep_branch_below_extension(
         pre=pre,
         tx=Transaction(sender=pre.fund_eoa(), to=contract),
         post={contract: Account(storage={**storage, new: 9})},
-    )
-
-
-def test_insert_before_deep_branch_below_extension_across_blocks(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
-) -> None:
-    """
-    Build the deep-branch trie in one block, add the first child in the next.
-
-    pre:  empty; block 1 writes the committed slots
-    post: block 2 writes the new slot, as in
-          `test_insert_before_deep_branch_below_extension`
-    """
-    committed = EXT_ABOVE_DEEP_BRANCH
-    new = EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH3
-    storage = _storage(committed)
-    contract = pre.deploy_contract(code=SLOT_WRITER)
-    sender = pre.fund_eoa()
-
-    blockchain_test(
-        pre=pre,
-        post={contract: Account(storage={**storage, new: 9})},
-        blocks=[
-            Block(
-                txs=[
-                    _write(sender, contract, s, storage[s]) for s in committed
-                ],
-                expected_post_state={contract: Account(storage=storage)},
-            ),
-            Block(txs=[_write(sender, contract, new, 9)]),
-        ],
     )
 
 
@@ -657,6 +593,54 @@ def test_insert_after_unchanged_subtree_two_nibbles_deep(
         pre=pre,
         tx=Transaction(sender=pre.fund_eoa(), to=contract),
         post={contract: Account(storage={**storage, updated: 9, new: 9})},
+    )
+
+
+@pytest.mark.parametrize(
+    "committed,writes",
+    [
+        pytest.param(
+            EXT_ABOVE_DEEP_BRANCH,
+            [(EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2, 9)],
+            id="splits_extension",
+        ),
+        pytest.param(
+            EXT_ABOVE_DEEP_BRANCH,
+            [(EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH3, 9)],
+            id="below_extension",
+        ),
+    ],
+)
+def test_insert_before_deep_branch_across_blocks(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    committed: Sequence[int],
+    writes: List[Tuple[int, int]],
+) -> None:
+    """
+    Build a deep-branch trie in one block, insert into the gap in the next.
+
+    pre:  empty; block 1 writes the committed slots
+    post: block 2 applies `writes`, as in the single-block test the id names
+    The committed nodes come from block 1 instead of genesis, so block 2's
+    root is computed from nodes the client wrote itself.
+    """
+    storage = _storage(committed)
+    contract = pre.deploy_contract(code=SLOT_WRITER)
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={**storage, **dict(writes)})},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, s, storage[s]) for s in committed
+                ],
+                expected_post_state={contract: Account(storage=storage)},
+            ),
+            Block(txs=[_write(sender, contract, s, v) for s, v in writes]),
+        ],
     )
 
 
