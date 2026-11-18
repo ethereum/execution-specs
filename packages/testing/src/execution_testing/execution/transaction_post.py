@@ -89,6 +89,22 @@ class RPCTransactionLanding(TransactionLanding):
         """Return the block fee recipient."""
         return Address(self.block()["miner"])
 
+    def block_reward(self) -> int:
+        """
+        Return the reward credited to the block's fee recipient.
+
+        Proof-of-stake blocks carry no reward. The reward of a
+        proof-of-work block is not exposed over RPC, so it cannot be
+        resolved here.
+        """
+        difficulty = int(self.block().get("difficulty", "0x0"), 16)
+        if difficulty != 0:
+            raise NotImplementedError(
+                "the block reward of a proof-of-work block cannot be "
+                "resolved from RPC"
+            )
+        return 0
+
 
 class RPCPostStateContext(PostStateContext):
     """

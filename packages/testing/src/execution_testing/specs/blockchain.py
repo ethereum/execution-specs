@@ -643,6 +643,7 @@ class BuiltBlock(CamelModel):
             base_fee_per_gas=self.header.base_fee_per_gas,
             excess_blob_gas=self.header.excess_blob_gas,
             fee_recipient=self.header.fee_recipient,
+            block_reward=self.fork.get_reward(),
         )
 
     def cumulative_gas_used(self) -> int:

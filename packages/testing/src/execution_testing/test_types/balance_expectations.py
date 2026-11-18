@@ -4,13 +4,15 @@ Balance expectations that resolve against where transactions landed.
 A post-state `Account` can express its balance as a change relative to the
 pre-state (`balance_change`). Most such changes are plain integers (value
 transfers), but fees depend on the block in which a transaction was included:
-its base fee, its blob gas price and its fee recipient. Those quantities are
-expressed as terms (`GasFee`, `Tip`, `BlobFee`) which compose with integers
-into a `BalanceExpression`:
+its base fee, its blob gas price, its fee recipient and, before the Merge,
+the block reward. Those quantities are expressed as terms (`GasFee`, `Tip`,
+`BlobFee`, `BlockReward`) which compose with integers into a
+`BalanceExpression`:
 
 ```python
 Account(balance_change=-value - GasFee(tx, gas=gas_used))
 Account(balance_change=Tip(tx_a, gas=gas_a) + Tip(tx_b, gas=gas_b))
+Account(balance_change=Tip(tx, gas=gas_used) + BlockReward(tx))
 ```
 
 The expression is resolved when the post-state is verified, using a
@@ -88,6 +90,15 @@ class TransactionLanding(ABC):
     @abstractmethod
     def fee_recipient(self) -> Address:
         """Return the block fee recipient."""
+
+    @abstractmethod
+    def block_reward(self) -> int:
+        """
+        Return the reward credited to the block's fee recipient.
+
+        Zero from the Merge on, and in formats that execute transactions
+        without building a block, such as state tests.
+        """
 
 
 class PostStateContext(ABC):
@@ -203,7 +214,33 @@ class GasFee(BalanceTerm):
         return f"GasFee({self._transaction_label()}, gas={self.gas})"
 
 
-class Tip(BalanceTerm):
+class FeeRecipientTerm(BalanceTerm):
+    """
+    A term credited to the fee recipient of the block a transaction landed in.
+
+    Attaching it to any other account is an error, checked when the
+    post-state is verified.
+    """
+
+    class WrongRecipientError(Exception):
+        """A term was expected on an account that is not the fee recipient."""
+
+    def check_recipient(
+        self, recipient: Address, context: PostStateContext
+    ) -> None:
+        """
+        Raise unless `recipient` is the fee recipient of the block in which
+        the transaction landed.
+        """
+        fee_recipient = context.landing(self.key).fee_recipient()
+        if fee_recipient != recipient:
+            raise FeeRecipientTerm.WrongRecipientError(
+                f"{self} is expected on {recipient}, but the transaction "
+                f"landed in a block whose fee recipient is {fee_recipient}"
+            )
+
+
+class Tip(FeeRecipientTerm):
     """
     Priority fee received by the fee recipient for `gas` units.
 
@@ -218,9 +255,6 @@ class Tip(BalanceTerm):
         super().__init__(tx)
         self.gas = gas
 
-    class WrongRecipientError(Exception):
-        """A tip was expected on an account that is not the fee recipient."""
-
     def resolve(self, context: PostStateContext) -> int:
         """Return the priority fee in wei."""
         landing = context.landing(self.key)
@@ -228,23 +262,27 @@ class Tip(BalanceTerm):
             landing.effective_gas_price() - landing.base_fee_per_gas()
         )
 
-    def check_recipient(
-        self, recipient: Address, context: PostStateContext
-    ) -> None:
-        """
-        Raise unless `recipient` is the fee recipient of the block in which
-        the transaction landed.
-        """
-        fee_recipient = context.landing(self.key).fee_recipient()
-        if fee_recipient != recipient:
-            raise Tip.WrongRecipientError(
-                f"{self} is expected on {recipient}, but the transaction "
-                f"landed in a block whose fee recipient is {fee_recipient}"
-            )
-
     def __str__(self) -> str:
         """Describe the term."""
         return f"Tip({self._transaction_label()}, gas={self.gas})"
+
+
+class BlockReward(FeeRecipientTerm):
+    """
+    Block reward received by the fee recipient of the block `tx` landed in.
+
+    Resolves to the fork's reward in blockchain fixtures before the Merge,
+    and to zero from the Merge on and in state test fixtures, which apply no
+    block reward. Use it once per block, not once per transaction.
+    """
+
+    def resolve(self, context: PostStateContext) -> int:
+        """Return the block reward in wei."""
+        return context.landing(self.key).block_reward()
+
+    def __str__(self) -> str:
+        """Describe the term."""
+        return f"BlockReward({self._transaction_label()})"
 
 
 class BlobFee(BalanceTerm):
