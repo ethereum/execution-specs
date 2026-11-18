@@ -656,6 +656,7 @@ def validate_frame_transaction(
     )
 
     has_expiry_verifier_frame = False
+    execution_approvable = False
     total_frame_gas = Uint(0)
     total_frame_execution_gas = Uint(0)
     total_frame_state_gas = Uint(0)
@@ -696,13 +697,30 @@ def validate_frame_transaction(
         # can never withdraw an execution approval that later SENDER
         # frames rely on, and whether the transaction sets a payer never
         # depends on a batch outcome.
-        in_batch = FrameFlag.ATOMIC_BATCH in frame.flags or (
+        follows_batch_frame = (
             index > 0 and FrameFlag.ATOMIC_BATCH in tx.frames[index - 1].flags
         )
+        in_batch = FrameFlag.ATOMIC_BATCH in frame.flags or follows_batch_frame
         if in_batch and frame.flags & APPROVE_SCOPE_MASK != FrameFlag(0):
             raise InvalidFrameError(
                 "atomic batch frames cannot carry approval scope"
             )
+
+        # Only a frame whose flags include the execution scope can
+        # approve execution, so a SENDER frame with no such frame before
+        # it runs unapproved whatever the earlier frames do. Exempt is a
+        # frame following a batch frame, which may be skipped and then
+        # needs no approval; execution decides that case.
+        if (
+            frame.mode == FrameMode.SENDER
+            and not execution_approvable
+            and not follows_batch_frame
+        ):
+            raise InvalidFrameError(
+                "sender frame before any frame can approve execution"
+            )
+        if FrameFlag.APPROVE_EXECUTION in frame.flags:
+            execution_approvable = True
 
         if frame.mode == FrameMode.VERIFY and frame.to == EXPIRY_VERIFIER:
             if has_expiry_verifier_frame:

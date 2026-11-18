@@ -383,6 +383,60 @@ FRAME_CASES = [
         None,
         id="approval_scope_after_batch_terminator",
     ),
+    # A `SENDER` frame needs execution approved, and only a frame whose
+    # flags include `APPROVE_EXECUTION` can approve it. With no such frame
+    # before it the verdict is known from the frames alone, and a later
+    # approving frame does not help. `sender_frame_with_value` above has
+    # the approving frame first, and is valid.
+    pytest.param(
+        [sender_frame(), verify_frame()],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="sender_frame_first",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The earlier frame runs, yet its flags allow no approval.
+        [default_frame(), sender_frame(), verify_frame()],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="sender_frame_after_frame_without_execution_scope",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The scope would have to be on a frame before this one.
+        [sender_frame(flags=Spec.APPROVE_EXECUTION), verify_frame()],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="sender_frame_with_own_execution_scope",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # A batch's first frame always runs, so the flag does not
+        # exempt it.
+        [
+            sender_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            default_frame(),
+            verify_frame(),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="sender_frame_opening_atomic_batch",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # A frame following a batch frame is exempt, since it may be
+        # skipped. Here the batch's first frame reverts, the `SENDER`
+        # frame never runs, and the transaction is valid. Pins the
+        # rule's boundary, so an implementation cannot reject every
+        # `SENDER` frame that precedes the approving one.
+        lambda pre, _sender: [
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=pre.deploy_contract(code=Op.REVERT(0, 0)),
+            ),
+            sender_frame(),
+            verify_frame(),
+        ],
+        None,
+        id="skipped_sender_frame_before_execution_scope",
+    ),
     pytest.param(
         # Each frame's gas limit fits into 64 bits, but the total
         # frame gas must as well.
