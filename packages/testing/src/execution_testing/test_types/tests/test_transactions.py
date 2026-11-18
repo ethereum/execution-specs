@@ -1,8 +1,15 @@
 """Test suite for transaction signing and serialization."""
 
+import hashlib
 from typing import Any, List, Tuple
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.utils import (
+    Prehashed,
+    encode_dss_signature,
+)
+from cryptography.hazmat.primitives.hashes import SHA256
 from pydantic import ValidationError
 from spec256k1 import PublicKey
 
@@ -10,7 +17,14 @@ from execution_testing.base_types import AccessList, Address, Hash
 
 from .. import transaction_types
 from ..account_types import EOA
-from ..transaction_types import Frame, Transaction
+from ..transaction_types import (
+    SECP256R1N,
+    Frame,
+    FrameSignature,
+    FrameSignatureScheme,
+    Transaction,
+    p256_public_key,
+)
 from ..utils import keccak256
 
 SIGNING_KEY = Hash(bytes(range(1, 33)))
@@ -431,3 +445,54 @@ def test_mismatched_sender_address_is_trusted() -> None:
     ).with_signature_and_sender()
     assert signed.sender == inconsistent
     assert signed.sender != recover_sender(signed)
+
+
+def test_p256_signature_matches_rfc6979_vector() -> None:
+    """
+    A P256 entry signs with the RFC 6979 nonce and stores the low `s`.
+
+    Key, public key and `(r, s)` are RFC 6979 §A.2.5's P-256 / SHA-256
+    vector for the message "sample". Its `s` is above half the order,
+    so the entry holds `SECP256R1N - s`.
+    """
+    key = 0xC9AFA9D845BA75166B5C215767B1D6934E50C3DB36E89B127B8A622B120F6721
+    qx = 0x60FED4BA255A9D31C961EB74C6356D68C049B8923B61FA6CE669622E60F29FB6
+    qy = 0x7903FE1008B8BC99A41AE9E95628BC64F2F1B20C2D7E9F5177A3C294D4462299
+    r = 0xEFD48B2AACB6A8FD1140DD9CD45E81D69D2C877B56AAF991C34D0EA84EAF3716
+    s = 0xF7CB1C942D657C41D436C7A1B6E29F65F3E900DBB9AFF4064DC4AB2F843ACDA8
+    assert p256_public_key(key) == (qx, qy)
+
+    entry = FrameSignature(scheme=FrameSignatureScheme.P256)
+    entry.signed_over(hashlib.sha256(b"sample").digest(), Hash(key))
+    assert entry.signature == b"".join(
+        value.to_bytes(32, "big") for value in (r, SECP256R1N - s, qx, qy)
+    )
+
+
+def test_frame_tx_signs_p256_entry_over_signature_hash() -> None:
+    """
+    A P256 entry with a `secret_key` and an empty `msg` is signed over
+    the canonical signature hash when the transaction is signed.
+    """
+    key = 0x8141
+    signed = Transaction(
+        sender=EOA(key=SIGNING_KEY),
+        frames=[Frame()],
+        signatures=[
+            FrameSignature(
+                scheme=FrameSignatureScheme.P256, secret_key=Hash(key)
+            )
+        ],
+    ).with_signature_and_sender()
+    assert signed.signatures is not None
+    signature = bytes(signed.signatures[0].signature)
+    r, s, qx, qy = (
+        int.from_bytes(signature[start : start + 32], "big")
+        for start in range(0, 128, 32)
+    )
+    assert (qx, qy) == p256_public_key(key)
+    ec.EllipticCurvePublicNumbers(qx, qy, ec.SECP256R1()).public_key().verify(
+        encode_dss_signature(r, s),
+        bytes(signed.rlp_signing_bytes().keccak256()),
+        ec.ECDSA(Prehashed(SHA256())),
+    )

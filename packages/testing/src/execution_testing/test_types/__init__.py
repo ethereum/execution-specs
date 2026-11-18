@@ -64,6 +64,7 @@ from .transaction_types import (
     DEFAULT_FRAME_GAS_LIMIT,
     DEFAULT_FRAME_STATE_GAS_LIMIT,
     SECP256K1_SIGNATURE_LENGTH,
+    SECP256R1N,
     AuthorizationTuple,
     Frame,
     FrameFlag,
@@ -76,6 +77,7 @@ from .transaction_types import (
     TransactionDefaults,
     TransactionTestMetadata,
     TransactionType,
+    p256_public_key,
 )
 from .utils import Removable, keccak256
 
@@ -121,6 +123,7 @@ __all__ = (
     "PostStateContext",
     "Removable",
     "SECP256K1_SIGNATURE_LENGTH",
+    "SECP256R1N",
     "SystemContractInteractionBase",
     "SystemContractInteractionContract",
     "SystemContractInteractionMeasuredOutOfGasContract",
@@ -146,6 +149,7 @@ __all__ = (
     "contract_address_from_hash",
     "eoa_from_hash",
     "keccak256",
+    "p256_public_key",
     "relay_contract_code",
     "verify_frame_transaction_receipt",
     "verify_log",
