@@ -145,4 +145,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    code = main()
+    # Skip interpreter teardown: freeing the objects of ~95k collected test
+    # items takes several seconds and nothing needs to be cleaned up.
+    logging.shutdown()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(code)

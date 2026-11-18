@@ -205,8 +205,14 @@ class TransitionTool(EthereumCLI):
     opcode_count_per_block: List[OpcodeCount] | None = None
     count_opcodes: bool = True
     """Whether `reset_opcode_count` turns on opcode counting for a test."""
+    supports_opcode_count: bool = False
+    """Whether the tool counts opcodes, which can depend on its binary."""
 
-    supports_opcode_count: ClassVar[bool] = False
+    invariant_checks: bool = False
+    """Collect what `fill --invariant-checks` needs: the storage accesses
+    behind `TransitionToolOutput.bal_witness` on forks with block access
+    lists, and opcode counts on forks where a SELFDESTRUCT can excuse an
+    ether or nonce shortfall. Only the EELS transition tool honors it."""
     supports_xdist: ClassVar[bool] = True
     supports_blob_params: ClassVar[bool] = False
     attests_block_access_list_hash: ClassVar[bool] = True
@@ -337,6 +343,9 @@ class TransitionTool(EthereumCLI):
         reward: int
         blob_schedule: BlobSchedule | None
         state_test: bool = False
+        # The test corrupts the built block, so a backend that imports
+        # what it builds (``ClientBackend``) must leave this block out.
+        expect_invalid: bool = False
 
         @property
         def fork_name(self) -> str:

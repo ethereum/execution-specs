@@ -124,6 +124,19 @@ VALUE_BOUNDARY_PAIR: Final = (247476, 515151)
 # (even, 28-byte compact path), s has 55 (odd, also 28 bytes).
 INLINE_TRIO: Final = (175378, 2311414, 458416)
 
+# Prefixes 20, 2f5, 2f6, 30c63 (x2), 30c60, 30c7; the sibling 300 sorts
+# between the subtree under 2f and the committed branches under 30c, and
+# splits the extension above them. Trie: branch@0 -> {2: branch@1 ->
+# {leaf, branch@2}, 3: ext(2) -> branch@3 -> {branch@4 -> {..}, leaf}}.
+# Rule, for first nibbles n and n + 1 and nibbles q > 0, r and v: the
+# smallest slot under n0; the smallest under nf, and the smallest under nf
+# with another third nibble; a pair under (n+1)0qrv differing at the
+# sixth nibble; the smallest under (n+1)0qrw with w = 0 (1 when v = 0),
+# under (n+1)0q(r+1) and, the sibling, under (n+1)00. n, q, r, v
+# and the pair minimise the largest slot.
+EXT_ABOVE_DEEP_BRANCH: Final = (485, 243, 304, 9857, 33603, 27818, 3070)
+EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2: Final = 2620
+
 # --- addresses ----------------------------------------------------------
 
 # Same rules over 20-byte addresses. `pre.fund_address` raises if a mined
@@ -155,6 +168,21 @@ ADDR_EXT_MERGE_TRIO: Final = (65755, 66515, 66334)
 # 3 nibbles with both: controlled branch parents above the mined group.
 TWO_ADDRS_EXT4_SIBLING_DEPTH1: Final = 65545
 TWO_ADDRS_EXT4_SIBLING_DEPTH3: Final = 68252
+
+# EXT_ABOVE_DEEP_BRANCH's rule over addresses, with n restricted to 1 or
+# e: the first nibbles n and n + 1 must be free of the genesis, sender and
+# coinbase accounts on every fork from Osaka. Prefixes 10, 1f0, 1f8,
+# 201b4 (x2), 201b0, 201c; the sibling 200.
+ADDR_EXT_ABOVE_DEEP_BRANCH: Final = (
+    65613,
+    65872,
+    65822,
+    146752,
+    152928,
+    163618,
+    82263,
+)
+ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2: Final = 68415
 
 # --- CREATE2 salts ------------------------------------------------------
 

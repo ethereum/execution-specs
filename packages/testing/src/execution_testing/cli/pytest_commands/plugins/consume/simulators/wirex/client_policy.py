@@ -211,6 +211,7 @@ def client(
             environment,
             client_genesis,
             total_timing_data,
+            request,
         )
         try:
             yield isolated
@@ -355,6 +356,7 @@ def target_context_factory(
             environment,
             client_genesis,
             total_timing_data,
+            request,
         )
         peer: MockPeer | None = None
         try:

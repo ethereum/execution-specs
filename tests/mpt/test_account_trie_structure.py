@@ -47,10 +47,13 @@ from execution_testing import (
     Transaction,
     Withdrawal,
     compute_create2_address,
+    keccak256,
 )
 from execution_testing.base_types import StorageRootType
 
 from .constants import (
+    ADDR_EXT_ABOVE_DEEP_BRANCH,
+    ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2,
     ADDR_EXT_MERGE_TRIO,
     COLLAPSE_SALT,
     DELETE_INITCODE,
@@ -216,6 +219,68 @@ def test_insert_full_branch_during_execution(
         post={
             payer: Account(balance=0),
             **{a: Account(balance=1) for a in addresses},
+        },
+    )
+
+
+def test_insert_splits_extension_above_deep_branch(
+    state_test: StateTestFiller, pre: Alloc
+) -> None:
+    """
+    Create an account between an unchanged subtree and a deeper branch.
+
+    pre:  branch@0 -> {.., 1: branch@1, 2: ext(2) -> branch@3 -> {..}}
+    post: branch@0 -> {.., 2: ext(1) -> branch@2 -> {new, branch@3}}
+    The account trie version of the storage test of the same name: the new
+    leaf sorts after the unchanged subtree under `1f` and before the
+    committed branches under `201` below the extension it splits. No other
+    account starts with the mined first nibbles 1 and 2, so the shape
+    asserts pin every node below the root.
+    """
+    committed = [Address(x) for x in ADDR_EXT_ABOVE_DEEP_BRANCH]
+    new = Address(ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2)
+    for i, address in enumerate(committed):
+        pre.fund_address(address, amount=i + 1)
+    sender = pre.fund_eoa()
+    left, deep = committed[1], committed[3]
+    assert account_shape(pre, left)[1:] == [
+        (1, "branch", 2),
+        (2, "branch", 2),
+        (3, "leaf", 61),
+    ]
+    assert account_shape(pre, deep)[1:] == [
+        (1, "ext", 2),
+        (3, "branch", 2),
+        (4, "branch", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    after = _after_block(pre) + [new]
+    assert account_shape(after, deep)[1:] == [
+        (1, "ext", 1),
+        (2, "branch", 2),
+        (3, "branch", 2),
+        (4, "branch", 2),
+        (5, "branch", 2),
+        (6, "leaf", 58),
+    ]
+    assert account_shape(after, new)[1:] == [
+        (1, "ext", 1),
+        (2, "branch", 2),
+        (3, "leaf", 61),
+    ]
+    # Same key order as the storage test: `1f` carries to `20`, the new key
+    # sorts first under `2`, the deep branch is the first child of `201`.
+    key = {a: bytes(keccak256(a)).hex() for a in [*committed, new]}
+    assert key[left][:2] == "1f" and key[new][:3] == "200"
+    assert key[deep][:4] == "201b" and key[committed[6]][:4] == "201c"
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=sender, to=new, value=1),
+        post={
+            new: Account(balance=1),
+            **{a: Account(balance=i + 1) for i, a in enumerate(committed)},
         },
     )
 

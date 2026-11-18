@@ -5,7 +5,7 @@
 #   - On push to allowlisted branches: Builds, uploads artifacts, and triggers
 #     the aggregator workflow in protocol-specs-website for deployment
 #
-# Site structure at steel.ethereum.foundation/docs/execution-specs/:
+# Site structure at specs.ethereum.foundation/docs/execution-specs/:
 #   /docs/execution-specs/                         - Default branch docs (deployed at root)
 #   /docs/execution-specs/specs/reference/         - Default branch spec reference
 #   /docs/execution-specs/<branch>/                - Non-default branch docs
@@ -139,9 +139,9 @@ jobs:
           # canonical/OG/sitemap URLs omit the <branch>/ segment.
           if [ "$SHOULD_PUBLISH" = "true" ]; then
             if [ "$BRANCH_INPUT" = "$DEFAULT_BRANCH" ]; then
-              SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/"
+              SITE_URL="https://specs.ethereum.foundation/docs/execution-specs/"
             else
-              SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/${BRANCH_INPUT}/"
+              SITE_URL="https://specs.ethereum.foundation/docs/execution-specs/${BRANCH_INPUT}/"
             fi
           else
             SITE_URL="https://example.com/docs/${BRANCH_INPUT}/"

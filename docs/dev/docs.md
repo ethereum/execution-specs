@@ -1,6 +1,6 @@
 # Documentation
 
-The `execution-specs` documentation is generated via [Zensical](https://zensical.org/) and hosted at [steel.ethereum.foundation/docs/execution-specs/](https://steel.ethereum.foundation/docs/execution-specs/). The site is configured in `zensical.toml`.
+The `execution-specs` documentation is generated via [Zensical](https://zensical.org/) and hosted at [specs.ethereum.foundation/docs/execution-specs/](https://specs.ethereum.foundation/docs/execution-specs/). The site is configured in `zensical.toml`.
 
 ## Prerequisites
 

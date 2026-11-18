@@ -23,6 +23,9 @@ from execution_testing.forks.helpers import Fork
     ],
 )
 @pytest.mark.slow()
+@pytest.mark.execute(
+    pytest.mark.skip(reason="Requires a controlled chain starting at genesis")
+)
 def test_genesis_hash_available(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

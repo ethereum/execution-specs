@@ -6,18 +6,12 @@ import pytest
 
 from execution_testing.base_types import Address, Bloom, Hash
 from execution_testing.client_clis import ClientBackend
-from execution_testing.client_clis.cli_types import (
-    EnginePayloadMetadata,
-    LazyAllocJson,
-    Result,
-)
+from execution_testing.client_clis.cli_types import LazyAllocJson, Result
 from execution_testing.fixtures.blockchain import (
     BlockchainEngineStatefulFixture,
-    FixtureExecutionPayload,
     FixtureHeader,
 )
 from execution_testing.forks import Osaka
-from execution_testing.rpc.rpc_types import GetPayloadResponse
 from execution_testing.specs.verifications import ReceiptStatusExpected
 from execution_testing.test_types import (
     Alloc,
@@ -28,7 +22,7 @@ from execution_testing.test_types import (
 from execution_testing.test_types.receipt_types import TransactionReceipt
 
 from ..base import FillResult
-from ..blockchain import Block, BlockchainTest, TestingBuildBlock
+from ..blockchain import Block, BlockchainTest, BuiltBlock
 
 FORK = Osaka
 START_BLOCK_NUMBER = 1
@@ -61,31 +55,21 @@ def _tx(phase: TestPhase) -> Transaction:
     return tx
 
 
-def _built_block(number: int, statuses: List[int]) -> TestingBuildBlock:
+def _built_block(number: int, statuses: List[int]) -> BuiltBlock:
     """
-    Build a ``TestingBuildBlock`` whose receipts carry ``statuses``,
+    Build a ``BuiltBlock`` whose receipts carry ``statuses``,
     mimicking what ``ClientBackend.evaluate`` assembles from a live
     client's ``testing_buildBlockV1`` + ``eth_getTransactionReceipt``.
     """
-    header = _header(number)
-    payload = FixtureExecutionPayload.from_fixture_header(
-        header=header,
-        transactions=[],
-        withdrawals=None,
-    )
-    new_payload_version = FORK.engine_new_payload_version()
-    forkchoice_updated_version = FORK.engine_forkchoice_updated_version()
-    assert new_payload_version is not None
-    assert forkchoice_updated_version is not None
-    return TestingBuildBlock(
-        header=header,
+    return BuiltBlock(
+        header=_header(number),
         env=Environment(number=number, timestamp=number * 12),
         alloc=LazyAllocJson(raw={}, _state_root=Hash(0)),
         state_root=Hash(0),
         txs=[],
         ommers=[],
         withdrawals=None,
-        requests=None,
+        requests=[],
         result=Result(
             state_root=Hash(0),
             transactions_trie=Hash(0),
@@ -97,12 +81,6 @@ def _built_block(number: int, statuses: List[int]) -> TestingBuildBlock:
         ),
         fork=FORK,
         block_access_list=None,
-        engine_payload=EnginePayloadMetadata(
-            payload_response=GetPayloadResponse(execution_payload=payload),
-            new_payload_version=new_payload_version,
-            forkchoice_updated_version=forkchoice_updated_version,
-            parent_beacon_block_root=Hash(0),
-        ),
     )
 
 
@@ -147,7 +125,7 @@ def _fill_stateful(
 
     def fake_generate_block_data(
         _self: BlockchainTest, **_kwargs: Any
-    ) -> TestingBuildBlock:
+    ) -> BuiltBlock:
         return _built_block(next(block_numbers), next(calls))
 
     monkeypatch.setattr(
