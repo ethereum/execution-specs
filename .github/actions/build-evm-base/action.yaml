@@ -81,3 +81,9 @@ runs:
       with:
         repo: ${{ steps.resolved.outputs.repo }}
         ref: ${{ steps.resolved.outputs.ref }}
+    - name: Build the EVM using Ethrex action
+      if: steps.config-evm-reader.outputs.impl == 'ethrex'
+      uses: ./.github/actions/build-evm-client/ethrex
+      with:
+        repo: ${{ steps.resolved.outputs.repo }}
+        ref: ${{ steps.resolved.outputs.ref }}

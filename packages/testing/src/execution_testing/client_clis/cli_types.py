@@ -548,6 +548,11 @@ class Result(CamelModel):
     block_access_list: Bytes | None = None
     block_access_list_hash: Hash | None = None
     execution_witness: ExecutionWitness | None = None
+    successful_validation: bool | None = None
+    """
+    Whether `execution_witness` validates the block statelessly, for the
+    tools that check their own witness.
+    """
     block_exception: Annotated[
         BlockExceptionWithMessage | UndefinedException | None,
         ExceptionMapperValidator,

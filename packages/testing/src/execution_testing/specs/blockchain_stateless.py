@@ -229,6 +229,7 @@ def build_stateless_artifacts(
     chain_id: int,
     block_valid: bool,
     run_guest: bool,
+    transition_tool_validation: bool | None,
 ) -> StatelessValidationArtifacts:
     """
     Build the stateless guest input and output for the final fixture block.
@@ -238,7 +239,8 @@ def build_stateless_artifacts(
     that ``engine_payload_modifier`` doesn't override, so the input
     includes any change the filler makes after the transition tool runs.
     Without ``run_guest`` the output trusts the transition tool instead of
-    re-executing the block.
+    re-executing the block. It reports ``transition_tool_validation``, which
+    is what the tool says about its own witness, so the tool has to say it.
 
     Omit the input and output when the fork has no stateless validation,
     when the transition tool runs the fork with a blob schedule its spec
@@ -320,14 +322,21 @@ def build_stateless_artifacts(
         output_bytes = _run_stateless_guest(fork, input_bytes)
     else:
         # Benchmark blocks are too slow to re-execute in the guest, so trust
-        # the external transition tool and report the block as valid.
+        # what the external transition tool says about its own witness.
+        if transition_tool_validation is None:
+            raise Exception(
+                "The transition tool returned an execution witness without "
+                "`successfulValidation`. In benchmark mode the filler "
+                "doesn't run the stateless guest, so the tool has to say if "
+                "its witness validates the block."
+            )
         output_bytes = Bytes(
             serialize_stateless_output(
                 StatelessValidationResult(
                     new_payload_request_root=(
                         spec.compute_new_payload_request_root(stateless_input)
                     ),
-                    successful_validation=True,
+                    successful_validation=transition_tool_validation,
                     chain_id=U64(chain_id),
                     schema_id=U16(spec.STATELESS_INPUT_SCHEMA_ID),
                 )

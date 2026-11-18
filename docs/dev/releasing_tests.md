@@ -57,7 +57,7 @@ gh workflow run release_fixtures.yaml \
   -f branch='tests-zkevm@vX.Y.Z'
 ```
 
-The workflow uses the Geth repository and commit in `evm.yaml` by default. A releaser can use the existing `evm`, `evm_repo`, and `evm_ref` inputs to override that configuration.
+The workflow uses the Ethrex repository and commit in `evm.yaml` by default. A releaser can use the existing `evm`, `evm_repo`, and `evm_ref` inputs to override that configuration. The fill fails with a t8n tool that returns a witness without saying if it validates the block, see the [stateless validation fields](../running_tests/test_formats/blockchain_test.md#stateless-validation-fields).
 
 The workflow fills Amsterdam compute benchmarks at 30M, 60M, 100M, 150M, and 200M gas. It produces only `blockchain_test` fixtures.
 

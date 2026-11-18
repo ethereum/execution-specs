@@ -1628,6 +1628,9 @@ class BlockchainTest(BaseTest):
                     isinstance(t8n, ExecutionSpecsTransitionTool)
                     or self.operation_mode != OpMode.BENCHMARKING
                 ),
+                transition_tool_validation=(
+                    transition_tool_output.result.successful_validation
+                ),
             ),
             block_number=int(env.number),
             chain_id=self.chain_id,

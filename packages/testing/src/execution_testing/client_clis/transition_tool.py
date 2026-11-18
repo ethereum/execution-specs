@@ -205,8 +205,9 @@ class TransitionTool(EthereumCLI):
     opcode_count_per_block: List[OpcodeCount] | None = None
     count_opcodes: bool = True
     """Whether `reset_opcode_count` turns on opcode counting for a test."""
+    supports_opcode_count: bool = False
+    """Whether the tool counts opcodes, which can depend on its binary."""
 
-    supports_opcode_count: ClassVar[bool] = False
     supports_xdist: ClassVar[bool] = True
     supports_blob_params: ClassVar[bool] = False
     attests_block_access_list_hash: ClassVar[bool] = True

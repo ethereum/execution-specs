@@ -275,7 +275,7 @@ class GethTransitionTool(GethEvm, TransitionTool):
     subcommand: Optional[str] = "t8n"
     trace: bool
     t8n_use_stream = True
-    supports_opcode_count: ClassVar[bool] = True
+    supports_opcode_count = True
 
     def __init__(
         self,
