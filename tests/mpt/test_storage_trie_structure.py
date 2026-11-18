@@ -609,6 +609,11 @@ def test_insert_after_unchanged_subtree_two_nibbles_deep(
             [(EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH3, 9)],
             id="below_extension",
         ),
+        pytest.param(
+            TWO_NIBBLE_CARRY,
+            [(TWO_NIBBLE_CARRY[1], 9), (TWO_NIBBLE_CARRY_SIBLING_DEPTH3, 9)],
+            id="two_nibbles_deep",
+        ),
     ],
 )
 def test_insert_before_deep_branch_across_blocks(
