@@ -205,8 +205,9 @@ class TransitionTool(EthereumCLI):
     opcode_count_per_block: List[OpcodeCount] | None = None
     count_opcodes: bool = True
     """Whether `reset_opcode_count` turns on opcode counting for a test."""
+    supports_opcode_count: bool = False
+    """Whether the tool counts opcodes, which can depend on its binary."""
 
-    supports_opcode_count: ClassVar[bool] = False
     invariant_checks: bool = False
     """Collect what `fill --invariant-checks` needs: the storage accesses
     behind `TransitionToolOutput.bal_witness` on forks with block access

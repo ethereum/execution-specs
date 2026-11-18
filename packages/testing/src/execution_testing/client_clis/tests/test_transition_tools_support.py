@@ -12,6 +12,7 @@ from execution_testing.base_types import (
     TestPrivateKey,
 )
 from execution_testing.client_clis import (
+    EthrexTransitionTool,
     EvmOneTransitionTool,
     ExecutionSpecsTransitionTool,
     TransitionTool,
@@ -78,6 +79,9 @@ def test_t8n_support(fork: Fork, installed_t8n: TransitionTool) -> None:
     if isinstance(
         installed_t8n, (ExecutionSpecsTransitionTool, EvmOneTransitionTool)
     ) and fork in [Constantinople]:
+        return
+    if isinstance(installed_t8n, EthrexTransitionTool) and fork < Paris:
+        # ethrex-evm only fills forks from the Merge onwards.
         return
     env = Environment()
     sender = TestAddress
