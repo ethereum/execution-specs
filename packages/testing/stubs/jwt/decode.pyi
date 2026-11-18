@@ -1,3 +1,0 @@
-from typing import Any, Dict, List
-
-def decode(jwt: str, key: bytes, algorithms: List[str]) -> Dict[str, Any]: ...

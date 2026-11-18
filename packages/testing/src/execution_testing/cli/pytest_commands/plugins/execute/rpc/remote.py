@@ -170,16 +170,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 def verify_engine_endpoint(engine_rpc: EngineRPC) -> None:
-    """
-    Exit the session unless the engine endpoint accepts the JWT secret.
-
-    Without this check, a wrong JWT secret only surfaces once the tests
-    start, and then fails every test one by one.
-
-    Execution clients authenticate a request before dispatching it, so any
-    JSON-RPC response, including an error from a client that does not
-    implement `engine_getClientVersionV1`, shows that the secret is valid.
-    """
+    """Exit the session early if the engine endpoint rejects the JWT secret."""
     try:
         client_versions = engine_rpc.get_client_version(EXECUTE_CLIENT_VERSION)
     except (JSONRPCError, ValidationError) as e:
