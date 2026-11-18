@@ -38,6 +38,7 @@ env:
   BENCHMARK_FILE: ${{ inputs.benchmark_file || 'tests/benchmark/compute/instruction/test_memory.py' }}
   FILL_FORK: ${{ inputs.fill_fork || 'Amsterdam' }}
   XDIST_WORKERS: ${{ inputs.xdist_workers || 'auto' }}
+  WITNESS_TESTS: tests/amsterdam/eip8025_optional_proofs
 
 jobs:
   compare-fills:
@@ -90,7 +91,12 @@ jobs:
           fi
 
       - name: Prepare fill directories
-        run: mkdir -p fill_tmp/python fill_tmp/t8n fill_logs/python fill_logs/t8n
+        run: |
+          mkdir -p \
+            fill_tmp/python fill_tmp/t8n \
+            fill_tmp/witness_python fill_tmp/witness_t8n \
+            fill_logs/python fill_logs/t8n \
+            fill_logs/witness_python fill_logs/witness_t8n
 
       - name: Fill benchmark with Python spec
         run: |
@@ -123,8 +129,43 @@ jobs:
             --log-to fill_logs/t8n \
             "$BENCHMARK_FILE"
 
-      - name: Compare fixture hashes
+      - name: Compare benchmark fixture hashes
         run: uv run hasher compare fixtures_python fixtures_t8n
+
+      # The benchmark file above reaches few of the cases where two witness
+      # generators can differ. These tests are written for those cases, so
+      # they catch a spec change to the witness that the pinned t8n tool
+      # doesn't follow yet. They fill in normal mode, where the Python
+      # stateless guest also runs on the witness the t8n tool returns.
+      - name: Fill witness tests with Python spec
+        run: |
+          uv run fill \
+            --clean \
+            --fork "$FILL_FORK" \
+            -n "$XDIST_WORKERS" \
+            --output=fixtures_witness_python \
+            --no-html \
+            --basetemp=fill_tmp/witness_python \
+            --log-to fill_logs/witness_python \
+            "$WITNESS_TESTS"
+
+      - name: Fill witness tests with the zkevm-benchmark t8n tool
+        env:
+          EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
+        run: |
+          uv run fill \
+            --clean \
+            --fork "$FILL_FORK" \
+            --evm-bin="$EVM_BIN" \
+            -n "$XDIST_WORKERS" \
+            --output=fixtures_witness_t8n \
+            --no-html \
+            --basetemp=fill_tmp/witness_t8n \
+            --log-to fill_logs/witness_t8n \
+            "$WITNESS_TESTS"
+
+      - name: Compare witness fixture hashes
+        run: uv run hasher compare fixtures_witness_python fixtures_witness_t8n
 
       - name: Upload failure artifacts
         if: failure()
@@ -134,5 +175,7 @@ jobs:
           path: |
             fixtures_python/
             fixtures_t8n/
+            fixtures_witness_python/
+            fixtures_witness_t8n/
             fill_logs/
           if-no-files-found: ignore
