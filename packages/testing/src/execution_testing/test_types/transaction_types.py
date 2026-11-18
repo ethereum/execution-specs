@@ -492,8 +492,6 @@ class Transaction(
 
     authorization_list: List[AuthorizationTuple] | None = None
 
-    initcodes: List[Bytes] | None = None
-
     frames: List[Frame] | None = None
     signatures: List[FrameSignature] | None = None
 
@@ -587,8 +585,6 @@ class Transaction(
             # Try to deduce transaction type from included fields
             if self.frames is not None:
                 self.ty = HexNumber(TransactionType.FRAME)
-            elif self.initcodes is not None:
-                self.ty = HexNumber(TransactionType.FRAME)
             elif self.authorization_list is not None:
                 self.ty = HexNumber(4)
             elif (
@@ -606,16 +602,11 @@ class Transaction(
             else:
                 self.ty = HexNumber(0)
 
-        if (
-            self.ty == TransactionType.FRAME
-            and self.frames is None
-            and self.initcodes is None
-        ):
+        if self.ty == TransactionType.FRAME and self.frames is None:
             # Type 6 is the EIP-8141 frame transaction, whose call lives
-            # in its frames; an explicit `initcodes` list selects the
-            # EIP-7873 shape instead. A legacy-shaped type-6 transaction
-            # has no valid encoding, so refuse it rather than build one
-            # with no frames.
+            # in its frames. A legacy-shaped type-6 transaction has no
+            # valid encoding, so refuse it rather than build one with no
+            # frames.
             raise ValueError(
                 "a type 6 transaction is an EIP-8141 frame transaction: "
                 "pass `frames` instead of `to`, `value`, `data` and "
@@ -709,7 +700,6 @@ class Transaction(
             )
 
         if self.ty != TransactionType.FRAME:
-            assert self.initcodes is None, "initcodes must be None"
             assert self.frames is None, "frames must be None"
             assert self.signatures is None, "signatures must be None"
 
@@ -771,6 +761,16 @@ class Transaction(
             for sig in self.signatures
         ]
 
+    def _drop_cached_properties(self) -> None:
+        """
+        Drop every cached property value, so that each is computed again
+        from the current fields on its next access.
+        """
+        for klass in type(self).__mro__:
+            for name, attribute in vars(klass).items():
+                if isinstance(attribute, cached_property):
+                    self.__dict__.pop(name, None)
+
     def _sign_frame_signatures(self) -> None:
         """
         Fill in the raw signature bytes of the frame transaction's
@@ -792,7 +792,6 @@ class Transaction(
                     FrameSignature(
                         scheme=HexNumber(FrameSignatureScheme.SECP256K1),
                         signer=Bytes(self.sender),
-                        msg=Bytes(b""),
                     )
                 ]
             else:
@@ -1049,8 +1048,8 @@ class Transaction(
             # return one: the entries are signed in place, so signing
             # `self` would also sign a transaction the caller keeps. The
             # copy is shallow, like the other types', so the entries are
-            # copied too, and the cached hash and encodings a caller may
-            # have computed before signing are dropped from the copy.
+            # copied too. It also carries over any hash or encoding the
+            # caller cached before signing, which signing makes stale.
             signed = self.model_copy(
                 update={
                     "signatures": (
@@ -1060,10 +1059,7 @@ class Transaction(
                     )
                 }
             )
-            for klass in type(signed).__mro__:
-                for name, attribute in vars(klass).items():
-                    if isinstance(attribute, cached_property):
-                        signed.__dict__.pop(name, None)
+            signed._drop_cached_properties()
             signed._sign_frame_signatures()
             return signed
 
@@ -1142,7 +1138,7 @@ class Transaction(
         depending on the transaction type.
         """
         field_list: List[str]
-        if self.ty == TransactionType.FRAME and self.frames is not None:
+        if self.ty == TransactionType.FRAME:
             # EIP-8141: https://eips.ethereum.org/EIPS/eip-8141
             field_list = [
                 "chain_id",
@@ -1152,20 +1148,6 @@ class Transaction(
                 "signing_signatures",
                 "fees",
                 "blob_versioned_hashes",
-            ]
-        elif self.ty == TransactionType.FRAME:
-            # EIP-7873: https://eips.ethereum.org/EIPS/eip-7873
-            field_list = [
-                "chain_id",
-                "nonce",
-                "max_priority_fee_per_gas",
-                "max_fee_per_gas",
-                "gas_limit",
-                "to",
-                "value",
-                "data",
-                "access_list",
-                "initcodes",
             ]
         elif self.ty == 4:
             # EIP-7702: https://eips.ethereum.org/EIPS/eip-7702

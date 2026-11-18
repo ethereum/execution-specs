@@ -303,6 +303,7 @@ def verify_transaction_receipt(
 
 
 def verify_frame_transaction_receipt(
+    *,
     transaction_index: int,
     expected_receipt: TransactionReceipt | None,
     actual_receipt: TransactionReceipt | None,

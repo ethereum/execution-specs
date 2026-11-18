@@ -47,10 +47,9 @@ from ..gas import (
     charge_gas,
     charge_state_gas,
     check_gas,
-    credit_frame_state_gas_refund,
-    credit_state_gas_refund,
     drain_state_gas_reservoir,
     init_code_cost,
+    refund_state_gas,
     restore_child_gas,
     withhold_create_gas,
 )
@@ -189,18 +188,7 @@ def generic_create(
     incorporate_child(evm, child_evm)
     if child_evm.error:
         if new_account_charged:
-            if evm.gas_meter.reservoir is not None:
-                credit_state_gas_refund(
-                    evm.gas_meter, StateGasCosts.NEW_ACCOUNT
-                )
-            else:
-                frame_context = evm.tx_env.frame_context
-                assert frame_context is not None
-                credit_frame_state_gas_refund(
-                    frame_context,
-                    frame_context.current_frame_index,
-                    StateGasCosts.NEW_ACCOUNT,
-                )
+            refund_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
@@ -411,18 +399,7 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
     if evm.depth + Uint(1) > STACK_DEPTH_LIMIT or params.insufficient_balance:
         restore_child_gas(evm.gas_meter, params.gas)
         if params.new_account_charged:
-            if evm.gas_meter.reservoir is not None:
-                credit_state_gas_refund(
-                    evm.gas_meter, StateGasCosts.NEW_ACCOUNT
-                )
-            else:
-                frame_context = evm.tx_env.frame_context
-                assert frame_context is not None
-                credit_frame_state_gas_refund(
-                    frame_context,
-                    frame_context.current_frame_index,
-                    StateGasCosts.NEW_ACCOUNT,
-                )
+            refund_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
         return
 
@@ -496,18 +473,7 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
     evm.return_data = child_evm.output
     if child_evm.error:
         if params.new_account_charged:
-            if evm.gas_meter.reservoir is not None:
-                credit_state_gas_refund(
-                    evm.gas_meter, StateGasCosts.NEW_ACCOUNT
-                )
-            else:
-                frame_context = evm.tx_env.frame_context
-                assert frame_context is not None
-                credit_frame_state_gas_refund(
-                    frame_context,
-                    frame_context.current_frame_index,
-                    StateGasCosts.NEW_ACCOUNT,
-                )
+            refund_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
     else:
         push(evm.stack, CALL_SUCCESS)
