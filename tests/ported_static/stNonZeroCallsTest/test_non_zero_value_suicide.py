@@ -55,11 +55,12 @@ def recipients(fork: Fork) -> list:
         "state_tests/stNonZeroCallsTest/NonZeroValue_SUICIDE_ToOneStorageKey_ParisFiller.json",  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize_by_fork("recipient, state_gas_reservoir", recipients)
 def test_non_zero_value_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     recipient: str,
     state_gas_reservoir: int | None,
 ) -> None:
@@ -91,15 +92,28 @@ def test_non_zero_value_suicide(
         if state_gas_reservoir is None
         else {"state_gas_reservoir": state_gas_reservoir}
     )
-    tx = Transaction(sender=sender, to=target, **reservoir_kwargs)
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        protected=fork.supports_protected_txs(),
+        **reservoir_kwargs,
+    )
 
-    post = {
-        target: Account(
+    # Before EIP-6780, SELFDESTRUCT deletes the account; since then, only
+    # its balance moves unless it was created in the same transaction.
+    target_account: Account | None
+    if fork.is_eip_enabled(6780):
+        target_account = Account(
             storage=storage,
             code=target_code,
             balance=0,
             nonce=1,
-        ),
+        )
+    else:
+        target_account = Account.NONEXISTENT
+
+    post = {
+        target: target_account,
         beneficiary: expected,
     }
 

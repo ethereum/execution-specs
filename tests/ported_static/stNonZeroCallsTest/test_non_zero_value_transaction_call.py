@@ -67,7 +67,7 @@ TX_VALUE = 1
         "state_tests/stNonZeroCallsTest/NonZeroValue_TransactionCALLwithData_ToOneStorageKey_ParisFiller.json",  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     "data",
     [
@@ -82,6 +82,7 @@ TX_VALUE = 1
 def test_non_zero_value_transaction_call(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     data: Bytes,
     recipient: str,
     state_gas_reservoir: int | None,
@@ -112,6 +113,7 @@ def test_non_zero_value_transaction_call(
         to=to,
         data=data,
         value=TX_VALUE,
+        protected=fork.supports_protected_txs(),
         **reservoir_kwargs,
     )
 

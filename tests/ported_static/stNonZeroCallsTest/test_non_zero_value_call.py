@@ -40,7 +40,7 @@ SUCCESS_SLOT = 0x1
         "state_tests/stNonZeroCallsTest/NonZeroValue_CALLCODE_ToNonNonZeroBalanceFiller.json",  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     "caller_balance",
     [
@@ -87,10 +87,11 @@ def test_non_zero_value_call(
         sender=pre.fund_eoa(),
         to=caller,
         state_gas_reservoir=0,
+        protected=fork.supports_protected_txs(),
     )
 
     # Succeeding or not, the callee runs no code and the stipend returns.
-    measured = store_code.gas_cost(fork) - fork.gas_costs().CALL_STIPEND
+    measured = store_code.gas_cost(fork) - fork.call_value_stipend()
     # Only a successful CALL moves the value; CALLCODE sends it to itself.
     moved = CALL_VALUE if succeeds and opcode == Op.CALL else 0
 

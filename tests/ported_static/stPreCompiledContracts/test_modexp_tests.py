@@ -1,30 +1,44 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test MODEXP results and gas with 32-byte base, exponent and modulus.
+
+The original tests were written by Ori Pomerantz (qbzzt1@gmail.com).
 
 Ported from:
 state_tests/stPreCompiledContracts/modexpTestsFiller.yml
+
+@manually-enhanced: Do not overwrite. The precompile's gas was pinned to a
+hardcoded constant valid only from Berlin to Prague; it is now measured with
+CodeGasMeasure and checked against the fork's MODEXP pricing, together with
+the call's success flag.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
+    CodeGasMeasure,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.vm import Op
 
+from tests.byzantium.eip198_modexp_precompile.helpers import ModExpInput
+from tests.osaka.eip7883_modexp_gas_increase.spec import Spec, Spec7883
+
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+RESULT_SLOT = 0
+SUCCESS_SLOT = 1
+GAS_SLOT = 2
 
 
 @pytest.mark.ported_from(
     ["state_tests/stPreCompiledContracts/modexpTestsFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Prague")
+@pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize(
     "base, exponent, modulus",
     [
@@ -160,80 +174,61 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_modexp_tests(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     base: int,
     exponent: int,
     modulus: int,
 ) -> None:
-    """Test MODEXP with 32-byte base, exponent and modulus."""
-    sender = pre.fund_eoa()
+    """Call MODEXP and check its result, success and gas cost."""
+    modexp_input = ModExpInput(
+        base=Hash(base), exponent=Hash(exponent), modulus=Hash(modulus)
+    )
+    input_size = len(bytes(modexp_input))
+    if fork.is_eip_enabled(7883):
+        modexp_cost = Spec7883.calculate_gas_cost(modexp_input)
+    else:
+        modexp_cost = Spec.calculate_gas_cost(modexp_input)
 
-    # Source: yul
-    # berlin
-    # {
-    #    // Our input values, 20 bytes each
-    #    // This is not the most efficient use of gas, but
-    #    // this is a test. Readability is more important
-    #    let base := calldataload(0x04)
-    #    let expV := calldataload(0x24)
-    #    let modV := calldataload(0x44)
-    #
-    #    // Prepare the calldata
-    #    mstore(0x00, 0x20)
-    #    mstore(0x20, 0x20)
-    #    mstore(0x40, 0x20)
-    #    mstore(0x60, base)
-    #    mstore(0x80, expV)
-    #    mstore(0xA0, modV)
-    #
-    #    let gas0 := gas()
-    #    pop(call(gas(), 0x05, 0, 0, 0xC0, 0x100, 0x20))
-    #    let gas1 := gas()
-    #    sstore(0, mload(0x100))
-    #    sstore(1, sub(sub(gas0, gas1), 0x14c))
-    # }
+    # The input is already in memory, so the call only expands it by the
+    # 32-byte result written right after it.
+    call_modexp = Op.SSTORE(
+        SUCCESS_SLOT,
+        Op.CALL(
+            address=Spec.MODEXP_ADDRESS,
+            args_size=input_size,
+            ret_offset=input_size,
+            ret_size=0x20,
+            address_warm=True,
+            inner_call_cost=modexp_cost,
+            old_memory_size=input_size,
+            new_memory_size=input_size + 0x20,
+        ),
+        key_warm=False,
+        original_value=0,
+        new_value=1,
+    )
     target = pre.deploy_contract(
-        code=Op.CALLDATALOAD(offset=0x4)
-        + Op.CALLDATALOAD(offset=0x24)
-        + Op.CALLDATALOAD(offset=0x44)
-        + Op.SWAP2
-        + Op.MSTORE(offset=0x0, value=0x20)
-        + Op.MSTORE(offset=Op.DUP1, value=0x20)
-        + Op.MSTORE(offset=0x40, value=0x20)
-        + Op.PUSH1[0x60]
-        + Op.MSTORE
-        + Op.PUSH1[0x80]
-        + Op.MSTORE
-        + Op.PUSH1[0xA0]
-        + Op.MSTORE
-        + Op.PUSH2[0x14C]
-        + Op.GAS
-        + Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=0x5,
-                value=Op.DUP1,
-                args_offset=0x0,
-                args_size=0xC0,
-                ret_offset=0x100,
-                ret_size=0x20,
-            )
-        )
-        + Op.GAS
-        + Op.SWAP1
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x100))
-        + Op.SUB
-        + Op.SSTORE(key=0x1, value=Op.SUB)
-        + Op.STOP,
+        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + CodeGasMeasure(code=call_modexp, sstore_key=GAS_SLOT)
+        + Op.SSTORE(RESULT_SLOT, Op.MLOAD(input_size)),
     )
 
     result = pow(base, exponent, modulus) if modulus else 0
-    post = {target: Account(storage={0: result, 1: 1})}
+    post = {
+        target: Account(
+            storage={
+                RESULT_SLOT: result,
+                SUCCESS_SLOT: 1,
+                GAS_SLOT: call_modexp.gas_cost(fork),
+            }
+        )
+    }
 
     tx = Transaction(
-        sender=sender,
+        sender=pre.fund_eoa(),
         to=target,
-        data=Bytes("048071d3") + Hash(base) + Hash(exponent) + Hash(modulus),
-        gas_limit=16777216,
+        data=bytes(modexp_input),
+        state_gas_reservoir=0,
     )
 
     state_test(pre=pre, post=post, tx=tx)

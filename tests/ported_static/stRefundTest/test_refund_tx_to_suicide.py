@@ -8,15 +8,20 @@ state_tests/stRefundTest/refund_TxToSuicideFiller.json
 
 @manually-enhanced: Do not overwrite. Beneficiary and budget are derived
 (nonexistent account, `code.gas_cost` composite) and the post branches on
-EIP-6780 (pre-Cancun the contract is deleted, after it persists).
+EIP-6780 (pre-Cancun the contract is deleted, after it persists). The fee
+recipient's priority fee is checked with `Tip`.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
+    BlockReward,
+    Environment,
     Fork,
+    GasFee,
     StateTestFiller,
+    Tip,
     Transaction,
 )
 from execution_testing.vm import Op
@@ -25,15 +30,16 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 CONTRACT_BALANCE = 0xDE0B6B3A7640000
-INITIAL_BALANCE = 10**18
-GAS_PRICE = 10
 TX_VALUE = 10
 
 
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refund_TxToSuicideFiller.json"],
 )
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="requires env.fee_recipient as block coinbase")
+)
 def test_refund_tx_to_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -58,13 +64,13 @@ def test_refund_tx_to_suicide(
     executed = intrinsic + code.gas_cost(fork)
     gas_limit = executed + 5_000
 
-    sender = pre.fund_eoa(amount=INITIAL_BALANCE)
+    sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
         to=target,
         gas_limit=gas_limit,
-        gas_price=GAS_PRICE,
         value=TX_VALUE,
+        protected=fork.supports_protected_txs(),
     )
 
     # The self-destruct refund (zero from EIP-3529 on) and the cap both
@@ -81,9 +87,11 @@ def test_refund_tx_to_suicide(
             if fork.is_eip_enabled(6780)
             else Account.NONEXISTENT
         ),
-        sender: Account(
-            balance=INITIAL_BALANCE - TX_VALUE - gas_used * GAS_PRICE
-        ),
+        sender: Account(balance_change=-TX_VALUE - GasFee(tx, gas=gas_used)),
     }
+    # Before the Merge the coinbase also receives the block reward.
+    post[Environment().fee_recipient] = Account(
+        balance_change=Tip(tx, gas=gas_used) + BlockReward(tx)
+    )
 
     state_test(pre=pre, post=post, tx=tx)

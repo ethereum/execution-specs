@@ -1,30 +1,24 @@
 """
-Ori Pomerantz   qbzzt1@gmail.com.
+Verify the SELFDESTRUCT refund: capped before EIP-3529, removed from it on.
 
 Ported from:
 state_tests/stRefundTest/refundFFFiller.yml
 
-@manually-enhanced: Do not overwrite. The post-state asserts the sender
-balance, which equals its start minus `gas_used * gas_price`. The
-contract self-destructs and sends its (zero) balance to a cold, already
-existing beneficiary; EIP-8038 raises the `COLD_ACCOUNT_ACCESS`
-surcharge. No positive balance is moved, so no `ACCOUNT_WRITE`
-applies and there is no refund, so `gas_used` rises by exactly the
-SELFDESTRUCT charge delta. Derive that delta from the fork gas model
-(0 pre-EIP-8037) and subtract `gas_price * delta` from the Cancun
-balance; do not hardcode the Amsterdam value.
+@manually-enhanced: Do not overwrite. The gas used is derived from the
+fork: intrinsic cost plus the SELFDESTRUCT to a cold absent beneficiary,
+minus its refund (capped at `max_refund_quotient`, zero from EIP-3529).
+The filler's calldata, access list, gas price and gas limit are dropped.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
+    Fork,
     GasFee,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -34,53 +28,41 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refundFFFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Frontier")
 def test_refund_ff(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Ori Pomerantz   qbzzt1@gmail."""
+    """Self-destruct a zero-balance contract and check the refund."""
     sender = pre.fund_eoa()
 
-    addr = pre.fund_eoa(amount=0)
-    # Source: yul
-    # berlin
-    # {
-    #    selfdestruct(<eoa:0xdddddddddddddddddddddddddddddddddddddddd>)
-    # }
-    target = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(address=addr),
+    # The beneficiary does not exist. With no balance moved, only the
+    # pre-EIP-161 forks charge for creating it; from EIP-6780 on, the
+    # pre-existing contract is no longer destroyed.
+    beneficiary = pre.fund_eoa(amount=0)
+    code = Op.SELFDESTRUCT(
+        address=beneficiary,
+        address_warm=False,
+        account_new=not fork.is_eip_enabled(161),
+        self_destructed_account=not fork.is_eip_enabled(6780),
     )
+    target = pre.deploy_contract(code=code)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes("00"),
-        gas_limit=2601000,
-        gas_price=1000,
-        access_list=[],
+        protected=fork.supports_protected_txs(),
     )
 
-    # EIP-8038 raises the cold account-access surcharge applied by
-    # SELFDESTRUCT; with no balance transfer and no refund, gas_used
-    # rises by exactly this charge delta.
-    selfdestruct = Op.SELFDESTRUCT.with_metadata(
-        address_warm=False, account_new=False
+    gas_before_refund = fork.transaction_intrinsic_cost_calculator()(
+        return_cost_deducted_prior_execution=True
+    ) + code.gas_cost(fork)
+    refund = min(
+        code.refund(fork), gas_before_refund // fork.max_refund_quotient()
     )
-    cancun_selfdestruct = selfdestruct.gas_cost(Cancun)
-    selfdestruct_delta = selfdestruct.gas_cost(fork) - cancun_selfdestruct
-    # EIP-2780 lowers the intrinsic for non-self non-value txs; the
-    # delta is negative on Amsterdam, so it reduces ``gas_used`` and
-    # raises the sender balance correspondingly.
-    intrinsic_delta = (
-        fork.transaction_intrinsic_cost_calculator()()
-        - Cancun.transaction_intrinsic_cost_calculator()()
-    )
-    gas_used_delta = selfdestruct_delta + intrinsic_delta
+    gas_used = gas_before_refund - refund
 
-    post = {
-        sender: Account(balance_change=-GasFee(tx, gas=28607 + gas_used_delta))
-    }
+    post = {sender: Account(balance_change=-GasFee(tx, gas=gas_used))}
 
     state_test(pre=pre, post=post, tx=tx)
