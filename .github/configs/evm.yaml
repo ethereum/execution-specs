@@ -7,7 +7,7 @@ benchmark:
 zkevm-benchmark:
   impl: ethrex
   repo: jsign/ethrex
-  ref: 2629ffc95cc32d927f56622b10f9644ed677d75b
+  ref: 39ed41c3b4b2aa335cbec1874313d0575fb12ca9
   evm-bin: ethrex-evm
   xdist: auto
 eels:
