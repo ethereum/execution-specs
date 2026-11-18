@@ -8,10 +8,13 @@ interface, matching how GitHub Actions calls them.
 import io
 import json
 import os
+import shutil
 import subprocess
 import tarfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import yaml
 
 SCRIPTS_DIR = Path(__file__).parent.parent
 REPO_ROOT = SCRIPTS_DIR.parent.parent
@@ -21,7 +24,6 @@ TARBALL_SCRIPT = SCRIPTS_DIR / "create_release_tarball.py"
 MERGE_INDEX_SCRIPT = SCRIPTS_DIR / "merge_index_files.py"
 CHECK_COMMITS_SCRIPT = SCRIPTS_DIR / "check_new_commits.py"
 RESOLVE_CACHED_SCRIPT = SCRIPTS_DIR / "resolve_cached_release.py"
-CHECK_ZKEVM_RELEASE_SCRIPT = SCRIPTS_DIR / "check_zkevm_benchmark_release.py"
 RESOLVE_GIT_REF_SCRIPT = SCRIPTS_DIR / "resolve_git_ref.py"
 VALIDATE_ZKEVM_FIXTURES_SCRIPT = (
     SCRIPTS_DIR / "validate_zkevm_benchmark_fixtures.py"
@@ -29,14 +31,17 @@ VALIDATE_ZKEVM_FIXTURES_SCRIPT = (
 
 
 def run_script(
-    script: Path, *args: str, env: dict[str, str] | None = None
+    script: Path,
+    *args: str,
+    env: dict[str, str] | None = None,
+    cwd: Path = REPO_ROOT,
 ) -> subprocess.CompletedProcess:
     """Run a uv inline-deps script and return the result."""
     return subprocess.run(
         ["uv", "run", "-q", str(script), *args],
         capture_output=True,
         text=True,
-        cwd=REPO_ROOT,
+        cwd=cwd,
         env=env,
     )
 
@@ -83,24 +88,67 @@ class TestGenerateBuildMatrix:
         assert matrix[0]["from_fork"] == ""
         assert matrix[0]["until_fork"] == ""
 
-    def test_zkevm_benchmark_produces_single_entry(self):
-        """Verify the zkEVM benchmark feature is an unsplit build."""
-        result = run_script(
-            BUILD_MATRIX_SCRIPT,
-            "zkevm-benchmark",
-            "v0.9.0",
-        )
+    def test_zkevm_also_builds_the_benchmarks(self):
+        """Verify a zkevm release fills its tests and its benchmarks."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "zkevm", "v21.0.8")
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
         matrix = json.loads(out["build_matrix"])
         assert matrix == [
             {
+                "feature": "zkevm",
+                "label": "",
+                "from_fork": "",
+                "until_fork": "",
+            },
+            {
                 "feature": "zkevm-benchmark",
                 "label": "",
                 "from_fork": "",
                 "until_fork": "",
-            }
+            },
         ]
+        assert out["feature_name"] == "zkevm"
+        assert out["combine_labels"] == ""
+
+    @staticmethod
+    def release_zkevm_with(
+        tmp_path: Path, also_builds: dict[str, object]
+    ) -> subprocess.CompletedProcess:
+        """Release zkevm with `also-builds` set per feature as given."""
+        configs = tmp_path / ".github" / "configs"
+        shutil.copytree(REPO_ROOT / ".github" / "configs", configs)
+        feature_config = configs / "feature.yaml"
+        config = yaml.safe_load(feature_config.read_text())
+        for feature, names in also_builds.items():
+            config[feature]["also-builds"] = names
+        feature_config.write_text(yaml.safe_dump(config))
+        return run_script(
+            BUILD_MATRIX_SCRIPT, "zkevm", "v21.0.8", cwd=tmp_path
+        )
+
+    def test_also_builds_unknown_feature_fails(self, tmp_path):
+        """Verify an `also-builds` name must be a key of feature.yaml."""
+        result = self.release_zkevm_with(tmp_path, {"zkevm": ["nonexistent"]})
+        assert result.returncode == 1
+        assert "'nonexistent' in the also-builds of 'zkevm'" in result.stderr
+        assert "is not a key" in result.stderr
+
+    def test_also_builds_nested_fails(self, tmp_path):
+        """Verify an `also-builds` entry can't have `also-builds`."""
+        result = self.release_zkevm_with(
+            tmp_path, {"zkevm-benchmark": ["benchmark"]}
+        )
+        assert result.returncode == 1
+        assert "can't have also-builds itself" in result.stderr
+
+    def test_also_builds_not_a_list_fails(self, tmp_path):
+        """Verify `also-builds` must be a list of names."""
+        result = self.release_zkevm_with(
+            tmp_path, {"zkevm": "zkevm-benchmark"}
+        )
+        assert result.returncode == 1
+        assert "must be a list" in result.stderr
 
     def test_devnet_name_resolves_to_shared_feature(self):
         """Verify a <feat>-devnet name resolves to the devnet feature."""
@@ -256,6 +304,20 @@ class TestValidateInputs:
         )
         assert result.returncode == 0
 
+    def test_zkevm_benchmark_release_fails(self):
+        """Verify the zkEVM benchmarks are only released with zkevm."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "zkevm-benchmark", "v21.0.8")
+        assert result.returncode == 1
+        assert "dispatch feature=zkevm instead" in result.stderr
+
+    def test_evm_override_with_also_builds_fails(self):
+        """Verify an evm override can't apply to every build of zkevm."""
+        result = run_script(
+            BUILD_MATRIX_SCRIPT, "zkevm", "v21.0.8", "", "zkevm-benchmark"
+        )
+        assert result.returncode == 1
+        assert "which also builds zkevm-benchmark" in result.stderr
+
 
 # Fake `gh` served from PATH: answers the API calls the commit-check
 # and cached-release scripts make with canned JSON from env vars, and
@@ -267,9 +329,6 @@ FAKE_GH = """#!/usr/bin/env bash
 path="${@: -1}"
 case "$path" in
   *actions/workflows*) response="$FAKE_GH_RUNS" ;;
-  *matching-refs/tags/tests-zkevm-benchmark*)
-    response="${FAKE_GH_DESTINATION_TAGS:-$FAKE_GH_TAGS}"
-    ;;
   */artifacts)
     run_id="${path##*/runs/}"
     run_id="${run_id%%/*}"
@@ -277,7 +336,6 @@ case "$path" in
     response="${!var:-$FAKE_GH_ARTIFACTS}"
     ;;
   *matching-refs*) response="$FAKE_GH_TAGS" ;;
-  *releases*) response="$FAKE_GH_RELEASES" ;;
   *compare/tests@*) response="$FAKE_GH_COMPARE_TAG" ;;
   *compare*) response="$FAKE_GH_COMPARE" ;;
   *) response="" ;;
@@ -348,71 +406,6 @@ class TestResolveGitRef:
         result = run_script(RESOLVE_GIT_REF_SCRIPT, "example/geth", "")
         assert result.returncode == 1
         assert "ref is empty" in result.stderr
-
-
-class TestCheckZkevmBenchmarkRelease:
-    """Test check_zkevm_benchmark_release.py."""
-
-    @staticmethod
-    def run_check(
-        tmp_path: Path,
-        destination_tags: str = "[[]]",
-        releases: str = "[[]]",
-        version: str = "v0.9.0",
-        source_ref: str = "tests-zkevm@v0.9.0",
-    ) -> subprocess.CompletedProcess:
-        """Run the release check with canned GitHub API responses."""
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        fake_gh = bin_dir / "gh"
-        fake_gh.write_text(FAKE_GH)
-        fake_gh.chmod(0o755)
-        env = os.environ.copy()
-        env["PATH"] = f"{bin_dir}:{env['PATH']}"
-        env["GITHUB_REPOSITORY"] = "ethereum/execution-specs"
-        env["FAKE_GH_DESTINATION_TAGS"] = destination_tags
-        env["FAKE_GH_RELEASES"] = releases
-        return run_script(
-            CHECK_ZKEVM_RELEASE_SCRIPT,
-            version,
-            source_ref,
-            env=env,
-        )
-
-    def test_new_release_request_passes(self, tmp_path):
-        """Verify a matching source input and unused destination pass."""
-        result = self.run_check(tmp_path)
-        assert result.returncode == 0
-        assert "Destination release: tests-zkevm-benchmark@v0.9.0" in (
-            result.stdout
-        )
-
-    def test_existing_destination_tag_fails(self, tmp_path):
-        """Verify an existing destination tag stops the request."""
-        destination_tags = json.dumps(
-            [[{"ref": "refs/tags/tests-zkevm-benchmark@v0.9.0"}]]
-        )
-        result = self.run_check(tmp_path, destination_tags=destination_tags)
-        assert result.returncode == 1
-        assert "destination tag" in result.stderr
-
-    def test_existing_destination_draft_fails(self, tmp_path):
-        """Verify an existing destination draft stops the request."""
-        releases = json.dumps(
-            [[{"tag_name": "tests-zkevm-benchmark@v0.9.0", "draft": True}]]
-        )
-        result = self.run_check(tmp_path, releases=releases)
-        assert result.returncode == 1
-        assert "release or draft" in result.stderr
-
-    def test_mismatched_source_ref_fails_without_api_call(self, tmp_path):
-        """Verify the source ref and release version must match."""
-        result = self.run_check(
-            tmp_path,
-            source_ref="tests-zkevm@v0.8.0",
-        )
-        assert result.returncode == 1
-        assert "source ref must be 'tests-zkevm@v0.9.0'" in result.stderr
 
 
 class TestValidateZkevmBenchmarkFixtures:

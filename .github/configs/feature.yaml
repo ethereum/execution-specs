@@ -10,6 +10,9 @@
 # in docs/running_tests/releases.md). `tests` is also what the scheduled
 # nightly run of the `release_fixtures` workflow fills, so the rotating
 # nightly artifact is a release-ready rehearsal of the next tests@ release.
+# `also-builds` lists other entries that a release of this feature fills
+# too, from the same commit, and attaches to the same release. Those
+# entries are not released on their own.
 tests:
   evm-type: eels
   fill-params: --until=Amsterdam --generate-all-formats
@@ -38,4 +41,5 @@ devnet:
 zkevm:
   evm-type: eels
   fill-params: -m "blockchain_test or blockchain_test_engine" --fork=Amsterdam ./tests/
+  also-builds: [zkevm-benchmark]
   feature_only: true

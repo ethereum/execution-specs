@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       feature:
-        description: "Feature name, e.g. tests, benchmark, bal-devnet"
+        description: "Feature name, e.g. tests, benchmark, zkevm, bal-devnet"
         required: true
         type: string
       version:
@@ -27,7 +27,7 @@ on:
         required: true
         type: string
       branch:
-        description: "Branch or source tag to release from (required for *-devnet and zkevm-benchmark features)"
+        description: "Branch to release from, e.g. devnets/bal/7 (required for *-devnet features)"
         required: false
         type: string
       evm:
@@ -95,16 +95,6 @@ jobs:
           echo "short_sha=${sha:0:7}" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/setup-uv
 
-      - name: Check zkEVM benchmark release request
-        if: inputs.feature == 'zkevm-benchmark'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          INPUT_VERSION: ${{ inputs.version }}
-          INPUT_SOURCE_REF: ${{ inputs.branch }}
-        run: |
-          uv run -q .github/scripts/check_zkevm_benchmark_release.py \
-            "$INPUT_VERSION" "$INPUT_SOURCE_REF"
-
       - name: Check for new commits (scheduled runs)
         id: check
         if: github.event_name == 'schedule'
@@ -155,8 +145,11 @@ jobs:
     timeout-minutes: 1440
     strategy:
       # A release must be complete, so abort on the first failed range; a
-      # nightly wants every range's result for debugging.
-      fail-fast: ${{ github.event_name != 'schedule' }}
+      # nightly wants every range's result for debugging. A zkevm release
+      # doesn't fail fast either, so a failed benchmark fill doesn't cancel
+      # its tests fill, and "Re-run failed jobs" refills only what failed,
+      # on the same commit.
+      fail-fast: ${{ github.event_name != 'schedule' && inputs.feature != 'zkevm' }}
       matrix:
         include: ${{ fromJson(needs.setup.outputs.build_matrix) }}
     steps:
@@ -278,11 +271,9 @@ jobs:
           else
             gh run download ${{ github.run_id }} -p "fixtures_*" --dir ./artifacts
             rm -rf ./artifacts/fixtures__*/
-            # Only benchmark features other than zkevm-benchmark build
-            # genesis files (see build-fixtures), so any other failure
-            # here is real.
-            if [[ "$INPUT_FEATURE" == *benchmark* \
-              && "$INPUT_FEATURE" != zkevm-benchmark ]]; then
+            # Only benchmark features build genesis files (see
+            # build-fixtures), so any other failure here is real.
+            if [[ "$INPUT_FEATURE" == *benchmark* ]]; then
               gh run download ${{ github.run_id }} -p "benchmark_genesis_*" --dir ./artifacts
             fi
           fi
