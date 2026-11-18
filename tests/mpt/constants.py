@@ -144,7 +144,7 @@ EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2: Final = 2620
 # Smallest slot under 30c with a fourth nibble below 6: with
 # EXT_ABOVE_DEEP_BRANCH it becomes branch@3's first child, before the deep
 # branch, and the extension above stays whole.
-EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD: Final = 37584
+EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH3: Final = 37584
 
 # Prefixes 80, 8f6, 8ff9, 8ff2, 900a3 (x2), 900a0, 900b; the sibling 9000
 # sorts between the subtree under 8ff and the committed branches under
@@ -234,7 +234,7 @@ ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2: Final = 68415
 
 # Smallest address under 201 with a fourth nibble below b: the same new
 # first child for ADDR_EXT_ABOVE_DEEP_BRANCH.
-ADDR_EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD: Final = 66634
+ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH3: Final = 66634
 
 # --- CREATE2 salts ------------------------------------------------------
 

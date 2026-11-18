@@ -58,8 +58,8 @@ from execution_testing.base_types import StorageRootType
 
 from .constants import (
     ADDR_EXT_ABOVE_DEEP_BRANCH,
-    ADDR_EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD,
     ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2,
+    ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH3,
     ADDR_EXT_MERGE_TRIO,
     COLLAPSE_SALT,
     DELETE_INITCODE,
@@ -366,7 +366,7 @@ def test_insert_before_deep_branch_below_extension(
     The account trie version of the storage test of the same name.
     """
     committed = [Address(x) for x in ADDR_EXT_ABOVE_DEEP_BRANCH]
-    new = Address(ADDR_EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD)
+    new = Address(ADDR_EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH3)
     for i, address in enumerate(committed):
         pre.fund_address(address, amount=i + 1)
     sender = pre.fund_eoa()

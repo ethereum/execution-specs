@@ -35,8 +35,8 @@ from .constants import (
     EMBEDDED_LEAF_PAIR,
     EMBEDDED_LEAF_PAIR_SIBLING_DEPTH4,
     EXT_ABOVE_DEEP_BRANCH,
-    EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD,
     EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH2,
+    EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH3,
     EXT_MERGE_TRIO,
     EXT_MERGE_TRIO_SIBLING_DEPTH3,
     HASHED_LEAF_PAIR,
@@ -556,7 +556,7 @@ def test_insert_before_deep_branch_below_extension(
     under `30c6`, but it lands as branch@3's first child.
     """
     committed = EXT_ABOVE_DEEP_BRANCH
-    new = EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD
+    new = EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH3
     deep = committed[3]
     assert keccak256(slot_key(new)).hex().startswith("0x30c0")
     assert storage_shape(committed, deep)[2] == (3, "branch", 2)
@@ -592,7 +592,7 @@ def test_insert_before_deep_branch_below_extension_across_blocks(
           `test_insert_before_deep_branch_below_extension`
     """
     committed = EXT_ABOVE_DEEP_BRANCH
-    new = EXT_ABOVE_DEEP_BRANCH_FIRST_CHILD
+    new = EXT_ABOVE_DEEP_BRANCH_SIBLING_DEPTH3
     storage = _storage(committed)
     contract = pre.deploy_contract(code=SLOT_WRITER)
     sender = pre.fund_eoa()
