@@ -4,16 +4,16 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
-      geth_repo:
-        description: "Geth repository to build"
+      evm_repo:
+        description: "Override the t8n tool repo of zkevm-benchmark in evm.yaml"
         required: false
         type: string
-        default: "jsign/go-ethereum"
-      geth_branch:
-        description: "Geth branch to build"
+        default: ""
+      evm_ref:
+        description: "Override the t8n tool branch or commit of zkevm-benchmark in evm.yaml"
         required: false
         type: string
-        default: "jsign-t8n-execution-witness"
+        default: ""
       benchmark_file:
         description: "Benchmark test file to fill"
         required: false
@@ -35,15 +35,13 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 
 env:
-  GETH_REPO: ${{ inputs.geth_repo || 'jsign/go-ethereum' }}
-  GETH_BRANCH: ${{ inputs.geth_branch || 'jsign-t8n-execution-witness' }}
   BENCHMARK_FILE: ${{ inputs.benchmark_file || 'tests/benchmark/compute/instruction/test_memory.py' }}
   FILL_FORK: ${{ inputs.fill_fork || 'Amsterdam' }}
   XDIST_WORKERS: ${{ inputs.xdist_workers || 'auto' }}
 
 jobs:
   compare-fills:
-    name: Compare Python and Geth fills
+    name: Compare Python and zkevm-benchmark t8n fills
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -60,11 +58,15 @@ jobs:
       - name: Install dependencies
         run: uv sync --no-progress
 
-      - name: Build Geth evm
-        uses: ./.github/actions/build-evm-client/geth
+      # The t8n tool that fills the zkevm-benchmark release, so a PR can't
+      # break its parity with the Python spec.
+      - name: Build the zkevm-benchmark t8n tool
+        id: evm-builder
+        uses: ./.github/actions/build-evm-base
         with:
-          repo: ${{ env.GETH_REPO }}
-          ref: ${{ env.GETH_BRANCH }}
+          type: zkevm-benchmark
+          repo_override: ${{ inputs.evm_repo }}
+          ref_override: ${{ inputs.evm_ref }}
 
       - name: Validate benchmark file input
         shell: bash
@@ -88,7 +90,7 @@ jobs:
           fi
 
       - name: Prepare fill directories
-        run: mkdir -p fill_tmp/python fill_tmp/geth fill_logs/python fill_logs/geth
+        run: mkdir -p fill_tmp/python fill_tmp/t8n fill_logs/python fill_logs/t8n
 
       - name: Fill benchmark with Python spec
         run: |
@@ -104,23 +106,25 @@ jobs:
             --log-to fill_logs/python \
             "$BENCHMARK_FILE"
 
-      - name: Fill benchmark with Geth
+      - name: Fill benchmark with the zkevm-benchmark t8n tool
+        env:
+          EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
         run: |
           uv run fill \
             --clean \
             --gas-benchmark-values 1 \
             --fork "$FILL_FORK" \
-            --evm-bin=evm \
+            --evm-bin="$EVM_BIN" \
             -m blockchain_test \
             -n "$XDIST_WORKERS" \
-            --output=fixtures_geth \
+            --output=fixtures_t8n \
             --no-html \
-            --basetemp=fill_tmp/geth \
-            --log-to fill_logs/geth \
+            --basetemp=fill_tmp/t8n \
+            --log-to fill_logs/t8n \
             "$BENCHMARK_FILE"
 
       - name: Compare fixture hashes
-        run: uv run hasher compare fixtures_python fixtures_geth
+        run: uv run hasher compare fixtures_python fixtures_t8n
 
       - name: Upload failure artifacts
         if: failure()
@@ -129,6 +133,6 @@ jobs:
           name: benchmark-fill-parity-debug
           path: |
             fixtures_python/
-            fixtures_geth/
+            fixtures_t8n/
             fill_logs/
           if-no-files-found: ignore

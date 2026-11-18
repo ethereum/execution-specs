@@ -5,10 +5,10 @@ benchmark:
   evm-bin: evm
   xdist: auto
 zkevm-benchmark:
-  impl: geth
-  repo: jsign/go-ethereum
-  ref: 4833f2d83905456ce9837960b9feced6709ecb99
-  evm-bin: evm
+  impl: ethrex
+  repo: jsign/ethrex
+  ref: 20309056a851d37b351ed83b10639491d7e6b7b8
+  evm-bin: ethrex-evm
   xdist: auto
 eels:
   impl: eels
