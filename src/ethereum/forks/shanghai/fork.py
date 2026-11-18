@@ -404,7 +404,9 @@ def check_transaction(
         max_gas_fee = tx.gas * tx.max_fee_per_gas
     else:
         if tx.gas_price < block_env.base_fee_per_gas:
-            raise InvalidBlock
+            raise InsufficientMaxFeePerGasError(
+                tx.gas_price, block_env.base_fee_per_gas
+            )
         effective_gas_price = tx.gas_price
         max_gas_fee = tx.gas * tx.gas_price
 
