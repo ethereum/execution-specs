@@ -365,7 +365,7 @@ class FixtureCollector:
         Write a fixture to its own part file and index it in the partial
         JSONL file.
 
-        `json.dump` serialises straight into the file, so the fixture is
+        `write_json` serialises straight into the file, so the fixture is
         never held as a single string. The part is created exclusively: a
         name clash with a part left over from an earlier session, whose
         index would still point at it, fails here rather than merging the
@@ -374,7 +374,7 @@ class FixtureCollector:
         partial_f = self._get_partial_fixture_file(fixture_path)
         part_path = self._next_part_path(fixture_path)
         with open(part_path, "x") as part_f:
-            json.dump(fixture.json_dict_with_info(), part_f, indent=4)
+            fixture.write_json(part_f)
 
         partial_f.write(
             json.dumps({"k": fixture_id, "p": part_path.name}) + "\n"
