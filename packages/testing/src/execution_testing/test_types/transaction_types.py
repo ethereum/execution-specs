@@ -12,6 +12,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    InstanceOf,
     computed_field,
     model_serializer,
     model_validator,
@@ -312,22 +313,53 @@ class FrameSignatureGeneric(
     ]
 
 
-SECP256K1_SIGNATURE_LENGTH = 65
-"""Length of an EIP-8141 secp256k1 signature: `v || r || s`."""
-
-
 class FrameSignature(FrameSignatureGeneric[HexNumber]):
     """
     Signature entry within an EIP-8141 frame transaction (test authoring).
 
-    When `secret_key` is set (or the entry's `signer` matches the
-    transaction sender), the raw `signature` bytes are filled in
-    automatically when the transaction is signed: entries with an
-    explicit 32-byte `msg` sign that digest, while entries with an empty
+    When the entry has a `signed_by` signer (or a `SECP256K1` entry's
+    `signer` matches the transaction sender), the raw `signature` bytes are
+    filled in automatically when the transaction is signed: entries with
+    an explicit 32-byte `msg` sign that digest, while entries with an empty
     `msg` sign the canonical transaction signature hash.
+
+    `signer` also accepts a `Signer`, which becomes `signed_by`, while the
+    `signer` field keeps the bytes written in the entry: `bytes(signer)`,
+    or empty for `ARBITRARY` entries. Without an explicit `scheme`, the
+    signer's preferred scheme is used. Pass `signed_by` and `signer`
+    separately for entries whose bytes differ from the signer's.
+
+    `secret_key` is a shorthand for `signed_by=EOA(key=secret_key)`.
     """
 
+    signed_by: InstanceOf[Signer] | None = Field(None, exclude=True)
     secret_key: Hash | None = Field(None, exclude=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def split_signer(cls, data: Any) -> Any:
+        """Split a `Signer` passed as `signer` into `signed_by`."""
+        if not isinstance(data, dict):
+            return data
+        signer = data.get("signer")
+        if not isinstance(signer, Signer):
+            return data
+        data = dict(data)
+        data.setdefault("signed_by", signer)
+        if data.get("scheme") is None:
+            data["scheme"] = signer.signature_schemes[0]
+        if data["scheme"] == FrameSignatureScheme.ARBITRARY:
+            data["signer"] = Bytes(b"")
+        else:
+            data["signer"] = Bytes(bytes(signer))
+        return data
+
+    @model_validator(mode="after")
+    def signer_from_secret_key(self) -> Self:
+        """Turn the `secret_key` shorthand into `signed_by`."""
+        if self.secret_key is not None and self.signed_by is None:
+            self.signed_by = EOA(key=self.secret_key)
+        return self
 
     def signed_over(self, digest: Hash, signer: Signer) -> None:
         """Fill the raw signature bytes by signing `digest` with `signer`."""
@@ -775,22 +807,20 @@ class Transaction(
                 # EOA sender: default to a single secp256k1 entry over
                 # the canonical signature hash, as consumed by the
                 # default code.
-                self.signatures = [
-                    FrameSignature(
-                        scheme=HexNumber(FrameSignatureScheme.SECP256K1),
-                        signer=Bytes(self.sender),
-                    )
-                ]
+                self.signatures = [FrameSignature(signer=self.sender)]
             else:
                 # Contract senders authorize via their code; no
                 # protocol-validated signature is required.
                 self.signatures = []
 
         def resolve_signer(sig: FrameSignature) -> Signer | None:
-            if sig.secret_key is not None:
-                return EOA(key=sig.secret_key)
+            if len(sig.signature) > 0:
+                return None
+            if sig.signed_by is not None:
+                return sig.signed_by
             if (
-                self.sender is not None
+                sig.scheme == FrameSignatureScheme.SECP256K1
+                and self.sender is not None
                 and Bytes(self.sender) == sig.signer
                 and self.sender.key is not None
             ):
@@ -800,11 +830,6 @@ class Transaction(
         # Explicit-digest entries first: their raw bytes are part of the
         # canonical signature hash signed by empty-msg entries.
         for sig in self.signatures:
-            if (
-                sig.scheme != FrameSignatureScheme.SECP256K1
-                or len(sig.signature) > 0
-            ):
-                continue
             if len(sig.msg) != 32:
                 continue
             signer = resolve_signer(sig)
@@ -816,16 +841,11 @@ class Transaction(
         # before hashing.
         empty_msg_entries = []
         for sig in self.signatures:
-            if (
-                sig.scheme != FrameSignatureScheme.SECP256K1
-                or len(sig.signature) > 0
-            ):
-                continue
             if len(sig.msg) != 0:
                 continue
             signer = resolve_signer(sig)
             if signer is not None:
-                sig.signature = Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))
+                sig.signature = Bytes(bytes(signer.signature_length))
                 empty_msg_entries.append((sig, signer))
 
         sig_hash = self.rlp_signing_bytes().keccak256()

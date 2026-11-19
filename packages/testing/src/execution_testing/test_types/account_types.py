@@ -32,9 +32,7 @@ from pydantic import Field, PrivateAttr, model_validator
 from spec256k1 import PrivateKey
 
 from execution_testing.base_types import (
-    Account as BaseAccount,
-)
-from execution_testing.base_types import (
+    SECP256K1_SIGNATURE_LENGTH,
     Address,
     Bytes,
     CamelModel,
@@ -48,6 +46,9 @@ from execution_testing.base_types import (
     Storage,
     StorageRootType,
     ZeroPaddedHexNumber,
+)
+from execution_testing.base_types import (
+    Account as BaseAccount,
 )
 from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.base_types.conversions import (
@@ -91,6 +92,7 @@ class EOA(Address, Signer):
     signature_schemes: ClassVar[Tuple[FrameSignatureScheme, ...]] = (
         FrameSignatureScheme.SECP256K1,
     )
+    signature_length: ClassVar[int] = SECP256K1_SIGNATURE_LENGTH
 
     key: Hash | None
     nonce: Number
