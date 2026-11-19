@@ -51,6 +51,7 @@ from .serialization import (
     encoded_prefixed_size,
     encoded_size,
 )
+from .signer_types import FrameSignatureScheme, Signer
 from .typing_utils import unwrap_annotation
 
 __all__ = (
@@ -73,6 +74,7 @@ __all__ = (
     "EthereumTestBaseModel",
     "EthereumTestRootModel",
     "FixedSizeBytes",
+    "FrameSignatureScheme",
     "ForkBlobSchedule",
     "ForkHash",
     "Hash",
@@ -85,6 +87,7 @@ __all__ = (
     "KnownEncodedSize",
     "RLPSerializable",
     "SignableRLPSerializable",
+    "Signer",
     "encoded_prefixed_size",
     "encoded_size",
     "StateCommitment",

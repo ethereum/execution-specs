@@ -23,11 +23,13 @@ from execution_testing.base_types import (
     Address,
     Bytes,
     CamelModel,
+    FrameSignatureScheme,
     Hash,
     HexNumber,
     NumberBoundTypeVar,
     RLPSerializable,
     SignableRLPSerializable,
+    Signer,
     TestAddress,
     TestPrivateKey,
     encoded_prefixed_size,
@@ -92,17 +94,6 @@ class FrameStatus(IntEnum):
     FAILURE = 0
     SUCCESS = 1
     SKIPPED = 2
-
-
-class FrameSignatureScheme(IntEnum):
-    """
-    Scheme of a signature entry of an
-    [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) frame transaction.
-    """
-
-    ARBITRARY = 0
-    SECP256K1 = 1
-    P256 = 2
 
 
 @dataclass
@@ -338,13 +329,9 @@ class FrameSignature(FrameSignatureGeneric[HexNumber]):
 
     secret_key: Hash | None = Field(None, exclude=True)
 
-    def signed_over(self, digest: bytes, key: Hash) -> None:
-        """Fill the raw signature bytes by signing `digest` with `key`."""
-        signature_bytes = PrivateKey(key).sign_recoverable(digest)
-        # EIP-8141 secp256k1 encoding: v (1 byte) || r || s, v in {0, 1}.
-        self.signature = Bytes(
-            bytes([signature_bytes[64]]) + signature_bytes[0:64]
-        )
+    def signed_over(self, digest: Hash, signer: Signer) -> None:
+        """Fill the raw signature bytes by signing `digest` with `signer`."""
+        self.signature = signer.sign_message(digest)
 
 
 class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
@@ -799,15 +786,15 @@ class Transaction(
                 # protocol-validated signature is required.
                 self.signatures = []
 
-        def resolve_key(sig: FrameSignature) -> Hash | None:
+        def resolve_signer(sig: FrameSignature) -> Signer | None:
             if sig.secret_key is not None:
-                return sig.secret_key
+                return EOA(key=sig.secret_key)
             if (
                 self.sender is not None
                 and Bytes(self.sender) == sig.signer
                 and self.sender.key is not None
             ):
-                return self.sender.key
+                return self.sender
             return None
 
         # Explicit-digest entries first: their raw bytes are part of the
@@ -820,9 +807,9 @@ class Transaction(
                 continue
             if len(sig.msg) != 32:
                 continue
-            key = resolve_key(sig)
-            if key is not None:
-                sig.signed_over(bytes(sig.msg), key)
+            signer = resolve_signer(sig)
+            if signer is not None:
+                sig.signed_over(Hash(sig.msg), signer)
 
         # The canonical signature hash commits to the length of each
         # empty-msg entry's raw bytes, so reserve the signature's length
@@ -836,14 +823,14 @@ class Transaction(
                 continue
             if len(sig.msg) != 0:
                 continue
-            key = resolve_key(sig)
-            if key is not None:
+            signer = resolve_signer(sig)
+            if signer is not None:
                 sig.signature = Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))
-                empty_msg_entries.append((sig, key))
+                empty_msg_entries.append((sig, signer))
 
         sig_hash = self.rlp_signing_bytes().keccak256()
-        for sig, key in empty_msg_entries:
-            sig.signed_over(sig_hash, key)
+        for sig, signer in empty_msg_entries:
+            sig.signed_over(sig_hash, signer)
 
     def sign(self: "Transaction") -> None:
         """Signs the authorization tuple with a private key."""

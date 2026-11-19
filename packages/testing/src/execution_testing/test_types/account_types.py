@@ -25,7 +25,8 @@ import ethereum.state as spec_state
 import ethereum.state_mpt as spec_state_mpt
 from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
-from ethereum_types.bytes import Bytes, Bytes20
+from ethereum_types.bytes import Bytes as SpecBytes
+from ethereum_types.bytes import Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
 from pydantic import Field, PrivateAttr, model_validator
 from spec256k1 import PrivateKey
@@ -35,11 +36,14 @@ from execution_testing.base_types import (
 )
 from execution_testing.base_types import (
     Address,
+    Bytes,
     CamelModel,
     FixedSizeBytes,
+    FrameSignatureScheme,
     Hash,
     HashInt,
     Number,
+    Signer,
     StateCommitment,
     Storage,
     StorageRootType,
@@ -75,7 +79,7 @@ class _Phase(Enum):
     """No mutations are allowed."""
 
 
-class EOA(Address):
+class EOA(Address, Signer):
     """
     An Externally Owned Account (EOA) is an account controlled by a private
     key.
@@ -83,6 +87,10 @@ class EOA(Address):
     The EOA is defined by its address and (optionally) by its corresponding
     private key.
     """
+
+    signature_schemes: ClassVar[Tuple[FrameSignatureScheme, ...]] = (
+        FrameSignatureScheme.SECP256K1,
+    )
 
     key: Hash | None
     nonce: Number
@@ -111,6 +119,16 @@ class EOA(Address):
         instance.key = Hash(key) if key is not None else None
         instance.nonce = Number(nonce)
         return instance
+
+    def sign_message(self, message: Hash) -> Bytes:
+        """
+        Sign `message` with secp256k1 and return `v || r || s`, with `v` in
+        `{0, 1}`.
+        """
+        if self.key is None:
+            raise ValueError(f"EOA {Address(self)} has no key to sign with")
+        signature = PrivateKey(self.key).sign_recoverable(bytes(message))
+        return Bytes(bytes([signature[64]]) + signature[0:64])
 
     def get_nonce(self) -> Number:
         """Return current nonce of the EOA and increments it by one."""
@@ -474,7 +492,7 @@ class Alloc(BaseAlloc):
     )
 
     _phase: _Phase = PrivateAttr(default=_Phase.CONSTRUCTION)
-    _code_store: Dict[Hash32, Bytes] = PrivateAttr(default_factory=dict)
+    _code_store: Dict[Hash32, SpecBytes] = PrivateAttr(default_factory=dict)
     _state_commitment: StateCommitment | None = PrivateAttr(default=None)
     """
     Commitment scheme this allocation's state root is computed under.
@@ -846,7 +864,7 @@ class Alloc(BaseAlloc):
         """
         if self._derived_from is not None and self._derived_from == self.root:
             return
-        self._code_store = {spec_state.EMPTY_CODE_HASH: Bytes(b"")}
+        self._code_store = {spec_state.EMPTY_CODE_HASH: SpecBytes(b"")}
         self._zero_storage_addresses = []
         for address, account in self.root.items():
             if account is None:
@@ -856,7 +874,7 @@ class Alloc(BaseAlloc):
             code = bytes(account.code) if account.code else b""
             if not code:
                 continue
-            self._code_store[spec_keccak256(code)] = Bytes(code)
+            self._code_store[spec_keccak256(code)] = SpecBytes(code)
         self._state_trie = None
         self._pending_state_trie = None
         self._derived_from = dict(self.root)
@@ -1005,7 +1023,7 @@ class Alloc(BaseAlloc):
             return U256(0)
         return U256(int(value_hi))
 
-    def get_code(self, code_hash: Hash32) -> Bytes:
+    def get_code(self, code_hash: Hash32) -> SpecBytes:
         """
         Return the bytecode for `code_hash`.
 
@@ -1013,7 +1031,7 @@ class Alloc(BaseAlloc):
         """
         self._ensure_live()
         if code_hash == spec_state.EMPTY_CODE_HASH:
-            return Bytes(b"")
+            return SpecBytes(b"")
         return self._code_store[code_hash]
 
     def compute_state_root(self, block_diff: spec_state.BlockDiff) -> Hash32:
@@ -1064,7 +1082,7 @@ class Alloc(BaseAlloc):
                 state_trie = self._state_trie.with_diff(diff)
 
         for code_hash, code in diff.code_changes.items():
-            self._code_store[Hash32(code_hash)] = Bytes(code)
+            self._code_store[Hash32(code_hash)] = SpecBytes(code)
 
         # `model_copy` skips the validator that freezes an `Account`'s
         # storage, so each storage swapped in below is frozen explicitly.
@@ -1083,7 +1101,7 @@ class Alloc(BaseAlloc):
                 continue
             code_hash = Hash32(spec_account.code_hash)
             if code_hash == spec_state.EMPTY_CODE_HASH:
-                code = Bytes(b"")
+                code = SpecBytes(b"")
             else:
                 code = self._code_store[code_hash]
             existing = self.root.get(addr)
