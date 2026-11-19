@@ -8,11 +8,15 @@ nibbles") instead of stating it in prose. Only key positions matter for
 topology, so every key is given the same placeholder value.
 """
 
-from typing import Iterable, List, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Callable, Iterable, List, Sequence, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
+from execution_testing.client_clis import LazyAlloc, Result
+from execution_testing.specs import BlockVerification
+from execution_testing.test_types import Alloc
 
 from ethereum.crypto.hash import keccak256
 from ethereum.merkle_patricia_trie import (
@@ -72,6 +76,44 @@ def storage_shape(slots: Sequence[int], target: int) -> Shape:
 def account_shape(addresses: Iterable[bytes], target: bytes) -> Shape:
     """Return the shape along `target` in an account trie of `addresses`."""
     return path_shape([bytes(a) for a in addresses], bytes(target))
+
+
+@dataclass
+class AccountShapeAfterBlock(BlockVerification):
+    """
+    Check the account trie shape along `target` after a block.
+
+    The shape comes from the block's filled post-state, not from a list of
+    the accounts the test expects, so an account the test does not
+    control, such as one a system call creates, fails `expected` instead
+    of changing the shape unnoticed.
+    """
+
+    target: bytes
+    expected: Callable[[Shape], bool]
+    block_number: int = 1
+
+    def verify(
+        self,
+        *,
+        result: Result,
+        block_number: int,
+        alloc: Alloc | LazyAlloc | None,
+    ) -> None:
+        """Raise if block `block_number` leaves an unexpected shape."""
+        del result
+        if block_number != self.block_number:
+            return
+        if alloc is None:
+            raise ValueError("the block's post-state is not available")
+        if isinstance(alloc, LazyAlloc):
+            alloc = alloc.materialize()
+        shape = account_shape(alloc.root, self.target)
+        if not self.expected(shape):
+            raise AssertionError(
+                f"block {block_number}: unexpected account trie shape "
+                f"along {self.target.hex()}: {shape}"
+            )
 
 
 def index_shape(count: int, position: int) -> Shape:

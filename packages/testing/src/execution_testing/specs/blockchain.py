@@ -1720,6 +1720,7 @@ class BlockchainTest(BaseTest):
                 self.run_block_verifications(
                     result=built_block.result,
                     block_number=block_number,
+                    alloc=built_block.alloc,
                 )
             include_receipts = (
                 block.include_receipts_in_output
@@ -1963,6 +1964,7 @@ class BlockchainTest(BaseTest):
                 self.run_block_verifications(
                     result=built_block.result,
                     block_number=block_number,
+                    alloc=built_block.alloc,
                 )
             fixture_payloads.append(
                 built_block.get_fixture_engine_new_payload()
@@ -2287,6 +2289,8 @@ class BlockchainTest(BaseTest):
                     self.run_block_verifications(
                         result=built_block.result,
                         block_number=int(built_block.header.number),
+                        # The client backend returns no post-state.
+                        alloc=None,
                     )
                 if self.operation_mode == OpMode.BENCHMARKING:
                     benchmark_gas_used = built_block.benchmark_gas_used()
