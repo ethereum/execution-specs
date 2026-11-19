@@ -33,7 +33,7 @@ The seven simulator images are pushed by independent jobs, so a channel tag can 
 | --- | --- | --- |
 | `plan` | always | Skips superseded pushes, resolves a manual nightly artifact, then installs the testing package and runs `eest images plan`, which computes every name, tag and build of the run from `execution_testing.tools.docker_images`. The other jobs only consume its JSON output and check out the commit it planned. |
 | `base` | when a plan is produced | Builds `packages/testing/docker/base/Dockerfile` at the planned commit and pushes it as `ghcr.io/ethereum/execution-specs:sha-<7 hex>`, the only tag of the repository image. |
-| `fixtures` | release and nightly runs | Takes the release tarball, or the fill's artifact, once per fixture format, builds `packages/testing/docker/fixtures/Dockerfile` and pushes `fixtures/<format>` under the release tag, or `nightly` for a fill. |
+| `fixtures` | release and nightly runs | Takes the release tarball, or the fill's artifact, once per fixture format, builds `packages/testing/docker/fixtures/Dockerfile` and pushes `fixtures/<format>` under the release tag, or `nightly` for a fill. A format the release does not contain, as in a release cut before the format existed, is skipped with a notice. |
 | `tests` | release and nightly runs | Checks out the release tag, or the fill commit, beside the planned commit and builds `packages/testing/docker/tests/Dockerfile` from its `tests/` directory, pushed as `tests` under the same tag as the fixture images. |
 | `images` | per planned simulator | Builds the simulator with `packages/testing/docker/hive/build.sh` from the repository image at the planned commit and the fixture or tests image, verifies it with `check.sh`, confirms the branch has not moved, and pushes the release tag and the channel tags. |
 | `announce` | release runs | Runs `watch-images.yaml` in ethpandaops/hive-tests, so its dashboards test the release's images right away instead of at its hourly check. Skipped with a notice when `HIVE_TESTS_APP_CLIENT_ID` is not set, and only warns when the announcement fails. |
@@ -101,6 +101,7 @@ Before the first upstream publish, verify these cases on the fork:
 | Updates to two devnet branches | Both branches publish; one cannot replace the other's pending run. |
 | A simulator check fails | That simulator's tags stay unchanged; its job fails. |
 | A push before its release's fixture and tests images exist | The repository image publishes; each simulator job skips with a notice. |
+| A manual release run for a release cut before a fixture format existed | That format's fixture and simulator images skip with a notice; the others publish. |
 | A release has no fixture tarball | Planning fails before image builds. |
 | A release is paired with the wrong branch in `eest images plan` | The planner rejects the pair. |
 | A manual nightly uses an earlier successful fill | The exact artifact, tests and framework commit are used. |

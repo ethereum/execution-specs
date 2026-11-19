@@ -1,9 +1,11 @@
 """Exercise image publication guards and manual nightly artifact lookup."""
 
+import io
 import json
 import os
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -259,3 +261,50 @@ def test_registry_error_fails_before_pushing(tmp_path):
     )
     assert result.returncode != 0
     assert pushed == []
+
+
+FIXTURES_BUILD = ROOT / "packages/testing/docker/fixtures/build.sh"
+REORG = "blockchain_tests_engine_reorg"
+
+
+@pytest.mark.parametrize(
+    "listed,present,returncode,built",
+    [
+        # The release contains the format: its image is built.
+        ([REORG], [REORG], 0, True),
+        # A release cut before the format existed: nothing to build.
+        (["blockchain_tests"], ["blockchain_tests"], 0, False),
+        # The index lists the format but none is extracted: fail.
+        ([REORG], [], 1, False),
+    ],
+)
+def test_fixture_image_of_a_missing_format(
+    tmp_path, listed, present, returncode, built
+):
+    """Build no image for a format the release lacks, without failing."""
+    tarball = tmp_path / "fixtures.tar.gz"
+    index = {"test_cases": [{"json_path": f"{d}/t.json"} for d in listed]}
+    members = {".meta/index.json": json.dumps(index, indent=2)}
+    members |= {f"{d}/t.json": "{}" for d in present}
+    with tarfile.open(tarball, "w:gz") as tar:
+        for name, text in members.items():
+            data = text.encode()
+            info = tarfile.TarInfo(f"fixtures/{name}")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    docker = tmp_path / "bin" / "docker"
+    docker.parent.mkdir()
+    docker.write_text(f'#!/bin/sh\necho "$@" >> "{tmp_path}/docker.log"\n')
+    docker.chmod(0o755)
+    result = subprocess.run(
+        [str(FIXTURES_BUILD), str(tarball), REORG, f"fixtures/{REORG}:test"],
+        env={
+            **os.environ,
+            "PATH": f"{docker.parent}:{os.environ['PATH']}",
+            "TMPDIR": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == returncode, result.stderr
+    assert (tmp_path / "docker.log").exists() == built

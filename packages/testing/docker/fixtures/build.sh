@@ -13,13 +13,15 @@
 #
 # Only .meta/ and <format>/ are handed to docker as the `fixtures` build
 # context. A tarball is extracted selectively; a directory is staged with hard
-# links, so multi-gigabyte fixture sets are not copied. Provenance is taken
-# from the environment when set: EEST_FIXTURES_RELEASE, EEST_FIXTURES_GIT_SHA,
+# links, so multi-gigabyte fixture sets are not copied. A source without
+# <format>/, such as a release cut before the format existed, builds no image:
+# the script prints a notice and exits 0. Provenance is taken from the
+# environment when set: EEST_FIXTURES_RELEASE, EEST_FIXTURES_GIT_SHA,
 # EEST_REPOSITORY.
 set -eu
 
 if [ $# -lt 3 ]; then
-    sed -n '2,18p' "$0" >&2
+    sed -n '2,20p' "$0" >&2
     exit 2
 fi
 source=$1
@@ -45,6 +47,21 @@ extract() {
         "*/.meta/*" "*/$format/*"
 }
 
+no_image() {
+    echo "::notice::$source has no $format fixtures; no image built"
+    exit 0
+}
+
+extract_failed() {
+    # tar also fails when the format is missing: the release lacks it if its
+    # index lists no fixture of it; otherwise the extraction itself failed.
+    if [ -f "$stage/.meta/index.json" ] &&
+        ! grep -q "\"json_path\": *\"$format/" "$stage/.meta/index.json"; then
+        no_image
+    fi
+    exit 1
+}
+
 link_tree() {
     # Hard-link a directory tree, so that multi-gigabyte fixture sets are not
     # copied; copy it where cp has no -l.
@@ -59,7 +76,7 @@ http://* | https://*)
     stage=$(mktemp -d "$tmp_root/eest-fixtures.XXXXXX")
     trap 'rm -rf "$stage"' EXIT INT TERM
     echo "downloading $source" >&2
-    curl -fsSL "$source" | extract
+    curl -fsSL "$source" | extract || extract_failed
     ;;
 *.tar.gz | *.tgz)
     if [ ! -f "$source" ]; then
@@ -68,7 +85,7 @@ http://* | https://*)
     fi
     stage=$(mktemp -d "$tmp_root/eest-fixtures.XXXXXX")
     trap 'rm -rf "$stage"' EXIT INT TERM
-    extract < "$source"
+    extract < "$source" || extract_failed
     ;;
 *)
     if [ ! -f "$source/.meta/index.json" ]; then
@@ -76,8 +93,7 @@ http://* | https://*)
         exit 1
     fi
     if [ ! -d "$source/$format" ]; then
-        echo "error: $source has no $format/ directory" >&2
-        exit 1
+        no_image
     fi
     # Stage next to the source so that hard links stay on one filesystem.
     stage=$(mktemp -d "$(dirname "$source")/.eest-fixtures-stage.XXXXXX")
