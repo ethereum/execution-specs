@@ -285,11 +285,11 @@ class ClientModel:
                 ),
                 Outcome(id="syncing", status=PayloadStatusEnum.SYNCING),
             ]
-            # A client that only received the invalid parent may store this
-            # child unvalidated too.
-            if parent_state == Validity.RECEIVED:
-                outcomes.append(accepted)
-            return outcomes
+            # The child is INVALID through its parent, and a client may
+            # answer SYNCING or ACCEPTED for a payload that stays INVALID
+            # (paris.md payload validation 4), or store it unvalidated when
+            # it only received the parent.
+            return [*outcomes, accepted]
         extends_head = parent == self.head
         if not self.dag.blocks[block].valid:
             # The spec only says validationError MAY be set; required here

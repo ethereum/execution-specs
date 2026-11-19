@@ -147,14 +147,14 @@ def test_new_payload_child_of_known_invalid() -> None:  # noqa: D103
         {"a1": Validity.VALID, "b2": Validity.VALID, "b3": Validity.INVALID}
     )
     outcomes = model.new_payload_outcomes("b4")
-    assert ids(outcomes) == ["invalid", "syncing"]
+    assert ids(outcomes) == ["invalid", "syncing", "accepted"]
     assert outcomes[0].latest_valid_hash == "b2"
-    # A grandchild of the invalid block is also INVALID-or-SYNCING, never
-    # SYNCING-only: clients with a bad-block cache answer INVALID.
+    # A grandchild of the invalid block gets the same outcomes, never
+    # SYNCING only: clients with a bad-block cache answer INVALID.
     model.apply_new_payload("b4", outcomes[0])
     add_block(dag, "b5", "b4")
     outcomes = model.new_payload_outcomes("b5")
-    assert ids(outcomes) == ["invalid", "syncing"]
+    assert ids(outcomes) == ["invalid", "syncing", "accepted"]
     assert outcomes[0].latest_valid_hash == "b2"
 
 

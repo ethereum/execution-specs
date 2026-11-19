@@ -370,8 +370,8 @@ def test_invalid_ancestor_descendants_delivered_first(
     """
     The *descendants* of an invalid block are delivered before the invalid
     block itself (SYNCING: an ancestor is unknown); once the invalid
-    ancestor arrives it is INVALID and the buffered descendants, re-sent,
-    are INVALID with lvh = the invalid block's parent.
+    ancestor arrives it is INVALID, and the buffered descendants, re-sent,
+    are INVALID with lvh = the invalid block's parent, SYNCING or ACCEPTED.
     """
     blocks, steps = chain(pre, "a", 3, recipient=SINK)
     sender = pre.fund_eoa()

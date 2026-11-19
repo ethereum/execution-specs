@@ -152,13 +152,15 @@ def test_fill_sibling_and_invalid_child(
     assert isinstance(np_i2, NewPayloadStep)
     assert [o.id for o in np_i2.expect] == ["invalid", "accepted"]
     assert np_i2.expect[0].latest_valid_hash == "a1"
-    for outcome_id, i3_ids in (
-        ("invalid", ["invalid", "syncing"]),
-        ("accepted", ["invalid", "syncing", "accepted"]),
-    ):
+    # Rejected or only received, i2 leaves i3 the same outcomes.
+    for outcome_id in ("invalid", "accepted"):
         (np_i3,) = np_i2.branches[outcome_id]
         assert isinstance(np_i3, NewPayloadStep)
-        assert [o.id for o in np_i3.expect] == i3_ids
+        assert [o.id for o in np_i3.expect] == [
+            "invalid",
+            "syncing",
+            "accepted",
+        ]
     fcu_b2 = steps[6]
     assert isinstance(fcu_b2, ForkchoiceUpdatedStep)
     assert [o.id for o in fcu_b2.expect] == ["applied", "refused"]
