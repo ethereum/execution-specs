@@ -1521,6 +1521,53 @@ def test_leaf_replaced_by_two_siblings(
     )
 
 
+@pytest.mark.parametrize(
+    "deleted_sorts_first",
+    [
+        pytest.param(True, id="deleted_key_sorts_first"),
+        pytest.param(False, id="inserted_key_sorts_first"),
+    ],
+)
+def test_delete_and_insert_beside_untouched_sibling(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    deleted_sorts_first: bool,
+) -> None:
+    """
+    Zero a leaf and write a new key into another slot of the same branch.
+
+    pre:  ext(4) -> branch@4 -> {deleted, kept}
+    post: ext(4) -> branch@4 -> {kept, inserted}
+    Applied as inserts before deletions, the branch never drops to one
+    child, so `kept` is never resolved.
+    """
+    lo, kept, hi = SIXTEEN_SLOTS_BRANCH4[1:4]
+    deleted, inserted = (lo, hi) if deleted_sorts_first else (hi, lo)
+    for slots in ([deleted, kept], [kept, inserted]):
+        assert storage_shape(slots, kept) == [
+            (0, "ext", 4),
+            (4, "branch", 2),
+            (5, "leaf", 59),
+        ]
+    contract = pre.deploy_contract(
+        code=SLOT_WRITER, storage={deleted: 1, kept: 2}
+    )
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        post={contract: Account(storage={deleted: 0, kept: 2, inserted: 3})},
+        blocks=[
+            Block(
+                txs=[
+                    _write(sender, contract, deleted, 0),
+                    _write(sender, contract, inserted, 3),
+                ]
+            )
+        ],
+    )
+
+
 def test_two_shape_changes_at_different_depths(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:
