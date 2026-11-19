@@ -9,13 +9,13 @@ Close pull requests from outside contributors that skip the rules.
 Usage: `outside_contributor_gate.py [--pr N | --sweep] [--dry-run]`.
 
 Outside contributors are authors who are neither collaborators nor
-members of the organization, going by `author_association`, whatever
-they have merged before. Their pull requests must reference an issue
-they are assigned to, or they are closed with a comment linking the
-rule in CONTRIBUTING.md. Issues are never closed. Collaborators and
-members are left alone, and so are bots, pull requests a maintainer
-reopened and authors listed in
-`.github/configs/outside-contributor-gate-bypass.txt`.
+members of the organization, going by `author_association`, and who
+lack write access, whatever they have merged before. Their pull
+requests must reference an issue they are assigned to, or they are
+closed with a comment linking the rule in CONTRIBUTING.md. Issues are
+never closed. Collaborators, members and authors with write access are
+left alone, and so are bots, pull requests a maintainer reopened and
+authors listed in `.github/configs/outside-contributor-gate-bypass.txt`.
 
 A pull request event runs the workflow of the pull request's base
 branch, so `--sweep` gates the pull requests opened into every other
@@ -41,6 +41,11 @@ from urllib.parse import urlencode
 # `author_association` of collaborators and organization members, the
 # authors the gate never checks.
 INSIDE = ("OWNER", "MEMBER", "COLLABORATOR")
+
+# Permissions the gate never checks. The workflow token cannot see
+# private organization members, so their `author_association` looks like
+# an outsider's and the gate also asks for the author's permission.
+WRITE = ("admin", "write")
 
 CONFIGS = Path(__file__).parent.parent / "configs"
 BYPASS = CONFIGS / "outside-contributor-gate-bypass.txt"
@@ -161,6 +166,12 @@ def api_write(method: str, path: str, **fields: str) -> None:
     gh_api(path, "--method", method, *flags)
 
 
+def has_write_access(repo: str, login: str) -> bool:
+    """Return whether `login` has write access to `repo`."""
+    access = api(f"repos/{repo}/collaborators/{login}/permission")
+    return access["permission"] in WRITE
+
+
 def assigned_issue(repo: str, pr: dict[str, Any]) -> int | None:
     """Return an issue `pr` references that its author is assigned to."""
     author = pr["user"]["login"].lower()
@@ -216,6 +227,10 @@ def gate(
     number = pr["number"]
     if not is_outside_contributor(pr, sender, bypassed()):
         print(f"#{number}: skipped, {pr['author_association']} by {sender}")
+        return
+    author = pr["user"]["login"]
+    if has_write_access(repo, author):
+        print(f"#{number}: skipped, {author} has write access")
         return
     if swept and already_gated(repo, number):
         print(f"#{number}: skipped, reopened after the gate closed it")

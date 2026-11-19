@@ -10,4 +10,7 @@ from ....base_fork import BaseFork
 class EIP8246(BaseFork):
     """EIP-8246 class."""
 
-    pass
+    @classmethod
+    def selfdestruct_burns_balance(cls) -> bool:
+        """SELFDESTRUCT no longer burns ether."""
+        return False

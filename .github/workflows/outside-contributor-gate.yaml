@@ -2,8 +2,8 @@ name: Outside contributor gate
 
 # Closes an outside contributor's pull request unless it references an
 # issue they are assigned to. Issues are never closed. Outside contributors
-# are authors who are neither collaborators nor organization members,
-# unless they are on the bypass list in
+# are authors who are neither collaborators nor organization members and
+# lack write access, unless they are on the bypass list in
 # .github/configs/outside-contributor-gate-bypass.txt. See CONTRIBUTING.md.
 #
 # Runs from the base branch via `pull_request_target`, so fork pull requests

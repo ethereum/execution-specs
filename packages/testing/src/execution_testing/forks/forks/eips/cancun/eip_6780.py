@@ -13,4 +13,7 @@ from ....base_fork import BaseFork
 class EIP6780(BaseFork):
     """EIP-6780 class."""
 
-    pass
+    @classmethod
+    def selfdestruct_deletes_existing_accounts(cls) -> bool:
+        """SELFDESTRUCT deletes only accounts created in the same tx."""
+        return False

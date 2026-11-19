@@ -20,11 +20,11 @@ from typing import (
 
 import pytest
 from _pytest.mark.structures import ParameterSet
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from typing_extensions import Self
 
 from execution_testing.base_types import to_hex
-from execution_testing.client_clis import Result, TransitionTool
+from execution_testing.client_clis import LazyAlloc, Result, TransitionTool
 from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.execution import (
     BaseExecute,
@@ -139,6 +139,9 @@ class BaseTest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    _from_test: Type["BaseTest"] | None = PrivateAttr(default=None)
+    """The spec type this test was derived from, set by `from_test`."""
+
     fork: Fork | TransitionFork = (
         BaseFork
         # default to BaseFork to allow the filler to set it,
@@ -167,6 +170,7 @@ class BaseTest(BaseModel):
     is_exception_test: bool = False
     is_inclusion_test: bool = False
     invalid_tx_not_last: bool = False
+    invariant_checks: bool = False
 
     # Class variables, to be set by subclasses
     spec_types: ClassVar[Dict[str, Type["BaseTest"]]] = {}
@@ -296,7 +300,9 @@ class BaseTest(BaseModel):
         for k in BaseTest.model_fields.keys():
             if k not in kwargs and k in base_test.model_fields_set:
                 kwargs[k] = getattr(base_test, k)
-        return cls(**kwargs)
+        instance = cls(**kwargs)
+        instance._from_test = type(base_test)
+        return instance
 
     @classmethod
     def discard_execute_format_by_marks(
@@ -485,17 +491,19 @@ class BaseTest(BaseModel):
         *,
         result: Result,
         block_number: int,
+        alloc: Alloc | LazyAlloc | None,
     ) -> None:
         """
         Run all block verification rules.
 
-        Dispatch every rule in ``self.verifications``
-        against the transition tool result for a block.
+        Dispatch every rule in ``self.verifications`` against the
+        transition tool result and post-state ``alloc`` of a block.
         """
         for v in self.verifications:
             v.verify(
                 result=result,
                 block_number=block_number,
+                alloc=alloc,
             )
 
 

@@ -3,7 +3,8 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from execution_testing.client_clis import Result
+from execution_testing.client_clis import LazyAlloc, Result
+from execution_testing.test_types import Alloc
 
 
 @dataclass
@@ -11,9 +12,9 @@ class BlockVerification(ABC):
     """
     Base class for block-level verification rules.
 
-    Each rule inspects the transition tool result for a
-    single block and raises on failure. Add new rules by
-    subclassing and implementing ``verify``.
+    Each rule inspects the transition tool result and the
+    post-state for a single block and raises on failure. Add
+    new rules by subclassing and implementing ``verify``.
     """
 
     @abstractmethod
@@ -22,8 +23,15 @@ class BlockVerification(ABC):
         *,
         result: Result,
         block_number: int,
+        alloc: Alloc | LazyAlloc | None,
     ) -> None:
-        """Verify the block result, raise on failure."""
+        """
+        Verify the block, raise on failure.
+
+        ``alloc`` is the block's post-state, unmaterialized when
+        lazy, or ``None`` where the backend returns none
+        (``fill-stateful``).
+        """
         ...
 
 
@@ -41,8 +49,10 @@ class NoTraceErrors(BlockVerification):
         *,
         result: Result,
         block_number: int,
+        alloc: Alloc | LazyAlloc | None,
     ) -> None:
         """Raise if any trace line has an error."""
+        del alloc
         if result.traces is None:
             return
         for tx_idx, tx in enumerate(result.traces.root):
@@ -77,8 +87,10 @@ class ReceiptStatusExpected(BlockVerification):
         *,
         result: Result,
         block_number: int,
+        alloc: Alloc | LazyAlloc | None,
     ) -> None:
         """Raise if any receipt status mismatches."""
+        del alloc
         for i, receipt in enumerate(result.receipts):
             if receipt.status is not None and (
                 int(receipt.status) != self.status
