@@ -54,12 +54,11 @@ def test_reorg_across_fork_boundary(
     """
     Canonical a1..a5 and a side chain s4, s5 off a3 cross the fork at
     different heights. ``later``: a4 is the first post-fork block (ts
-    15000) and s4 is still pre-fork (ts 14988). ``earlier``, hive's
-    "canonical block 8, side block 7" mirror: a4 is pre-fork and s4
-    post-fork, so a post-fork side block is imported at a height where the
-    canonical chain is still pre-fork. Every post-fork block credits a
-    withdrawal to its branch's recipient. Head moves a5 -> s4 -> s5 -> a5;
-    every FCU is VALID, and the canonical mapping and both recipients'
+    15000) and s4 is still pre-fork (ts 14988). ``earlier`` mirrors it: a4 is
+    pre-fork and s4 post-fork, so a post-fork side block is imported at a
+    height where the canonical chain is still pre-fork. Every post-fork block
+    credits a withdrawal to its branch's recipient. Head moves a5 -> s4 -> s5
+    -> a5; every FCU is VALID, and the canonical mapping and both recipients'
     balances follow, so withdrawals of the losing branch are reverted.
     """
     later = side_activates == "later"
@@ -184,8 +183,7 @@ def test_sibling_first_fork_blocks(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Two competing *first* post-fork blocks on the last pre-fork block (hive
-    ``WithdrawalsReorgSpec`` "Fork on Block 8 - 10 Block Re-Org" reduced):
+    Two competing *first* post-fork blocks on the last pre-fork block:
     both VALID, head switches between them, then a child of the loser
     extends and takes the head. Each first post-fork block credits a
     withdrawal to its own recipient, checked after every head move.

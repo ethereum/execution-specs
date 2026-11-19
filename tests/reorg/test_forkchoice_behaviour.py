@@ -112,9 +112,7 @@ def test_forks_going_back_and_forward_in_height(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Erigon
-    ``TestValidateChainAndUpdateForkChoiceWithSideForksThatGoBackAndForwardInHeight``:
-    three forks from genesis of 2, 1 and 2 blocks, each block delivered and
+    Three forks from genesis of 2, 1 and 2 blocks, each block delivered and
     then made the head, so the head drops from height 2 to 1 and climbs
     back. Every update is applied and nothing above the head stays
     canonical: a client that keeps canonical hashes above a lower head
@@ -149,9 +147,7 @@ def test_reorg_back_and_forth_between_branches(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Reth ``test_tree_state_on_new_head_deep_fork`` / nethermind
-    ``Can_reorganize_there_and_back`` / erigon ``TestReorgsWithInsertChain``:
-    two 6-block branches off a 3-block base; the head ping-pongs between
+    Two 6-block branches off a 3-block base; the head ping-pongs between
     branch B's blocks and branch A's tip.
     """
     base, steps = chain(pre, "a", 3)
@@ -202,11 +198,7 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Hive ``ReOrgBackToCanonicalTest`` (depth 1..5) / erigon
-    ``TestFcuAllowsReorgBackOnCanonicalChainWhenAfterFinalisedHash`` /
-    nethermind
-    ``forkchoiceUpdatedV1_processed_skips_reorg_only_when_head_is_ancestor_of_finalized``:
-    after every new block, FCU back to a5 (a canonical ancestor above
+    After every new block, FCU back to a5 (a canonical ancestor above
     finalized) then forward to the tip. #786: the rewind, at most 5 deep
     and so within ``MIN_APPLIED_REORG_DEPTH``, must be applied; the forward
     FCU must always be VALID.
@@ -259,13 +251,6 @@ def test_fcu_to_unknown_block_is_syncing(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Hive ``ReOrgBackFromSyncingTest`` +
-    ``ForkchoiceUpdatedUnknownBlockHashTest``, nethermind
-    ``forkChoiceUpdatedV1_to_unknown_block_is_syncing_and_records_forkchoice``
-    / ``forkChoiceUpdatedV1_to_unknown_safeBlock_hash_should_fail`` /
-    ``payloadV1_invalid_parent_hash``, reth
-    ``test_engine_tree_fcu_missing_head``.
-
     A 10-deep side chain exists but only its leaf is ever delivered. FCU to
     a block never delivered (s14) is SYNCING and leaves the head; the leaf
     is SYNCING (its ancestors are unknown, so ACCEPTED is not legal), and so
@@ -306,11 +291,8 @@ def test_inconsistent_forkchoice_state(
     reorg_test: ReorgTestFiller, pre: Alloc, field: str
 ) -> None:
     """
-    Hive ``InconsistentForkchoiceTest``,
-    nethermind ``inconsistent_finalized_hash`` /
-    ``inconsistent_safe_hash``, besu invalid-forkchoice-state variants: with
-    canonical a1..a3 (safe a2, finalized a1) and a validated sibling chain
-    b1..b3, an FCU whose ``field`` points into the other chain is
+    With canonical a1..a3 (safe a2, finalized a1) and a validated sibling
+    chain b1..b3, an FCU whose ``field`` points into the other chain is
     ``-38002`` and leaves head, safe and finalized as they were; the
     canonical FCU afterwards is VALID. The ``safe`` variant finalizes
     genesis instead, an ancestor of both chains, so safe being off the
@@ -346,9 +328,6 @@ def test_safe_finalized_labels_follow_fcu(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Hive ``BlockStatus`` + ``SafeReOrgToSideChainTest``, nethermind safe/
-    finalized/zero-keccak tests, besu
-    ``updateForkChoiceShouldPersistFirstFinalizedBlockHash``:
     ``latest``/``safe``/``finalized`` track every FCU, including a reorg of
     head and safe onto a side chain while finalized stays pinned, zero safe
     hash, and all three equal.
@@ -414,10 +393,8 @@ def test_newpayload_does_not_move_head(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Hive ``NewPayloadWithMissingFcUTest``, nethermind
-    ``block_should_not_be_canonical_before_forkchoiceUpdatedV1``: payloads
-    alone never change ``latest`` or the canonical mapping; a single FCU to
-    the tip does.
+    Payloads alone never change ``latest`` or the canonical mapping; a
+    single FCU to the tip does.
     """
     blocks, _ = chain(pre, "a", 5)
     steps: List[Step] = [NewPayloadStep(block=f"a{i}") for i in range(1, 6)]
@@ -435,10 +412,8 @@ def test_newpayload_does_not_move_head(
 @pytest.mark.valid_from("Shanghai")
 def test_reexecute_payloads(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
     """
-    Hive ``ReExecutePayloadTest``, besu
-    ``shouldReturnSuccessOnAlreadyPresent``,
-    reth ``test_find_invalid_ancestor_detects_block_itself``: re-sending a
-    canonical payload stays VALID; re-sending an invalid one stays INVALID.
+    Re-sending a canonical payload stays VALID; re-sending an invalid one
+    stays INVALID.
     """
     blocks, steps = chain(pre, "a", 5)
     sender = pre.fund_eoa()
@@ -486,12 +461,10 @@ def test_many_siblings_same_parent(
     reorg_test: ReorgTestFiller, pre: Alloc, canonical_first: bool
 ) -> None:
     """
-    Hive ``MultiplePayloadsExtendingCanonicalChainTest``, both registrations:
-    sibling payloads (differing prevRandao) on the current head are all
+    Sibling payloads (differing prevRandao) on the current head are all
     VALID, and FCU to the canonical block at that height is then applied.
-    ``canonical_first`` delivers that block before the siblings, as hive's
-    ``SetHeadToFirstPayloadReceived`` does, so the client selects a block
-    it received before many others. The port sends 40 siblings, hive 80.
+    ``canonical_first`` delivers that block before the siblings, so the
+    client selects a block it received before many others.
     """
     blocks, steps = chain(pre, "a", 3)
     sender = pre.fund_eoa()
@@ -535,9 +508,7 @@ def test_out_of_order_payload_delivery(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Hive ``NewPayloadOnSyncingClientTest``, reth
-    ``test_engine_tree_buffered_blocks_are_eventually_connected_e2e``: a
-    payload whose parent is unknown is SYNCING and FCU to it is SYNCING;
+    A payload whose parent is unknown is SYNCING and FCU to it is SYNCING;
     once the gap is filled the payload and the FCU are VALID.
     """
     blocks, steps = chain(pre, "a", 4)
@@ -571,9 +542,8 @@ def test_alternating_canonical_and_depth1_forks(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Geth ``testBlockchainHeaderchainReorgConsistency`` (16 rounds): for each
-    new canonical block, also apply a sibling fork of depth 1 and back; the
-    head must be consistent after every single FCU.
+    For each of 16 new canonical blocks, also apply a sibling fork of depth
+    1 and back; the head must be consistent after every single FCU.
     """
     n = 16
     blocks, steps = chain(pre, "a", n)
@@ -604,10 +574,9 @@ def test_valid_and_invalid_forks_with_older_canonical_head(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Reth ``test_engine_tree_valid_forks_with_older_canonical_head_e2e`` and its
-    ``valid_and_invalid`` variant: canonical to a6; head moved back to a1;
-    two 8-block forks A/B off a6 delivered; FCU(B tip) applied; FCU(A tip)
-    also VALID; an invalid block on top of A is INVALID and the head stays.
+    Canonical to a6; head moved back to a1; two 8-block forks A/B off a6
+    delivered; FCU(B tip) applied; FCU(A tip) also VALID; an invalid block
+    on top of A is INVALID and the head stays.
 
     reth's Ethereum engine answers the rewind to a1 VALID and keeps its head
     (``apply_chain_update``), which #786 does not allow, so it is expected
@@ -674,11 +643,9 @@ def test_reorg_to_fork_behind_finalized(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Adapted shape of the historical reth
-    ``test_reorg_to_fork_behind_finalized``: with finalized = a7 and head =
-    a10, FCU to a fork tip branching at a5 (so a7 is not on its chain) with
-    finalized still a7. That historical source expected ``VALID``; this
-    test requires ``-38002`` per paris.md step 5.
+    With finalized = a7 and head = a10, FCU to a fork tip branching at a5
+    (so a7 is not on its chain) with finalized still a7 is ``-38002`` per
+    paris.md step 5.
     """
     blocks, steps = chain(pre, "a", 10)
     fork, _ = chain(pre, "f", 5, parent="a5", start=6, value=2)

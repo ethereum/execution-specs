@@ -44,7 +44,7 @@ def test_build_on_previously_validated_side_payload(
     reorg_test: ReorgTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     r"""
-    Port of hive ``ReOrgPrevValidatedPayloadOnSideChainTest``.
+    Build on a previously validated non-leaf side block.
 
     genesis <- a1 <- a2 <- a3
             \\- s1 <- s2 <- s3      (side chain, validated via newPayload)
@@ -156,11 +156,10 @@ def test_two_built_payloads_same_parent(
     reorg_test: ReorgTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
-    Port of hive ``SidechainReOrgTest``: a pending transaction stores
-    PREVRANDAO at its block number; two payloads built on the same parent
-    with different ``prevRandao`` both include it, and each switch of the
-    head between them must switch ``latest``, the canonical mapping and the
-    stored value.
+    A pending transaction stores PREVRANDAO at its block number; two
+    payloads built on the same parent with different ``prevRandao`` both
+    include it, and each switch of the head between them must switch
+    ``latest``, the canonical mapping and the stored value.
     """
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)
@@ -252,7 +251,7 @@ def test_pool_tx_reorged_out_of_built_payload(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Partial port of hive ``TransactionReOrgTest`` (``ReOrgOut``).
+    Remove and restore the receipt of a transaction in a built payload.
 
     A pool transaction is included in a payload built on a1 (bound ``p``);
     after FCU to ``p`` its receipt exists. Reorg to sibling b1 (which does

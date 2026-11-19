@@ -36,7 +36,7 @@ def test_tx_reorg_shared_dropped_postponed_added(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     r"""
-    Port of geth ``testChainTxReorgs``.
+    Receipts and transaction status follow the winning branch.
 
     genesis <- a1 <- a2 <- a3        (canonical first)
             \\- b1 <- b2 <- b3 <- b4  (reorg target)
@@ -131,8 +131,7 @@ def test_tx_reorg_shared_dropped_postponed_added(
 @pytest.mark.valid_from("Shanghai")
 def test_logs_follow_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
     r"""
-    Port of geth ``testLogReorgs`` and erigon
-    ``TestEthGetLogsDoNotGetAffectedAfterNewPayloadOnSideChain``.
+    Return only the canonical branch's logs before and after reorgs.
 
     genesis <- a1(log) <- a2(log)
             \\- b1(log) <- b2
@@ -206,8 +205,7 @@ def test_txpool_reinjection_after_reorg(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     r"""
-    Port of reth ``maintain_txpool_reorg`` / besu txpool re-add tests / geth
-    ``LegacyPool.reset``.
+    Record whether an executable reorged-out transaction returns to the pool.
 
     genesis <- a1(tx1)
             \\- b1(tx2, another sender)

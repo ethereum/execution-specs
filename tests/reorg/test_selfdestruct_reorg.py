@@ -218,7 +218,8 @@ def test_reorg_over_selfdestruct_in_a_later_block(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Erigon's original shape, which needs ``SELFDESTRUCT`` before EIP-6780.
+    A contract destroyed two blocks after its creation, which needs
+    ``SELFDESTRUCT`` before EIP-6780.
 
     ``x1`` creates the contract with slot = 0x2A, ``x2`` changes the slot,
     ``x3`` destroys the contract. A reorg to ``y2``, a branch off ``x1``,

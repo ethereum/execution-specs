@@ -41,7 +41,7 @@ INVALID_FIELDS: Dict[str, Dict[str, Any]] = {
     "base_fee": {"base_fee_per_gas": 1},
     "logs_bloom": {"logs_bloom": b"\x01" * 256},
 }
-"""Header fields corrupted per hive ``InvalidPayloadTestCase``."""
+"""Header fields corrupted one at a time by ``test_invalid_payload_field``."""
 
 STATEROOT_OR_HASH = [
     BlockException.INVALID_STATE_ROOT,
@@ -60,11 +60,11 @@ def test_bad_block_hash_on_new_payload(
     reorg_test: ReorgTestFiller, pre: Alloc, on_side_chain: bool
 ) -> None:
     """
-    Hive ``BadHashOnNewPayload``: a payload whose ``blockHash`` does not match
-    its contents is ``INVALID`` with a null latestValidHash (shanghai.md
-    supplants V1's ``INVALID_BLOCK_HASH``); the head does not move. The same
-    payload with its correct hash is then deliverable and becomes the head,
-    so the client recorded neither the claimed hash nor the contents as bad.
+    A payload whose ``blockHash`` does not match its contents is ``INVALID``
+    with a null latestValidHash (shanghai.md supplants V1's
+    ``INVALID_BLOCK_HASH``); the head does not move. The same payload with
+    its correct hash is then deliverable and becomes the head, so the client
+    recorded neither the claimed hash nor the contents as bad.
     """
     blocks, steps = chain(pre, "a", 3, recipient=SINK)
     parent = "a3"
@@ -113,9 +113,8 @@ def test_parent_hash_equals_block_hash(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Hive ``ParentHashOnNewPayload``: ``parentHash == blockHash`` (self
-    parent) cannot be a valid block hash: ``INVALID`` with a null
-    latestValidHash.
+    ``parentHash == blockHash`` (self parent) cannot be a valid block hash:
+    ``INVALID`` with a null latestValidHash.
     """
     blocks, steps = chain(pre, "a", 2, recipient=SINK)
     sender = pre.fund_eoa()
@@ -151,12 +150,12 @@ def test_invalid_payload_field(
     reorg_test: ReorgTestFiller, pre: Alloc, field: str, on_side_chain: bool
 ) -> None:
     """
-    Hive ``InvalidPayloadTestCase``: a payload with one corrupted header
-    field (hash recomputed, so it is a *well-formed* invalid block) is
-    INVALID with ``latestValidHash`` = its parent; on a side chain, where
-    the client may skip validation, ACCEPTED as well. In the canonical
-    ``state_root`` variant the client then builds, imports and selects a
-    payload on the same head. A valid sibling afterwards is fine.
+    A payload with one corrupted header field (hash recomputed, so it is a
+    *well-formed* invalid block) is INVALID with ``latestValidHash`` = its
+    parent; on a side chain, where the client may skip validation, ACCEPTED
+    as well. In the canonical ``state_root`` variant the client then builds,
+    imports and selects a payload on the same head. A valid sibling
+    afterwards is fine.
     """
     blocks, steps = chain(pre, "a", 3, recipient=SINK)
     parent = "a3"
@@ -282,14 +281,13 @@ def test_invalid_missing_ancestor_reorg(
     reorg_from_canonical: bool,
 ) -> None:
     """
-    Hive ``InvalidMissingAncestorReOrgTest`` (NewPayload delivery): a side
-    chain of 10 blocks with block ``invalid_index`` invalid; payloads are
-    delivered in order and, as in hive, each valid one is made the head. The
-    invalid one then extends the head and is INVALID (lvh = its parent),
-    or, as the first side block, also ACCEPTED; all descendants are INVALID
-    (lvh = last valid) or SYNCING/ACCEPTED if the client dropped the invalid
-    block; the head stays on the last valid block and the reorg back to a5
-    is applied. ``reorg_from_canonical`` branches the side chain off a4
+    A side chain of 10 blocks with block ``invalid_index`` invalid; payloads
+    are delivered in order by newPayload and each valid one is made the
+    head. The invalid one then extends the head and is INVALID (lvh = its
+    parent), or, as the first side block, also ACCEPTED; all descendants are
+    INVALID (lvh = last valid) or SYNCING/ACCEPTED if the client dropped the
+    invalid block; the head stays on the last valid block and the reorg back
+    to a5 is applied. ``reorg_from_canonical`` branches the side chain off a4
     rather than genesis.
     """
     blocks, steps = chain(pre, "a", 5, recipient=SINK)

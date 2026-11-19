@@ -1,16 +1,19 @@
 """
-Sibling, invalid-side-chain and finalized-boundary forkchoice tests.
+Sibling, multi-block, invalid-side-chain and finalized-boundary forkchoice
+tests.
 
 Source mapping and port limitations: ``tests/reorg/README.md``
 (test_forkchoice_reorg.py section).
 
 - Sibling reorg: switch head between two blocks at the same height and verify
   state, head labels and canonical mapping follow the forkchoice.
+- Storage across multi-block reorgs: storage written on two multi-block
+  branches follows every switch, continuation, rewind and redo.
 - Invalid side chain: a side chain with one execution-invalid block; the
   invalid block and everything built on it must never become canonical.
 - execution-apis#786 forkchoice semantics: no-reorg shortcut only below
-  finalized; rewind to a canonical ancestor above finalized is a real reorg
-  (or ``-38006``); finalized regression and inconsistent forkchoice states.
+  finalized; rewind to a canonical ancestor above finalized is a real reorg;
+  finalized regression and inconsistent forkchoice states.
 """
 
 from typing import List
@@ -149,9 +152,9 @@ def test_storage_across_multi_block_reorgs(
     r"""
     Storage written on two multi-block branches follows every reorg.
 
-    Erigon ``TestReorgOverStateChange`` and hive's reorg state checks: one
-    contract, starting with slot0 = 7 and slot1 = 5, written on two 2-block
-    branches. Every call first copies slot0 into slot2, then stores a value:
+    One contract, starting with slot0 = 7 and slot1 = 5, written on two
+    2-block branches. Every call first copies slot0 into slot2, then stores a
+    value:
 
     genesis <- a1 (slot0 = 17) <- a2 (slot1 cleared)
             \\- b1 (slot0 = 19) <- b2 (slot0 = 29) <- b3 (slot0 = 41)
