@@ -23,6 +23,8 @@ from typing import (
 
 import ethereum.state as spec_state
 import ethereum.state_mpt as spec_state_mpt
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec, utils
 from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
 from ethereum_types.bytes import Bytes as SpecBytes
@@ -32,6 +34,7 @@ from pydantic import Field, PrivateAttr, model_validator
 from spec256k1 import PrivateKey
 
 from execution_testing.base_types import (
+    P256_SIGNATURE_LENGTH,
     SECP256K1_SIGNATURE_LENGTH,
     Address,
     Bytes,
@@ -141,6 +144,77 @@ class EOA(Address, Signer):
     def copy(self) -> Self:
         """Return copy of the EOA."""
         return self.__class__(Address(self), key=self.key, nonce=self.nonce)
+
+
+SECP256R1_ORDER = (
+    0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
+)
+"""Order of the NIST P-256 (secp256r1) curve."""
+
+
+class P256Signer(Address, Signer):
+    """
+    A NIST P-256 (secp256r1) private key, identified by the address its
+    public key hashes to: `keccak256(qx || qy)[12:]`.
+
+    Signs EIP-8141 `P256` signature entries. A P256 key cannot authorize a
+    transaction through the default code, so an account using it needs
+    code of its own.
+    """
+
+    signature_schemes: ClassVar[Tuple[FrameSignatureScheme, ...]] = (
+        FrameSignatureScheme.P256,
+    )
+    signature_length: ClassVar[int] = P256_SIGNATURE_LENGTH
+
+    key: Hash
+
+    def __new__(
+        cls,
+        key: FixedSizeBytesConvertible,
+        *,
+        label: str | None = None,
+    ) -> "P256Signer":
+        """Derive the signer's address from `key`."""
+        private_key = Hash(key)
+        public_key = _p256_public_key(private_key)
+        instance = super(P256Signer, cls).__new__(
+            cls, keccak256(public_key)[12:], label=label
+        )
+        instance.key = private_key
+        return instance
+
+    @property
+    def public_key(self) -> Bytes:
+        """Return the uncompressed public key `qx || qy`."""
+        return _p256_public_key(self.key)
+
+    def sign_message(self, message: Hash) -> Bytes:
+        """
+        Sign `message` with deterministic (RFC 6979) ECDSA and return
+        `r || s || qx || qy`, with `s` normalized to the lower half of the
+        curve order.
+        """
+        der_signature = _p256_private_key(self.key).sign(
+            bytes(message),
+            ec.ECDSA(
+                utils.Prehashed(hashes.SHA256()), deterministic_signing=True
+            ),
+        )
+        r, s = utils.decode_dss_signature(der_signature)
+        s = min(s, SECP256R1_ORDER - s)
+        return Bytes(
+            r.to_bytes(32, "big") + s.to_bytes(32, "big") + self.public_key
+        )
+
+
+def _p256_private_key(key: Hash) -> ec.EllipticCurvePrivateKey:
+    return ec.derive_private_key(int.from_bytes(key, "big"), ec.SECP256R1())
+
+
+def _p256_public_key(key: Hash) -> Bytes:
+    numbers = _p256_private_key(key).public_key().public_numbers()
+    return Bytes(numbers.x.to_bytes(32, "big") + numbers.y.to_bytes(32, "big"))
 
 
 class AllocGroupHash(FixedSizeBytes[8]):  # type: ignore

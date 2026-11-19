@@ -20,6 +20,9 @@ class FrameSignatureScheme(IntEnum):
 SECP256K1_SIGNATURE_LENGTH = 65
 """Length of an EIP-8141 secp256k1 signature: `v || r || s`."""
 
+P256_SIGNATURE_LENGTH = 128
+"""Length of an EIP-8141 P256 signature: `r || s || qx || qy`."""
+
 
 @runtime_checkable
 class Signer(SupportsBytes, Protocol):

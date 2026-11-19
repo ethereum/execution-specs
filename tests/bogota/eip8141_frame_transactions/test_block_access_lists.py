@@ -23,11 +23,10 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    Bytes,
     Fork,
     GasFee,
     Op,
-    keccak256,
+    P256Signer,
 )
 
 from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
@@ -39,7 +38,6 @@ from .helpers import (
     sender_frame,
     verify_frame,
 )
-from .signature_helpers import P256_SIGNATURE, p256_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -457,14 +455,7 @@ def test_bal_omits_signature_validation_precompiles(
             # `ecrecover`.
             sender,
             # Carried only to exercise `P256VERIFY`; no frame references it.
-            # A P256 entry's signer is `keccak256(qx || qy)[12:]`.
-            p256_entry(
-                r=int.from_bytes(P256_SIGNATURE[0:32], "big"),
-                s=int.from_bytes(P256_SIGNATURE[32:64], "big"),
-                qx=int.from_bytes(P256_SIGNATURE[64:96], "big"),
-                qy=int.from_bytes(P256_SIGNATURE[96:128], "big"),
-                signer=Bytes(keccak256(P256_SIGNATURE[64:128])[12:]),
-            ),
+            P256Signer(1),
         ],
     )
 

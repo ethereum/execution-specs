@@ -53,6 +53,7 @@ from .signature_helpers import (
     DIGEST,
     P256_S,
     P256_SIGNATURE,
+    P256_SIGNER,
     SECP256K1N,
     SECP256R1N,
     high_s_complement,
@@ -862,14 +863,7 @@ SIGNATURE_CASES = [
     ),
     # P256 entries.
     pytest.param(
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_P256,
-                msg=Bytes(DIGEST),
-                signer=Bytes(keccak256(P256_SIGNATURE[64:])[12:]),
-                signature=Bytes(P256_SIGNATURE),
-            )
-        ],
+        [FrameSignature(signer=P256_SIGNER, msg=Bytes(DIGEST))],
         None,
         id="p256_valid_entry",
     ),
@@ -878,7 +872,7 @@ SIGNATURE_CASES = [
             FrameSignature(
                 scheme=Spec.SCHEME_P256,
                 msg=Bytes(DIGEST),
-                signer=Bytes(keccak256(P256_SIGNATURE[64:])[12:]),
+                signer=Bytes(P256_SIGNER),
                 signature=Bytes(P256_SIGNATURE[:127]),
             )
         ],
@@ -891,7 +885,7 @@ SIGNATURE_CASES = [
             FrameSignature(
                 scheme=Spec.SCHEME_P256,
                 msg=Bytes(DIGEST),
-                signer=Bytes(keccak256(P256_SIGNATURE[64:])[12:]),
+                signer=Bytes(P256_SIGNER),
                 signature=Bytes(P256_SIGNATURE + b"\x00"),
             )
         ],
@@ -957,7 +951,7 @@ SIGNATURE_CASES = [
             FrameSignature(
                 scheme=Spec.SCHEME_P256,
                 msg=Bytes(b"\x02" * 32),
-                signer=Bytes(keccak256(P256_SIGNATURE[64:])[12:]),
+                signer=Bytes(P256_SIGNER),
                 signature=Bytes(P256_SIGNATURE),
             )
         ],

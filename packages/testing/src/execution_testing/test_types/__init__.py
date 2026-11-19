@@ -2,7 +2,7 @@
 
 from execution_testing.base_types import SECP256K1_SIGNATURE_LENGTH
 
-from .account_types import EOA, Account, Alloc, AllocGroupHash
+from .account_types import EOA, Account, Alloc, AllocGroupHash, P256Signer
 from .balance_expectations import (
     BalanceExpression,
     BlobFee,
@@ -108,6 +108,7 @@ __all__ = (
     "EnvironmentDefaults",
     "EmptyPostStateContext",
     "EOA",
+    "P256Signer",
     "fee_increment_blocks",
     "GasFee",
     "Frame",

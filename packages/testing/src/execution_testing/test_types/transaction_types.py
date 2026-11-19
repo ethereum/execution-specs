@@ -488,11 +488,18 @@ class Transaction(
         """
         Turn each `Signer` in the signature list into an entry signed by it
         over the canonical signature hash.
+
+        Entries are copied, since signing fills in their raw bytes and must
+        not modify entries shared with the caller.
         """
         if signatures is None:
             return None
         return [
-            FrameSignature(signer=sig) if isinstance(sig, Signer) else sig
+            FrameSignature(signer=sig)
+            if isinstance(sig, Signer)
+            else sig.model_copy()
+            if isinstance(sig, FrameSignature)
+            else sig
             for sig in signatures
         ]
 
