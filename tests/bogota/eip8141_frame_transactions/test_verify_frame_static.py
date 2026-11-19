@@ -36,13 +36,13 @@ from execution_testing import (
     Opcode,
     ParameterSet,
     StateTestFiller,
+    Transaction,
     TransactionException,
 )
 
 from .helpers import (
     APPROVE_ALL,
     CALL_VALUE,
-    FrameTransaction,
 )
 from .spec import ref_spec_8141
 
@@ -152,8 +152,7 @@ def test_verify_frame_runs_as_staticcall(
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         nonce=1,
         frames=[
@@ -169,7 +168,7 @@ def test_verify_frame_runs_as_staticcall(
             if allowed
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -229,8 +228,7 @@ def test_verify_frame_nested_call_is_static(
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         nonce=1,
         frames=[
@@ -240,7 +238,7 @@ def test_verify_frame_nested_call_is_static(
                 logs=[],
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,

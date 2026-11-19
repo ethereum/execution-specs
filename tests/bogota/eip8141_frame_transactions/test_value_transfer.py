@@ -30,9 +30,6 @@ from execution_testing import (
 
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
-from .helpers import (
-    FrameTransaction,
-)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -89,11 +86,10 @@ def test_value_transfer(
     # Neither frame runs code beyond its target's entry access, so the
     # floor may bind; both anchors carry the value transfer cost, so
     # the pin exercises it either way.
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[Frame.verify(logs=[]), value_frame],
-    )
+    ).expect_frame_receipts(fork)
 
     post = {sender: Account(nonce=1)}
     if target_kind == "other":
@@ -111,10 +107,8 @@ def transfer_exceeding_balance(
     """
     sender = pre.fund_eoa(amount=TRANSFER_VALUE)
     payer = pre.fund_eoa()
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         frames=[
             Frame.verify(flags=Spec.APPROVE_EXECUTION),
             Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
@@ -125,7 +119,7 @@ def transfer_exceeding_balance(
             ),
         ],
         signatures=[sender, payer],
-    )
+    ).expect_frame_receipts(fork, payer=payer)
     post = {
         sender: Account(nonce=1, balance_change=0),
         recipient: Account(balance_change=0),

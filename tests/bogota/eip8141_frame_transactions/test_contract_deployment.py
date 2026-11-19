@@ -22,13 +22,13 @@ from execution_testing import (
     DeploymentTestType,
     Frame,
     Op,
+    Transaction,
     generate_system_contract_deploy_test,
 )
 from execution_testing.checklists import EIPChecklist
 from execution_testing.forks import Bogota, TransitionFork
 
 from .helpers import (
-    FrameTransaction,
     expiry_verifier_gas,
 )
 from .spec import Spec, ref_spec_8141
@@ -70,15 +70,14 @@ def test_expiry_verifier_deployment(
     target = pre.deploy_contract(code=target_code)
     # The frame transaction runs in a block past the transition.
     post_fork = fork.transitions_to()
-    tx = FrameTransaction.build(
-        fork=post_fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
             Frame.expiry(execution_gas=expiry_verifier_gas(post_fork)),
             Frame.sender(target=target, code=target_code),
         ],
-    )
+    ).expect_frame_receipts(post_fork)
 
     yield Block(txs=[tx])
 

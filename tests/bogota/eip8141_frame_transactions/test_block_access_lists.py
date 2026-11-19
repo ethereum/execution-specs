@@ -29,14 +29,12 @@ from execution_testing import (
     GasFee,
     Op,
     P256Signer,
+    Transaction,
 )
 
 from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
 from tests.osaka.eip7951_p256verify_precompiles.spec import Spec as Spec7951
 
-from .helpers import (
-    FrameTransaction,
-)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -86,8 +84,7 @@ def test_bal_atomic_batch_write(
     terminator_code = Op.STOP if committed else Op.REVERT(0, 0)
     terminator = pre.deploy_contract(code=terminator_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -109,7 +106,7 @@ def test_bal_atomic_batch_write(
                 else FrameOutcome.REVERT,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     if committed:
         target_expectation = BalAccountExpectation(
@@ -176,8 +173,7 @@ def test_bal_atomic_batch_skipped_frame_absent(
         code=Op.SSTORE(SLOT, WRITTEN_VALUE) + Op.STOP
     )
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -193,7 +189,7 @@ def test_bal_atomic_batch_skipped_frame_absent(
                 outcome=FrameOutcome.SKIPPED,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     block = Block(
         txs=[tx],
@@ -225,8 +221,7 @@ def test_bal_frame_revert_write_dropped(
     target_code = Op.SSTORE(SLOT, WRITTEN_VALUE) + Op.REVERT(0, 0)
     target = pre.deploy_contract(code=target_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -237,7 +232,7 @@ def test_bal_frame_revert_write_dropped(
                 outcome=FrameOutcome.REVERT,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     block = Block(
         txs=[tx],
@@ -280,8 +275,7 @@ def test_bal_unaffordable_designation_absent(
     delegate = pre.deploy_contract(code=Op.SSTORE(SLOT, WRITTEN_VALUE))
     authority = pre.fund_eoa(delegation=delegate)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -294,7 +288,7 @@ def test_bal_unaffordable_designation_absent(
                 outcome=FrameOutcome.HALT,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     block = Block(
         txs=[tx],
@@ -348,10 +342,8 @@ def test_bal_sponsored_payer_and_sender(
 
     # The gas is pinned so a gas change fails on the receipt rather than
     # as an opaque payer balance mismatch.
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         max_priority_fee_per_gas=0,
         frames=[
             Frame.verify(flags=Spec.APPROVE_EXECUTION),
@@ -363,8 +355,11 @@ def test_bal_sponsored_payer_and_sender(
             ),
         ],
         signatures=[sender, payer],
+    ).expect_frame_receipts(fork, payer=payer)
+    payer_post_balance = (
+        start_balance
+        - tx.frame_settlement(fork).payer_gas_used() * fee_per_gas
     )
-    payer_post_balance = start_balance - tx.payer_gas_used() * fee_per_gas
 
     block = Block(
         txs=[tx],
@@ -411,7 +406,9 @@ def test_bal_sponsored_payer_and_sender(
             sender: Account(nonce=1, balance_change=0),
             payer: Account(
                 nonce_change=0,
-                balance_change=-GasFee(tx, gas=tx.payer_gas_used()),
+                balance_change=-GasFee(
+                    tx, gas=tx.frame_settlement(fork).payer_gas_used()
+                ),
             ),
             target: Account(storage={SLOT: WRITTEN_VALUE}),
         },
@@ -446,8 +443,7 @@ def test_bal_omits_signature_validation_precompiles(
     sender = pre.fund_eoa()
     target = pre.deploy_contract(code=Op.STOP)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -460,7 +456,7 @@ def test_bal_omits_signature_validation_precompiles(
             # Carried only to exercise `P256VERIFY`; no frame references it.
             P256Signer(1),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     block = Block(
         txs=[tx],

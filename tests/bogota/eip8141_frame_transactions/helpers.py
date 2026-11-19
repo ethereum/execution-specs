@@ -1,13 +1,9 @@
 """Helpers for EIP-8141 frame transaction tests."""
 
 from typing import (
-    Any,
     Callable,
-    Dict,
-    List,
     NamedTuple,
     Optional,
-    Self,
     Sequence,
 )
 
@@ -18,10 +14,7 @@ from execution_testing import (
     Frame,
     FrameSignature,
     Op,
-    Transaction,
-    TransactionReceipt,
 )
-from pydantic import Field
 
 from .signature_helpers import canonical_entry
 from .spec import Spec
@@ -74,110 +67,6 @@ def expiry_verifier_gas(fork: Fork) -> int:
         + Op.STOP
     )
     return accepting.execution_cost(fork)
-
-
-class FrameTransaction(Transaction):
-    """Frame transaction whose settlement follows from its frames."""
-
-    execution_gas: int = Field(0, exclude=True)
-    """Pre-refund execution gas: the intrinsic cost plus every receipt."""
-
-    state_gas: int = Field(0, exclude=True)
-    """Attributed state gas, which no refund and no floor touches."""
-
-    calldata_floor: int = Field(0, exclude=True)
-    """The floor the execution dimension is held to."""
-
-    effective_refund: int = Field(0, exclude=True)
-    """The refund that survives the cap."""
-
-    @classmethod
-    def build(
-        cls,
-        *,
-        fork: Fork,
-        sender: EOA | Address,
-        frames: List[Frame],
-        payer: Optional[EOA | Address] = None,
-        refund: int = 0,
-        settle: bool = True,
-        **overrides: Any,
-    ) -> Self:
-        """
-        Return the frame transaction `frames` describes.
-
-        `settle` drops the transaction total for a test that prices
-        neither the refund nor the floor. A frame whose execution gas
-        is unpinned leaves the total unpinned as well, since the total
-        follows from every receipt. A transaction expected to be
-        rejected carries no receipt expectation at all.
-        """
-        for case in frames:
-            case.settle_budgets(fork)
-        tx = cls(sender=sender, frames=frames, **overrides)
-        assert tx.expected_receipt is None, (
-            "the receipt follows from the frames, so it is never given"
-        )
-        if tx.error is not None:
-            return tx
-
-        # The intrinsic cost and the floor price the signature entries
-        # before they are signed, from their signers' signature lengths.
-        assert tx.frames is not None and tx.signatures is not None
-        anchors: Dict[str, Any] = dict(
-            frames=tx.frames,
-            signatures=tx.signatures,
-            sender=Address(sender),
-        )
-
-        receipts = [case.receipt(fork) for case in frames]
-        intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
-            return_cost_deducted_prior_execution=True, **anchors
-        )
-        tx.execution_gas = intrinsic + sum(
-            int(receipt.gas_used or 0) for receipt in receipts
-        )
-        tx.state_gas = sum(
-            int(receipt.state_gas_used or 0) for receipt in receipts
-        )
-        floor_calculator = fork.frame_transaction_data_floor_cost_calculator()
-        tx.calldata_floor = floor_calculator(**anchors)
-        tx.effective_refund = min(
-            refund, tx.gas_before_refund // fork.max_refund_quotient()
-        )
-
-        settled = settle and all(
-            receipt.gas_used is not None for receipt in receipts
-        )
-        tx.expected_receipt = TransactionReceipt(
-            payer=payer if payer is not None else sender,
-            cumulative_gas_used=tx.payer_gas_used() if settled else None,
-            frame_receipts=receipts,
-        )
-        return tx
-
-    @property
-    def gas_before_refund(self) -> int:
-        """Return the spent gas in both dimensions, before refunds."""
-        return self.execution_gas + self.state_gas
-
-    def floor_binds(self, *, after_refund: bool = True) -> bool:
-        """Check whether the calldata floor sets the settled execution gas."""
-        charged = self.execution_gas
-        if after_refund:
-            charged -= self.effective_refund
-        return self.calldata_floor > charged
-
-    def payer_gas_used(self) -> int:
-        """Return the gas the payer is charged."""
-        execution = max(
-            self.execution_gas - self.effective_refund, self.calldata_floor
-        )
-        return execution + self.state_gas
-
-    def block_gas_used(self) -> int:
-        """Return the gas the block accounts for, before refunds."""
-        return max(self.execution_gas, self.calldata_floor) + self.state_gas
 
 
 APPROVE_ALL = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)

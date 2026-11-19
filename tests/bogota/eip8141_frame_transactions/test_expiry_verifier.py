@@ -19,11 +19,11 @@ from execution_testing import (
     Frame,
     Op,
     StateTestFiller,
+    Transaction,
     TransactionException,
 )
 
 from .helpers import (
-    FrameTransaction,
     expiry_verifier_gas,
 )
 from .spec import Spec, ref_spec_8141
@@ -73,8 +73,7 @@ def test_expiry_verifier_frame(
     target_code = Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP
     target = pre.deploy_contract(code=target_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -85,7 +84,7 @@ def test_expiry_verifier_frame(
             Frame.sender(target=target, code=target_code),
         ],
         error=error,
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         env=Environment(timestamp=BLOCK_TIMESTAMP),

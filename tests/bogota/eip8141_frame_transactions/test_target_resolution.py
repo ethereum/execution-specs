@@ -25,9 +25,6 @@ from execution_testing import (
     TransactionException,
 )
 
-from .helpers import (
-    FrameTransaction,
-)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -102,8 +99,7 @@ def test_precompile_target(
         Spec.MODE_VERIFY: partial(Frame.verify, flags=Spec.APPROVE_NONE),
     }
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -115,7 +111,7 @@ def test_precompile_target(
                 execution_gas=identity_gas(fork, data),
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -131,8 +127,7 @@ def test_precompile_target_rejecting_its_input(
     """
     sender = pre.fund_eoa()
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -142,7 +137,7 @@ def test_precompile_target_rejecting_its_input(
                 outcome=FrameOutcome.HALT,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -189,8 +184,7 @@ def test_verify_frame_target_above_the_precompile_gap(
     """
     sender = pre.fund_eoa()
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -202,7 +196,7 @@ def test_verify_frame_target_above_the_precompile_gap(
                 execution_gas=fork.gas_costs().PRECOMPILE_P256VERIFY,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -259,8 +253,7 @@ def test_delegated_target_entry_charge(
     # pays for the cold access the frame under test then avoids.
     warming_frames = [Frame.default(target=delegate)] if warm_delegate else []
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -271,7 +264,7 @@ def test_delegated_target_entry_charge(
                 delegation_warm=warm_delegate,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -318,8 +311,7 @@ def test_dead_target_entry_charge(
         )
     }
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -335,7 +327,7 @@ def test_dead_target_entry_charge(
                 state_gas_used=revival_state_gas if affordable else 0,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(pre=pre, tx=tx, post=post)
 
@@ -353,8 +345,7 @@ def test_delegated_to_precompile_target(
     sender = pre.fund_eoa()
     authority = pre.fund_eoa(delegation=IDENTITY)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -365,7 +356,7 @@ def test_delegated_to_precompile_target(
                 delegation_warm=True,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -396,8 +387,7 @@ def test_frame_entry_gas_boundary(
     sender = pre.fund_eoa()
     target = pre.fund_eoa(amount=1)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -409,7 +399,7 @@ def test_frame_entry_gas_boundary(
                 else FrameOutcome.HALT,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -433,8 +423,7 @@ def test_entry_charge_halt_unrolls_batch(
     worker_code = Op.SSTORE(SLOT_CREATED, 1)
     worker = pre.deploy_contract(code=worker_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -459,7 +448,7 @@ def test_entry_charge_halt_unrolls_batch(
                 gas_limit_delta=0,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -501,10 +490,8 @@ def test_default_code_entry_gas_shortfall(
     sender = pre.fund_eoa()
     payer = pre.fund_eoa()
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         frames=[
             Frame.verify(flags=Spec.APPROVE_EXECUTION),
             # The transaction touches the sponsor nowhere else, so
@@ -521,7 +508,7 @@ def test_default_code_entry_gas_shortfall(
             if affordable
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    )
+    ).expect_frame_receipts(fork, payer=payer)
 
     state_test(
         pre=pre,
@@ -549,8 +536,7 @@ def test_verify_frame_delegated_to_precompile_target(
     sender = pre.fund_eoa()
     authority = pre.fund_eoa(delegation=IDENTITY)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -561,6 +547,6 @@ def test_verify_frame_delegated_to_precompile_target(
                 delegation_warm=True,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})

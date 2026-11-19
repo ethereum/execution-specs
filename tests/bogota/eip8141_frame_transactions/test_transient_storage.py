@@ -31,12 +31,12 @@ from execution_testing import (
     FrameOutcome,
     Op,
     StateTestFiller,
+    Transaction,
 )
 
 from .helpers import (
     APPROVE_ALL,
     CURRENT_FRAME_INDEX,
-    FrameTransaction,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -142,8 +142,7 @@ def test_transient_storage_discarded_between_frames(
     sender = pre.fund_eoa()
     recorder = pre.deploy_contract(code=RECORDER_CODE)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -151,7 +150,7 @@ def test_transient_storage_discarded_between_frames(
             # The first frame's success leaves the recorder warm.
             recorder_frame(second_mode, recorder, warm=True),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -190,8 +189,7 @@ def test_transient_storage_discarded_between_atomic_batch_frames(
     sender = pre.fund_eoa()
     recorder = pre.deploy_contract(code=RECORDER_CODE)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -201,7 +199,7 @@ def test_transient_storage_discarded_between_atomic_batch_frames(
             ),
             recorder_frame(mode, recorder, warm=True),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -288,7 +286,7 @@ def test_transient_storage_discarded_after_failed_frame(
     )
 
     frames = [Frame.verify(), record(), *batch, record()]
-    tx = FrameTransaction.build(fork=fork, sender=sender, frames=frames)
+    tx = Transaction(sender=sender, frames=frames).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -332,15 +330,14 @@ def test_transient_storage_discarded_before_verify_frame(
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         nonce=1,
         frames=[
             Frame.default(target=sender, data=Bytes(b"\x01"), pin_gas=False),
             Frame.verify(pin_gas=False),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=2)})
 
@@ -394,8 +391,7 @@ def test_transient_storage_discarded_for_called_account(
     slot_gas = record.state_cost(fork)
     sender = pre.fund_eoa()
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -412,7 +408,7 @@ def test_transient_storage_discarded_for_called_account(
                 state_gas_used=slot_gas,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,

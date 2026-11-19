@@ -28,9 +28,6 @@ from execution_testing import (
     TransactionException,
 )
 
-from .helpers import (
-    FrameTransaction,
-)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -60,15 +57,14 @@ def test_contract_sender_approves(
     target_code = Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP
     target = pre.deploy_contract(code=target_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         nonce=1,
         frames=[
             Frame.verify(code=sender_code),
             Frame.sender(target=target, code=target_code),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -95,10 +91,8 @@ def test_eoa_paymaster(
     target_code = Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP
     target = pre.deploy_contract(code=target_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         frames=[
             Frame.verify(flags=Spec.APPROVE_EXECUTION),
             Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
@@ -108,7 +102,7 @@ def test_eoa_paymaster(
             ),
         ],
         signatures=[sender, payer],
-    )
+    ).expect_frame_receipts(fork, payer=payer)
 
     state_test(
         pre=pre,
@@ -117,7 +111,9 @@ def test_eoa_paymaster(
             sender: Account(nonce=1, balance_change=0),
             payer: Account(
                 nonce_change=0,
-                balance_change=-GasFee(tx, gas=tx.payer_gas_used()),
+                balance_change=-GasFee(
+                    tx, gas=tx.frame_settlement(fork).payer_gas_used()
+                ),
             ),
             target: Account(storage={SLOT_EXECUTED: 1}),
         },
@@ -178,11 +174,10 @@ def test_atomic_batch_rollback(
             Frame.sender(target=target, outcome=FrameOutcome.SKIPPED),
         ]
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[Frame.verify(), *batch],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -321,8 +316,7 @@ def test_frame_revert_discards_the_approval_it_granted(
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         nonce=1,
         frames=[
@@ -342,7 +336,7 @@ def test_frame_revert_discards_the_approval_it_granted(
             if approved
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -425,8 +419,7 @@ def test_call_revert_above_approve_discards_the_approval(
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
     approved = not middle_reverts or outer_approves
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         nonce=1,
         frames=[
@@ -444,7 +437,7 @@ def test_call_revert_above_approve_discards_the_approval(
             if approved
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -511,8 +504,7 @@ def test_approve_inside_staticcall(
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         nonce=1,
         frames=[
@@ -529,7 +521,7 @@ def test_approve_inside_staticcall(
             if static_call_writes
             else None
         ),
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -593,10 +585,8 @@ def test_approve_payment_inside_staticcall(
     )
     payer = pre.deploy_contract(code=payer_code, balance=10**18)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         frames=[
             # A `SENDER` frame needs execution approved before it runs.
             Frame.verify(flags=Spec.APPROVE_EXECUTION),
@@ -613,7 +603,7 @@ def test_approve_payment_inside_staticcall(
             if static_call_writes
             else None
         ),
-    )
+    ).expect_frame_receipts(fork, payer=payer)
 
     state_test(
         pre=pre,
@@ -668,8 +658,7 @@ def test_refused_approval_reverts_only_its_call_frame(
     ) + Op.SSTORE(SLOT_EXECUTED, 1)
     target = pre.deploy_contract(code=target_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(logs=[]),
@@ -683,7 +672,7 @@ def test_refused_approval_reverts_only_its_call_frame(
                 + inner_code.execution_cost(fork),
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -785,15 +774,13 @@ def test_refused_approval_charges_memory_expansion(
     else:
         ordered_frames = [refusing_frame, payment_frame]
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         frames=[
             Frame.verify(flags=Spec.APPROVE_EXECUTION, logs=[]),
             *ordered_frames,
         ],
-    )
+    ).expect_frame_receipts(fork, payer=payer)
 
     state_test(
         pre=pre,

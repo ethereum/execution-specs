@@ -709,6 +709,50 @@ class TransactionTestMetadata(CamelModel):
         return self.model_dump_json(exclude_none=True, by_alias=True)
 
 
+@dataclass(frozen=True)
+class FrameSettlement:
+    """
+    How the gas of an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction settles, from its intrinsic cost and the expected
+    receipts of its frames.
+    """
+
+    execution_gas: int
+    """Pre-refund execution gas: the intrinsic cost plus every receipt."""
+
+    state_gas: int
+    """Attributed state gas, which no refund and no floor touches."""
+
+    calldata_floor: int
+    """The floor the execution dimension is held to."""
+
+    effective_refund: int
+    """The refund that survives the cap."""
+
+    @property
+    def gas_before_refund(self) -> int:
+        """Return the spent gas in both dimensions, before refunds."""
+        return self.execution_gas + self.state_gas
+
+    def floor_binds(self, *, after_refund: bool = True) -> bool:
+        """Check whether the calldata floor sets the settled execution gas."""
+        charged = self.execution_gas
+        if after_refund:
+            charged -= self.effective_refund
+        return self.calldata_floor > charged
+
+    def payer_gas_used(self) -> int:
+        """Return the gas the payer is charged."""
+        execution = max(
+            self.execution_gas - self.effective_refund, self.calldata_floor
+        )
+        return execution + self.state_gas
+
+    def block_gas_used(self) -> int:
+        """Return the gas the block accounts for, before refunds."""
+        return max(self.execution_gas, self.calldata_floor) + self.state_gas
+
+
 class Transaction(
     TransactionGeneric[HexNumber],
     TransactionTransitionToolConverter,
@@ -1047,6 +1091,90 @@ class Transaction(
             else sig
             for sig in self.signatures
         ]
+
+    def frame_settlement(
+        self, fork: Fork, *, refund: int = 0
+    ) -> FrameSettlement:
+        """
+        Return how the frame transaction's gas settles under `fork`, from
+        its frames' expected receipts and the `refund` its execution
+        earns before the cap.
+
+        The frames' budgets must already be settled, which
+        `expect_frame_receipts` does.
+        """
+        assert self.frames is not None, "not a frame transaction"
+        assert self.signatures is not None
+        receipts = [frame.receipt(fork) for frame in self.frames]
+        anchors: Dict[str, Any] = dict(
+            frames=self.frames,
+            signatures=self.signatures,
+            sender=self.sender,
+        )
+        intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+            return_cost_deducted_prior_execution=True, **anchors
+        )
+        execution_gas = intrinsic + sum(
+            int(receipt.gas_used or 0) for receipt in receipts
+        )
+        state_gas = sum(
+            int(receipt.state_gas_used or 0) for receipt in receipts
+        )
+        return FrameSettlement(
+            execution_gas=execution_gas,
+            state_gas=state_gas,
+            calldata_floor=(
+                fork.frame_transaction_data_floor_cost_calculator()(**anchors)
+            ),
+            effective_refund=min(
+                refund,
+                (execution_gas + state_gas) // fork.max_refund_quotient(),
+            ),
+        )
+
+    def expect_frame_receipts(
+        self,
+        fork: Fork,
+        *,
+        payer: Address | None = None,
+        refund: int = 0,
+        settle: bool = True,
+    ) -> Self:
+        """
+        Settle the budgets the frames declare as deltas on their cost, and
+        expect the receipt the frames' outcomes follow from.
+
+        The receipt names `payer`, the sender by default, and pins the
+        gas the payer is charged, after `refund`. `settle=False` leaves
+        that total unpinned for a test that prices neither the refund nor
+        the floor; so does any frame whose execution gas is unpinned,
+        since the total follows from every receipt. A transaction expected
+        to be rejected carries no receipt expectation at all.
+        """
+        assert self.frames is not None, "not a frame transaction"
+        assert self.expected_receipt is None, (
+            "the receipt follows from the frames, so it is never given"
+        )
+        for frame in self.frames:
+            frame.settle_budgets(fork)
+        self._drop_cached_properties()
+        if self.error is not None:
+            return self
+
+        receipts = [frame.receipt(fork) for frame in self.frames]
+        settled = settle and all(
+            receipt.gas_used is not None for receipt in receipts
+        )
+        self.expected_receipt = TransactionReceipt(
+            payer=payer if payer is not None else self.sender,
+            cumulative_gas_used=(
+                self.frame_settlement(fork, refund=refund).payer_gas_used()
+                if settled
+                else None
+            ),
+            frame_receipts=receipts,
+        )
+        return self
 
     def _drop_cached_properties(self) -> None:
         """

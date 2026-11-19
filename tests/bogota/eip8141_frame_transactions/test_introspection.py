@@ -28,9 +28,6 @@ from execution_testing import (
     Transaction,
 )
 
-from .helpers import (
-    FrameTransaction,
-)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -405,8 +402,7 @@ def test_frameparam_gas_used(
     probe = pre.deploy_contract(code=probe_code)
 
     worker_frame = Frame.default(target=worker, code=worker_code)
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
@@ -420,7 +416,7 @@ def test_frameparam_gas_used(
                 state_gas_limit=PROBE_FRAME_STATE_GAS,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     worker_receipt = worker_frame.receipt(fork)
 

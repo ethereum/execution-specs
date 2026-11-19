@@ -18,13 +18,13 @@ from execution_testing import (
     Frame,
     Op,
     StateTestFiller,
+    Transaction,
     TransactionException,
 )
 
 from .helpers import (
     BASE_FEE,
     PRIORITY_FEE,
-    FrameTransaction,
     fee_budget,
 )
 from .signature_helpers import canonical_entry
@@ -98,8 +98,7 @@ def test_sender_balance_covers_max_cost(
     assert (max_cost == max_fee) == (budget in ("exact_budget", "partial_tip"))
     pre.fund_address(sender, max_cost + balance_delta)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=frames,
         signatures=[canonical_entry(sender)],
@@ -110,7 +109,7 @@ def test_sender_balance_covers_max_cost(
             if balance_delta
             else None
         ),
-    )
+    ).expect_frame_receipts(fork)
 
     if balance_delta:
         post = Account(nonce_change=0, balance_change=0)
@@ -119,7 +118,8 @@ def test_sender_balance_covers_max_cost(
         # base fee, so the payer pays both on every unit of gas used.
         post = Account(
             nonce_change=1,
-            balance_change=-tx.payer_gas_used() * (BASE_FEE + priority_fee),
+            balance_change=-tx.frame_settlement(fork).payer_gas_used()
+            * (BASE_FEE + priority_fee),
         )
     state_test(
         env=Environment(base_fee_per_gas=BASE_FEE),
@@ -159,10 +159,8 @@ def test_payer_balance_covers_max_cost(
     max_cost = fee_budget(fork, sender, frames, signatures).max_cost
     pre.fund_address(payer, max_cost + balance_delta)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         frames=frames,
         signatures=signatures,
         error=(
@@ -170,13 +168,15 @@ def test_payer_balance_covers_max_cost(
             if balance_delta
             else None
         ),
-    )
+    ).expect_frame_receipts(fork, payer=payer)
 
     if balance_delta:
         payer_post = Account(nonce_change=0, balance_change=0)
     else:
         payer_post = Account(
-            nonce_change=0, balance_change=-tx.payer_gas_used() * BASE_FEE
+            nonce_change=0,
+            balance_change=-tx.frame_settlement(fork).payer_gas_used()
+            * BASE_FEE,
         )
     state_test(
         env=Environment(base_fee_per_gas=BASE_FEE),
@@ -226,8 +226,7 @@ def test_payment_approval_reads_balance_after_transfer(
     max_cost = fee_budget(fork, sender, frames, signatures).max_cost
     pre.fund_address(sender, transfer_value + max_cost + balance_delta)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=frames,
         signatures=signatures,
@@ -236,7 +235,7 @@ def test_payment_approval_reads_balance_after_transfer(
             if balance_delta
             else None
         ),
-    )
+    ).expect_frame_receipts(fork)
 
     if balance_delta:
         post = {
@@ -248,7 +247,8 @@ def test_payment_approval_reads_balance_after_transfer(
             sender: Account(
                 nonce_change=1,
                 balance_change=-(
-                    transfer_value + tx.payer_gas_used() * BASE_FEE
+                    transfer_value
+                    + tx.frame_settlement(fork).payer_gas_used() * BASE_FEE
                 ),
             ),
             recipient: Account(balance_change=transfer_value),
@@ -303,10 +303,8 @@ def test_payment_approval_reads_balance_after_top_up(
     max_cost = fee_budget(fork, sender, frames, signatures).max_cost
     pre.fund_address(payer, max_cost - 1)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         frames=frames,
         signatures=signatures,
         error=(
@@ -314,13 +312,14 @@ def test_payment_approval_reads_balance_after_top_up(
             if top_up
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    )
+    ).expect_frame_receipts(fork, payer=payer)
 
     if top_up:
         # The top-up comes in and the fee goes out.
         payer_post = Account(
             nonce_change=0,
-            balance_change=top_up - tx.payer_gas_used() * BASE_FEE,
+            balance_change=top_up
+            - tx.frame_settlement(fork).payer_gas_used() * BASE_FEE,
         )
     else:
         payer_post = Account(nonce_change=0, balance_change=0)

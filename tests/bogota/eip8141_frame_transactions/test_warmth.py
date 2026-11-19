@@ -31,11 +31,9 @@ from execution_testing import (
     FrameOutcome,
     Op,
     StateTestFiller,
+    Transaction,
 )
 
-from .helpers import (
-    FrameTransaction,
-)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -141,14 +139,13 @@ def test_sender_is_warm(
     probe = balance_probe(sender, fork, warm=True)
     probe_address = pre.deploy_contract(code=probe.code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
             probe_frame(probe_address, probe),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -176,14 +173,13 @@ def test_coinbase_is_warm(
     probe = balance_probe(env.fee_recipient, fork, warm=True)
     probe_address = pre.deploy_contract(code=probe.code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
             probe_frame(probe_address, probe),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         env=env,
@@ -260,11 +256,10 @@ def test_frame_target_entry_charge(
         case _:
             raise ValueError(f"unhandled outcome: {outcome}")
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[Frame.verify(), *touches],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -300,8 +295,7 @@ def test_warmth_carry_to_next_frame(
     probe = balance_probe(subject, fork, warm=carries)
     probe_address = pre.deploy_contract(code=probe.code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -313,7 +307,7 @@ def test_warmth_carry_to_next_frame(
             ),
             probe_frame(probe_address, probe),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -345,17 +339,15 @@ def test_payer_warm_after_default_code_payment_approval(
     probe = balance_probe(payer, fork, warm=True)
     probe_address = pre.deploy_contract(code=probe.code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         frames=[
             Frame.verify(flags=Spec.APPROVE_EXECUTION),
             Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
             probe_frame(probe_address, probe),
         ],
         signatures=[sender, payer],
-    )
+    ).expect_frame_receipts(fork, payer=payer)
 
     state_test(
         pre=pre,
@@ -397,8 +389,7 @@ def test_origin_warmth_by_frame_mode(
     code = Op.POP(Op.BALANCE(Op.ORIGIN, address_warm=origin_warm)) + Op.STOP
     prober = pre.deploy_contract(code=code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -409,7 +400,7 @@ def test_origin_warmth_by_frame_mode(
                 gas_limit=TOUCH_FRAME_GAS,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -472,8 +463,7 @@ def test_warmth_from_inner_call(
     probe = balance_probe(subject, fork, warm=carries)
     probe_address = pre.deploy_contract(code=probe.code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -492,7 +482,7 @@ def test_warmth_from_inner_call(
             ),
             probe_frame(probe_address, probe),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,

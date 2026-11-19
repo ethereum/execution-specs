@@ -30,9 +30,6 @@ from execution_testing import (
     TransactionException,
 )
 
-from .helpers import (
-    FrameTransaction,
-)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -136,12 +133,10 @@ def test_same_frame_refill(
     worker_code = create + clear + observe_pool + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         # The clearing write refunds execution gas this test does not
         # price, so the transaction total is left unpinned.
-        settle=False,
         frames=[
             Frame.verify(),
             Frame.default(
@@ -150,7 +145,7 @@ def test_same_frame_refill(
                 state_gas_used=observe_pool.state_cost(fork),
             ),
         ],
-    )
+    ).expect_frame_receipts(fork, settle=False)
 
     state_test(
         pre=pre,
@@ -215,8 +210,7 @@ def test_cross_frame_refill(
     )
     worker = pre.deploy_contract(code=worker_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -236,7 +230,7 @@ def test_cross_frame_refill(
                 state_gas_used=3 * fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -284,8 +278,7 @@ def test_state_gas_exhaustion(
 
     succeeds = state_gas_limit_delta >= 0
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
@@ -298,7 +291,7 @@ def test_state_gas_exhaustion(
                 else FrameOutcome.HALT,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -331,10 +324,8 @@ def test_approve_creates_sender(
     payer = pre.fund_eoa()
     sender_creation = fork.gas_costs().NEW_ACCOUNT
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         frames=[
             Frame.verify(flags=Spec.APPROVE_EXECUTION),
             *spend_frames,
@@ -346,7 +337,7 @@ def test_approve_creates_sender(
             ),
         ],
         signatures=[sender, payer],
-    )
+    ).expect_frame_receipts(fork, payer=payer)
 
     post: Dict[Address, Account] = {sender: Account(nonce=1, balance=0)}
     if recipient is not None:
@@ -448,8 +439,7 @@ def test_refill_after_intermediate_modification(
     )
     worker = pre.deploy_contract(code=worker_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
@@ -480,7 +470,7 @@ def test_refill_after_intermediate_modification(
                 state_gas_used=fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -553,8 +543,7 @@ def test_batch_unroll_restores_refilled_receipt(
         + Op.STOP
     )
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
@@ -596,7 +585,7 @@ def test_batch_unroll_restores_refilled_receipt(
                 state_gas_used=3 * fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -662,8 +651,7 @@ def test_frame_revert_restores_refilled_receipt(
         + Op.STOP
     )
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
@@ -691,7 +679,7 @@ def test_frame_revert_restores_refilled_receipt(
                 state_gas_used=3 * fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -760,8 +748,7 @@ def test_call_revert_restores_refilled_receipt(
     )
     worker = pre.deploy_contract(code=worker_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
@@ -784,7 +771,7 @@ def test_call_revert_restores_refilled_receipt(
                 state_gas_used=fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -896,8 +883,7 @@ def test_reversion_restores_charge_ownership(
             ),
         ]
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
@@ -915,7 +901,7 @@ def test_reversion_restores_charge_ownership(
                 state_gas_used=fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
