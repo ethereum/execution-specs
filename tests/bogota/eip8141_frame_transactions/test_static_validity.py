@@ -42,7 +42,9 @@ from execution_testing import (
     TransactionTestFiller,
     keccak256,
 )
+from execution_testing.test_types import TransactionDefaults
 
+from .helpers import fee_budget
 from .signature_helpers import (
     DIGEST,
     P256_S,
@@ -381,13 +383,26 @@ FRAME_CASES = [
     pytest.param(
         # Each frame's gas limit fits into 64 bits, but the total
         # frame gas must as well.
+        # Execution gas this large also exceeds the EIP-7825 cap, which
+        # a client may check first.
         [
             Frame.verify(),
             Frame.default(gas_limit=2**64 - 1),
         ],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        [
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
+        ],
         id="frame_gas_sum_overflows",
-        marks=pytest.mark.exception_test,
+        marks=[
+            pytest.mark.exception_test,
+            pytest.mark.execute(
+                pytest.mark.skip(
+                    reason="declared frame budgets near 2**64 require a "
+                    "max_fee far beyond what execute mode can fund"
+                )
+            ),
+        ],
     ),
     pytest.param(
         # The total sums both dimensions, so a state budget drives
@@ -398,7 +413,15 @@ FRAME_CASES = [
         ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="frame_state_gas_sum_overflows",
-        marks=pytest.mark.exception_test,
+        marks=[
+            pytest.mark.exception_test,
+            pytest.mark.execute(
+                pytest.mark.skip(
+                    reason="declared frame budgets near 2**64 require a "
+                    "max_fee far beyond what execute mode can fund"
+                )
+            ),
+        ],
     ),
     pytest.param(
         # Each dimension's budget fits into 64 bits on its own; only
@@ -409,7 +432,37 @@ FRAME_CASES = [
         ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="frame_gas_cross_dimension_sum_overflows",
-        marks=pytest.mark.exception_test,
+        marks=[
+            pytest.mark.exception_test,
+            pytest.mark.execute(
+                pytest.mark.skip(
+                    reason="declared frame budgets near 2**64 require a "
+                    "max_fee far beyond what execute mode can fund"
+                )
+            ),
+        ],
+    ),
+    pytest.param(
+        # As above, but the execution total stays within the EIP-7825
+        # cap, which state gas is exempt from, so the sum overflow is
+        # the only rule broken. Each dimension's total fits into 64
+        # bits on its own; only their sum overflows, once the `VERIFY`
+        # frame's budgets are added.
+        [
+            Frame.verify(),
+            Frame.default(gas_limit=2**20, state_gas_limit=2**64 - 2**20),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="frame_gas_cross_dimension_sum_overflows_within_gas_cap",
+        marks=[
+            pytest.mark.exception_test,
+            pytest.mark.execute(
+                pytest.mark.skip(
+                    reason="declared frame budgets near 2**64 require a "
+                    "max_fee far beyond what execute mode can fund"
+                )
+            ),
+        ],
     ),
     # Decode-time rejections: field values outside their type's
     # domain never construct, so the transaction never decodes.
@@ -438,16 +491,53 @@ FRAME_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        [Frame.verify(), Frame.default(gas_limit=2**64)],
+        # Only the reserved bits, so the approval and atomic batch bits
+        # break no other rule.
+        [Frame.verify(), Frame.default(flags=0xF8)],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="frame_gas_above_64_bits",
+        id="reserved_frame_flags_only",
         marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # Only the highest bit, which stays reserved should lower bits
+        # gain a meaning.
+        [Frame.verify(), Frame.default(flags=0x80)],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="reserved_frame_flag_top_bit",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # Execution gas this large also exceeds the EIP-7825 cap, which
+        # a client may check first.
+        [Frame.verify(), Frame.default(gas_limit=2**64)],
+        [
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
+        ],
+        id="frame_gas_above_64_bits",
+        marks=[
+            pytest.mark.exception_test,
+            pytest.mark.execute(
+                pytest.mark.skip(
+                    reason="declared frame budgets near 2**64 require a "
+                    "max_fee far beyond what execute mode can fund"
+                )
+            ),
+        ],
     ),
     pytest.param(
         [Frame.verify(), Frame.default(state_gas_limit=2**64)],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="frame_state_gas_above_64_bits",
-        marks=pytest.mark.exception_test,
+        marks=[
+            pytest.mark.exception_test,
+            pytest.mark.execute(
+                pytest.mark.skip(
+                    reason="declared frame budgets near 2**64 require a "
+                    "max_fee far beyond what execute mode can fund"
+                )
+            ),
+        ],
     ),
 ]
 """
@@ -457,12 +547,25 @@ the nearest-valid counterpart of a rejected case.
 """
 
 
+def covering_max_fee(fork: Fork, sender: EOA, frames: List[Frame]) -> int:
+    """
+    Return the default `max_fee`, raised to the fee the frames' declared
+    budgets require, so the fee budget check never adds a second reason
+    to reject a case.
+    """
+    return max(
+        TransactionDefaults.max_fee,
+        fee_budget(fork, sender, frames).required_max_fee,
+    )
+
+
 @pytest.mark.parametrize("frames,error", FRAME_CASES)
 def test_frame_constraints(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     frames: Union[List[Frame], Callable[[Alloc, Address], List[Frame]]],
-    error: Optional[TransactionException],
+    error: TransactionException | List[TransactionException] | None,
 ) -> None:
     """
     Vary the frame list of a minimal frame transaction and check that
@@ -474,9 +577,11 @@ def test_frame_constraints(
     built before either is known.
     """
     sender = pre.fund_eoa()
+    frame_list = frames(pre, sender) if callable(frames) else frames
     tx = Transaction(
         sender=sender,
-        frames=frames(pre, sender) if callable(frames) else frames,
+        frames=frame_list,
+        max_fee=covering_max_fee(fork, sender, frame_list),
         error=error,
     )
 
@@ -493,8 +598,9 @@ def test_frame_constraints(
 def test_frame_constraints_transaction(
     transaction_test: TransactionTestFiller,
     pre: Alloc,
+    fork: Fork,
     frames: Union[List[Frame], Callable[[Alloc, Address], List[Frame]]],
-    error: Optional[TransactionException],
+    error: TransactionException | List[TransactionException] | None,
 ) -> None:
     """
     Assert the same per-frame rules as `test_frame_constraints` on the
@@ -502,9 +608,11 @@ def test_frame_constraints_transaction(
     module docstring for why every static case fills both formats.
     """
     sender = pre.fund_eoa()
+    frame_list = frames(pre, sender) if callable(frames) else frames
     tx = Transaction(
         sender=sender,
-        frames=frames(pre, sender) if callable(frames) else frames,
+        frames=frame_list,
+        max_fee=covering_max_fee(fork, sender, frame_list),
         error=error,
     )
 
@@ -537,12 +645,16 @@ EXPIRY_VERIFIER_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
+        # Execution approval must also target the sender, so the target
+        # rule rejects this case too; `expiry_frame_with_flags` is the
+        # case that isolates the expiry verifier's flags rule.
         [Frame.verify(), Frame.expiry(flags=Spec.APPROVE_EXECUTION)],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="expiry_frame_with_execution_flag",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
+        # As above, the target rule rejects this case too.
         [
             Frame.verify(),
             Frame.expiry(flags=Spec.APPROVE_EXECUTION_AND_PAYMENT),
@@ -778,6 +890,9 @@ SIGNATURE_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
+        # Signature validation repeats the signer length check and
+        # reports an invalid signature; the expected format error
+        # assumes the static constraint is checked first.
         lambda _pre, sender: [
             signed_digest_entry(sender.key, signer=Bytes(b"\x01" * 19))
         ],
@@ -786,6 +901,8 @@ SIGNATURE_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
+        # As above, the expected format error assumes the static
+        # constraint is checked first.
         lambda _pre, sender: [
             signed_digest_entry(sender.key, signer=Bytes(b"\x01" * 21))
         ],
