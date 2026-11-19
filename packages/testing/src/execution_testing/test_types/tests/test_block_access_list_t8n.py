@@ -483,3 +483,107 @@ def test_bal_with_remapped_indices() -> None:
     expected = BlockAccessList([account([0, 2, 4])])
     assert remapped.model_dump(mode="json") == expected.model_dump(mode="json")
     remapped.validate_structure()
+
+
+def test_bal_from_rpc_decodes_every_change_kind() -> None:
+    """
+    Test that an `eth_getBlockAccessList` result decodes to the same BAL
+    the fixture form builds, for every kind of change.
+
+    The JSON form names its fields differently: a storage entry carries
+    `key` and `changes`, an indexed change carries `index` and `value`,
+    and a code change carries `code`.
+    """
+    rpc_result = [
+        {
+            "address": "0x000000000000000000000000000000000000000a",
+            "storageChanges": [
+                {
+                    "key": "0x1",
+                    "changes": [{"index": "0x1", "value": "0x2a"}],
+                }
+            ],
+            "storageReads": ["0x3"],
+            "balanceChanges": [{"index": "0x1", "value": "0x64"}],
+            "nonceChanges": [{"index": "0x1", "value": "0x5"}],
+            "codeChanges": [{"index": "0x1", "code": "0x6000"}],
+        },
+        {
+            "address": "0x000000000000000000000000000000000000000b",
+            "storageChanges": [],
+            "storageReads": [],
+            "balanceChanges": [{"index": "0x0", "value": "0x1"}],
+            "nonceChanges": [],
+            "codeChanges": [],
+        },
+    ]
+
+    expected = BlockAccessList(
+        [
+            BalAccountChange(
+                address=Address(0xA),
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x2A
+                            )
+                        ],
+                    )
+                ],
+                storage_reads=[3],
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=0x64)
+                ],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=5)
+                ],
+                code_changes=[
+                    BalCodeChange(block_access_index=1, new_code=b"\x60\x00")
+                ],
+            ),
+            BalAccountChange(
+                address=Address(0xB),
+                balance_changes=[
+                    BalBalanceChange(block_access_index=0, post_balance=1)
+                ],
+            ),
+        ]
+    )
+
+    decoded = BlockAccessList.from_rpc(rpc_result)
+
+    assert decoded.model_dump(mode="json") == expected.model_dump(mode="json")
+    assert decoded.rlp_hash == expected.rlp_hash
+    decoded.validate_structure()
+
+
+def test_bal_from_rpc_rejects_unknown_field_names() -> None:
+    """
+    Test that a result naming its fields outside the schema is refused.
+
+    Nimbus serves `slot`, `blockAccessIndex` and `newValue` where the
+    execution-apis schema says `key`, `index` and `value`; decoding such a
+    result must fail instead of silently dropping the changes.
+    """
+    rpc_result = [
+        {
+            "address": "0x000000000000000000000000000000000000000a",
+            "storageChanges": [
+                {
+                    "slot": "0x1",
+                    "changes": [
+                        {"blockAccessIndex": "0x1", "newValue": "0x2a"}
+                    ],
+                }
+            ],
+            "storageReads": [],
+            "balanceChanges": [],
+            "nonceChanges": [],
+            "codeChanges": [],
+        }
+    ]
+
+    with pytest.raises(KeyError):
+        BlockAccessList.from_rpc(rpc_result)
