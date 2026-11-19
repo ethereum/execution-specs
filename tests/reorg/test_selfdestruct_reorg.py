@@ -17,8 +17,7 @@ whether it survives. Two shapes are covered:
 
 - the account is destroyed on one branch and alive on its sibling, with the
   head moving between them;
-- the account is destroyed and recreated inside a single block, a pattern
-  Erigon's own comment says its parallel executor does not yet handle.
+- the account is destroyed and recreated inside a single block.
 """
 
 from typing import List, Tuple
@@ -116,9 +115,7 @@ def test_reorg_over_same_tx_selfdestruct(
     the same address.
 
     Every head move is either a forward extension or a switch between two
-    blocks of the same height, so that a client which declines to rewind to a
-    canonical ancestor (reth, paradigmxyz/reth#27244) fails this test only on
-    the state it reports, not on the shape of the script.
+    blocks of the same height.
     """
     factory, contract = _factory(pre)
     sender = pre.fund_eoa()

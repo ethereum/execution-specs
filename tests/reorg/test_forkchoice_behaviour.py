@@ -202,11 +202,6 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
     finalized) then forward to the tip. #786: the rewind, at most 5 deep
     and so within ``MIN_APPLIED_REORG_DEPTH``, must be applied; the forward
     FCU must always be VALID.
-
-    reth's Ethereum engine answers such a rewind VALID and keeps its head
-    (``apply_chain_update``), which #786 does not allow, so it is expected
-    to fail here:
-    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
     """
     blocks, steps = chain(pre, "a", 5)
     more, _ = chain(pre, "a", 5, parent="a5", start=6)
@@ -341,8 +336,7 @@ def test_safe_finalized_labels_follow_fcu(
             ForkchoiceUpdatedStep(
                 head="b3", safe="b3", finalized="b3", expect=applied("b3")
             ),
-            # Reverts the finalized b3. erigon keeps no unwind data below
-            # finality and refuses it at any depth.
+            # Reverts the finalized b3.
             ForkchoiceUpdatedStep(
                 head="a3",
                 safe="a3",
@@ -577,11 +571,6 @@ def test_valid_and_invalid_forks_with_older_canonical_head(
     Canonical to a6; head moved back to a1; two 8-block forks A/B off a6
     delivered; FCU(B tip) applied; FCU(A tip) also VALID; an invalid block
     on top of A is INVALID and the head stays.
-
-    reth's Ethereum engine answers the rewind to a1 VALID and keeps its head
-    (``apply_chain_update``), which #786 does not allow, so it is expected
-    to fail here:
-    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
     """
     blocks, steps = chain(pre, "a", 6)
     fa, _ = chain(pre, "x", 8, parent="a6", start=7, value=2)
@@ -729,11 +718,6 @@ def test_fcu_rewind_with_no_finalized(
     holds, so the client must apply the rewind, which is within
     ``MIN_APPLIED_REORG_DEPTH``. A VALID answer that leaves the head where it
     was is not legal here.
-
-    reth's Ethereum engine answers such a rewind VALID and keeps its head
-    (``apply_chain_update``), which #786 does not allow, so it is expected
-    to fail here:
-    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
     """
     blocks, steps = chain(pre, "a", 8)
     steps.append(

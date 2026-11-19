@@ -162,11 +162,6 @@ def test_storage_across_multi_block_reorgs(
     Storage is checked after each switch (A, B, A, B), after b3 continues
     execution from the restored state, and after a rewind to b1 and the
     redo to b3.
-
-    reth's Ethereum engine answers a rewind to a canonical ancestor VALID
-    and keeps its head (``apply_chain_update``), which #786 does not allow,
-    so it is expected to fail the last two checks:
-    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
     """
     contract = pre.deploy_contract(
         Op.SSTORE(2, Op.SLOAD(0))
@@ -468,11 +463,6 @@ def test_fcu_rewind_to_canonical_ancestor_above_finalized(
     ``MIN_APPLIED_REORG_DEPTH``; a pre-#786 VALID no-op that leaves the head
     at a10 fails. Afterwards FCU(a10) must be VALID and the chain must
     continue.
-
-    reth's Ethereum engine answers such a rewind VALID and keeps its head
-    (``apply_chain_update``), which #786 does not allow, so it is expected
-    to fail here:
-    https://github.com/paradigmxyz/reth/blob/7c1ffbe6619ef07a53256489c5f5fd89a602202d/crates/engine/tree/src/tree/mod.rs#L1299-L1352
     """
     blocks, steps = chain(pre, "a", 10)
     steps.append(
