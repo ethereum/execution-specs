@@ -8,6 +8,7 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -24,6 +25,7 @@ pytestmark = [pytest.mark.valid_at("EIP8024"), pytest.mark.mainnet]
 def test_stack_access_opcodes_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test that DUPN, SWAPN and EXCHANGE execute with correct results.
@@ -34,6 +36,8 @@ def test_stack_access_opcodes_mainnet(
     live network. Storage keys start at nonzero canaries so a failed
     transaction is distinguishable from a successful one.
     """
+    canary = 0xBA5E
+    overwrite_canary = Op.SSTORE.with_metadata(original_value=canary)
     dupn_marker = 0xA1
     swapn_marker = 0xB2
     exchange_marker = 0xC3
@@ -44,31 +48,34 @@ def test_stack_access_opcodes_mainnet(
         + Op.PUSH0 * 16
         + Op.DUPN[17]
         + Op.PUSH1(0)
-        + Op.SSTORE
+        + overwrite_canary
         # SWAPN: swap the top with the marker planted at depth 18.
         + Op.PUSH1(swapn_marker)
         + Op.PUSH0 * 17
         + Op.SWAPN[17]
         + Op.PUSH1(1)
-        + Op.SSTORE
+        + overwrite_canary
         # EXCHANGE: move the marker from depth 3 to depth 2, then POP.
         + Op.PUSH1(exchange_marker)
         + Op.PUSH0 * 2
         + Op.EXCHANGE[1, 2]
         + Op.POP
         + Op.PUSH1(2)
-        + Op.SSTORE
+        + overwrite_canary
         + Op.STOP
     )
     contract = pre.deploy_contract(
         code=code,
-        storage={0: 0xBA5E, 1: 0xBA5E, 2: 0xBA5E},
+        storage=dict.fromkeys(range(3), canary),
+    )
+    gas_limit = fork.transaction_intrinsic_cost_calculator()() + code.gas_cost(
+        fork
     )
     tx = Transaction(
         ty=0x02,
         to=contract,
         sender=pre.fund_eoa(),
-        gas_limit=200_000,
+        gas_limit=gas_limit,
     )
     post = {
         contract: Account(

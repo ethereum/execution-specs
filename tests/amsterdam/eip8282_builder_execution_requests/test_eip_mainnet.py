@@ -37,6 +37,7 @@ MIN_DEPOSIT_GWEI = BuilderDepositRequest.min_deposit_wei // 10**9
                 [
                     SystemContractInteractionTransaction(
                         requests=[BuilderExitRequest(pubkey=0x01)],
+                        gas_limits=[600_000],
                     ),
                 ],
             ],
@@ -55,6 +56,7 @@ MIN_DEPOSIT_GWEI = BuilderDepositRequest.min_deposit_wei // 10**9
                             ),
                             BuilderExitRequest(pubkey=0x04),
                         ],
+                        gas_limits=[600_000, 600_000],
                     ),
                 ],
             ],
