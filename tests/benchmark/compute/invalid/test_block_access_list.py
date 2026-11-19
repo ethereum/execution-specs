@@ -431,9 +431,8 @@ def test_untrue_list(
     )
 
 
-# A padded account costs SLOTS_PER_ACCOUNT + 1 items: its address and
-# its slots. Padding storage puts changes on every slot, padding any
-# other field puts them on the account only.
+# Slots on each account when storage is padded. Other fields put their
+# changes on the account, so they pad no slots.
 SLOTS_PER_ACCOUNT = 7
 
 # What besu, nethermind and reth accept as one engine API request. A
@@ -442,24 +441,49 @@ SLOTS_PER_ACCOUNT = 7
 ENGINE_API_REQUEST_LIMIT = 128 * 1024 * 1024
 
 # Bytes one unbudgeted change adds to the list: a block access index, a
-# small value, and an RLP header for each. Measured with storage padded,
-# which is the largest of the four.
+# small value, and an RLP header for each. The encoded figure is 6.61
+# for all four fields alike, so no arm is favoured by the estimate
+# being short; `PAYLOAD_SHARE` covers the difference.
 BYTES_PER_CHANGE = 6
 
+# What of one request the list may fill. The payload carries the block
+# as well, and `BYTES_PER_CHANGE` rounds down, so leave a fifth of the
+# request free for both.
+PAYLOAD_SHARE = 4 / 5
 
-def padded_account_count(fork: Fork, block_gas_limit: int) -> int:
-    """Return how many padded accounts fill the item limit."""
-    return item_budget(fork, block_gas_limit) // (SLOTS_PER_ACCOUNT + 1)
+
+def padded_items(
+    fork: Fork, block_gas_limit: int, padded_field: PaddedField
+) -> tuple[int, int, int]:
+    """Return the accounts, slots per account and items carrying changes."""
+    slots = SLOTS_PER_ACCOUNT if padded_field is PaddedField.STORAGE else 0
+    accounts = item_budget(fork, block_gas_limit) // (slots + 1)
+    if padded_field is PaddedField.STORAGE:
+        return accounts, slots, accounts * slots
+    return accounts, slots, accounts
+
+
+def padded_change_cap(carrying: int) -> int:
+    """Return the changes per item one engine API request will hold."""
+    return int(
+        ENGINE_API_REQUEST_LIMIT
+        * PAYLOAD_SHARE
+        // 2
+        // (carrying * BYTES_PER_CHANGE)
+    )
 
 
 def zero_value_transfers(
-    pre: Alloc, fork: Fork, gas_benchmark_value: int
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    max_transfers: int | None = None,
 ) -> FalsifiableBlock:
     """
     Build zero-value transfers that give the list its indices.
 
-    Each transfer adds one index, and so one unbudgeted change per
-    budgeted item.
+    ``max_transfers`` defaults to what a list padded on every slot can
+    afford.
     """
     sender = pre.fund_eoa()
     receiver = pre.fund_eoa(amount=0)
@@ -468,12 +492,16 @@ def zero_value_transfers(
     ) + fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.EMPTY_ACCOUNT,
     )
-    # Cap the transfers so the largest arm, padded storage, still fits in
-    # one engine API request; the list is sent as hex, so each byte counts
-    # twice.
-    slots = padded_account_count(fork, gas_benchmark_value) * SLOTS_PER_ACCOUNT
-    carried = ENGINE_API_REQUEST_LIMIT // 2 // (slots * BYTES_PER_CHANGE)
-    transfers = max(1, min(carried, gas_benchmark_value // transfer_cost))
+    if max_transfers is None:
+        _, _, slots = padded_items(
+            fork, gas_benchmark_value, PaddedField.STORAGE
+        )
+        max_transfers = (
+            ENGINE_API_REQUEST_LIMIT // 2 // (slots * BYTES_PER_CHANGE)
+        )
+    transfers = max(
+        1, min(max_transfers, gas_benchmark_value // transfer_cost)
+    )
     return FalsifiableBlock(
         txs=[
             Transaction(
@@ -491,15 +519,14 @@ def zero_value_transfers(
 def padded_account(
     padded_field: PaddedField,
     address: Address,
+    slots_per_account: int,
     changes_per_field: int,
     values: Iterator[int],
 ) -> BalAccountChange:
     """
     Return a fake account padded with changes in ``padded_field``.
 
-    Every account lists SLOTS_PER_ACCOUNT slots, so every arm uses the
-    same share of the item limit. Each change takes the next number from
-    ``values``, so no two changes are equal.
+    Each change takes the next number from ``values``, so no two are equal.
     """
     # A slot needs at least one change; padding storage fills it instead.
     changes_per_slot = 1
@@ -507,7 +534,7 @@ def padded_account(
         changes_per_slot = changes_per_field
 
     slots = []
-    for slot in range(SLOTS_PER_ACCOUNT):
+    for slot in range(slots_per_account):
         slot_changes = [
             BalStorageChange(block_access_index=i, post_value=next(values))
             for i in range(changes_per_slot)
@@ -566,9 +593,12 @@ def test_padded_accounts(
     fills the list to the budget, then puts one uncounted change per block
     access index on every item, in the field ``padded_field`` names.
     """
-    block = zero_value_transfers(pre, fork, gas_benchmark_value)
-
-    account_count = padded_account_count(fork, gas_benchmark_value)
+    accounts, slots, carrying = padded_items(
+        fork, gas_benchmark_value, padded_field
+    )
+    block = zero_value_transfers(
+        pre, fork, gas_benchmark_value, padded_change_cap(carrying)
+    )
 
     changes_per_field = 0
     if padded_field is not PaddedField.NONE:
@@ -579,10 +609,11 @@ def test_padded_accounts(
         padded_account(
             padded_field=padded_field,
             address=address,
+            slots_per_account=slots,
             changes_per_field=changes_per_field,
             values=values,
         )
-        for address in nonexistent_addresses(account_count)
+        for address in nonexistent_addresses(accounts)
     ]
 
     benchmark_modified_list(
@@ -591,6 +622,105 @@ def test_padded_accounts(
         block,
         insert_accounts(padded_accounts),
         BlockException.INVALID_BLOCK_ACCESS_LIST,
+    )
+
+
+@pytest.mark.parametrize(
+    "padded_field",
+    [
+        pytest.param(PaddedField.CODE, id="code"),
+        pytest.param(PaddedField.STORAGE, id="storage"),
+    ],
+)
+def test_padded_accounts_on_a_full_block(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    padded_field: PaddedField,
+) -> None:
+    """Benchmark a padded list on a block that uses all its gas."""
+    accounts, slots, carrying = padded_items(
+        fork, gas_benchmark_value, padded_field
+    )
+    # Every index the gas target buys, not only the ones the list uses.
+    block = zero_value_transfers(
+        pre, fork, gas_benchmark_value, gas_benchmark_value
+    )
+    changes_per_field = min(padded_change_cap(carrying), len(block.txs))
+
+    values = itertools.count(1)
+    padded_accounts = [
+        padded_account(
+            padded_field=padded_field,
+            address=address,
+            slots_per_account=slots,
+            changes_per_field=changes_per_field,
+            values=values,
+        )
+        for address in nonexistent_addresses(accounts)
+    ]
+
+    benchmark_modified_list(
+        benchmark_test,
+        pre,
+        block,
+        insert_accounts(padded_accounts),
+        BlockException.INVALID_BLOCK_ACCESS_LIST,
+    )
+
+
+# Mebibytes of false code in each rejected block.
+REJECTED_LIST_MIB = 8
+
+
+@pytest.mark.parametrize(
+    "rejections",
+    [pytest.param(n, id=f"{n}_blocks") for n in (1, 5, 10)],
+)
+def test_repeated_rejection(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    rejections: int,
+) -> None:
+    """Benchmark rejecting several false-list blocks at one height."""
+    block = zero_value_transfers(pre, fork, gas_benchmark_value, 1)
+    code_size = fork.max_code_size()
+    changes = REJECTED_LIST_MIB * 1024 * 1024 // code_size
+
+    blocks = []
+    for attempt in range(rejections):
+        # Distinct bytes per attempt, so no two rejected blocks hash
+        # alike and none of them can be recognised and skipped.
+        rng = random.Random(attempt)
+        false_account = BalAccountChange(
+            address=nonexistent_addresses(1)[0],
+            code_changes=[
+                BalCodeChange(
+                    block_access_index=change,
+                    new_code=rng.randbytes(code_size),
+                )
+                for change in range(changes)
+            ],
+        )
+        blocks.append(
+            Block(
+                txs=block.txs,
+                header_verify=Header(gas_used=block.gas_used),
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={},
+                ).modify(insert_accounts([false_account])),
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+            )
+        )
+
+    benchmark_test(
+        pre=pre,
+        post={},
+        blocks=blocks,
+        expected_benchmark_gas_used=block.gas_used,
     )
 
 
@@ -683,9 +813,9 @@ def test_oversized_list(
     # to exceed in a list the engine API will carry.
     gas_limit = gas_benchmark_value * 2
     item_limit = item_budget(fork, gas_limit)
-    # The real list is one item per account: the sender, the receivers
-    # and the fee recipient, none of which touches storage.
-    real_items = len(block.receivers) + 2
+    # The real list is the system contracts' items and one item per
+    # account: the sender, the receivers and the fee recipient.
+    real_items = fork.empty_block_bal_item_count() + len(block.receivers) + 2
 
     if far_over:
         target_items = 3 * item_limit
