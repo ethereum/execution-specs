@@ -14,10 +14,8 @@ from typing import (
 
 from execution_testing import (
     EOA,
-    SECP256K1_SIGNATURE_LENGTH,
     Address,
     Bytecode,
-    Bytes,
     Fork,
     Frame,
     FrameReceipt,
@@ -426,8 +424,8 @@ def fee_budget(
 ) -> FeeBudget:
     """
     Return the fee budget of `sender`'s transaction with `frames` and
-    `signatures` at `BASE_FEE`, pricing unsigned canonical secp256k1 entries
-    at their signed length. `signatures` defaults to the sender's canonical
+    `signatures` at `BASE_FEE`, pricing unsigned entries at their signer's
+    signature length. `signatures` defaults to the sender's canonical
     entry (none for a contract sender), `max_fee` to room for the full
     tip. Pass settled frames, such as `tx.frames` after building.
     """
@@ -437,18 +435,8 @@ def fee_budget(
             if isinstance(sender, EOA) and sender.key is not None
             else []
         )
-    priced = [
-        entry.model_copy(
-            update={"signature": Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))}
-        )
-        if entry.scheme == Spec.SCHEME_SECP256K1
-        and len(entry.msg) == 0
-        and len(entry.signature) == 0
-        else entry
-        for entry in signatures
-    ]
     max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=frames, signatures=priced, sender=sender
+        frames=frames, signatures=signatures, sender=sender
     )
     blob_gas = blob_count * fork.blob_gas_per_blob()
     blob_base_fee = fork.blob_gas_price_calculator()(
