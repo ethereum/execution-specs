@@ -29,10 +29,9 @@ from execution_testing import (
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
 from .helpers import (
+    FrameCase,
     FrameTransaction,
     Outcome,
-    sender_frame,
-    verify_frame,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -73,7 +72,7 @@ def test_value_transfer(
     recipient = pre.fund_eoa(amount=1)
 
     if target_kind == "other":
-        value_frame = sender_frame(
+        value_frame = FrameCase.sender(
             target=recipient,
             value=TRANSFER_VALUE,
             logs=[transfer_log(sender, recipient, TRANSFER_VALUE)],
@@ -81,11 +80,11 @@ def test_value_transfer(
     elif target_kind == "self_explicit":
         # The sender seeds the warm set, so its own entry access is
         # warm.
-        value_frame = sender_frame(
+        value_frame = FrameCase.sender(
             target=sender, value=TRANSFER_VALUE, warm=True, logs=[]
         )
     else:
-        value_frame = sender_frame(value=TRANSFER_VALUE, logs=[])
+        value_frame = FrameCase.sender(value=TRANSFER_VALUE, logs=[])
 
     # Neither frame runs code beyond its target's entry access, so the
     # floor may bind; both anchors carry the value transfer cost, so
@@ -93,7 +92,7 @@ def test_value_transfer(
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
-        frames=[verify_frame(logs=[]), value_frame],
+        frames=[FrameCase.verify(logs=[]), value_frame],
     )
 
     post = {sender: Account(nonce=1)}
@@ -117,9 +116,9 @@ def transfer_exceeding_balance(
         sender=sender,
         payer=payer,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
-            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
-            sender_frame(
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
+            FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
+            FrameCase.sender(
                 target=recipient,
                 value=TRANSFER_VALUE + 1,
                 outcome=Outcome.REVERT,

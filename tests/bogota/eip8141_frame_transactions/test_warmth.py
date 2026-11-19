@@ -35,8 +35,6 @@ from .helpers import (
     FrameCase,
     FrameTransaction,
     Outcome,
-    default_frame,
-    verify_frame,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -105,7 +103,7 @@ def probe_frame(target: Address, probe: AccessGasProbe) -> FrameCase:
     The probe is always a fresh, untouched frame target, so its entry
     access is cold.
     """
-    return default_frame(
+    return FrameCase.default(
         target=target,
         code=probe.code,
         gas_limit=PROBE_FRAME_GAS,
@@ -147,7 +145,7 @@ def test_sender_is_warm(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
+            FrameCase.verify(),
             probe_frame(probe_address, probe),
         ],
     )
@@ -182,7 +180,7 @@ def test_coinbase_is_warm(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
+            FrameCase.verify(),
             probe_frame(probe_address, probe),
         ],
     )
@@ -243,7 +241,7 @@ def test_frame_target_entry_charge(
     target = pre.deploy_contract(code=target_code)
 
     def touch(**facts: Any) -> FrameCase:
-        return default_frame(
+        return FrameCase.default(
             target=target,
             code=target_code,
             gas_limit=TOUCH_FRAME_GAS,
@@ -265,7 +263,7 @@ def test_frame_target_entry_charge(
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
-        frames=[verify_frame(), *touches],
+        frames=[FrameCase.verify(), *touches],
     )
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
@@ -306,8 +304,8 @@ def test_warmth_carry_to_next_frame(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            default_frame(
+            FrameCase.verify(),
+            FrameCase.default(
                 target=warmer,
                 code=warmer_code,
                 gas_limit=TOUCH_FRAME_GAS,
@@ -352,8 +350,8 @@ def test_payer_warm_after_default_code_payment_approval(
         sender=sender,
         payer=payer,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
-            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
+            FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
             probe_frame(probe_address, probe),
         ],
         signatures=[sender, payer],
@@ -403,7 +401,7 @@ def test_origin_warmth_by_frame_mode(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
+            FrameCase.verify(),
             FrameCase(
                 target=prober,
                 mode=mode,
@@ -468,8 +466,8 @@ def test_warmth_from_inner_call(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            default_frame(
+            FrameCase.verify(),
+            FrameCase.default(
                 target=outer,
                 gas_limit=TOUCH_FRAME_GAS,
                 outcome=frame_outcome,

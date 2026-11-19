@@ -34,9 +34,7 @@ from .helpers import (
     PRIORITY_FEE,
     FrameCase,
     FrameTransaction,
-    default_frame,
     fee_budget,
-    verify_frame,
 )
 from .signature_helpers import canonical_entry, signed_digest_entry
 from .spec import Spec, ref_spec_8141
@@ -105,7 +103,7 @@ def test_approve_reached_through_another_contract(
         sender=sender,
         nonce=1,
         frames=[
-            default_frame(
+            FrameCase.default(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
                 gas_limit=FRAME_GAS,
@@ -166,7 +164,7 @@ def test_approve_in_library_code(
         fork=fork,
         sender=sender,
         nonce=1,
-        frames=[verify_frame(gas_limit=FRAME_GAS, pin_gas=False)],
+        frames=[FrameCase.verify(gas_limit=FRAME_GAS, pin_gas=False)],
         error=(
             None
             if approves
@@ -224,7 +222,7 @@ def test_split_approval_order(
     payer = pre.fund_eoa(amount=FUNDS)
 
     frames: List[FrameCase] = [
-        default_frame(
+        FrameCase.default(
             flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
             target=sender,
             gas_limit=FRAME_GAS,
@@ -233,7 +231,9 @@ def test_split_approval_order(
         ),
     ]
     if not execution_first:
-        frames.append(verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer))
+        frames.append(
+            FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer)
+        )
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -286,7 +286,7 @@ def test_second_payment_approval_refused(
         if_false=Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT),
     )
     sponsor = pre.deploy_contract(code=sponsor_code, balance=FUNDS)
-    sponsor_frame = default_frame(
+    sponsor_frame = FrameCase.default(
         flags=Spec.APPROVE_PAYMENT,
         target=sponsor,
         data=Bytes(b"\x01"),
@@ -302,13 +302,13 @@ def test_second_payment_approval_refused(
         first_payer = pre.fund_eoa(amount=FUNDS)
         signatures.append(canonical_entry(first_payer))
         frames = [
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
-            verify_frame(flags=Spec.APPROVE_PAYMENT, target=first_payer),
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
+            FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=first_payer),
             sponsor_frame,
         ]
     else:
         first_payer = sender
-        frames = [verify_frame(), sponsor_frame]
+        frames = [FrameCase.verify(), sponsor_frame]
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -372,8 +372,8 @@ def test_execution_approval_refused_once_granted(
         nonce=1,
         payer=payer,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION, pin_gas=False),
-            default_frame(
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION, pin_gas=False),
+            FrameCase.default(
                 flags=scope,
                 target=sender,
                 data=Bytes(b"\x01\x01"),
@@ -381,7 +381,7 @@ def test_execution_approval_refused_once_granted(
                 pin_gas=False,
                 state_gas_used=record.state_cost(fork),
             ),
-            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+            FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
         ],
         signatures=[PLACEHOLDER_ENTRY, canonical_entry(payer)],
     )
@@ -473,7 +473,7 @@ def test_scope_beyond_frame_flags_refused(
     sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
     payer = pre.fund_eoa(amount=FUNDS)
 
-    probe = default_frame(
+    probe = FrameCase.default(
         flags=allowed,
         target=sender,
         data=Bytes(b"\x01\x01"),
@@ -484,12 +484,12 @@ def test_scope_beyond_frame_flags_refused(
     frames: List[FrameCase]
     if execution_first:
         frames = [
-            verify_frame(flags=Spec.APPROVE_EXECUTION, pin_gas=False),
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION, pin_gas=False),
             probe,
-            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+            FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
         ]
     else:
-        frames = [probe, verify_frame(pin_gas=False)]
+        frames = [probe, FrameCase.verify(pin_gas=False)]
 
     tx = FrameTransaction.build(
         fork=fork,
@@ -573,9 +573,9 @@ def test_default_code_approval_refusals(
     sender = pre.fund_eoa()
     payer = pre.fund_eoa(amount=FUNDS)
     frames = [
-        verify_frame(flags=scope, target=payer)
+        FrameCase.verify(flags=scope, target=payer)
         if scope == Spec.APPROVE_PAYMENT
-        else verify_frame(flags=scope)
+        else FrameCase.verify(flags=scope)
         for scope in scopes
     ]
     signatures = [canonical_entry(sender)]
@@ -639,8 +639,8 @@ def test_default_code_refuses_explicit_digest_entry(
         return signed_digest_entry(account.key, signer=Bytes(account))
 
     sponsored = [
-        verify_frame(flags=Spec.APPROVE_EXECUTION),
-        verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+        FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
+        FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
     ]
     if scope == Spec.APPROVE_EXECUTION:
         # The sender's default code reads the entry at index 0.
@@ -651,7 +651,7 @@ def test_default_code_refuses_explicit_digest_entry(
         frames = sponsored
         signatures = [canonical_entry(sender), digest_entry(payer)]
     elif scope == Spec.APPROVE_EXECUTION_AND_PAYMENT:
-        frames = [verify_frame()]
+        frames = [FrameCase.verify()]
         signatures = [digest_entry(sender)]
     else:
         raise ValueError(f"unknown scope: {scope}")
@@ -720,7 +720,7 @@ def test_approve_return_data(
         sender=sender,
         nonce=1,
         frames=[
-            default_frame(
+            FrameCase.default(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
                 gas_limit=FRAME_GAS,
@@ -758,7 +758,7 @@ def test_code_after_approve_does_not_run(
         nonce=1,
         frames=[
             # The sender is warm from the start of the transaction.
-            default_frame(
+            FrameCase.default(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
                 warm=True,
@@ -814,7 +814,9 @@ def test_approve_memory_expansion_gas(
         fork=fork,
         sender=sender,
         nonce=1,
-        frames=[verify_frame(code=sender_code, gas_limit_delta=budget_delta)],
+        frames=[
+            FrameCase.verify(code=sender_code, gas_limit_delta=budget_delta)
+        ],
         error=(
             TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
             if budget_delta
@@ -867,7 +869,7 @@ def test_default_code_approves_only_in_verify_frame(
         sender=sender,
         payer=payer,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
             FrameCase(mode=mode, flags=Spec.APPROVE_PAYMENT, target=payer),
         ],
         signatures=[canonical_entry(sender), canonical_entry(payer)],
@@ -906,9 +908,9 @@ def test_max_cost_collected_at_payment_approval(
         payer=payer,
         max_priority_fee_per_gas=PRIORITY_FEE,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
-            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
-            default_frame(
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
+            FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
+            FrameCase.default(
                 target=probe,
                 pin_gas=False,
                 state_gas_used=probe_code.state_cost(fork),
@@ -968,7 +970,7 @@ def test_max_cost_collected_within_approving_frame(
         nonce=1,
         max_priority_fee_per_gas=PRIORITY_FEE,
         frames=[
-            default_frame(
+            FrameCase.default(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
                 gas_limit=FRAME_GAS,
@@ -1037,10 +1039,10 @@ def test_sender_creation_shortfall_halts_payment_approval(
         sender=sender,
         payer=second_payer,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
             # One gas short of the creation: the self-call halts and
             # approves nothing, so the frame reports no state gas.
-            default_frame(
+            FrameCase.default(
                 flags=Spec.APPROVE_PAYMENT,
                 target=sponsor,
                 data=Bytes(b"\x01"),
@@ -1052,7 +1054,7 @@ def test_sender_creation_shortfall_halts_payment_approval(
             # Exactly the creation: the approval succeeds, which it could
             # not had the sponsor set the payer, and reports the creation
             # as its state gas.
-            verify_frame(
+            FrameCase.verify(
                 flags=Spec.APPROVE_PAYMENT,
                 target=second_payer,
                 state_gas_limit=new_account_gas,

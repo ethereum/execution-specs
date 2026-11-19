@@ -30,9 +30,6 @@ from .helpers import (
     FrameCase,
     FrameTransaction,
     Outcome,
-    default_frame,
-    sender_frame,
-    verify_frame,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -68,8 +65,8 @@ def test_contract_sender_approves(
         sender=sender,
         nonce=1,
         frames=[
-            verify_frame(code=sender_code),
-            sender_frame(target=target, code=target_code),
+            FrameCase.verify(code=sender_code),
+            FrameCase.sender(target=target, code=target_code),
         ],
     )
 
@@ -103,9 +100,9 @@ def test_eoa_paymaster(
         sender=sender,
         payer=payer,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
-            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
-            sender_frame(
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
+            FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
+            FrameCase.sender(
                 target=target,
                 code=target_code,
             ),
@@ -158,31 +155,31 @@ def test_atomic_batch_rollback(
 
     if revert_position == "last":
         batch = [
-            sender_frame(
+            FrameCase.sender(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=target,
                 code=target_code,
                 outcome=Outcome.UNROLLED,
             ),
-            sender_frame(
+            FrameCase.sender(
                 target=reverter, code=reverter_code, outcome=Outcome.REVERT
             ),
         ]
     else:
         batch = [
-            sender_frame(
+            FrameCase.sender(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=reverter,
                 code=reverter_code,
                 outcome=Outcome.REVERT,
             ),
-            sender_frame(target=target, outcome=Outcome.SKIPPED),
+            FrameCase.sender(target=target, outcome=Outcome.SKIPPED),
         ]
 
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
-        frames=[verify_frame(), *batch],
+        frames=[FrameCase.verify(), *batch],
     )
 
     state_test(
@@ -210,8 +207,8 @@ def test_sender_frame_before_approval(
     tx = Transaction(
         sender=sender,
         frames=[
-            sender_frame(target=target, gas_limit=200_000),
-            verify_frame(),
+            FrameCase.sender(target=target, gas_limit=200_000),
+            FrameCase.verify(),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
@@ -241,8 +238,8 @@ def test_verify_frame_reverts(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            verify_frame(flags=Spec.APPROVE_NONE, target=reverter),
+            FrameCase.verify(),
+            FrameCase.verify(flags=Spec.APPROVE_NONE, target=reverter),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
@@ -327,7 +324,7 @@ def test_frame_revert_discards_the_approval_it_granted(
         sender=sender,
         nonce=1,
         frames=[
-            default_frame(
+            FrameCase.default(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
                 gas_limit=400_000,
@@ -431,7 +428,7 @@ def test_call_revert_above_approve_discards_the_approval(
         sender=sender,
         nonce=1,
         frames=[
-            default_frame(
+            FrameCase.default(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
                 gas_limit=400_000,
@@ -462,8 +459,8 @@ def test_call_revert_above_approve_discards_the_approval(
 @pytest.mark.parametrize(
     "approving_frame",
     [
-        pytest.param(verify_frame, id="verify_frame"),
-        pytest.param(default_frame, id="default_frame"),
+        pytest.param(FrameCase.verify, id="verify_frame"),
+        pytest.param(FrameCase.default, id="default_frame"),
     ],
 )
 @pytest.mark.parametrize(
@@ -543,9 +540,9 @@ def test_approve_inside_staticcall(
 @pytest.mark.parametrize(
     "approving_frame",
     [
-        pytest.param(verify_frame, id="verify_frame"),
-        pytest.param(default_frame, id="default_frame"),
-        pytest.param(sender_frame, id="sender_frame"),
+        pytest.param(FrameCase.verify, id="verify_frame"),
+        pytest.param(FrameCase.default, id="default_frame"),
+        pytest.param(FrameCase.sender, id="sender_frame"),
     ],
 )
 @pytest.mark.parametrize(
@@ -600,7 +597,7 @@ def test_approve_payment_inside_staticcall(
         payer=payer,
         frames=[
             # A `SENDER` frame needs execution approved before it runs.
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
             approving_frame(
                 flags=Spec.APPROVE_PAYMENT,
                 target=payer,
@@ -673,11 +670,11 @@ def test_refused_approval_reverts_only_its_call_frame(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(logs=[]),
+            FrameCase.verify(logs=[]),
             # The refused call's gas stays consumed: the frame reports
             # its target's cold entry access, the outer code, and the
             # inner code the revert cut short.
-            default_frame(
+            FrameCase.default(
                 target=target,
                 code=target_code,
                 execution_gas=target_code.execution_cost(fork)
@@ -768,14 +765,14 @@ def test_refused_approval_charges_memory_expansion(
     # not be refused for its balance.
     target = pre.deploy_contract(code=target_code, balance=10**18)
 
-    refusing_frame = default_frame(
+    refusing_frame = FrameCase.default(
         flags=Spec.APPROVE_PAYMENT,
         target=target,
         code=target_code,
         execution_gas=target_code.execution_cost(fork)
         + inner_code.execution_cost(fork),
     )
-    payment_frame = verify_frame(
+    payment_frame = FrameCase.verify(
         flags=Spec.APPROVE_PAYMENT, target=payer, code=payer_code
     )
     # Only the already-granted case runs with a payer set: in the
@@ -791,7 +788,7 @@ def test_refused_approval_charges_memory_expansion(
         sender=sender,
         payer=payer,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION, logs=[]),
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION, logs=[]),
             *ordered_frames,
         ],
     )

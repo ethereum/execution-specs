@@ -27,9 +27,6 @@ from .helpers import (
     FrameCase,
     FrameTransaction,
     Outcome,
-    default_frame,
-    sender_frame,
-    verify_frame,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -99,17 +96,17 @@ def test_precompile_target(
     """
     sender = pre.fund_eoa()
     builders: Dict[int, Callable[..., FrameCase]] = {
-        Spec.MODE_DEFAULT: default_frame,
-        Spec.MODE_SENDER: sender_frame,
+        Spec.MODE_DEFAULT: FrameCase.default,
+        Spec.MODE_SENDER: FrameCase.sender,
         # Only the default code approves, and the precompile displaces it.
-        Spec.MODE_VERIFY: partial(verify_frame, flags=Spec.APPROVE_NONE),
+        Spec.MODE_VERIFY: partial(FrameCase.verify, flags=Spec.APPROVE_NONE),
     }
 
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
+            FrameCase.verify(),
             builders[mode](
                 target=IDENTITY,
                 data=data,
@@ -138,8 +135,8 @@ def test_precompile_target_rejecting_its_input(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            default_frame(
+            FrameCase.verify(),
+            FrameCase.default(
                 target=BN254_ADD,
                 data=OFF_THE_CURVE,
                 outcome=Outcome.HALT,
@@ -166,8 +163,8 @@ def test_verify_frame_precompile_rejecting_its_input(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            verify_frame(
+            FrameCase.verify(),
+            FrameCase.verify(
                 flags=Spec.APPROVE_NONE,
                 target=BN254_ADD,
                 data=OFF_THE_CURVE,
@@ -196,8 +193,8 @@ def test_verify_frame_target_above_the_precompile_gap(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            verify_frame(
+            FrameCase.verify(),
+            FrameCase.verify(
                 flags=Spec.APPROVE_NONE,
                 target=P256VERIFY,
                 # The precompiles seed the warm set.
@@ -227,8 +224,8 @@ def test_verify_frame_target_inside_the_precompile_gap(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            verify_frame(flags=Spec.APPROVE_NONE, target=IN_THE_GAP),
+            FrameCase.verify(),
+            FrameCase.verify(flags=Spec.APPROVE_NONE, target=IN_THE_GAP),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
@@ -260,15 +257,17 @@ def test_delegated_target_entry_charge(
 
     # The warming frame accesses the designated address itself, so it
     # pays for the cold access the frame under test then avoids.
-    warming_frames = [default_frame(target=delegate)] if warm_delegate else []
+    warming_frames = (
+        [FrameCase.default(target=delegate)] if warm_delegate else []
+    )
 
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
+            FrameCase.verify(),
             *warming_frames,
-            default_frame(
+            FrameCase.default(
                 target=authority,
                 delegated=True,
                 delegation_warm=warm_delegate,
@@ -325,8 +324,8 @@ def test_dead_target_entry_charge(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            sender_frame(
+            FrameCase.verify(),
+            FrameCase.sender(
                 target=dead,
                 value=TRANSFERRED_VALUE,
                 state_gas_limit=(
@@ -358,8 +357,8 @@ def test_delegated_to_precompile_target(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            default_frame(
+            FrameCase.verify(),
+            FrameCase.default(
                 target=authority,
                 data=b"\x01" * 32,
                 delegated=True,
@@ -401,8 +400,8 @@ def test_frame_entry_gas_boundary(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            default_frame(
+            FrameCase.verify(),
+            FrameCase.default(
                 target=target,
                 gas_limit_delta=0 if affordable else -1,
                 outcome=Outcome.SUCCESS if affordable else Outcome.HALT,
@@ -436,8 +435,8 @@ def test_entry_charge_halt_unrolls_batch(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            default_frame(
+            FrameCase.verify(),
+            FrameCase.default(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=worker,
                 code=worker_code,
@@ -445,13 +444,13 @@ def test_entry_charge_halt_unrolls_batch(
                 gas_limit_delta=0,
                 state_gas_limit_delta=0,
             ),
-            default_frame(
+            FrameCase.default(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=halting_target,
                 outcome=Outcome.HALT,
                 gas_limit_delta=-1,
             ),
-            default_frame(
+            FrameCase.default(
                 target=worker,
                 code=worker_code,
                 outcome=Outcome.SKIPPED,
@@ -505,10 +504,10 @@ def test_default_code_entry_gas_shortfall(
         sender=sender,
         payer=payer,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
             # The transaction touches the sponsor nowhere else, so
             # this frame pays the cold access.
-            verify_frame(
+            FrameCase.verify(
                 flags=Spec.APPROVE_PAYMENT,
                 target=payer,
                 gas_limit_delta=0 if affordable else -1,
@@ -552,8 +551,8 @@ def test_verify_frame_delegated_to_precompile_target(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            verify_frame(
+            FrameCase.verify(),
+            FrameCase.verify(
                 flags=Spec.APPROVE_NONE,
                 target=authority,
                 delegated=True,

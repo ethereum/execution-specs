@@ -31,9 +31,8 @@ from ...cancun.eip4844_blobs.spec import SpecHelpers as BlobSpecHelpers
 from .helpers import (
     BASE_FEE,
     PRIORITY_FEE,
-    default_frame,
+    FrameCase,
     fee_budget,
-    verify_frame,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -88,7 +87,10 @@ def test_max_fee_boundary(
     """
     sender = pre.fund_eoa(amount=FUNDS)
     target = pre.deploy_contract(code=Op.STOP)
-    frames = [verify_frame(state_gas_limit=0), default_frame(target=target)]
+    frames = [
+        FrameCase.verify(state_gas_limit=0),
+        FrameCase.default(target=target),
+    ]
     required_max_fee = fee_budget(
         fork, sender, frames, blob_count=blob_count
     ).required_max_fee
@@ -136,7 +138,7 @@ def test_max_fee_checked_before_frames(
     # The sender can afford the transaction, so nothing but the fee
     # budget or the reverting frame refuses it.
     sender = pre.deploy_contract(code=Op.REVERT(0, 0), balance=FUNDS)
-    frames = [verify_frame()]
+    frames = [FrameCase.verify()]
     if budget_delta == 0:
         error = TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
     elif budget_delta == -1:
@@ -192,8 +194,8 @@ def test_escrow(
         + Op.STOP
     )
     frames = [
-        verify_frame(state_gas_limit=0),
-        default_frame(
+        FrameCase.verify(state_gas_limit=0),
+        FrameCase.default(
             target=probe,
             gas_limit=PROBE_GAS,
             state_gas_limit=PROBE_STATE_GAS,
@@ -259,8 +261,8 @@ def test_tip_settlement(
     ) + target_code.execution_cost(fork)
     verify_gas = fork.frame_entry_gas_calculator()(target_warm=True)
     frames = [
-        verify_frame(gas_limit=verify_gas, state_gas_limit=0),
-        default_frame(
+        FrameCase.verify(gas_limit=verify_gas, state_gas_limit=0),
+        FrameCase.default(
             target=target,
             gas_limit=target_gas + unused_gas,
             state_gas_limit=0,
@@ -347,8 +349,8 @@ def test_gasprice(
     sender = pre.fund_eoa(amount=FUNDS)
     probe = pre.deploy_contract(code=Op.SSTORE(0, Op.GASPRICE) + Op.STOP)
     frames = [
-        verify_frame(state_gas_limit=0),
-        default_frame(
+        FrameCase.verify(state_gas_limit=0),
+        FrameCase.default(
             target=probe,
             gas_limit=PROBE_GAS,
             state_gas_limit=PROBE_STATE_GAS,

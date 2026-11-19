@@ -20,7 +20,10 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .helpers import APPROVE_ALL, default_frame, verify_frame
+from .helpers import (
+    APPROVE_ALL,
+    FrameCase,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -61,7 +64,7 @@ def test_sig_hash_commits_to_elided_length(
         return Transaction(
             sender=sender,
             nonce=1,
-            frames=[verify_frame(), default_frame(target=probe)],
+            frames=[FrameCase.verify(), FrameCase.default(target=probe)],
             signatures=[
                 FrameSignature(
                     scheme=Spec.SCHEME_ARBITRARY, signature=Bytes(raw)
@@ -118,7 +121,7 @@ def test_elided_signature_priced_by_length(
     verify_gas = fork.frame_entry_gas_calculator()(
         target_warm=True
     ) + verify_code.execution_cost(fork)
-    frames = [verify_frame(gas_limit=verify_gas, state_gas_limit=0)]
+    frames = [FrameCase.verify(gas_limit=verify_gas, state_gas_limit=0)]
 
     intrinsic_calculator = fork.frame_transaction_intrinsic_cost_calculator()
     floor_calculator = fork.frame_transaction_data_floor_cost_calculator()

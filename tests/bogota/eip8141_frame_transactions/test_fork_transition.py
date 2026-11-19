@@ -26,11 +26,9 @@ from execution_testing import (
 )
 
 from .helpers import (
+    FrameCase,
     FrameTransaction,
-    expiry_frame,
     expiry_verifier_gas,
-    sender_frame,
-    verify_frame,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -78,9 +76,9 @@ def test_expiry_frame_in_first_post_fork_block(
         fork=post_fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            expiry_frame(execution_gas=expiry_verifier_gas(post_fork)),
-            sender_frame(target=target, code=target_code),
+            FrameCase.verify(),
+            FrameCase.expiry(execution_gas=expiry_verifier_gas(post_fork)),
+            FrameCase.sender(target=target, code=target_code),
         ],
     )
     blocks = [

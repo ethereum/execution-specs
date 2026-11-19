@@ -152,6 +152,49 @@ class FrameCase(Frame):
     logs: Optional[List[TransactionLog]] = Field(None, exclude=True)
     """Logs the receipt reports."""
 
+    @classmethod
+    def default(cls, **overrides: Any) -> Self:
+        """Return a `DEFAULT` frame executing the frame entry point."""
+        mode = overrides.setdefault("mode", Spec.MODE_DEFAULT)
+        assert mode == Spec.MODE_DEFAULT, f"not a DEFAULT frame: mode {mode}"
+        return cls(**overrides)
+
+    @classmethod
+    def sender(cls, **overrides: Any) -> Self:
+        """Return a `SENDER` frame executing as the transaction sender."""
+        mode = overrides.setdefault("mode", Spec.MODE_SENDER)
+        assert mode == Spec.MODE_SENDER, f"not a SENDER frame: mode {mode}"
+        # An empty target resolves to the sender, which frames start warm
+        # with.
+        overrides.setdefault("warm", overrides.get("target") is None)
+        return cls(**overrides)
+
+    @classmethod
+    def verify(cls, **overrides: Any) -> Self:
+        """Return a `VERIFY` frame approving execution and payment."""
+        mode = overrides.setdefault("mode", Spec.MODE_VERIFY)
+        assert mode == Spec.MODE_VERIFY, f"not a VERIFY frame: mode {mode}"
+        overrides.setdefault("flags", Spec.APPROVE_EXECUTION_AND_PAYMENT)
+        # An empty target resolves to the sender, which frames start warm
+        # with.
+        overrides.setdefault("warm", overrides.get("target") is None)
+        return cls(**overrides)
+
+    @classmethod
+    def expiry(cls, **overrides: Any) -> Self:
+        """Return a `VERIFY` frame targeting the expiry verifier predeploy."""
+        mode = overrides.setdefault("mode", Spec.MODE_VERIFY)
+        assert mode == Spec.MODE_VERIFY, f"not a VERIFY frame: mode {mode}"
+        overrides.setdefault("flags", Spec.APPROVE_NONE)
+        overrides.setdefault("target", Spec.EXPIRY_VERIFIER)
+        # Such a frame is only valid with a zero state gas budget, and never
+        # expires at the maximum timestamp.
+        overrides.setdefault("state_gas_limit", 0)
+        overrides.setdefault(
+            "data", (2**64 - 1).to_bytes(Spec.EXPIRY_DATA_LENGTH, "big")
+        )
+        return cls(**overrides)
+
     def entry_gas(self, fork: Fork) -> int:
         """Return the access the frame is charged at entry."""
         return fork.frame_entry_gas_calculator()(
@@ -232,47 +275,6 @@ class FrameCase(Frame):
             state_gas_used=state_gas_used,
             logs=logs,
         )
-
-
-def default_frame(**overrides: Any) -> FrameCase:
-    """Return a `DEFAULT` frame executing the frame entry point."""
-    mode = overrides.setdefault("mode", Spec.MODE_DEFAULT)
-    assert mode == Spec.MODE_DEFAULT, f"not a DEFAULT frame: mode {mode}"
-    return FrameCase(**overrides)
-
-
-def sender_frame(**overrides: Any) -> FrameCase:
-    """Return a `SENDER` frame executing as the transaction sender."""
-    mode = overrides.setdefault("mode", Spec.MODE_SENDER)
-    assert mode == Spec.MODE_SENDER, f"not a SENDER frame: mode {mode}"
-    # An empty target resolves to the sender, which frames start warm with.
-    overrides.setdefault("warm", overrides.get("target") is None)
-    return FrameCase(**overrides)
-
-
-def verify_frame(**overrides: Any) -> FrameCase:
-    """Return a `VERIFY` frame approving execution and payment."""
-    mode = overrides.setdefault("mode", Spec.MODE_VERIFY)
-    assert mode == Spec.MODE_VERIFY, f"not a VERIFY frame: mode {mode}"
-    overrides.setdefault("flags", Spec.APPROVE_EXECUTION_AND_PAYMENT)
-    # An empty target resolves to the sender, which frames start warm with.
-    overrides.setdefault("warm", overrides.get("target") is None)
-    return FrameCase(**overrides)
-
-
-def expiry_frame(**overrides: Any) -> FrameCase:
-    """Return a `VERIFY` frame targeting the expiry verifier predeploy."""
-    mode = overrides.setdefault("mode", Spec.MODE_VERIFY)
-    assert mode == Spec.MODE_VERIFY, f"not a VERIFY frame: mode {mode}"
-    overrides.setdefault("flags", Spec.APPROVE_NONE)
-    overrides.setdefault("target", Spec.EXPIRY_VERIFIER)
-    # Such a frame is only valid with a zero state gas budget, and never
-    # expires at the maximum timestamp.
-    overrides.setdefault("state_gas_limit", 0)
-    overrides.setdefault(
-        "data", (2**64 - 1).to_bytes(Spec.EXPIRY_DATA_LENGTH, "big")
-    )
-    return FrameCase(**overrides)
 
 
 class FrameTransaction(Transaction):

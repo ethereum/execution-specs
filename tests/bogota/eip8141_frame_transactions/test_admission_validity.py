@@ -28,7 +28,9 @@ from execution_testing import (
     TransactionException,
 )
 
-from .helpers import verify_frame
+from .helpers import (
+    FrameCase,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -84,7 +86,7 @@ def test_admission_constraints(
     sender = pre.fund_eoa(amount=2**256 - 1)
     tx_kwargs: Dict[str, Any] = dict(
         sender=sender,
-        frames=[verify_frame()],
+        frames=[FrameCase.verify()],
         error=error,
     )
     tx_kwargs.update(
@@ -119,7 +121,7 @@ def test_nonce_at_maximum(
     tx = Transaction(
         sender=sender,
         nonce=2**64 - 2,
-        frames=[verify_frame()],
+        frames=[FrameCase.verify()],
     )
 
     state_test(
@@ -196,7 +198,7 @@ def test_block_capacity_reservations(
         sender=sender,
         nonce=1,
         frames=[
-            verify_frame(
+            FrameCase.verify(
                 gas_limit=execution_budget, state_gas_limit=state_budget
             )
         ],

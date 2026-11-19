@@ -33,10 +33,9 @@ from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
 from tests.osaka.eip7951_p256verify_precompiles.spec import Spec as Spec7951
 
 from .helpers import (
+    FrameCase,
     FrameTransaction,
     Outcome,
-    sender_frame,
-    verify_frame,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -91,16 +90,16 @@ def test_bal_atomic_batch_write(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
+            FrameCase.verify(),
             # Succeeds either way; an unrolled batch keeps the status.
-            sender_frame(
+            FrameCase.sender(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=target,
                 code=target_code,
                 gas_limit=WRITE_FRAME_GAS,
                 outcome=Outcome.SUCCESS if committed else Outcome.UNROLLED,
             ),
-            sender_frame(
+            FrameCase.sender(
                 target=terminator,
                 code=terminator_code,
                 outcome=Outcome.SUCCESS if committed else Outcome.REVERT,
@@ -177,14 +176,14 @@ def test_bal_atomic_batch_skipped_frame_absent(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            sender_frame(
+            FrameCase.verify(),
+            FrameCase.sender(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=reverter,
                 code=reverter_code,
                 outcome=Outcome.REVERT,
             ),
-            sender_frame(
+            FrameCase.sender(
                 target=skipped_target,
                 gas_limit=WRITE_FRAME_GAS,
                 outcome=Outcome.SKIPPED,
@@ -226,8 +225,8 @@ def test_bal_frame_revert_write_dropped(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            sender_frame(
+            FrameCase.verify(),
+            FrameCase.sender(
                 target=target,
                 code=target_code,
                 gas_limit=WRITE_FRAME_GAS,
@@ -281,10 +280,10 @@ def test_bal_unaffordable_designation_absent(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
+            FrameCase.verify(),
             # The most gas that still cannot afford the designation's
             # access.
-            sender_frame(
+            FrameCase.sender(
                 target=authority,
                 delegated=True,
                 gas_limit_delta=-1,
@@ -351,9 +350,9 @@ def test_bal_sponsored_payer_and_sender(
         payer=payer,
         max_priority_fee_per_gas=0,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
-            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
-            sender_frame(
+            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
+            FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
+            FrameCase.sender(
                 target=target,
                 code=target_code,
                 gas_limit=WRITE_FRAME_GAS,
@@ -447,8 +446,8 @@ def test_bal_omits_signature_validation_precompiles(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            sender_frame(target=target),
+            FrameCase.verify(),
+            FrameCase.sender(target=target),
         ],
         signatures=[
             # Index 0 authorizes the default code, and is validated with

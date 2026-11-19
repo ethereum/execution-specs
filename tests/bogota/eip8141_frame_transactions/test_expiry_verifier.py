@@ -22,11 +22,9 @@ from execution_testing import (
 )
 
 from .helpers import (
+    FrameCase,
     FrameTransaction,
-    expiry_frame,
     expiry_verifier_gas,
-    sender_frame,
-    verify_frame,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -79,12 +77,12 @@ def test_expiry_verifier_frame(
         fork=fork,
         sender=sender,
         frames=[
-            verify_frame(),
-            expiry_frame(
+            FrameCase.verify(),
+            FrameCase.expiry(
                 data=Bytes(expiry.to_bytes(Spec.EXPIRY_DATA_LENGTH, "big")),
                 execution_gas=expiry_verifier_gas(fork),
             ),
-            sender_frame(target=target, code=target_code),
+            FrameCase.sender(target=target, code=target_code),
         ],
         error=error,
     )
