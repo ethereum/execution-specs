@@ -15,6 +15,7 @@ from execution_testing import (
     Alloc,
     Environment,
     Fork,
+    Frame,
     Op,
     StateTestFiller,
     TransactionException,
@@ -23,7 +24,6 @@ from execution_testing import (
 from .helpers import (
     BASE_FEE,
     PRIORITY_FEE,
-    FrameCase,
     FrameTransaction,
     fee_budget,
 )
@@ -74,7 +74,7 @@ def test_sender_balance_covers_max_cost(
     not `max_fee` or the full tip: exactly `max_cost` approves, one wei
     less invalidates the transaction.
     """
-    frames = [FrameCase.verify()]
+    frames = [Frame.verify()]
     sender = pre.fund_eoa(amount=0)
     fees = fee_budget(fork, sender, frames)
     max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
@@ -152,8 +152,8 @@ def test_payer_balance_covers_max_cost(
     sender = pre.fund_eoa()
     payer = pre.fund_eoa(amount=0)
     frames = [
-        FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
-        FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
+        Frame.verify(flags=Spec.APPROVE_EXECUTION),
+        Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
     ]
     signatures = [canonical_entry(sender), canonical_entry(payer)]
     max_cost = fee_budget(fork, sender, frames, signatures).max_cost
@@ -218,9 +218,9 @@ def test_payment_approval_reads_balance_after_transfer(
     recipient = pre.deploy_contract(code=Op.STOP)
     transfer_value = 10**6
     frames = [
-        FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
-        FrameCase.sender(target=recipient, value=transfer_value, code=Op.STOP),
-        FrameCase.verify(flags=Spec.APPROVE_PAYMENT),
+        Frame.verify(flags=Spec.APPROVE_EXECUTION),
+        Frame.sender(target=recipient, value=transfer_value, code=Op.STOP),
+        Frame.verify(flags=Spec.APPROVE_PAYMENT),
     ]
     signatures = [canonical_entry(sender), canonical_entry(sender)]
     max_cost = fee_budget(fork, sender, frames, signatures).max_cost
@@ -291,13 +291,13 @@ def test_payment_approval_reads_balance_after_top_up(
     # which therefore spends the stipend less than the `CALL` charges.
     stipend = fork.call_value_stipend() if top_up else 0
     frames = [
-        FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
-        FrameCase.default(
+        Frame.verify(flags=Spec.APPROVE_EXECUTION),
+        Frame.default(
             target=donor,
             execution_gas=donor_code.execution_cost(fork) - stipend,
         ),
         # The donor's `CALL` has already accessed the payer.
-        FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer, warm=True),
+        Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer, warm=True),
     ]
     signatures = [canonical_entry(sender), canonical_entry(payer)]
     max_cost = fee_budget(fork, sender, frames, signatures).max_cost

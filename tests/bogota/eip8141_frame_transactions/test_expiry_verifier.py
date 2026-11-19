@@ -16,13 +16,13 @@ from execution_testing import (
     Bytes,
     Environment,
     Fork,
+    Frame,
     Op,
     StateTestFiller,
     TransactionException,
 )
 
 from .helpers import (
-    FrameCase,
     FrameTransaction,
     expiry_verifier_gas,
 )
@@ -77,12 +77,12 @@ def test_expiry_verifier_frame(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.expiry(
+            Frame.verify(),
+            Frame.expiry(
                 data=Bytes(expiry.to_bytes(Spec.EXPIRY_DATA_LENGTH, "big")),
                 execution_gas=expiry_verifier_gas(fork),
             ),
-            FrameCase.sender(target=target, code=target_code),
+            Frame.sender(target=target, code=target_code),
         ],
         error=error,
     )

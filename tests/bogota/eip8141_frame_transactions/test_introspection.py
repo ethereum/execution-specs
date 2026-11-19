@@ -20,6 +20,7 @@ from execution_testing import (
     Bytecode,
     Bytes,
     Fork,
+    Frame,
     FrameSignature,
     Op,
     Signer,
@@ -28,7 +29,6 @@ from execution_testing import (
 )
 
 from .helpers import (
-    FrameCase,
     FrameTransaction,
 )
 from .spec import Spec, ref_spec_8141
@@ -74,8 +74,8 @@ def probe_transaction(
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
         frames=[
-            FrameCase.verify(),
-            FrameCase.default(
+            Frame.verify(),
+            Frame.default(
                 target=probe,
                 gas_limit=PROBE_FRAME_GAS,
                 state_gas_limit=PROBE_FRAME_STATE_GAS,
@@ -350,13 +350,13 @@ def test_frameparam_atomic_batch_set(
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
         frames=[
-            FrameCase.verify(),
-            FrameCase.default(
+            Frame.verify(),
+            Frame.default(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=probe,
                 gas_limit=PROBE_FRAME_GAS,
             ),
-            FrameCase.default(),
+            Frame.default(),
         ],
     )
 
@@ -404,16 +404,16 @@ def test_frameparam_gas_used(
     )
     probe = pre.deploy_contract(code=probe_code)
 
-    worker_frame = FrameCase.default(target=worker, code=worker_code)
+    worker_frame = Frame.default(target=worker, code=worker_code)
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
         frames=[
-            FrameCase.verify(),
+            Frame.verify(),
             worker_frame,
-            FrameCase.default(
+            Frame.default(
                 target=probe,
                 code=probe_code,
                 gas_limit=PROBE_FRAME_GAS,
@@ -730,12 +730,12 @@ def test_sigparam_resolved_signer(
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
         frames=[
-            FrameCase.verify(),
-            FrameCase.default(
+            Frame.verify(),
+            Frame.default(
                 target=resolved,
                 gas_limit=PROBE_FRAME_GAS,
             ),
-            FrameCase.default(
+            Frame.default(
                 target=refused,
                 gas_limit=PROBE_FRAME_GAS,
             ),
@@ -790,12 +790,12 @@ def test_sigdatacopy(
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
         frames=[
-            FrameCase.verify(),
-            FrameCase.default(
+            Frame.verify(),
+            Frame.default(
                 target=copied,
                 gas_limit=PROBE_FRAME_GAS,
             ),
-            FrameCase.default(
+            Frame.default(
                 target=refused,
                 gas_limit=PROBE_FRAME_GAS,
             ),

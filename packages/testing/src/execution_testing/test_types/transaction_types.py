@@ -2,9 +2,19 @@
 
 import numbers
 from dataclasses import dataclass
-from enum import IntEnum, IntFlag
+from enum import Enum, IntEnum, IntFlag, auto, unique
 from functools import cached_property
-from typing import Any, ClassVar, Dict, Generic, List, Literal, Self, Sequence
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Generic,
+    List,
+    Literal,
+    Optional,
+    Self,
+    Sequence,
+)
 
 import ethereum_rlp as eth_rlp
 from pydantic import (
@@ -39,15 +49,19 @@ from execution_testing.base_types import (
 )
 from execution_testing.exceptions import TransactionException
 from execution_testing.forks import Fork
+from execution_testing.forks.forks.eips.bogota.eip_8141 import (
+    EXPIRY_VERIFIER_ADDRESS,
+)
 from execution_testing.logging import (
     get_logger,
 )
+from execution_testing.vm import Bytecode
 
 from .account_types import EOA
 from .blob_types import Blob
 from .chain_config_types import ChainConfigDefaults
 from .phase_manager import TestPhase, TestPhaseManager
-from .receipt_types import TransactionReceipt
+from .receipt_types import FrameReceipt, TransactionLog, TransactionReceipt
 from .utils import int_to_bytes, keccak256
 
 logger = get_logger(__name__)
@@ -96,6 +110,35 @@ class FrameStatus(IntEnum):
     FAILURE = 0
     SUCCESS = 1
     SKIPPED = 2
+
+
+@unique
+class FrameOutcome(Enum):
+    """
+    How a frame of an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction ends, and therefore what its receipt reports.
+    """
+
+    SUCCESS = auto()
+    REVERT = auto()
+    HALT = auto()
+    SKIPPED = auto()
+    UNROLLED = auto()
+    """Succeeded, then undone by its atomic batch."""
+
+    @property
+    def status(self) -> FrameStatus:
+        """Return the status this outcome reports."""
+        if self in (FrameOutcome.SUCCESS, FrameOutcome.UNROLLED):
+            return FrameStatus.SUCCESS
+        if self is FrameOutcome.SKIPPED:
+            return FrameStatus.SKIPPED
+        return FrameStatus.FAILURE
+
+    @property
+    def keeps_state_gas(self) -> bool:
+        """Check whether the frame's state changes survive."""
+        return self is FrameOutcome.SUCCESS
 
 
 @dataclass
@@ -288,9 +331,181 @@ class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
 
 
 class Frame(FrameGeneric[HexNumber]):
-    """Frame within an EIP-8141 frame transaction (test authoring)."""
+    """
+    Frame within an EIP-8141 frame transaction (test authoring).
 
-    pass
+    Besides its own fields, a frame can carry the facts its budget and its
+    expected receipt follow from: how it ends, the code its target runs,
+    and whether its target is warm or delegated. These are excluded from
+    serialization, and only take effect when the frame's budgets are
+    settled or its receipt is requested.
+    """
+
+    # What the frame runs
+    outcome: FrameOutcome = Field(FrameOutcome.SUCCESS, exclude=True)
+    """How the frame ends."""
+
+    code: Optional[Bytecode] = Field(None, exclude=True)
+    """Code the frame's target runs, which prices it."""
+
+    execution_gas: Optional[int] = Field(None, exclude=True)
+    """Execution gas after entry, where `code` cannot price it."""
+
+    # What it is budgeted
+    gas_limit_delta: Optional[int] = Field(None, exclude=True)
+    """Execution budget, relative to the gas the frame spends."""
+
+    state_gas_limit_delta: Optional[int] = Field(None, exclude=True)
+    """State budget, relative to the state gas the frame writes."""
+
+    # What its target's entry access costs
+    warm: bool = Field(False, exclude=True)
+    """Whether the resolved target is warm."""
+
+    delegated: bool = Field(False, exclude=True)
+    """Whether the target carries an EIP-7702 designation."""
+
+    delegation_warm: bool = Field(False, exclude=True)
+    """Whether the designated address is warm."""
+
+    # What its receipt reports
+    pin_gas: bool = Field(True, exclude=True)
+    """Whether the receipt's execution gas is pinned."""
+
+    gas_used: Optional[int] = Field(None, exclude=True)
+    """Execution gas the receipt reports."""
+
+    state_gas_used: Optional[int] = Field(None, exclude=True)
+    """State gas the receipt reports."""
+
+    logs: Optional[List[TransactionLog]] = Field(None, exclude=True)
+    """Logs the receipt reports."""
+
+    @classmethod
+    def default(cls, **overrides: Any) -> Self:
+        """Return a `DEFAULT` frame executing the frame entry point."""
+        mode = overrides.setdefault("mode", FrameMode.DEFAULT)
+        assert mode == FrameMode.DEFAULT, f"not a DEFAULT frame: mode {mode}"
+        return cls(**overrides)
+
+    @classmethod
+    def sender(cls, **overrides: Any) -> Self:
+        """Return a `SENDER` frame executing as the transaction sender."""
+        mode = overrides.setdefault("mode", FrameMode.SENDER)
+        assert mode == FrameMode.SENDER, f"not a SENDER frame: mode {mode}"
+        # An empty target resolves to the sender, which frames start warm
+        # with.
+        overrides.setdefault("warm", overrides.get("target") is None)
+        return cls(**overrides)
+
+    @classmethod
+    def verify(cls, **overrides: Any) -> Self:
+        """Return a `VERIFY` frame approving execution and payment."""
+        mode = overrides.setdefault("mode", FrameMode.VERIFY)
+        assert mode == FrameMode.VERIFY, f"not a VERIFY frame: mode {mode}"
+        overrides.setdefault(
+            "flags", FrameFlag.APPROVE_EXECUTION | FrameFlag.APPROVE_PAYMENT
+        )
+        # An empty target resolves to the sender, which frames start warm
+        # with.
+        overrides.setdefault("warm", overrides.get("target") is None)
+        return cls(**overrides)
+
+    @classmethod
+    def expiry(cls, **overrides: Any) -> Self:
+        """Return a `VERIFY` frame targeting the expiry verifier predeploy."""
+        mode = overrides.setdefault("mode", FrameMode.VERIFY)
+        assert mode == FrameMode.VERIFY, f"not a VERIFY frame: mode {mode}"
+        overrides.setdefault("flags", FrameFlag(0))
+        overrides.setdefault("target", Address(EXPIRY_VERIFIER_ADDRESS))
+        # Such a frame is only valid with a zero state gas budget, and never
+        # expires at the maximum 64-bit timestamp.
+        overrides.setdefault("state_gas_limit", 0)
+        overrides.setdefault("data", (2**64 - 1).to_bytes(8, "big"))
+        return cls(**overrides)
+
+    def entry_gas(self, fork: Fork) -> int:
+        """Return the access the frame is charged at entry."""
+        return fork.frame_entry_gas_calculator()(
+            target_warm=self.warm,
+            delegated=self.delegated,
+            delegation_warm=self.delegation_warm,
+        )
+
+    def code_gas(self, fork: Fork) -> int:
+        """Return the execution gas the frame draws after entry."""
+        if self.execution_gas is not None:
+            return self.execution_gas
+        if self.code is None:
+            return 0
+        return self.code.execution_cost(fork)
+
+    def code_state_gas(self, fork: Fork) -> int:
+        """Return the state gas the frame's code writes."""
+        if self.code is None:
+            return 0
+        return self.code.state_cost(fork)
+
+    def settle_budgets(self, fork: Fork) -> None:
+        """Settle the budgets the frame declares as deltas on its cost."""
+        if self.gas_limit_delta is not None:
+            assert "gas_limit" not in self.model_fields_set, (
+                "a frame declares its execution budget once"
+            )
+            self.gas_limit = HexNumber(
+                self.entry_gas(fork)
+                + self.code_gas(fork)
+                + self.gas_limit_delta
+            )
+        if self.state_gas_limit_delta is not None:
+            assert "state_gas_limit" not in self.model_fields_set, (
+                "a frame declares its state budget once"
+            )
+            self.state_gas_limit = HexNumber(
+                self.code_state_gas(fork) + self.state_gas_limit_delta
+            )
+
+    def receipt(self, fork: Fork) -> FrameReceipt:
+        """Return the receipt the frame should report."""
+        gas_used: Optional[int]
+        match self.pin_gas, self.gas_used, self.outcome:
+            case False, None, _:
+                gas_used = None
+            case True, int() as pinned, _:
+                gas_used = pinned
+            case True, None, FrameOutcome.SKIPPED:
+                gas_used = 0
+            case True, None, FrameOutcome.HALT:
+                # A halting frame forfeits its entire execution budget.
+                gas_used = int(self.gas_limit)
+            case True, None, (
+                FrameOutcome.SUCCESS
+                | FrameOutcome.REVERT
+                | FrameOutcome.UNROLLED
+            ):
+                gas_used = self.entry_gas(fork) + self.code_gas(fork)
+            case _:
+                raise ValueError(
+                    f"no receipt gas for pin_gas={self.pin_gas}, "
+                    f"gas_used={self.gas_used}, outcome={self.outcome}"
+                )
+
+        state_gas_used = 0
+        if self.state_gas_used is not None:
+            state_gas_used = self.state_gas_used
+        elif self.outcome.keeps_state_gas:
+            state_gas_used = self.code_state_gas(fork)
+
+        logs = self.logs
+        if logs is None and self.outcome is not FrameOutcome.SUCCESS:
+            logs = []
+
+        return FrameReceipt(
+            status=self.outcome.status,
+            gas_used=gas_used,
+            state_gas_used=state_gas_used,
+            logs=logs,
+        )
 
 
 class FrameSignatureGeneric(

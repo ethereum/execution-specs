@@ -31,6 +31,7 @@ from execution_testing import (
     Bytes,
     Conditional,
     Fork,
+    Frame,
     Op,
     Opcode,
     ParameterSet,
@@ -41,7 +42,6 @@ from execution_testing import (
 from .helpers import (
     APPROVE_ALL,
     CALL_VALUE,
-    FrameCase,
     FrameTransaction,
 )
 from .spec import ref_spec_8141
@@ -157,7 +157,7 @@ def test_verify_frame_runs_as_staticcall(
         sender=sender,
         nonce=1,
         frames=[
-            FrameCase.verify(
+            Frame.verify(
                 gas_limit=VERIFY_FRAME_GAS,
                 data=Bytes(b"\x01"),
                 pin_gas=False,
@@ -234,7 +234,7 @@ def test_verify_frame_nested_call_is_static(
         sender=sender,
         nonce=1,
         frames=[
-            FrameCase.verify(
+            Frame.verify(
                 gas_limit=VERIFY_FRAME_GAS,
                 pin_gas=False,
                 logs=[],

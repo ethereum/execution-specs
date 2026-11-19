@@ -20,6 +20,7 @@ from execution_testing import (
     Alloc,
     Block,
     DeploymentTestType,
+    Frame,
     Op,
     generate_system_contract_deploy_test,
 )
@@ -27,7 +28,6 @@ from execution_testing.checklists import EIPChecklist
 from execution_testing.forks import Bogota, TransitionFork
 
 from .helpers import (
-    FrameCase,
     FrameTransaction,
     expiry_verifier_gas,
 )
@@ -74,9 +74,9 @@ def test_expiry_verifier_deployment(
         fork=post_fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.expiry(execution_gas=expiry_verifier_gas(post_fork)),
-            FrameCase.sender(target=target, code=target_code),
+            Frame.verify(),
+            Frame.expiry(execution_gas=expiry_verifier_gas(post_fork)),
+            Frame.sender(target=target, code=target_code),
         ],
     )
 

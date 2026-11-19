@@ -17,6 +17,8 @@ from execution_testing import (
     Address,
     Alloc,
     Fork,
+    Frame,
+    FrameOutcome,
     Op,
     StateTestFiller,
     Transaction,
@@ -24,9 +26,7 @@ from execution_testing import (
 )
 
 from .helpers import (
-    FrameCase,
     FrameTransaction,
-    Outcome,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -95,18 +95,18 @@ def test_precompile_target(
     code hash a precompile account carries as the default code's cue.
     """
     sender = pre.fund_eoa()
-    builders: Dict[int, Callable[..., FrameCase]] = {
-        Spec.MODE_DEFAULT: FrameCase.default,
-        Spec.MODE_SENDER: FrameCase.sender,
+    builders: Dict[int, Callable[..., Frame]] = {
+        Spec.MODE_DEFAULT: Frame.default,
+        Spec.MODE_SENDER: Frame.sender,
         # Only the default code approves, and the precompile displaces it.
-        Spec.MODE_VERIFY: partial(FrameCase.verify, flags=Spec.APPROVE_NONE),
+        Spec.MODE_VERIFY: partial(Frame.verify, flags=Spec.APPROVE_NONE),
     }
 
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
+            Frame.verify(),
             builders[mode](
                 target=IDENTITY,
                 data=data,
@@ -135,11 +135,11 @@ def test_precompile_target_rejecting_its_input(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.default(
+            Frame.verify(),
+            Frame.default(
                 target=BN254_ADD,
                 data=OFF_THE_CURVE,
-                outcome=Outcome.HALT,
+                outcome=FrameOutcome.HALT,
             ),
         ],
     )
@@ -163,8 +163,8 @@ def test_verify_frame_precompile_rejecting_its_input(
     tx = Transaction(
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.verify(
+            Frame.verify(),
+            Frame.verify(
                 flags=Spec.APPROVE_NONE,
                 target=BN254_ADD,
                 data=OFF_THE_CURVE,
@@ -193,8 +193,8 @@ def test_verify_frame_target_above_the_precompile_gap(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.verify(
+            Frame.verify(),
+            Frame.verify(
                 flags=Spec.APPROVE_NONE,
                 target=P256VERIFY,
                 # The precompiles seed the warm set.
@@ -224,8 +224,8 @@ def test_verify_frame_target_inside_the_precompile_gap(
     tx = Transaction(
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.verify(flags=Spec.APPROVE_NONE, target=IN_THE_GAP),
+            Frame.verify(),
+            Frame.verify(flags=Spec.APPROVE_NONE, target=IN_THE_GAP),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
@@ -257,17 +257,15 @@ def test_delegated_target_entry_charge(
 
     # The warming frame accesses the designated address itself, so it
     # pays for the cold access the frame under test then avoids.
-    warming_frames = (
-        [FrameCase.default(target=delegate)] if warm_delegate else []
-    )
+    warming_frames = [Frame.default(target=delegate)] if warm_delegate else []
 
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
+            Frame.verify(),
             *warming_frames,
-            FrameCase.default(
+            Frame.default(
                 target=authority,
                 delegated=True,
                 delegation_warm=warm_delegate,
@@ -324,14 +322,16 @@ def test_dead_target_entry_charge(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.sender(
+            Frame.verify(),
+            Frame.sender(
                 target=dead,
                 value=TRANSFERRED_VALUE,
                 state_gas_limit=(
                     revival_state_gas if affordable else revival_state_gas - 1
                 ),
-                outcome=Outcome.SUCCESS if affordable else Outcome.HALT,
+                outcome=FrameOutcome.SUCCESS
+                if affordable
+                else FrameOutcome.HALT,
                 state_gas_used=revival_state_gas if affordable else 0,
             ),
         ],
@@ -357,8 +357,8 @@ def test_delegated_to_precompile_target(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.default(
+            Frame.verify(),
+            Frame.default(
                 target=authority,
                 data=b"\x01" * 32,
                 delegated=True,
@@ -400,11 +400,13 @@ def test_frame_entry_gas_boundary(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.default(
+            Frame.verify(),
+            Frame.default(
                 target=target,
                 gas_limit_delta=0 if affordable else -1,
-                outcome=Outcome.SUCCESS if affordable else Outcome.HALT,
+                outcome=FrameOutcome.SUCCESS
+                if affordable
+                else FrameOutcome.HALT,
             ),
         ],
     )
@@ -435,25 +437,25 @@ def test_entry_charge_halt_unrolls_batch(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.default(
+            Frame.verify(),
+            Frame.default(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=worker,
                 code=worker_code,
-                outcome=Outcome.UNROLLED,
+                outcome=FrameOutcome.UNROLLED,
                 gas_limit_delta=0,
                 state_gas_limit_delta=0,
             ),
-            FrameCase.default(
+            Frame.default(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=halting_target,
-                outcome=Outcome.HALT,
+                outcome=FrameOutcome.HALT,
                 gas_limit_delta=-1,
             ),
-            FrameCase.default(
+            Frame.default(
                 target=worker,
                 code=worker_code,
-                outcome=Outcome.SKIPPED,
+                outcome=FrameOutcome.SKIPPED,
                 gas_limit_delta=0,
             ),
         ],
@@ -504,10 +506,10 @@ def test_default_code_entry_gas_shortfall(
         sender=sender,
         payer=payer,
         frames=[
-            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
+            Frame.verify(flags=Spec.APPROVE_EXECUTION),
             # The transaction touches the sponsor nowhere else, so
             # this frame pays the cold access.
-            FrameCase.verify(
+            Frame.verify(
                 flags=Spec.APPROVE_PAYMENT,
                 target=payer,
                 gas_limit_delta=0 if affordable else -1,
@@ -551,8 +553,8 @@ def test_verify_frame_delegated_to_precompile_target(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.verify(
+            Frame.verify(),
+            Frame.verify(
                 flags=Spec.APPROVE_NONE,
                 target=authority,
                 delegated=True,

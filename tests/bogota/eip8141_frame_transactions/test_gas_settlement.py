@@ -22,15 +22,15 @@ from execution_testing import (
     Bytecode,
     Conditional,
     Fork,
+    Frame,
+    FrameOutcome,
     Header,
     Op,
     StateTestFiller,
 )
 
 from .helpers import (
-    FrameCase,
     FrameTransaction,
-    Outcome,
     floor_binding_padding,
 )
 from .spec import Spec, ref_spec_8141
@@ -123,12 +123,12 @@ def test_calldata_floor_with_state_gas(
             # Each frame is budgeted exactly what it spends, so the
             # execution dimension is known to the byte.
             frames=[
-                FrameCase.verify(
+                Frame.verify(
                     code=verify_code,
                     gas_limit_delta=0,
                     state_gas_limit_delta=0,
                 ),
-                FrameCase.default(
+                Frame.default(
                     target=worker,
                     code=worker_code,
                     gas_limit_delta=0,
@@ -217,10 +217,10 @@ def test_storage_refund_settlement(
             nonce=0,
             refund=refund,
             frames=[
-                FrameCase.verify(),
+                Frame.verify(),
                 # The receipt reports pre-refund execution gas; the
                 # refund applies only at transaction settlement.
-                FrameCase.default(
+                Frame.default(
                     target=worker,
                     code=worker_code,
                     state_gas_limit=0,
@@ -330,11 +330,11 @@ def test_batch_unroll_refill_restores_spent_gas(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
-            FrameCase.verify(),
+            Frame.verify(),
             # Frame 1: create the slot (0 -> 1), keeping its full
             # attribution once the unroll undoes the refill applied to
             # this receipt.
-            FrameCase.default(
+            Frame.default(
                 target=worker,
                 code=create_body,
                 data=(1).to_bytes(32, "big"),
@@ -343,22 +343,22 @@ def test_batch_unroll_refill_restores_spent_gas(
             # value (1 -> 0), refilling frame 1's receipt. The unroll
             # re-appends this receipt with its state gas zeroed.
             # Frame 1's success left the worker warm.
-            FrameCase.default(
+            Frame.default(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=worker,
                 code=refill_body,
                 warm=True,
-                outcome=Outcome.UNROLLED,
+                outcome=FrameOutcome.UNROLLED,
             ),
             # Frame 3: terminate the batch with a revert, unrolling it.
-            FrameCase.default(
+            Frame.default(
                 target=reverter,
                 code=reverter_code,
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
             ),
             # Frame 4: read frame 1's restored attribution and frame 3's
             # status after the unroll.
-            FrameCase.default(target=probe, code=probe_code),
+            Frame.default(target=probe, code=probe_code),
         ],
     )
 
@@ -454,11 +454,11 @@ def test_frame_revert_refill_restores_spent_gas(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
-            FrameCase.verify(),
+            Frame.verify(),
             # Frame 1: create the slot (0 -> 1), storing, evaluating the
             # branch and falling through to the trailing stop. The
             # revert restores the refill applied to this receipt.
-            FrameCase.default(
+            Frame.default(
                 target=worker,
                 code=create_store,
                 execution_gas=create_store.execution_cost(fork)
@@ -468,18 +468,18 @@ def test_frame_revert_refill_restores_spent_gas(
             # Frame 2: return the slot to its start value (1 -> 0),
             # refilling frame 1's receipt, then take the branch into the
             # revert. Frame 1's success left the worker warm.
-            FrameCase.default(
+            Frame.default(
                 target=worker,
                 code=refill_store,
                 execution_gas=refill_store.execution_cost(fork)
                 + branch_control
                 + revert_tail,
                 warm=True,
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
             ),
             # Frame 3: read frame 1's restored attribution and frame 2's
             # status after the revert.
-            FrameCase.default(target=probe, code=probe_code),
+            Frame.default(target=probe, code=probe_code),
         ],
     )
 

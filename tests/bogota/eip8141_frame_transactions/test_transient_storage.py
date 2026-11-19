@@ -27,6 +27,8 @@ from execution_testing import (
     Bytes,
     Conditional,
     Fork,
+    Frame,
+    FrameOutcome,
     Op,
     StateTestFiller,
 )
@@ -34,9 +36,7 @@ from execution_testing import (
 from .helpers import (
     APPROVE_ALL,
     CURRENT_FRAME_INDEX,
-    FrameCase,
     FrameTransaction,
-    Outcome,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -103,13 +103,9 @@ def recorded(*frame_indices: int) -> Dict[int, int]:
     return storage
 
 
-def recorder_frame(
-    mode: int, recorder: Address, **overrides: Any
-) -> FrameCase:
+def recorder_frame(mode: int, recorder: Address, **overrides: Any) -> Frame:
     """Return a frame of `mode` running the recorder at `recorder`."""
-    return FrameCase(
-        mode=mode, target=recorder, code=RECORDER_CODE, **overrides
-    )
+    return Frame(mode=mode, target=recorder, code=RECORDER_CODE, **overrides)
 
 
 @pytest.mark.parametrize(
@@ -150,7 +146,7 @@ def test_transient_storage_discarded_between_frames(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
+            Frame.verify(),
             recorder_frame(first_mode, recorder),
             # The first frame's success leaves the recorder warm.
             recorder_frame(second_mode, recorder, warm=True),
@@ -198,7 +194,7 @@ def test_transient_storage_discarded_between_atomic_batch_frames(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
+            Frame.verify(),
             recorder_frame(mode, recorder, flags=Spec.ATOMIC_BATCH_FLAG),
             recorder_frame(
                 mode, recorder, flags=Spec.ATOMIC_BATCH_FLAG, warm=True
@@ -221,11 +217,14 @@ def test_transient_storage_discarded_between_atomic_batch_frames(
     "failure,failed_outcome,in_batch",
     [
         pytest.param(
-            Op.REVERT(0, 0), Outcome.REVERT, False, id="frame_reverts"
+            Op.REVERT(0, 0), FrameOutcome.REVERT, False, id="frame_reverts"
         ),
-        pytest.param(Op.INVALID, Outcome.HALT, False, id="frame_halts"),
+        pytest.param(Op.INVALID, FrameOutcome.HALT, False, id="frame_halts"),
         pytest.param(
-            Op.REVERT(0, 0), Outcome.REVERT, True, id="atomic_batch_unrolls"
+            Op.REVERT(0, 0),
+            FrameOutcome.REVERT,
+            True,
+            id="atomic_batch_unrolls",
         ),
     ],
 )
@@ -234,7 +233,7 @@ def test_transient_storage_discarded_after_failed_frame(
     pre: Alloc,
     fork: Fork,
     failure: Bytecode,
-    failed_outcome: Outcome,
+    failed_outcome: FrameOutcome,
     in_batch: bool,
 ) -> None:
     """
@@ -262,9 +261,9 @@ def test_transient_storage_discarded_after_failed_frame(
     recorder = pre.deploy_contract(code=code)
     record_state_gas = RECORDER_CODE.state_cost(fork)
 
-    def record(**overrides: Any) -> FrameCase:
+    def record(**overrides: Any) -> Frame:
         overrides.setdefault("state_gas_used", record_state_gas)
-        return FrameCase.default(target=recorder, pin_gas=False, **overrides)
+        return Frame.default(target=recorder, pin_gas=False, **overrides)
 
     batch = []
     # The unroll restores the pre-batch state. A client whose unroll also
@@ -275,12 +274,12 @@ def test_transient_storage_discarded_after_failed_frame(
         batch.append(
             record(
                 flags=Spec.ATOMIC_BATCH_FLAG,
-                outcome=Outcome.UNROLLED,
+                outcome=FrameOutcome.UNROLLED,
                 state_gas_used=0,
             )
         )
     batch.append(
-        FrameCase.default(
+        Frame.default(
             target=recorder,
             data=Bytes(b"\x01"),
             outcome=failed_outcome,
@@ -288,7 +287,7 @@ def test_transient_storage_discarded_after_failed_frame(
         )
     )
 
-    frames = [FrameCase.verify(), record(), *batch, record()]
+    frames = [Frame.verify(), record(), *batch, record()]
     tx = FrameTransaction.build(fork=fork, sender=sender, frames=frames)
 
     state_test(
@@ -338,10 +337,8 @@ def test_transient_storage_discarded_before_verify_frame(
         sender=sender,
         nonce=1,
         frames=[
-            FrameCase.default(
-                target=sender, data=Bytes(b"\x01"), pin_gas=False
-            ),
-            FrameCase.verify(pin_gas=False),
+            Frame.default(target=sender, data=Bytes(b"\x01"), pin_gas=False),
+            Frame.verify(pin_gas=False),
         ],
     )
 
@@ -401,14 +398,14 @@ def test_transient_storage_discarded_for_called_account(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.default(
+            Frame.verify(),
+            Frame.default(
                 target=writer,
                 gas_limit=CALLING_FRAME_GAS,
                 pin_gas=False,
                 state_gas_used=slot_gas,
             ),
-            FrameCase.default(
+            Frame.default(
                 target=reader,
                 gas_limit=CALLING_FRAME_GAS,
                 pin_gas=False,

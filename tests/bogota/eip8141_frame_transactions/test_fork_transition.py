@@ -22,11 +22,11 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Fork,
+    Frame,
     Op,
 )
 
 from .helpers import (
-    FrameCase,
     FrameTransaction,
     expiry_verifier_gas,
 )
@@ -76,9 +76,9 @@ def test_expiry_frame_in_first_post_fork_block(
         fork=post_fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.expiry(execution_gas=expiry_verifier_gas(post_fork)),
-            FrameCase.sender(target=target, code=target_code),
+            Frame.verify(),
+            Frame.expiry(execution_gas=expiry_verifier_gas(post_fork)),
+            Frame.sender(target=target, code=target_code),
         ],
     )
     blocks = [

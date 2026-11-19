@@ -1,6 +1,5 @@
 """Helpers for EIP-8141 frame transaction tests."""
 
-from enum import Enum, auto, unique
 from typing import (
     Any,
     Callable,
@@ -15,17 +14,13 @@ from typing import (
 from execution_testing import (
     EOA,
     Address,
-    Bytecode,
     Fork,
     Frame,
-    FrameReceipt,
     FrameSignature,
     Op,
     Transaction,
-    TransactionLog,
     TransactionReceipt,
 )
-from execution_testing.base_types import HexNumber
 from pydantic import Field
 
 from .signature_helpers import canonical_entry
@@ -52,32 +47,6 @@ def floor_binding_padding(floor_binds: Callable[[int], bool]) -> int:
         else:
             low = middle
     return high
-
-
-@unique
-class Outcome(Enum):
-    """How a frame ends, and therefore what its receipt reports."""
-
-    SUCCESS = auto()
-    REVERT = auto()
-    HALT = auto()
-    SKIPPED = auto()
-    # Succeeded, then undone by its atomic batch.
-    UNROLLED = auto()
-
-    @property
-    def status(self) -> int:
-        """Return the status this outcome reports."""
-        if self in (Outcome.SUCCESS, Outcome.UNROLLED):
-            return Spec.STATUS_SUCCESS
-        if self is Outcome.SKIPPED:
-            return Spec.STATUS_SKIPPED
-        return Spec.STATUS_FAILURE
-
-    @property
-    def keeps_state_gas(self) -> bool:
-        """Check whether the frame's state changes survive."""
-        return self is Outcome.SUCCESS
 
 
 def expiry_verifier_gas(fork: Fork) -> int:
@@ -107,174 +76,6 @@ def expiry_verifier_gas(fork: Fork) -> int:
     return accepting.execution_cost(fork)
 
 
-class FrameCase(Frame):
-    """A frame carrying the facts its budget and receipt follow from."""
-
-    # What the frame runs
-    outcome: Outcome = Field(Outcome.SUCCESS, exclude=True)
-    """How the frame ends."""
-
-    code: Optional[Bytecode] = Field(None, exclude=True)
-    """Code the frame's target runs, which prices it."""
-
-    execution_gas: Optional[int] = Field(None, exclude=True)
-    """Execution gas after entry, where `code` cannot price it."""
-
-    # What it is budgeted
-    gas_limit_delta: Optional[int] = Field(None, exclude=True)
-    """Execution budget, relative to the gas the frame spends."""
-
-    state_gas_limit_delta: Optional[int] = Field(None, exclude=True)
-    """State budget, relative to the state gas the frame writes."""
-
-    # What its target's entry access costs
-    warm: bool = Field(False, exclude=True)
-    """Whether the resolved target is warm."""
-
-    delegated: bool = Field(False, exclude=True)
-    """Whether the target carries an EIP-7702 designation."""
-
-    delegation_warm: bool = Field(False, exclude=True)
-    """Whether the designated address is warm."""
-
-    # What its receipt reports
-    pin_gas: bool = Field(True, exclude=True)
-    """Whether the receipt's execution gas is pinned."""
-
-    gas_used: Optional[int] = Field(None, exclude=True)
-    """Execution gas the receipt reports."""
-
-    state_gas_used: Optional[int] = Field(None, exclude=True)
-    """State gas the receipt reports."""
-
-    logs: Optional[List[TransactionLog]] = Field(None, exclude=True)
-    """Logs the receipt reports."""
-
-    @classmethod
-    def default(cls, **overrides: Any) -> Self:
-        """Return a `DEFAULT` frame executing the frame entry point."""
-        mode = overrides.setdefault("mode", Spec.MODE_DEFAULT)
-        assert mode == Spec.MODE_DEFAULT, f"not a DEFAULT frame: mode {mode}"
-        return cls(**overrides)
-
-    @classmethod
-    def sender(cls, **overrides: Any) -> Self:
-        """Return a `SENDER` frame executing as the transaction sender."""
-        mode = overrides.setdefault("mode", Spec.MODE_SENDER)
-        assert mode == Spec.MODE_SENDER, f"not a SENDER frame: mode {mode}"
-        # An empty target resolves to the sender, which frames start warm
-        # with.
-        overrides.setdefault("warm", overrides.get("target") is None)
-        return cls(**overrides)
-
-    @classmethod
-    def verify(cls, **overrides: Any) -> Self:
-        """Return a `VERIFY` frame approving execution and payment."""
-        mode = overrides.setdefault("mode", Spec.MODE_VERIFY)
-        assert mode == Spec.MODE_VERIFY, f"not a VERIFY frame: mode {mode}"
-        overrides.setdefault("flags", Spec.APPROVE_EXECUTION_AND_PAYMENT)
-        # An empty target resolves to the sender, which frames start warm
-        # with.
-        overrides.setdefault("warm", overrides.get("target") is None)
-        return cls(**overrides)
-
-    @classmethod
-    def expiry(cls, **overrides: Any) -> Self:
-        """Return a `VERIFY` frame targeting the expiry verifier predeploy."""
-        mode = overrides.setdefault("mode", Spec.MODE_VERIFY)
-        assert mode == Spec.MODE_VERIFY, f"not a VERIFY frame: mode {mode}"
-        overrides.setdefault("flags", Spec.APPROVE_NONE)
-        overrides.setdefault("target", Spec.EXPIRY_VERIFIER)
-        # Such a frame is only valid with a zero state gas budget, and never
-        # expires at the maximum timestamp.
-        overrides.setdefault("state_gas_limit", 0)
-        overrides.setdefault(
-            "data", (2**64 - 1).to_bytes(Spec.EXPIRY_DATA_LENGTH, "big")
-        )
-        return cls(**overrides)
-
-    def entry_gas(self, fork: Fork) -> int:
-        """Return the access the frame is charged at entry."""
-        return fork.frame_entry_gas_calculator()(
-            target_warm=self.warm,
-            delegated=self.delegated,
-            delegation_warm=self.delegation_warm,
-        )
-
-    def code_gas(self, fork: Fork) -> int:
-        """Return the execution gas the frame draws after entry."""
-        if self.execution_gas is not None:
-            return self.execution_gas
-        if self.code is None:
-            return 0
-        return self.code.execution_cost(fork)
-
-    def code_state_gas(self, fork: Fork) -> int:
-        """Return the state gas the frame's code writes."""
-        if self.code is None:
-            return 0
-        return self.code.state_cost(fork)
-
-    def settle_budgets(self, fork: Fork) -> None:
-        """Settle the budgets the frame declares as deltas on its cost."""
-        if self.gas_limit_delta is not None:
-            assert "gas_limit" not in self.model_fields_set, (
-                "a frame declares its execution budget once"
-            )
-            self.gas_limit = HexNumber(
-                self.entry_gas(fork)
-                + self.code_gas(fork)
-                + self.gas_limit_delta
-            )
-        if self.state_gas_limit_delta is not None:
-            assert "state_gas_limit" not in self.model_fields_set, (
-                "a frame declares its state budget once"
-            )
-            self.state_gas_limit = HexNumber(
-                self.code_state_gas(fork) + self.state_gas_limit_delta
-            )
-
-    def receipt(self, fork: Fork) -> FrameReceipt:
-        """Return the receipt the frame should report."""
-        gas_used: Optional[int]
-        match self.pin_gas, self.gas_used, self.outcome:
-            case False, None, _:
-                gas_used = None
-            case True, int() as pinned, _:
-                gas_used = pinned
-            case True, None, Outcome.SKIPPED:
-                gas_used = 0
-            case True, None, Outcome.HALT:
-                # A halting frame forfeits its entire execution budget.
-                gas_used = int(self.gas_limit)
-            case True, None, (
-                Outcome.SUCCESS | Outcome.REVERT | Outcome.UNROLLED
-            ):
-                gas_used = self.entry_gas(fork) + self.code_gas(fork)
-            case _:
-                raise ValueError(
-                    f"no receipt gas for pin_gas={self.pin_gas}, "
-                    f"gas_used={self.gas_used}, outcome={self.outcome}"
-                )
-
-        state_gas_used = 0
-        if self.state_gas_used is not None:
-            state_gas_used = self.state_gas_used
-        elif self.outcome.keeps_state_gas:
-            state_gas_used = self.code_state_gas(fork)
-
-        logs = self.logs
-        if logs is None and self.outcome is not Outcome.SUCCESS:
-            logs = []
-
-        return FrameReceipt(
-            status=self.outcome.status,
-            gas_used=gas_used,
-            state_gas_used=state_gas_used,
-            logs=logs,
-        )
-
-
 class FrameTransaction(Transaction):
     """Frame transaction whose settlement follows from its frames."""
 
@@ -296,7 +97,7 @@ class FrameTransaction(Transaction):
         *,
         fork: Fork,
         sender: EOA | Address,
-        frames: List[FrameCase],
+        frames: List[Frame],
         payer: Optional[EOA | Address] = None,
         refund: int = 0,
         settle: bool = True,

@@ -24,6 +24,8 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Fork,
+    Frame,
+    FrameOutcome,
     GasFee,
     Op,
     P256Signer,
@@ -33,9 +35,7 @@ from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
 from tests.osaka.eip7951_p256verify_precompiles.spec import Spec as Spec7951
 
 from .helpers import (
-    FrameCase,
     FrameTransaction,
-    Outcome,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -90,19 +90,23 @@ def test_bal_atomic_batch_write(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
+            Frame.verify(),
             # Succeeds either way; an unrolled batch keeps the status.
-            FrameCase.sender(
+            Frame.sender(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=target,
                 code=target_code,
                 gas_limit=WRITE_FRAME_GAS,
-                outcome=Outcome.SUCCESS if committed else Outcome.UNROLLED,
+                outcome=FrameOutcome.SUCCESS
+                if committed
+                else FrameOutcome.UNROLLED,
             ),
-            FrameCase.sender(
+            Frame.sender(
                 target=terminator,
                 code=terminator_code,
-                outcome=Outcome.SUCCESS if committed else Outcome.REVERT,
+                outcome=FrameOutcome.SUCCESS
+                if committed
+                else FrameOutcome.REVERT,
             ),
         ],
     )
@@ -176,17 +180,17 @@ def test_bal_atomic_batch_skipped_frame_absent(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.sender(
+            Frame.verify(),
+            Frame.sender(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=reverter,
                 code=reverter_code,
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
             ),
-            FrameCase.sender(
+            Frame.sender(
                 target=skipped_target,
                 gas_limit=WRITE_FRAME_GAS,
-                outcome=Outcome.SKIPPED,
+                outcome=FrameOutcome.SKIPPED,
             ),
         ],
     )
@@ -225,12 +229,12 @@ def test_bal_frame_revert_write_dropped(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.sender(
+            Frame.verify(),
+            Frame.sender(
                 target=target,
                 code=target_code,
                 gas_limit=WRITE_FRAME_GAS,
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
             ),
         ],
     )
@@ -280,14 +284,14 @@ def test_bal_unaffordable_designation_absent(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
+            Frame.verify(),
             # The most gas that still cannot afford the designation's
             # access.
-            FrameCase.sender(
+            Frame.sender(
                 target=authority,
                 delegated=True,
                 gas_limit_delta=-1,
-                outcome=Outcome.HALT,
+                outcome=FrameOutcome.HALT,
             ),
         ],
     )
@@ -350,9 +354,9 @@ def test_bal_sponsored_payer_and_sender(
         payer=payer,
         max_priority_fee_per_gas=0,
         frames=[
-            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
-            FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
-            FrameCase.sender(
+            Frame.verify(flags=Spec.APPROVE_EXECUTION),
+            Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
+            Frame.sender(
                 target=target,
                 code=target_code,
                 gas_limit=WRITE_FRAME_GAS,
@@ -446,8 +450,8 @@ def test_bal_omits_signature_validation_precompiles(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.sender(target=target),
+            Frame.verify(),
+            Frame.sender(target=target),
         ],
         signatures=[
             # Index 0 authorizes the default code, and is validated with

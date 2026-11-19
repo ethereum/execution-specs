@@ -27,14 +27,14 @@ from execution_testing import (
     CodeGasMeasure,
     Environment,
     Fork,
+    Frame,
+    FrameOutcome,
     Op,
     StateTestFiller,
 )
 
 from .helpers import (
-    FrameCase,
     FrameTransaction,
-    Outcome,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -96,14 +96,14 @@ def balance_probe(
     )
 
 
-def probe_frame(target: Address, probe: AccessGasProbe) -> FrameCase:
+def probe_frame(target: Address, probe: AccessGasProbe) -> Frame:
     """
     Return a `DEFAULT` frame calling the probe contract.
 
     The probe is always a fresh, untouched frame target, so its entry
     access is cold.
     """
-    return FrameCase.default(
+    return Frame.default(
         target=target,
         code=probe.code,
         gas_limit=PROBE_FRAME_GAS,
@@ -111,14 +111,14 @@ def probe_frame(target: Address, probe: AccessGasProbe) -> FrameCase:
     )
 
 
-def outcome_tail(outcome: Outcome) -> Bytecode:
+def outcome_tail(outcome: FrameOutcome) -> Bytecode:
     """Return the code ending a contract with the given outcome."""
     match outcome:
-        case Outcome.SUCCESS:
+        case FrameOutcome.SUCCESS:
             return Op.STOP
-        case Outcome.REVERT:
+        case FrameOutcome.REVERT:
             return Op.REVERT(0, 0)
-        case Outcome.HALT:
+        case FrameOutcome.HALT:
             return Op.INVALID
         case _:
             raise ValueError(f"no code ends a frame as {outcome}")
@@ -145,7 +145,7 @@ def test_sender_is_warm(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
+            Frame.verify(),
             probe_frame(probe_address, probe),
         ],
     )
@@ -180,7 +180,7 @@ def test_coinbase_is_warm(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
+            Frame.verify(),
             probe_frame(probe_address, probe),
         ],
     )
@@ -199,16 +199,16 @@ def test_coinbase_is_warm(
 @pytest.mark.parametrize(
     "outcome",
     [
-        pytest.param(Outcome.SUCCESS, id="success_carries_target_warmth"),
-        pytest.param(Outcome.REVERT, id="revert_discards_target_warmth"),
-        pytest.param(Outcome.HALT, id="halt_discards_target_warmth"),
+        pytest.param(FrameOutcome.SUCCESS, id="success_carries_target_warmth"),
+        pytest.param(FrameOutcome.REVERT, id="revert_discards_target_warmth"),
+        pytest.param(FrameOutcome.HALT, id="halt_discards_target_warmth"),
     ],
 )
 def test_frame_target_entry_charge(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    outcome: Outcome,
+    outcome: FrameOutcome,
 ) -> None:
     """
     Charge a frame's target access at frame entry, within the frame's
@@ -229,7 +229,7 @@ def test_frame_target_entry_charge(
     """
     sender = pre.fund_eoa()
 
-    if outcome is Outcome.HALT:
+    if outcome is FrameOutcome.HALT:
         # Halt on empty call data, return cleanly otherwise: a zero
         # `CALLDATASIZE` falls through the `JUMPI` into `INVALID`;
         # non-empty data jumps to the `JUMPDEST` at offset 5.
@@ -240,8 +240,8 @@ def test_frame_target_entry_charge(
         target_code = outcome_tail(outcome)
     target = pre.deploy_contract(code=target_code)
 
-    def touch(**facts: Any) -> FrameCase:
-        return FrameCase.default(
+    def touch(**facts: Any) -> Frame:
+        return Frame.default(
             target=target,
             code=target_code,
             gas_limit=TOUCH_FRAME_GAS,
@@ -249,13 +249,13 @@ def test_frame_target_entry_charge(
         )
 
     match outcome:
-        case Outcome.SUCCESS:
+        case FrameOutcome.SUCCESS:
             # The first frame's success leaves the target warm.
             touches = [touch(), touch(warm=True)]
-        case Outcome.REVERT:
+        case FrameOutcome.REVERT:
             # The revert discards the warmth it charged for.
             touches = [touch(outcome=outcome), touch(outcome=outcome)]
-        case Outcome.HALT:
+        case FrameOutcome.HALT:
             touches = [touch(outcome=outcome, data=b""), touch(data=b"\x01")]
         case _:
             raise ValueError(f"unhandled outcome: {outcome}")
@@ -263,7 +263,7 @@ def test_frame_target_entry_charge(
     tx = FrameTransaction.build(
         fork=fork,
         sender=sender,
-        frames=[FrameCase.verify(), *touches],
+        frames=[Frame.verify(), *touches],
     )
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
@@ -272,16 +272,16 @@ def test_frame_target_entry_charge(
 @pytest.mark.parametrize(
     "outcome,carries",
     [
-        pytest.param(Outcome.SUCCESS, True, id="success_carries"),
-        pytest.param(Outcome.REVERT, False, id="revert_discards"),
-        pytest.param(Outcome.HALT, False, id="halt_discards"),
+        pytest.param(FrameOutcome.SUCCESS, True, id="success_carries"),
+        pytest.param(FrameOutcome.REVERT, False, id="revert_discards"),
+        pytest.param(FrameOutcome.HALT, False, id="halt_discards"),
     ],
 )
 def test_warmth_carry_to_next_frame(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    outcome: Outcome,
+    outcome: FrameOutcome,
     carries: bool,
 ) -> None:
     """
@@ -304,8 +304,8 @@ def test_warmth_carry_to_next_frame(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.default(
+            Frame.verify(),
+            Frame.default(
                 target=warmer,
                 code=warmer_code,
                 gas_limit=TOUCH_FRAME_GAS,
@@ -350,8 +350,8 @@ def test_payer_warm_after_default_code_payment_approval(
         sender=sender,
         payer=payer,
         frames=[
-            FrameCase.verify(flags=Spec.APPROVE_EXECUTION),
-            FrameCase.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
+            Frame.verify(flags=Spec.APPROVE_EXECUTION),
+            Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
             probe_frame(probe_address, probe),
         ],
         signatures=[sender, payer],
@@ -401,8 +401,8 @@ def test_origin_warmth_by_frame_mode(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase(
+            Frame.verify(),
+            Frame(
                 target=prober,
                 mode=mode,
                 code=code,
@@ -418,27 +418,37 @@ def test_origin_warmth_by_frame_mode(
     "child_outcome,frame_outcome,carries",
     [
         pytest.param(
-            Outcome.SUCCESS,
-            Outcome.SUCCESS,
+            FrameOutcome.SUCCESS,
+            FrameOutcome.SUCCESS,
             True,
             id="child_and_frame_succeed",
         ),
         pytest.param(
-            Outcome.REVERT, Outcome.SUCCESS, False, id="child_reverts"
+            FrameOutcome.REVERT,
+            FrameOutcome.SUCCESS,
+            False,
+            id="child_reverts",
         ),
-        pytest.param(Outcome.HALT, Outcome.SUCCESS, False, id="child_halts"),
         pytest.param(
-            Outcome.SUCCESS, Outcome.REVERT, False, id="frame_reverts"
+            FrameOutcome.HALT, FrameOutcome.SUCCESS, False, id="child_halts"
         ),
-        pytest.param(Outcome.SUCCESS, Outcome.HALT, False, id="frame_halts"),
+        pytest.param(
+            FrameOutcome.SUCCESS,
+            FrameOutcome.REVERT,
+            False,
+            id="frame_reverts",
+        ),
+        pytest.param(
+            FrameOutcome.SUCCESS, FrameOutcome.HALT, False, id="frame_halts"
+        ),
     ],
 )
 def test_warmth_from_inner_call(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    child_outcome: Outcome,
-    frame_outcome: Outcome,
+    child_outcome: FrameOutcome,
+    frame_outcome: FrameOutcome,
     carries: bool,
 ) -> None:
     """
@@ -466,8 +476,8 @@ def test_warmth_from_inner_call(
         fork=fork,
         sender=sender,
         frames=[
-            FrameCase.verify(),
-            FrameCase.default(
+            Frame.verify(),
+            Frame.default(
                 target=outer,
                 gas_limit=TOUCH_FRAME_GAS,
                 outcome=frame_outcome,
@@ -478,7 +488,7 @@ def test_warmth_from_inner_call(
                 # A halting child consumes all the gas forwarded to it,
                 # an amount the 63/64 retention rule sets rather than
                 # the code under test.
-                pin_gas=child_outcome is not Outcome.HALT,
+                pin_gas=child_outcome is not FrameOutcome.HALT,
             ),
             probe_frame(probe_address, probe),
         ],
