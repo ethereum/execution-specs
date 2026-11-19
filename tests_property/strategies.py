@@ -44,6 +44,8 @@ MAX_U256 = int(U256.MAX_VALUE)
 # Blob pricing is an exponential, which the spec computes term by term, so
 # excess blob gas stays far below the U64 limit to keep it fast.
 BLOB_GAS_BOUND = 1 << 30
+# EIP-150: a parent keeps one 64th of its gas when it makes a call.
+RETAINED_FRACTION = 64
 # Bounds on the gas a frame holds and on one charge against it.
 POOL_BOUND = 1 << 24
 AMOUNT_BOUND = 1 << 22

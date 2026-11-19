@@ -24,6 +24,7 @@ from .strategies import (
     BLOB_GAS_BOUND,
     MAX_U64,
     MAX_U256,
+    RETAINED_FRACTION,
     aim_at,
     amounts,
     framework_txs,
@@ -33,8 +34,6 @@ from .strategies import (
 )
 
 GAS_LIMIT_BOUND = 1 << 40
-# EIP-150: a parent keeps one 64th of its gas when it makes a call.
-RETAINED_FRACTION = 64
 
 with_blobs = requires(lambda fork: fork.supports_blobs())
 

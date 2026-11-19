@@ -567,6 +567,8 @@ def expected_list(
 
 
 @given(pre=pre_states(), block=blocks())
+# A slot set, left alone for an index and set again to the same value: only
+# the first index changed it.
 @example(
     pre={},
     block=[
@@ -575,8 +577,9 @@ def expected_list(
         [("write", ADDRESSES[0], (0, 0, b""), [(SLOTS[0], 1)])],
     ],
 )
-# Two transactions at one index, the second restoring the slot the first
-# changed: the index changed nothing, so the slot is only a read.
+# Two transactions at one index, the second restoring the balance, the code
+# and the slot the first changed: the index changed nothing, so it records
+# no change and the slot is only a read.
 @example(
     pre={
         bytes(ADDRESSES[0]): ModelAccount(
@@ -585,8 +588,8 @@ def expected_list(
     },
     block=[
         [
-            ("write", ADDRESSES[0], (1, 0, b""), [(SLOTS[0], 2)]),
-            ("write", ADDRESSES[0], (1, 0, b""), [(SLOTS[0], 1)]),
+            ("write", ADDRESSES[0], (2, 0, CODES[1]), [(SLOTS[0], 2)]),
+            ("write", ADDRESSES[0], (1, 0, CODES[0]), [(SLOTS[0], 1)]),
         ]
     ],
 )

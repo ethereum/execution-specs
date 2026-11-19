@@ -83,7 +83,9 @@ def test_minimum_gas_limit_boundary(
     minimum = minimum_gas_limit(fork, framework)
     # Calldata heavy enough for the EIP-7623 floor to set the minimum.
     aim_at(
-        fork.transaction_data_floor_cost_calculator()(data=framework.data),
+        fork.transaction_data_floor_cost_calculator()(
+            data=framework.data, access_list=framework.access_list
+        ),
         minimum,
         "calldata floor near the intrinsic cost",
     )

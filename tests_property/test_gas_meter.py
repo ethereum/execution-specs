@@ -37,7 +37,13 @@ from .gas_meter import (
     meter_fields,
     op_lists,
 )
-from .strategies import AMOUNT_BOUND, aim_at, amounts, pools
+from .strategies import (
+    AMOUNT_BOUND,
+    RETAINED_FRACTION,
+    aim_at,
+    amounts,
+    pools,
+)
 
 pytestmark = requires(lambda fork: fork.state_gas_reservoir_enabled())
 
@@ -145,7 +151,10 @@ def test_restore_child_gas_undoes_withhold_and_drain(
     reservoir: int,
     prefix: List[MeterOp],
 ) -> None:
-    """Handing back a child's unused grants restores the parent exactly."""
+    """
+    A creation hands its child all but a 64th of the parent's gas and the
+    whole reservoir, and handing both back restores the parent exactly.
+    """
     frame = fresh_frame(gas, gas_left, reservoir)
     apply_ops(gas, frame, prefix)
     meter = frame.gas_meter
@@ -153,6 +162,8 @@ def test_restore_child_gas_undoes_withhold_and_drain(
 
     child_gas = gas.withhold_create_gas(meter)
     child_reservoir = gas.drain_state_gas_reservoir(meter)
+    assert child_gas == before.gas_left - before.gas_left // RETAINED_FRACTION
+    assert child_reservoir == before.state_gas_left
     gas.restore_child_gas(meter, child_gas, child_reservoir)
 
     assert meter_fields(meter) == before

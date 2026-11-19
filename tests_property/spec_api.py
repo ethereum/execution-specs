@@ -201,6 +201,14 @@ def encode_transaction(transactions: ModuleType, tx: Any) -> bytes:
     return encoded if isinstance(encoded, bytes) else rlp.encode(encoded)
 
 
+def transaction_hash(transactions: ModuleType, tx: Any) -> bytes:
+    """Return a transaction's hash, the hash of its encoding."""
+    encode = getattr(transactions, "encode_transaction", None)
+    return transactions.get_transaction_hash(
+        tx if encode is None else encode(tx)
+    )
+
+
 def decode_transaction(transactions: ModuleType, encoded: bytes) -> Any:
     """Decode a transaction encoded by `encode_transaction`."""
     if not hasattr(transactions, "decode_transaction"):

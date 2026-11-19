@@ -23,6 +23,7 @@ from .spec_api import (
     decode_transaction,
     encode_transaction,
     spec_transaction,
+    transaction_hash,
     transaction_types,
     type_byte,
 )
@@ -70,12 +71,13 @@ def test_transaction_encoding_matches_the_framework(
 ) -> None:
     """
     Every transaction type encodes to the framework's encoding of the same
-    transaction, and decodes back to itself.
+    transaction, hashes to the framework's hash, and decodes back to itself.
     """
     framework = data.draw(framework_txs(fork, [tx_type]))
     aim_at(len(framework.data), LONG_STRING, "calldata near a long prefix")
     tx = spec_transaction(transactions, framework)
     assert encode_transaction(transactions, tx) == framework.rlp()
+    assert transaction_hash(transactions, tx) == framework.hash
     assert decode_transaction(transactions, framework.rlp()) == tx
 
 

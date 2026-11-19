@@ -471,3 +471,19 @@ def test_state_tracker_matches_model(
     run_state_machine_as_test(
         machine, settings=settings(stateful_step_count=40)
     )
+
+
+def test_rollback_restores_a_rewritten_slot(tracker: ModuleType) -> None:
+    """
+    A rollback restores a slot the transaction had already written before
+    the snapshot, a sequence the state machine reaches too rarely to rely
+    on.
+    """
+    address, key = ADDRESSES[0], KEYS[0]
+    tx = tracker.TransactionState(parent=tracker.BlockState(pre_state=State()))
+    tracker.set_account(tx, address, Account(Uint(1), U256(0), CODE_HASHES[0]))
+    tracker.set_storage(tx, address, key, U256(1))
+    snapshot = tracker.copy_tx_state(tx)
+    tracker.set_storage(tx, address, key, U256(2))
+    tracker.restore_tx_state(tx, snapshot)
+    assert tracker.get_storage(tx, address, key) == U256(1)
