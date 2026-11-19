@@ -114,11 +114,12 @@ Genesis and blocks rejected before execution print nothing. Clients MAY add keys
 | Client | Block tests | Engine tests | JSON results | Exit code when a fixture fails |
 |---|---|---|---|---|
 | go-ethereum | `evm blocktest` | `evm enginetest` | always | `1` |
-| Besu | `evmtool block-test` | `evmtool engine-test` | `--json-array` | `1` |
+| Besu | `evmtool block-test` | `evmtool engine-test --outcome-only` | `--json-array` | `1` |
 | Nethermind | `nethtest blocktest` | `nethtest enginetest` | always | `0`, which its CI relies on |
 | Erigon | `evm blocktest` | `evm enginetest` | `--jsonout` | `1` |
 | Reth | `ef-test-runner blocktest` | `ef-test-runner enginetest` | always | `1` |
 | ethrex | `blocktest` (package `ef_tests-runners`) | `enginetest` (package `ef_tests-runners`) | `--json` | `1` |
 
+- Besu's `engine-test` checks a rejected payload's error against the fixture's expected exception by default, with or without `--json-array`, and `--outcome-only` turns that check off. Nethermind's `enginetest` is the other way around: it checks the reason only under `--match-exceptions`.
 - Reth's block import has only a sequential executor, so its `blocktest` reports `sequential` with reason `block-import`.
 - Erigon's `--bal-withhold` delivers the list and sets the same switch as its `IGNORE_BAL` environment variable, so execution ignores the list.
