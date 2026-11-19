@@ -360,7 +360,11 @@ class Frame(FrameGeneric[HexNumber]):
 
     # What its target's entry access costs
     warm: bool = Field(False, exclude=True)
-    """Whether the resolved target is warm."""
+    """
+    Whether the resolved target is warm. Unless set explicitly,
+    `Transaction.expect_frame_receipts` sets it for a resolved target in
+    the warm set the transaction starts with: the sender or a precompile.
+    """
 
     delegated: bool = Field(False, exclude=True)
     """Whether the target carries an EIP-7702 designation."""
@@ -393,9 +397,6 @@ class Frame(FrameGeneric[HexNumber]):
         """Return a `SENDER` frame executing as the transaction sender."""
         mode = overrides.setdefault("mode", FrameMode.SENDER)
         assert mode == FrameMode.SENDER, f"not a SENDER frame: mode {mode}"
-        # An empty target resolves to the sender, which frames start warm
-        # with.
-        overrides.setdefault("warm", overrides.get("target") is None)
         return cls(**overrides)
 
     @classmethod
@@ -406,9 +407,6 @@ class Frame(FrameGeneric[HexNumber]):
         overrides.setdefault(
             "flags", FrameFlag.APPROVE_EXECUTION | FrameFlag.APPROVE_PAYMENT
         )
-        # An empty target resolves to the sender, which frames start warm
-        # with.
-        overrides.setdefault("warm", overrides.get("target") is None)
         return cls(**overrides)
 
     @classmethod
@@ -1142,7 +1140,9 @@ class Transaction(
     ) -> Self:
         """
         Settle the budgets the frames declare as deltas on their cost, and
-        expect the receipt the frames' outcomes follow from.
+        expect the receipt the frames' outcomes follow from. A frame whose
+        `warm` is unset is warm when its resolved target is the sender or a
+        precompile.
 
         The receipt names `payer`, the sender by default, and pins the
         gas the payer is charged, after `refund`. `settle=False` leaves
@@ -1155,6 +1155,24 @@ class Transaction(
         assert self.expected_receipt is None, (
             "the receipt follows from the frames, so it is never given"
         )
+        # The transaction starts with the sender and the precompiles warm,
+        # and they stay warm: a frame's revert only restores the warmth the
+        # frame started with. Other warm targets, such as the coinbase or
+        # an address an earlier frame touched, are set explicitly.
+        initially_warm = {Address(a) for a in fork.precompiles()}
+        if self.sender is not None:
+            initially_warm.add(Address(self.sender))
+        for frame in self.frames:
+            if "warm" in frame.model_fields_set:
+                continue
+            resolved_target = (
+                frame.target if frame.target is not None else self.sender
+            )
+            if (
+                resolved_target is not None
+                and Address(resolved_target) in initially_warm
+            ):
+                frame.warm = True
         for frame in self.frames:
             frame.settle_budgets(fork)
         self._drop_cached_properties()
