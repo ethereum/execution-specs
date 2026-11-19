@@ -683,6 +683,17 @@ class Transaction(
             assert self.sender is not None, (
                 "frame transactions require an explicit sender"
             )
+            if self.signatures is None:
+                # A sender holding a key signs the canonical signature
+                # hash, as consumed by the default code; the entry stays
+                # unsigned until the transaction is signed. Contract
+                # senders authorize via their code; no protocol-validated
+                # signature is required.
+                self.signatures = (
+                    [FrameSignature(signer=self.sender)]
+                    if self.sender.key is not None
+                    else []
+                )
         elif "v" not in self.model_fields_set and self.secret_key is None:
             if self.sender is not None:
                 self.secret_key = self.sender.key
@@ -837,23 +848,12 @@ class Transaction(
         Fill in the raw signature bytes of the frame transaction's
         signature entries.
 
-        A missing signature list defaults to a single secp256k1 entry
-        from the sender over the canonical signature hash. Entries with
-        an explicit 32-byte `msg` were signed when built, so their raw
-        bytes are in place before the canonical hash commits to them.
+        Entries with an explicit 32-byte `msg` were signed when built, so
+        their raw bytes are in place before the canonical hash commits to
+        them.
         """
         assert self.frames is not None
-        if self.signatures is None:
-            assert self.sender is not None
-            if getattr(self.sender, "key", None) is not None:
-                # EOA sender: default to a single secp256k1 entry over
-                # the canonical signature hash, as consumed by the
-                # default code.
-                self.signatures = [FrameSignature(signer=self.sender)]
-            else:
-                # Contract senders authorize via their code; no
-                # protocol-validated signature is required.
-                self.signatures = []
+        assert self.signatures is not None
 
         # Explicit-digest entries are already signed, as they are built.
         # The canonical signature hash commits to the length of each
