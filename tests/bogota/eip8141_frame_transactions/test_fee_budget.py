@@ -14,10 +14,8 @@ from typing import List
 
 import pytest
 from execution_testing import (
-    SECP256K1_SIGNATURE_LENGTH,
     Account,
     Alloc,
-    Bytes,
     Environment,
     Fork,
     FrameSignature,
@@ -278,10 +276,7 @@ def test_tip_settlement(
     }[budget]
     escrow = required_max_fee + min(full_tip, max_fee - required_max_fee)
 
-    signature = FrameSignature(
-        signer=sender,
-        signature=Bytes(bytes(SECP256K1_SIGNATURE_LENGTH)),
-    )
+    signature = FrameSignature(signer=sender)
     execution_gas = (
         fork.frame_transaction_intrinsic_cost_calculator()(
             frames=frames,

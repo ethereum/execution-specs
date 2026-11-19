@@ -313,16 +313,22 @@ class FrameSignatureGeneric(
         "signature",
     ]
 
+    @property
+    def signature_length(self) -> int:
+        """Return the length of the raw signature bytes."""
+        return len(self.signature)
+
 
 class FrameSignature(FrameSignatureGeneric[HexNumber]):
     """
     Signature entry within an EIP-8141 frame transaction (test authoring).
 
     When the entry has a `signed_by` signer and no `signature` bytes, the
-    raw `signature` bytes are filled in automatically when the transaction
-    is signed: entries with an explicit 32-byte `msg` sign that digest,
+    raw `signature` bytes are filled in automatically: entries with an
+    explicit 32-byte `msg` sign that digest as soon as they are built,
     while entries with an empty `msg` sign the canonical transaction
-    signature hash.
+    signature hash when the transaction is signed. Until then, the
+    `signature_length` of an unsigned entry is its signer's.
 
     `signer` also accepts a `Signer`, which becomes `signed_by`, while the
     `signer` field keeps the bytes written in the entry: `bytes(signer)`,
@@ -351,6 +357,30 @@ class FrameSignature(FrameSignatureGeneric[HexNumber]):
         else:
             data["signer"] = Bytes(bytes(signer))
         return data
+
+    @model_validator(mode="after")
+    def sign_explicit_digest(self) -> Self:
+        """
+        Sign an explicit 32-byte `msg` right away, since its signature does
+        not depend on the transaction and is priced by its content.
+        """
+        if (
+            self.signed_by is not None
+            and len(self.msg) == 32
+            and len(self.signature) == 0
+        ):
+            self.signed_over(Hash(self.msg), self.signed_by)
+        return self
+
+    @property
+    def signature_length(self) -> int:
+        """
+        Return the length of the raw signature bytes, or of the bytes its
+        signer will produce while the entry is unsigned.
+        """
+        if len(self.signature) == 0 and self.signed_by is not None:
+            return self.signed_by.signature_length
+        return len(self.signature)
 
     def signed_over(self, digest: Hash, signer: Signer) -> None:
         """Fill the raw signature bytes by signing `digest` with `signer`."""
@@ -809,8 +839,8 @@ class Transaction(
 
         A missing signature list defaults to a single secp256k1 entry
         from the sender over the canonical signature hash. Entries with
-        an explicit 32-byte `msg` are signed first since their raw bytes
-        are committed to by the canonical hash.
+        an explicit 32-byte `msg` were signed when built, so their raw
+        bytes are in place before the canonical hash commits to them.
         """
         assert self.frames is not None
         if self.signatures is None:
@@ -825,28 +855,15 @@ class Transaction(
                 # protocol-validated signature is required.
                 self.signatures = []
 
-        def resolve_signer(sig: FrameSignature) -> Signer | None:
-            if len(sig.signature) > 0:
-                return None
-            return sig.signed_by
-
-        # Explicit-digest entries first: their raw bytes are part of the
-        # canonical signature hash signed by empty-msg entries.
-        for sig in self.signatures:
-            if len(sig.msg) != 32:
-                continue
-            signer = resolve_signer(sig)
-            if signer is not None:
-                sig.signed_over(Hash(sig.msg), signer)
-
+        # Explicit-digest entries are already signed, as they are built.
         # The canonical signature hash commits to the length of each
         # empty-msg entry's raw bytes, so reserve the signature's length
         # before hashing.
         empty_msg_entries = []
         for sig in self.signatures:
-            if len(sig.msg) != 0:
+            if len(sig.msg) != 0 or len(sig.signature) != 0:
                 continue
-            signer = resolve_signer(sig)
+            signer = sig.signed_by
             if signer is not None:
                 sig.signature = Bytes(bytes(signer.signature_length))
                 empty_msg_entries.append((sig, signer))
