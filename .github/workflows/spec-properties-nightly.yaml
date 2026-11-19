@@ -1,0 +1,18 @@
+name: Spec Properties (nightly)
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  test-spec-properties:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-uv
+      # Every test, the spec unit tests included, with a randomized search.
+      - name: Run test-spec-properties
+        run: just test-spec-properties --hypothesis-profile=dev
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
