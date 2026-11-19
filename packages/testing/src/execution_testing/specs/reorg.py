@@ -285,6 +285,7 @@ class ReorgTest(BlockchainTest):
                 self.run_block_verifications(
                     result=built.result,
                     block_number=int(built.header.number),
+                    alloc=built.alloc,
                 )
             payload = built.get_fixture_engine_new_payload()
             fixture_blocks[block.label] = FixtureReorgBlock(
