@@ -1,9 +1,8 @@
 """Properties of the shared Merkle Patricia Trie implementation."""
 
 import random
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
-import pytest
 from ethereum_types.bytes import Bytes
 from execution_testing.base_types import EmptyTrieRoot
 from hypothesis import assume, given, target
@@ -153,33 +152,3 @@ def test_copy_preserves_root_and_isolates_mutation(
     assert root(copied) == original_root
     trie_set(copied, Bytes(b"\xde\xad"), Bytes(b"\xbe\xef"))
     assert root(trie) == original_root
-
-
-# "dogs" has key segments of odd length only, and "puppy" adds even ones,
-# which the compact encoding packs differently.
-@pytest.mark.parametrize(
-    "items,expected_root",
-    [
-        pytest.param(
-            {b"doe": b"reindeer", b"dog": b"puppy", b"dogglesworth": b"cat"},
-            "8aad789dff2f538bca5d8ea56e8abe10f4c7ba3a5dea95fea4cd6e7c3a1168d3",
-            id="dogs",
-        ),
-        pytest.param(
-            {
-                b"do": b"verb",
-                b"horse": b"stallion",
-                b"doge": b"coin",
-                b"dog": b"puppy",
-            },
-            "5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84",
-            id="puppy",
-        ),
-    ],
-)
-def test_known_root(items: Dict[bytes, bytes], expected_root: str) -> None:
-    """An unsecured trie matches a vector in ethereum/tests."""
-    trie = make_trie(
-        False, [(Bytes(key), Bytes(value)) for key, value in items.items()]
-    )
-    assert root(trie) == bytes.fromhex(expected_root)

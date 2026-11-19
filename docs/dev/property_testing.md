@@ -24,7 +24,7 @@ Pull requests run the suite at the `ci` profile without the tests marked `spec_u
 
 ## Forks
 
-Every test that uses the `fork` fixture runs once per fork of the testing framework (`execution_testing.forks`) that has a spec package, so a new fork is tested without edits. The spec module fixtures (`gas`, `transactions`, `blocks`, `tracker`, `bal`, ...) depend on `fork` and load that fork's package. Test ids carry the fork name, so `-k Osaka` runs one fork. The only forks left out are blob-parameter-only forks not yet scheduled, whose framework schedule is for testing only; `test_forks.py` fails if any other spec package goes untested.
+Every test that uses the `fork` fixture runs once per fork of the testing framework (`execution_testing.forks`) that has a spec package, so a new fork is tested without edits. The spec module fixtures (`gas`, `transactions`, `blocks`, `tracker`, `bal`, ...) depend on `fork` and load that fork's package. Test ids carry the fork name, so `-k Osaka` runs one fork. The forks left out are blob-parameter-only forks not yet scheduled, whose framework schedule is for testing only, the blob schedule scenario forks, which reuse their parent's spec package, and Constantinople, which the spec folds into its fix; `test_forks.py` fails if any other spec package goes untested.
 
 A test that needs a feature states it with `requires` from `tests_property/forks.py`, asking the framework rather than naming forks. A condition that no fork meets fails collection:
 

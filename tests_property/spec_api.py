@@ -20,11 +20,13 @@ from typing import (
 )
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes0
-from ethereum_types.numeric import FixedUnsigned, Uint
+from ethereum_types.bytes import Bytes, Bytes0
+from ethereum_types.numeric import U256, FixedUnsigned, Uint
 from execution_testing import Transaction, TransactionType
 
-from ethereum.state import Address
+from ethereum.crypto.hash import keccak256
+from ethereum.state import EMPTY_CODE_HASH, Account, Address
+from ethereum.state_mpt import State
 
 # The spec's class for each EIP-2718 transaction type. Forks before typed
 # transactions name their only class `Transaction`.
@@ -78,6 +80,40 @@ def zeroed(cls: Any, **overrides: Any) -> Any:
         for f in dataclasses.fields(cls)
     }
     return cls(**fields)
+
+
+def block_state_with(
+    tracker: ModuleType,
+    address: bytes,
+    *,
+    nonce: int,
+    balance: int,
+    code: bytes = b"",
+) -> Any:
+    """
+    Return a block's state over an empty pre-state, holding one account as
+    an earlier transaction of the block left it.
+    """
+    block_state = tracker.BlockState(pre_state=State())
+    add_account(block_state, address, nonce=nonce, balance=balance, code=code)
+    return block_state
+
+
+def add_account(
+    block_state: Any,
+    address: bytes,
+    *,
+    nonce: int,
+    balance: int,
+    code: bytes = b"",
+) -> None:
+    """Write an account and its code into a block's state."""
+    code_hash = keccak256(code) if code else EMPTY_CODE_HASH
+    block_state.account_writes[Address(address)] = Account(
+        nonce=Uint(nonce), balance=U256(balance), code_hash=code_hash
+    )
+    if code:
+        block_state.code_writes[code_hash] = Bytes(code)
 
 
 def transaction_types(transactions: ModuleType) -> Tuple[type, ...]:

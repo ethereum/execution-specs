@@ -18,20 +18,20 @@ from hypothesis import strategies as st
 from ethereum_spec_tools.forks import Hardfork
 
 from .forks import requires
-from .gas_meter import AMOUNT_BOUND, amounts, pools
 from .spec_api import spec_transaction, zeroed
 from .strategies import (
+    AMOUNT_BOUND,
+    BLOB_GAS_BOUND,
     MAX_U64,
     MAX_U256,
     aim_at,
+    amounts,
     framework_txs,
     ints,
+    pools,
     uints,
 )
 
-# Blob pricing is an exponential, which the spec computes term by term, so
-# excess blob gas stays far below the U64 limit to keep it fast.
-BLOB_GAS_BOUND = 1 << 30
 GAS_LIMIT_BOUND = 1 << 40
 # EIP-150: a parent keeps one 64th of its gas when it makes a call.
 RETAINED_FRACTION = 64

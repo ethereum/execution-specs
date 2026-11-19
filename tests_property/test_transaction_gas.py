@@ -246,12 +246,10 @@ def test_evm_gas_splits_at_the_cap(
     empty exactly when the gas limit fits the cap.
     """
     cap = fork.transaction_gas_limit_cap()
-    assert cap is not None
+    total_cap = fork.transaction_total_gas_limit_cap()
+    assert cap is not None and total_cap is not None
     tx_gas = data.draw(
-        st.one_of(
-            st.sampled_from([cap - 1, cap, cap + 1]),
-            ints(fork.transaction_total_gas_limit_cap() or 2 * cap),
-        )
+        st.one_of(st.sampled_from([cap - 1, cap, cap + 1]), ints(total_cap))
     )
     intrinsic = data.draw(ints(min(tx_gas, cap)))
     cost = spec.module("transactions").IntrinsicGasCost(
@@ -284,7 +282,9 @@ def test_settlement_refunds_and_floors(
     model follows EIP-8037's "Transaction gas used" and "Block-level gas
     accounting" sections.
     """
-    tx_gas = data.draw(ints(fork.transaction_total_gas_limit_cap() or 2**32))
+    total_cap = fork.transaction_total_gas_limit_cap()
+    assert total_cap is not None
+    tx_gas = data.draw(ints(total_cap))
     returned = data.draw(ints(tx_gas))
     reservoir_left = data.draw(ints(tx_gas - returned))
     used = tx_gas - returned - reservoir_left

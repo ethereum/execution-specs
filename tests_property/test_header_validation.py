@@ -16,8 +16,9 @@ import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
+from execution_testing.base_types import EmptyOmmersRoot
 from execution_testing.forks import Fork
-from hypothesis import assume, given, settings
+from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from ethereum.crypto.hash import keccak256
@@ -26,7 +27,7 @@ from ethereum_spec_tools.forks import Hardfork
 
 from .forks import requires
 from .spec_api import validate_header, zeroed
-from .strategies import MAX_U64, ints
+from .strategies import BLOB_GAS_BOUND, MAX_U64, ints
 
 # Proof of work headers carry checks of their own (EIP-3675).
 pytestmark = requires(lambda fork: fork.header_zero_difficulty_required())
@@ -40,8 +41,7 @@ GAS_LIMIT_MINIMUM = 5000
 # Yellow Paper: extra data holds at most 32 bytes.
 MAX_EXTRA_DATA = 32
 # EIP-3675: a proof of stake header has no ommers.
-EMPTY_OMMERS_HASH = keccak256(rlp.encode([]))
-BLOB_GAS_BOUND = 1 << 30
+EMPTY_OMMERS_HASH = Bytes32(EmptyOmmersRoot)
 
 
 def header(blocks: ModuleType, **values: Any) -> Any:
@@ -123,24 +123,22 @@ def families(draw: st.DrawFn, fork: Fork, blocks: ModuleType) -> Family:
     return Family(parent, child)
 
 
-def with_child_gas_limit(family: Family, gas_limit: int) -> Family:
-    """Return the family with the child's gas limit, and no gas used."""
-    child = replace(family.child, gas_limit=Uint(gas_limit), gas_used=Uint(0))
-    return Family(family.parent, child)
+def with_gas_limit(family: Family, gas_limit: int) -> Any:
+    """Return the child with `gas_limit`, and no gas used."""
+    return replace(family.child, gas_limit=Uint(gas_limit), gas_used=Uint(0))
 
 
-def change_child(**values: Any) -> Callable[[Family], Family]:
-    """Return a case that sets `values` on the child."""
-    return lambda family: Family(
-        family.parent, replace(family.child, **values)
-    )
+def with_values(**values: Any) -> Callable[[Family], Any]:
+    """Return a change that sets `values` on the child."""
+    return lambda family: replace(family.child, **values)
 
 
 @dataclass(frozen=True)
 class Case:
     """One change from the valid child, and whether the child stays valid."""
 
-    change: Callable[[Family], Family]
+    change: Callable[[Family], Any]
+    """Return the changed child."""
     valid: bool
     applies: Callable[[Family], bool] = lambda _: True
     """Whether the change can be made to this family at all."""
@@ -148,131 +146,95 @@ class Case:
 
 CASES: Dict[str, Case] = {
     "number_skips_one": Case(
-        lambda f: Family(
-            f.parent, replace(f.child, number=f.parent.number + Uint(2))
-        ),
+        lambda f: replace(f.child, number=f.parent.number + Uint(2)),
         valid=False,
     ),
-    "number_zero": Case(change_child(number=Uint(0)), valid=False),
+    "number_zero": Case(with_values(number=Uint(0)), valid=False),
     "timestamp_one_after_the_parent": Case(
-        lambda f: Family(
-            f.parent,
-            replace(f.child, timestamp=f.parent.timestamp + U256(1)),
-        ),
+        lambda f: replace(f.child, timestamp=f.parent.timestamp + U256(1)),
         valid=True,
     ),
     "timestamp_equal_to_the_parent": Case(
-        lambda f: Family(
-            f.parent, replace(f.child, timestamp=f.parent.timestamp)
-        ),
+        lambda f: replace(f.child, timestamp=f.parent.timestamp),
         valid=False,
     ),
     "gas_used_at_the_gas_limit": Case(
-        lambda f: Family(
-            f.parent, replace(f.child, gas_used=f.child.gas_limit)
-        ),
-        valid=True,
+        lambda f: replace(f.child, gas_used=f.child.gas_limit), valid=True
     ),
     "gas_used_past_the_gas_limit": Case(
-        lambda f: Family(
-            f.parent,
-            replace(f.child, gas_used=f.child.gas_limit + Uint(1)),
-        ),
+        lambda f: replace(f.child, gas_used=f.child.gas_limit + Uint(1)),
         valid=False,
     ),
     "gas_limit_at_the_highest_step": Case(
-        lambda f: with_child_gas_limit(
+        lambda f: with_gas_limit(
             f, gas_limit_range(int(f.parent.gas_limit))[-1]
         ),
         valid=True,
     ),
     "gas_limit_past_the_highest_step": Case(
-        lambda f: with_child_gas_limit(
+        lambda f: with_gas_limit(
             f, gas_limit_range(int(f.parent.gas_limit))[-1] + 1
         ),
         valid=False,
     ),
     "gas_limit_at_the_lowest_step": Case(
-        lambda f: with_child_gas_limit(
+        lambda f: with_gas_limit(
             f, gas_limit_range(int(f.parent.gas_limit))[0]
         ),
         valid=True,
     ),
     "gas_limit_past_the_lowest_step": Case(
-        lambda f: with_child_gas_limit(
+        lambda f: with_gas_limit(
             f, gas_limit_range(int(f.parent.gas_limit))[0] - 1
         ),
         valid=False,
     ),
     "gas_limit_below_the_minimum": Case(
-        lambda f: with_child_gas_limit(f, GAS_LIMIT_MINIMUM - 1),
+        lambda f: with_gas_limit(f, GAS_LIMIT_MINIMUM - 1),
         valid=False,
         applies=lambda f: int(f.parent.gas_limit) == GAS_LIMIT_MINIMUM,
     ),
     "base_fee_one_too_high": Case(
-        lambda f: Family(
-            f.parent,
-            replace(
-                f.child, base_fee_per_gas=f.child.base_fee_per_gas + Uint(1)
-            ),
+        lambda f: replace(
+            f.child, base_fee_per_gas=f.child.base_fee_per_gas + Uint(1)
         ),
         valid=False,
     ),
     "base_fee_one_too_low": Case(
-        lambda f: Family(
-            f.parent,
-            replace(
-                f.child, base_fee_per_gas=f.child.base_fee_per_gas - Uint(1)
-            ),
+        lambda f: replace(
+            f.child, base_fee_per_gas=f.child.base_fee_per_gas - Uint(1)
         ),
         valid=False,
         applies=lambda f: int(f.child.base_fee_per_gas) > 0,
     ),
     "extra_data_at_its_limit": Case(
-        change_child(extra_data=Bytes(b"\x01" * MAX_EXTRA_DATA)), valid=True
+        with_values(extra_data=Bytes(b"\x01" * MAX_EXTRA_DATA)), valid=True
     ),
     "extra_data_one_byte_too_long": Case(
-        change_child(extra_data=Bytes(b"\x01" * (MAX_EXTRA_DATA + 1))),
+        with_values(extra_data=Bytes(b"\x01" * (MAX_EXTRA_DATA + 1))),
         valid=False,
     ),
-    "difficulty_not_zero": Case(change_child(difficulty=Uint(1)), valid=False),
+    "difficulty_not_zero": Case(with_values(difficulty=Uint(1)), valid=False),
     "nonce_not_zero": Case(
-        change_child(nonce=Bytes8(b"\x00" * 7 + b"\x01")), valid=False
+        with_values(nonce=Bytes8(b"\x00" * 7 + b"\x01")), valid=False
     ),
     "ommers_hash_not_empty": Case(
-        change_child(ommers_hash=Bytes32(b"\x01" * 32)), valid=False
+        with_values(ommers_hash=Bytes32(b"\x01" * 32)), valid=False
     ),
     "parent_hash_of_another_header": Case(
-        change_child(parent_hash=Bytes32(b"\x01" * 32)), valid=False
+        with_values(parent_hash=Bytes32(b"\x01" * 32)), valid=False
     ),
 }
-# These rules do not depend on the drawn parent beyond the child being
-# valid, so a few families cover them.
-FIXED_CASES = {
-    "number_skips_one",
-    "number_zero",
-    "timestamp_one_after_the_parent",
-    "timestamp_equal_to_the_parent",
-    "extra_data_at_its_limit",
-    "extra_data_one_byte_too_long",
-    "difficulty_not_zero",
-    "nonce_not_zero",
-    "ommers_hash_not_empty",
-    "parent_hash_of_another_header",
-}
-FIXED_CASE_FAMILIES = 5
 BLOB_CASES: Dict[str, Case] = {
     "excess_blob_gas_one_too_high": Case(
-        lambda f: Family(
-            f.parent,
-            replace(f.child, excess_blob_gas=f.child.excess_blob_gas + U64(1)),
+        lambda f: replace(
+            f.child, excess_blob_gas=f.child.excess_blob_gas + U64(1)
         ),
         valid=False,
     ),
     "excess_blob_gas_one_too_low": Case(
-        lambda f: Family(
-            f.parent,
-            replace(f.child, excess_blob_gas=f.child.excess_blob_gas - U64(1)),
+        lambda f: replace(
+            f.child, excess_blob_gas=f.child.excess_blob_gas - U64(1)
         ),
         valid=False,
         applies=lambda f: int(f.child.excess_blob_gas) > 0,
@@ -280,7 +242,7 @@ BLOB_CASES: Dict[str, Case] = {
 }
 
 
-@pytest.mark.parametrize("case_name", sorted(CASES.keys() - FIXED_CASES))
+@pytest.mark.parametrize("case_name", sorted(CASES))
 @given(data=st.data())
 def test_header_rule_boundary(
     spec: Hardfork,
@@ -293,20 +255,6 @@ def test_header_rule_boundary(
     A child built from the framework's calculators is valid, and the
     case's change either keeps it valid or makes the spec reject it.
     """
-    check_case(spec, data.draw(families(fork, blocks)), CASES[case_name])
-
-
-@pytest.mark.parametrize("case_name", sorted(FIXED_CASES))
-@settings(max_examples=FIXED_CASE_FAMILIES)
-@given(data=st.data())
-def test_fixed_header_rule(
-    spec: Hardfork,
-    fork: Fork,
-    blocks: ModuleType,
-    case_name: str,
-    data: st.DataObject,
-) -> None:
-    """The same, for a rule that ignores the drawn values."""
     check_case(spec, data.draw(families(fork, blocks)), CASES[case_name])
 
 
@@ -331,9 +279,9 @@ def check_case(spec: Hardfork, family: Family, case: Case) -> None:
     validate_header(fork_module, family.parent, family.child)
 
     assume(case.applies(family))
-    changed = case.change(family)
+    child = case.change(family)
     if case.valid:
-        validate_header(fork_module, changed.parent, changed.child)
+        validate_header(fork_module, family.parent, child)
     else:
         with pytest.raises(InvalidBlock):
-            validate_header(fork_module, changed.parent, changed.child)
+            validate_header(fork_module, family.parent, child)

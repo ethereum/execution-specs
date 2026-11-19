@@ -10,11 +10,11 @@ still allows.
 """
 
 from dataclasses import dataclass, replace
-from typing import Any, Callable, Dict, Sequence
+from typing import Any, Callable, Dict, Sequence, Tuple
 
 import pytest
-from ethereum_types.bytes import Bytes, Bytes0
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.bytes import Bytes0
+from ethereum_types.numeric import U64, Uint
 from execution_testing import Hash, Transaction, TransactionType
 from execution_testing.forks import Fork
 from execution_testing.test_types.balance_expectations import (
@@ -24,14 +24,14 @@ from hypothesis import assume, given
 from hypothesis import strategies as st
 
 import ethereum.exceptions
-from ethereum.crypto.hash import keccak256
-from ethereum.state import EMPTY_CODE_HASH, Account, Address
-from ethereum.state_mpt import State
 from ethereum_spec_tools.forks import Hardfork
 
 from .forks import requires
-from .spec_api import spec_transaction, zeroed
+from .spec_api import block_state_with, spec_transaction, zeroed
 from .strategies import (
+    BLOB_GAS_BOUND,
+    CONTRACT_CODE,
+    DELEGATION_PREFIX,
     MAX_U64,
     MAX_U256,
     VERSIONED_HASH,
@@ -46,12 +46,6 @@ from .strategies import (
 # EIP-7928, together with the checks gathered into one admission function.
 pytestmark = requires(lambda fork: fork.header_bal_hash_required())
 
-# EIP-7702: code that delegates the account to `address`.
-DELEGATION_PREFIX = b"\xef\x01\x00"
-# Any other code makes the sender a contract (EIP-3607).
-CONTRACT_CODE = b"\x60\x00"
-
-BLOB_GAS_BOUND = 1 << 30
 FEE_MARKET_TYPES = [
     TransactionType.BASE_FEE,
     TransactionType.BLOB_TRANSACTION,
@@ -107,32 +101,22 @@ def exact_fit(fork: Fork, tx: Transaction) -> Block:
     )
 
 
-def admit(
-    spec: Hardfork,
-    fork: Fork,
-    tx: Transaction,
-    block: Block,
-    change_spec_tx: Callable[[Any], Any] = lambda tx: tx,
-) -> Any:
-    """
-    Run the spec's admission check for `tx` in `block`, and return the
-    environment it builds for execution.
-    """
+def environment(
+    spec: Hardfork, fork: Fork, tx: Transaction, block: Block
+) -> Tuple[Any, Any]:
+    """Return the spec's environment and output so far for `block`."""
     vm = spec.module("vm")
     tracker = spec.module("state_tracker")
     bal = spec.module("block_access_lists")
-    transactions = spec.module("transactions")
 
-    block_state = tracker.BlockState(pre_state=State())
-    code_hash = keccak256(block.sender_code) if block.sender_code else None
     assert tx.sender is not None
-    block_state.account_writes[Address(tx.sender)] = Account(
-        nonce=Uint(block.sender_nonce),
-        balance=U256(block.sender_balance),
-        code_hash=code_hash or EMPTY_CODE_HASH,
+    block_state = block_state_with(
+        tracker,
+        tx.sender,
+        nonce=block.sender_nonce,
+        balance=block.sender_balance,
+        code=block.sender_code,
     )
-    if code_hash is not None:
-        block_state.code_writes[code_hash] = Bytes(block.sender_code)
 
     block_gas_limit = max(block.execution_gas_left, block.state_gas_left)
     max_blob_gas = fork.max_blobs_per_block() * fork.blob_gas_per_blob()
@@ -149,7 +133,22 @@ def admit(
         block_state_gas_used=Uint(block_gas_limit - block.state_gas_left),
         blob_gas_used=U64(max(max_blob_gas - block.blob_gas_left, 0)),
     )
-    spec_tx = change_spec_tx(spec_transaction(transactions, tx))
+    return block_env, block_output
+
+
+def admit(
+    spec: Hardfork,
+    fork: Fork,
+    tx: Transaction,
+    block: Block,
+    change_spec_tx: Callable[[Any], Any] = lambda tx: tx,
+) -> Any:
+    """
+    Run the spec's admission check for `tx` in `block`, and return the
+    environment it builds for execution.
+    """
+    block_env, block_output = environment(spec, fork, tx, block)
+    spec_tx = change_spec_tx(spec_transaction(spec.module("transactions"), tx))
     return spec.module("fork").check_transaction(
         block_env, block_output, spec_tx, Uint(0)
     )
@@ -163,6 +162,8 @@ class Case:
     """The transaction types the rule applies to."""
     rejected_with: str | None
     """The exception the spec raises, or None when it still admits."""
+    creates: bool = False
+    """Whether the change makes the transaction a contract creation."""
     tx: Callable[..., Dict[str, Any]] = lambda f, **_: f
     """
     Change the transaction's fields `f` before the block is fitted to it,
@@ -175,7 +176,6 @@ class Case:
 
 
 ALL_TYPES = list(TransactionType)
-CREATING_TYPES = [*GAS_PRICE_TYPES, TransactionType.BASE_FEE]
 CASES: Dict[str, Case] = {
     "nonce_below_the_account": Case(
         ALL_TYPES,
@@ -208,6 +208,7 @@ CASES: Dict[str, Case] = {
             b, sender_code=DELEGATION_PREFIX + b"\x01" * 20
         ),
     ),
+    # EIP-3607: a sender with code that is no delegation is a contract.
     "sender_is_a_contract": Case(
         ALL_TYPES,
         "InvalidSenderError",
@@ -271,8 +272,9 @@ CASES: Dict[str, Case] = {
         block=lambda b: replace(b, state_gas_left=b.state_gas_left - 1),
     ),
     "init_code_at_the_limit": Case(
-        CREATING_TYPES,
+        ALL_TYPES,
         None,
+        creates=True,
         tx=lambda f, fork: {
             **f,
             "to": None,
@@ -280,8 +282,9 @@ CASES: Dict[str, Case] = {
         },
     ),
     "init_code_one_too_large": Case(
-        CREATING_TYPES,
+        ALL_TYPES,
         "InitCodeTooLargeError",
+        creates=True,
         tx=lambda f, fork: {
             **f,
             "to": None,
@@ -348,12 +351,29 @@ def exception_named(spec: Hardfork, name: str) -> type:
     return getattr(ethereum.exceptions, name)
 
 
+@st.composite
+def priced_tx_fields(
+    draw: st.DrawFn, fork: Fork, types: Sequence[int] | None = None
+) -> Dict[str, Any]:
+    """Return the fields of a random transaction that pays for its gas."""
+    fields = draw(framework_tx_fields(fork, types=types))
+    # The framework's minimum balance reads a zero fee cap as unset.
+    for fee_cap in ("gas_price", "max_fee_per_gas", "max_fee_per_blob_gas"):
+        if fee_cap in fields:
+            fields[fee_cap] = max(fields[fee_cap], 1)
+    return fields
+
+
 def fitted(fork: Fork, fields: Dict[str, Any], spare_gas: int) -> Transaction:
     """
     Return the transaction with `fields`, signed, with `spare_gas` above the
-    least gas limit it needs.
+    least gas limit it needs, for an example whose gas limit a block can
+    hold.
     """
     minimum = minimum_gas_limit(fork, signed(fields))
+    total_cap = fork.transaction_total_gas_limit_cap()
+    assert total_cap is not None
+    assume(minimum + spare_gas <= total_cap)
     return signed({**fields, "gas_limit": minimum + spare_gas})
 
 
@@ -363,8 +383,7 @@ def spare_gas_near(fork: Fork) -> st.SearchStrategy[int]:
     put the limit on either side of the per-transaction execution cap.
     """
     cap = fork.transaction_gas_limit_cap()
-    if cap is None:
-        return ints(1 << 20)
+    assert cap is not None
     return st.one_of(
         ints(1 << 20), st.integers(cap - (1 << 20), cap + (1 << 20))
     )
@@ -401,17 +420,13 @@ def test_admission_rule_boundary(
     """
     case = CASES[case_name]
     spare_gas = data.draw(spare_gas_near(fork))
-    types = [ty for ty in case.types if ty in fork.tx_types()]
-    if not types:
-        pytest.skip(f"{fork.name()} has no transaction type to change")
-    fields = data.draw(framework_tx_fields(fork, types=types))
-    # The framework's minimum balance reads a zero fee cap as unset.
-    for fee_cap in ("gas_price", "max_fee_per_gas", "max_fee_per_blob_gas"):
-        if fee_cap in fields:
-            fields[fee_cap] = max(fields[fee_cap], 1)
+    allowed = fork.tx_types()
+    if case.creates:
+        allowed = fork.contract_creating_tx_types()
+    types = [ty for ty in case.types if ty in allowed]
+    fields = data.draw(priced_tx_fields(fork, types))
 
     exact = fitted(fork, fields, spare_gas)
-    assume(exact.gas_limit <= (fork.transaction_total_gas_limit_cap() or 0))
     block = exact_fit(fork, exact)
     # The balance field is 256 bits wide, so a transaction can cost more
     # than any sender holds.
@@ -432,3 +447,52 @@ def test_admission_rule_boundary(
     else:
         with pytest.raises(exception_named(spec, case.rejected_with)):
             admit(spec, fork, changed, changed_block, case.spec_tx)
+
+
+@given(data=st.data())
+def test_fees_follow_the_gas_used(
+    spec: Hardfork, fork: Fork, data: st.DataObject
+) -> None:
+    """
+    An admitted transaction's sender is charged for its whole gas limit and
+    its blobs up front. Once its gas is settled the sender has paid the
+    effective price for the gas used, the fee recipient holds the tip on
+    that gas, and the base fee and the blob fee are burned.
+    """
+    fields = data.draw(priced_tx_fields(fork))
+    tx = fitted(fork, fields, data.draw(spare_gas_near(fork)))
+    block = exact_fit(fork, tx)
+    assume(block.sender_balance <= MAX_U256)
+    block = replace(block, base_fee=data.draw(ints(block.base_fee)))
+    gas_used = data.draw(ints(int(tx.gas_limit)))
+
+    spec_fork = spec.module("fork")
+    tracker = spec.module("state_tracker")
+    block_env, block_output = environment(spec, fork, tx, block)
+    spec_tx = spec_transaction(spec.module("transactions"), tx)
+    tx_env = spec_fork.check_transaction(
+        block_env, block_output, spec_tx, Uint(0)
+    )
+    spec_fork.update_sender_state(block_env, tx_env, spec_tx)
+    price = effective_gas_price(tx, block.base_fee)
+    blob_fee = block.blob_gas_left * fork.blob_gas_price_calculator()(
+        excess_blob_gas=block.excess_blob_gas
+    )
+    sender = tracker.get_account(tx_env.state, tx_env.origin)
+    assert int(sender.nonce) == tx.nonce + 1
+    assert block.sender_balance - int(sender.balance) == (
+        tx.gas_limit * price + blob_fee
+    )
+
+    settlement = spec.module("vm.gas").TransactionGasSettlement(
+        gas_used=Uint(gas_used),
+        gas_left=Uint(tx.gas_limit - gas_used),
+        execution_gas_used=Uint(0),
+        state_gas_used=Uint(0),
+    )
+    spec_fork.disburse_gas_fees(block_env, tx_env, settlement, tx_env.origin)
+    sender = tracker.get_account(tx_env.state, tx_env.origin)
+    fee_recipient = tracker.get_account(tx_env.state, block_env.coinbase)
+    paid = block.sender_balance - int(sender.balance)
+    assert paid == gas_used * price + blob_fee
+    assert int(fee_recipient.balance) == gas_used * (price - block.base_fee)

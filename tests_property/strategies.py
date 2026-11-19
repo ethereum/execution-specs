@@ -28,14 +28,25 @@ from hypothesis import target
 
 from ethereum.state import Address
 
-# EIP-4844: a versioned hash starts with the KZG version byte.
 # SEC 2, section 2.4.1: the order of secp256k1's group, which bounds a
 # private key and a signature's `r` and `s`.
 SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+# EIP-4844: a versioned hash starts with the KZG version byte.
 VERSIONED_HASH = Hash(b"\x01" + b"\x00" * 31)
+# EIP-7702: code that delegates an account to `address` is
+# `0xef0100 || address`.
+DELEGATION_PREFIX = b"\xef\x01\x00"
+# Any other code makes an account a contract.
+CONTRACT_CODE = b"\x60\x00"
 
 MAX_U64 = int(U64.MAX_VALUE)
 MAX_U256 = int(U256.MAX_VALUE)
+# Blob pricing is an exponential, which the spec computes term by term, so
+# excess blob gas stays far below the U64 limit to keep it fast.
+BLOB_GAS_BOUND = 1 << 30
+# Bounds on the gas a frame holds and on one charge against it.
+POOL_BOUND = 1 << 24
+AMOUNT_BOUND = 1 << 22
 
 private_keys = st.integers(min_value=1, max_value=SECP256K1N - 1)
 
@@ -99,12 +110,33 @@ def bytes_data(
     ).map(Bytes)
 
 
+def pools() -> st.SearchStrategy[int]:
+    """Return gas pool sizes, weighted toward empty and small pools."""
+    # 63, 64 and 65 sit around the point where the 1/64 a parent keeps from
+    # a child's grant first becomes nonzero (EIP-150).
+    return st.one_of(
+        st.sampled_from(
+            [0, 1, 2, 63, 64, 65, AMOUNT_BOUND // 2, AMOUNT_BOUND]
+        ),
+        st.integers(min_value=0, max_value=AMOUNT_BOUND),
+        st.integers(min_value=0, max_value=POOL_BOUND),
+    )
+
+
+def amounts() -> st.SearchStrategy[int]:
+    """Return charge and refund amounts, weighted toward small values."""
+    return st.one_of(
+        st.sampled_from([0, 1, 2, AMOUNT_BOUND]),
+        st.integers(min_value=0, max_value=AMOUNT_BOUND),
+    )
+
+
 def framework_tx(ty: int, **fields: Any) -> Transaction:
     """
     Return a framework transaction of type `ty`, with one blob or one
     authorization where the type needs it, unless `fields` sets them.
     """
-    defaults: Dict[str, Any] = {"gas_limit": 21_000}
+    defaults: Dict[str, Any] = {}
     if ty == TransactionType.BLOB_TRANSACTION:
         defaults["blob_versioned_hashes"] = [VERSIONED_HASH]
     elif ty == TransactionType.SET_CODE:

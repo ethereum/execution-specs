@@ -11,22 +11,28 @@ from types import ModuleType
 from typing import Callable, Dict, Optional, Set, Tuple
 
 import pytest
-from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 from execution_testing import AuthorizationTuple
 from execution_testing.forks import Fork
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidSignatureError
-from ethereum.state import EMPTY_CODE_HASH, Account, Address
+from ethereum.state import Address
 from ethereum.state_mpt import State
 from ethereum_spec_tools.forks import Hardfork
 
 from .forks import requires
-from .spec_api import spec_authorization, validate_authorization, zeroed
+from .spec_api import (
+    add_account,
+    block_state_with,
+    spec_authorization,
+    validate_authorization,
+    zeroed,
+)
 from .strategies import (
+    CONTRACT_CODE,
+    DELEGATION_PREFIX,
     MAX_U64,
     MAX_U256,
     SIGNATURE_BREAKS,
@@ -38,10 +44,6 @@ from .strategies import (
 
 pytestmark = requires(lambda fork: fork.is_eip_enabled(7702))
 
-# EIP-7702: a delegation indicator is `0xef0100 || address`.
-DELEGATION_PREFIX = b"\xef\x01\x00"
-# Any other code makes the authority a contract, which EIP-7702 refuses.
-CONTRACT_CODE = b"\x60\x00"
 # Each rule flips at its bound, so the first values past it and the top of
 # the field are the offsets that matter.
 OFFSETS = st.sampled_from([0, 1, 2, 2**64, MAX_U256])
@@ -205,15 +207,13 @@ def check(
     )
     assert framework.signer is not None
 
-    block_state = tracker.BlockState(pre_state=State())
-    code_hash = keccak256(authority.code) if authority.code else None
-    block_state.account_writes[Address(framework.signer)] = Account(
-        nonce=Uint(authority.nonce),
-        balance=U256(0),
-        code_hash=code_hash or EMPTY_CODE_HASH,
+    block_state = block_state_with(
+        tracker,
+        framework.signer,
+        nonce=authority.nonce,
+        balance=0,
+        code=authority.code,
     )
-    if code_hash is not None:
-        block_state.code_writes[code_hash] = Bytes(authority.code)
     block_env = zeroed(
         vm.BlockEnvironment,
         state=block_state,
@@ -308,7 +308,6 @@ def test_set_delegation_applies_and_charges(
     vm = spec.module("vm")
     tracker = spec.module("state_tracker")
     gas = spec.module("vm.gas")
-    costs = fork.gas_costs()
     keys = data.draw(
         st.lists(private_keys, min_size=1, max_size=3, unique=True)
     )
@@ -336,46 +335,47 @@ def test_set_delegation_applies_and_charges(
             write_paid=data.draw(st.booleans()),
         )
         if start != "missing":
-            block_state.account_writes[signer] = Account(
-                nonce=Uint(nonce),
-                # EIP-7523: an account that exists is never empty.
-                balance=U256(1),
-                code_hash=keccak256(code) if code else EMPTY_CODE_HASH,
-            )
-            if code:
-                block_state.code_writes[keccak256(code)] = Bytes(code)
+            # EIP-7523: an account that exists is never empty.
+            add_account(block_state, signer, nonce=nonce, balance=1, code=code)
     paid = {signer for signer in signers if model[signer].write_paid}
 
-    execution_gas = state_gas = 0
     authorizations = []
     for _ in range(data.draw(st.integers(1, 4))):
         index = data.draw(st.integers(0, len(keys) - 1))
         account = model[signers[index]]
         target = data.draw(st.one_of(st.just(CLEARING_ADDRESS), addresses()))
         nonce = account.nonce + data.draw(st.sampled_from([0, 0, 1]))
-        authorizations.append(
-            AuthorizationTuple(
-                chain_id=0, address=target, nonce=nonce, secret_key=keys[index]
-            )
-        )
         refused = account.code and not account.code.startswith(
             DELEGATION_PREFIX
         )
-        if refused or nonce != account.nonce:
+        applies = not refused and nonce == account.nonce
+        sets = applies and target != CLEARING_ADDRESS
+        # What the framework prices an authorization by.
+        authorizations.append(
+            AuthorizationTuple(
+                chain_id=0,
+                address=target,
+                nonce=nonce,
+                secret_key=keys[index],
+                creates_account=applies and not account.exists,
+                first_write=applies and not account.write_paid,
+                writes_delegation=sets
+                and not account.delegated_before
+                and not account.delegation_set,
+            )
+        )
+        if not applies:
             continue
-        if not account.exists:
-            state_gas += costs.NEW_ACCOUNT
-        if not account.write_paid:
-            execution_gas += costs.ACCOUNT_WRITE
-        if target != CLEARING_ADDRESS:
-            if not account.delegated_before and not account.delegation_set:
-                state_gas += costs.AUTH_BASE
-            account.delegation_set = True
-            account.code = DELEGATION_PREFIX + target
-        else:
-            account.code = b""
+        account.delegation_set = account.delegation_set or sets
+        account.code = DELEGATION_PREFIX + target if sets else b""
         account.exists = account.write_paid = True
         account.nonce += 1
+    execution_gas = fork.transaction_top_frame_execution_gas(
+        authorizations=authorizations
+    )
+    state_gas = fork.transaction_top_frame_state_gas(
+        authorizations=authorizations
+    )
 
     reservoir = data.draw(ints(2 * state_gas))
     needed = execution_gas + max(0, state_gas - reservoir)

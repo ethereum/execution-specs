@@ -28,19 +28,16 @@ from ethereum_spec_tools.forks import Hardfork
 
 from .forks import requires
 from .gas_meter import (
-    AMOUNT_BOUND,
     CHARGES,
     CHARGES_AND_REFUNDS,
     MeterFields,
     MeterOp,
-    amounts,
     apply_ops,
     fresh_frame,
     meter_fields,
     op_lists,
-    pools,
 )
-from .strategies import aim_at
+from .strategies import AMOUNT_BOUND, aim_at, amounts, pools
 
 pytestmark = requires(lambda fork: fork.state_gas_reservoir_enabled())
 

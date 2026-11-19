@@ -40,8 +40,12 @@ from .strategies import (
 )
 
 TYPED = [ty for ty in TransactionType if ty != TransactionType.LEGACY]
-# EIP-155: a protected `v` is `35 + 2 * chain_id + parity`.
+# EIP-155: a protected `v` is `35 + 2 * chain_id + parity`, and an
+# unprotected one is `27 + parity`.
 FIRST_PROTECTED_V = 35
+FIRST_UNPROTECTED_V = 27
+# The values below the protected range that are no unprotected `v` either.
+UNUSED_V_VALUES = FIRST_PROTECTED_V - (FIRST_UNPROTECTED_V + 2)
 
 
 # The signature breaks shared with authorizations, and two that only a
@@ -49,7 +53,7 @@ FIRST_PROTECTED_V = 35
 BREAKS: Dict[str, Callable[..., Any]] = {
     **SIGNATURE_BREAKS,
     "v_below_the_protected_range": lambda tx, offset, **_: replace(
-        tx, v=U256(FIRST_PROTECTED_V - 1 - offset % (FIRST_PROTECTED_V - 29))
+        tx, v=U256(FIRST_PROTECTED_V - 1 - offset % UNUSED_V_VALUES)
     ),
     "chain_id_past_64_bits": lambda tx, offset, **_: replace(
         tx, v=past(FIRST_PROTECTED_V + 2 * 2**64, 2 * offset)
@@ -63,7 +67,7 @@ BREAK_TYPES: Dict[str, Sequence[int]] = {
 # Each rule flips at its bound and nothing changes past it, so the first
 # values past it and the top of the field are the offsets that matter. The
 # first six also walk `v` through every value below the protected range.
-OFFSETS = st.sampled_from([*range(FIRST_PROTECTED_V - 29), 2**64, MAX_U256])
+OFFSETS = st.sampled_from([*range(UNUSED_V_VALUES), 2**64, MAX_U256])
 
 
 def breakable(break_name: str) -> Any:
@@ -118,6 +122,8 @@ def signed_legacy_tx(key: int, data: Bytes, to: Address) -> Transaction:
         TransactionType.LEGACY,
         protected=False,
         secret_key=key,
+        # Signing needs a gas limit, and recovery does not read it.
+        gas_limit=0,
         data=data,
         to=to,
     ).with_signature_and_sender()
@@ -134,7 +140,8 @@ def test_high_s_signatures_are_rejected_from_eip_2(
     framework = signed_legacy_tx(key, data, to)
     tx = spec_transaction(transactions, framework)
     # Negating `s` and flipping the parity gives a second valid signature.
-    flipped = replace(tx, v=U256(55) - tx.v, s=U256(SECP256K1N) - tx.s)
+    other_parity = U256(2 * FIRST_UNPROTECTED_V + 1) - tx.v
+    flipped = replace(tx, v=other_parity, s=U256(SECP256K1N) - tx.s)
     if fork.is_eip_enabled(2):
         with pytest.raises(InvalidSignatureError):
             transactions.recover_sender(flipped)
@@ -155,8 +162,8 @@ def test_replay_protected_signing_matches_the_worked_example(
         to=b"\x35" * 20,
         value=10**18,
         v=37,
-        r=18515461264373351373200002665853028612451056578545711640558177340181847433846,
-        s=46948507304638947509940763649030358759909902576025900602547168820602576006531,
+        r=0x28EF61340BD939BC2195FE537567866003E1A15D3C71FF63E1590620AA636276,
+        s=0x67CBE9D8997F761AECB703304B3800CCF555C9F3DC64214B297FB1966A3B6D83,
     )
     tx = spec_transaction(transactions, example)
     assert transactions.signing_hash_155(tx, U64(1)) == bytes.fromhex(

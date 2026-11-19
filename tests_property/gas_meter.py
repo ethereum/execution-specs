@@ -6,8 +6,7 @@ from typing import Any, List, NamedTuple, Optional, Set, Tuple
 from ethereum_types.numeric import Uint
 from hypothesis import strategies as st
 
-POOL_BOUND = 1 << 24
-AMOUNT_BOUND = 1 << 22
+from .strategies import amounts
 
 MeterOp = Tuple[str, int]
 
@@ -61,27 +60,6 @@ def meter_fields(meter: Any) -> MeterFields:
         refund_counter=int(meter.refund_counter),
         state_gas_spilled=int(meter.state_gas_spilled),
         state_gas_committed_spill=int(meter.state_gas_committed_spill),
-    )
-
-
-def pools() -> st.SearchStrategy[int]:
-    """Return pool sizes, weighted toward empty and small pools."""
-    # 63, 64 and 65 sit around the point where the 1/64 a parent keeps from
-    # a child's grant first becomes nonzero.
-    return st.one_of(
-        st.sampled_from(
-            [0, 1, 2, 63, 64, 65, AMOUNT_BOUND // 2, AMOUNT_BOUND]
-        ),
-        st.integers(min_value=0, max_value=AMOUNT_BOUND),
-        st.integers(min_value=0, max_value=POOL_BOUND),
-    )
-
-
-def amounts() -> st.SearchStrategy[int]:
-    """Return charge and refund amounts, weighted toward small values."""
-    return st.one_of(
-        st.sampled_from([0, 1, 2, AMOUNT_BOUND]),
-        st.integers(min_value=0, max_value=AMOUNT_BOUND),
     )
 
 
