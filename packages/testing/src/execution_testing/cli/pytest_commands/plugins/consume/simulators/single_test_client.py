@@ -15,6 +15,7 @@ from hive.testing import HiveTest
 from execution_testing.base_types import Number, to_json
 from execution_testing.fixtures import BlockchainFixtureCommon
 from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.forks import Fork, TransitionFork
 
 from .helpers.ruleset import (
     ruleset,  # TODO: generate dynamically
@@ -37,24 +38,22 @@ def client_genesis(fixture: BlockchainFixtureCommon) -> dict:
     return genesis
 
 
-@pytest.fixture(scope="function")
-def environment(
-    fixture: BlockchainFixtureCommon,
+def client_environment(
+    fork: Fork | TransitionFork,
+    chain_id: int,
     check_live_port: Literal[8545, 8551],
 ) -> dict:
-    """Define the environment that hive will start the client with."""
-    assert fixture.fork in ruleset, (
-        f"fork '{fixture.fork}' missing in hive ruleset"
-    )
-    chain_id = str(Number(fixture.config.chain_id))
+    """Build the base HIVE_* environment shared by every simulator."""
+    assert fork in ruleset, f"fork '{fork}' missing in hive ruleset"
+    chain_id_str = str(Number(chain_id))
     return {
-        "HIVE_CHAIN_ID": chain_id,
+        "HIVE_CHAIN_ID": chain_id_str,
         # Use same value for P2P network compatibility
-        "HIVE_NETWORK_ID": chain_id,
+        "HIVE_NETWORK_ID": chain_id_str,
         "HIVE_FORK_DAO_VOTE": "1",
         "HIVE_NODETYPE": "full",
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
-        **{k: f"{v:d}" for k, v in ruleset[fixture.fork].items()},
+        **{k: f"{v:d}" for k, v in ruleset[fork].items()},
         # Tell client wrapper scripts that the client needs no KZG at start:
         # it only verifies KZG proofs, in the point-evaluation precompile,
         # and computes none (nothing sends it blob transactions with
@@ -63,6 +62,17 @@ def environment(
         # point-evaluation call may wait for the load.
         "HIVE_KZG_FAST_SETUP": "1",
     }
+
+
+@pytest.fixture(scope="function")
+def environment(
+    fixture: BlockchainFixtureCommon,
+    check_live_port: Literal[8545, 8551],
+) -> dict:
+    """Define the environment that hive will start the client with."""
+    return client_environment(
+        fixture.fork, fixture.config.chain_id, check_live_port
+    )
 
 
 @pytest.fixture(scope="function")

@@ -51,6 +51,9 @@ consume-rlp)
 consume-sync)
     exec uv run --no-sync consume sync -v --input "$FIXTURES" "$@"
     ;;
+consume-reorg)
+    exec uv run --no-sync consume reorg -v --input "$FIXTURES" "$@"
+    ;;
 execute-blobs)
     fork=${FORK:-${EEST_DEFAULT_FORK:-}}
     if [ -z "$fork" ]; then

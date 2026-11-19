@@ -4,7 +4,7 @@
 #
 #   packages/testing/docker/hive/build.sh <simulator> <base-ref> <registry> <release> <image-ref> [docker build args...]
 #
-#   <simulator>  consume-rlp | consume-engine | consume-enginex | consume-wirex | consume-sync | execute-blobs
+#   <simulator>  consume-rlp | consume-engine | consume-enginex | consume-wirex | consume-sync | consume-reorg | execute-blobs
 #   <base-ref>   the repository image, e.g. ghcr.io/ethereum/execution-specs:sha-abc1234
 #   <registry>   where the fixture and tests images live, e.g.
 #                ghcr.io/ethereum/execution-specs; "-" for local images without
@@ -44,6 +44,7 @@ consume-engine) format=blockchain_tests_engine ;;
 consume-enginex) format=blockchain_tests_engine_x ;;
 consume-wirex) format=blockchain_tests_engine_x ;;
 consume-sync) format=blockchain_tests_sync ;;
+consume-reorg) format=blockchain_tests_engine_reorg ;;
 execute-blobs) format="" ;;
 *)
     echo "error: unknown simulator '$simulator'" >&2

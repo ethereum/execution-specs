@@ -23,6 +23,7 @@ from execution_testing.fixtures.blockchain import (
     EngineNewPayloadParameters,
     FixtureEngineNewPayload,
     FixtureHeader,
+    PayloadAttributes,
 )
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc import (
@@ -35,7 +36,6 @@ from execution_testing.rpc import EthRPC as BaseEthRPC
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     GetPayloadResponse,
-    PayloadAttributes,
     PayloadStatusEnum,
     TransactionProtocol,
 )
