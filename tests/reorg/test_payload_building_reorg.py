@@ -246,41 +246,77 @@ def test_two_built_payloads_same_parent(
     reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
-@pytest.mark.valid_from("Shanghai")
-def test_pool_tx_reorged_out_of_built_payload(
-    reorg_test: ReorgTestFiller, pre: Alloc
-) -> None:
-    """
-    Remove and restore the receipt of a transaction in a built payload.
-
-    A pool transaction is included in a payload built on a1 (bound ``p``);
-    after FCU to ``p`` its receipt exists. Reorg to sibling b1 (which does
-    not contain it): no receipt. Reorg back to ``p``: receipt is back.
-    """
-    sender = pre.fund_eoa()
-    recipient = pre.fund_eoa(amount=0)
+def _pool_transfer(pre: Alloc) -> Transaction:
+    """A transfer from a fresh sender, for the client's pool."""
     # Tip above geth's default ``--miner.gasprice`` (1 gwei): the pool accepts
     # cheaper txs but the payload builder skips them.
-    tx = Transaction(
-        sender=sender,
+    return Transaction(
+        sender=pre.fund_eoa(),
         nonce=0,
-        to=recipient,
+        to=pre.fund_eoa(amount=0),
         value=7,
         gas_limit=21_000,
         gas_price=30 * 10**9,
     )
-    blocks = [
-        ReorgBlock(label="a1", txs=[]),
-        ReorgBlock(label="b1", parent="genesis", txs=[], extra_data=b"b"),
-        # Carrier block for the raw tx bytes (never sent as a payload).
-        ReorgBlock(
-            label="carrier", parent="genesis", txs=[tx], extra_data=b"c"
-        ),
-    ]
-    pool_tx = TxRef(block="carrier", index=0)
+
+
+@pytest.mark.valid_from("Shanghai")
+@pytest.mark.parametrize(
+    "scenario", ["reorg_out", "different_block", "new_payload_on_revert"]
+)
+def test_pool_tx_reorged_out_of_built_payload(
+    reorg_test: ReorgTestFiller, pre: Alloc, scenario: str
+) -> None:
+    """
+    Follow the receipt of a built payload's transaction across reorgs.
+
+    A pool transaction is included in a payload built on a1 (bound ``p``);
+    after FCU to ``p`` its receipt names ``p``. ``reorg_out``: the head
+    moves to b1, which does not contain it, and the receipt is gone.
+    ``different_block``: the head moves to q, a1's other child holding the
+    same transaction, and the receipt names q. ``new_payload_on_revert``
+    also re-sends ``p`` before the head returns to it. Back on ``p`` the
+    receipt names ``p``.
+    """
+    tx = _pool_transfer(pre)
+    moved = scenario != "reorg_out"
+    blocks = [ReorgBlock(label="a1", txs=[])]
+    setup: List[Step] = []
+    if moved:
+        blocks.append(
+            ReorgBlock(label="q", parent="a1", txs=[tx], extra_data=b"q")
+        )
+        pool_tx = TxRef(block="q", index=0)
+    else:
+        blocks += [
+            ReorgBlock(label="b1", parent="genesis", txs=[], extra_data=b"b"),
+            # Carrier block for the raw tx bytes (never sent as a payload).
+            ReorgBlock(
+                label="carrier", parent="genesis", txs=[tx], extra_data=b"c"
+            ),
+        ]
+        pool_tx = TxRef(block="carrier", index=0)
+        setup.append(NewPayloadStep(block="b1"))
+
+    def head(label: str, receipt_in: str | None) -> ForkchoiceUpdatedStep:
+        return ForkchoiceUpdatedStep(
+            head=label,
+            expect=applied(label),
+            branches={
+                "applied": [AssertReceiptStep(tx=pool_tx, block=receipt_in)]
+            },
+        )
+
+    reorg: List[Step] = (
+        [NewPayloadStep(block="q"), head("q", "q")]
+        if moved
+        else [head("b1", None)]
+    )
+    if scenario == "new_payload_on_revert":
+        reorg.append(NewPayloadStep(block="p"))
     steps: List[Step] = [
         NewPayloadStep(block="a1"),
-        NewPayloadStep(block="b1"),
+        *setup,
         ForkchoiceUpdatedStep(head="a1"),
         SendRawTransactionStep(tx=pool_tx),
         # Pending: no receipt yet.
@@ -297,30 +333,82 @@ def test_pool_tx_reorged_out_of_built_payload(
                     NewPayloadStep(block="p"),
                     # Delivered but not canonical: still no receipt.
                     AssertReceiptStep(tx=pool_tx, block=None),
-                    ForkchoiceUpdatedStep(
-                        head="p",
-                        expect=applied("p"),
-                        branches={
-                            "applied": [
-                                AssertReceiptStep(tx=pool_tx, block="p")
-                            ]
-                        },
+                    head("p", "p"),
+                    *reorg,
+                    head("p", "p"),
+                ]
+            },
+        ),
+    ]
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
+
+
+@pytest.mark.valid_from("Shanghai")
+def test_pool_tx_built_after_reorg_out(
+    reorg_test: ReorgTestFiller, pre: Alloc
+) -> None:
+    """
+    Build a later pool transaction after a reorg drops a built payload.
+
+    tx1 is built into ``p`` on a1 and ``p`` becomes the head; a reorg to b2,
+    a1's other child, drops it. tx2, from another sender, is sent next and
+    must be in the payload built on b2 (bound ``r``), and its receipt names
+    ``r`` once ``r`` is the head. Whether tx1 returns to the pool is client
+    policy and not checked.
+    """
+    blocks = [
+        ReorgBlock(label="a1", txs=[]),
+        ReorgBlock(label="b2", parent="a1", txs=[], extra_data=b"b"),
+        # Carrier block for the raw tx bytes (never sent as a payload).
+        ReorgBlock(
+            label="carrier",
+            parent="genesis",
+            txs=[_pool_transfer(pre), _pool_transfer(pre)],
+            extra_data=b"c",
+        ),
+    ]
+    tx1, tx2 = TxRef(block="carrier", index=0), TxRef(block="carrier", index=1)
+    steps: List[Step] = [
+        NewPayloadStep(block="a1"),
+        ForkchoiceUpdatedStep(head="a1"),
+        SendRawTransactionStep(tx=tx1),
+        ForkchoiceUpdatedStep(
+            head="a1",
+            payload_attributes=build_attrs(0x0A),
+            expect=applied("a1", payload_id=True),
+            branches={
+                "applied": [
+                    GetPayloadStep(
+                        bind="p", parent="a1", transactions_include=[tx1]
                     ),
+                    NewPayloadStep(block="p"),
+                    ForkchoiceUpdatedStep(head="p", expect=applied("p")),
+                    NewPayloadStep(block="b2"),
+                    ForkchoiceUpdatedStep(head="b2", expect=applied("b2")),
+                    SendRawTransactionStep(tx=tx2),
                     ForkchoiceUpdatedStep(
-                        head="b1",
-                        expect=applied("b1"),
+                        head="b2",
+                        payload_attributes=build_attrs(0x0B),
+                        expect=applied("b2", payload_id=True),
                         branches={
                             "applied": [
-                                AssertReceiptStep(tx=pool_tx, block=None)
-                            ]
-                        },
-                    ),
-                    ForkchoiceUpdatedStep(
-                        head="p",
-                        expect=applied("p"),
-                        branches={
-                            "applied": [
-                                AssertReceiptStep(tx=pool_tx, block="p")
+                                GetPayloadStep(
+                                    bind="r",
+                                    parent="b2",
+                                    transactions_include=[tx2],
+                                ),
+                                NewPayloadStep(block="r"),
+                                ForkchoiceUpdatedStep(
+                                    head="r",
+                                    expect=applied("r"),
+                                    branches={
+                                        "applied": [
+                                            AssertReceiptStep(
+                                                tx=tx2, block="r"
+                                            )
+                                        ]
+                                    },
+                                ),
                             ]
                         },
                     ),

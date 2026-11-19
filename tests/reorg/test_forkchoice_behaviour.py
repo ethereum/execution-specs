@@ -242,6 +242,69 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
 
 
 @pytest.mark.valid_from("Shanghai")
+def test_side_payload_executed_while_rewound(
+    reorg_test: ReorgTestFiller, pre: Alloc
+) -> None:
+    """
+    Rewind ten blocks, execute a side payload there, return to the tip.
+
+    Canonical a1..a15, each of a6..a15 with 50 transfers. FCU back to a5 is
+    applied or, ten blocks being deeper than ``MIN_APPLIED_REORG_DEPTH``,
+    refused with ``-38006``. Once applied, s6, a5's other child, extends the
+    head and must be VALID. Either way a16 then follows a15 and FCU to it is
+    applied.
+    """
+    blocks, steps = chain(pre, "a", 5)
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(amount=0)
+    for i in range(6, 17):
+        blocks.append(
+            ReorgBlock(
+                label=f"a{i}",
+                parent="a5" if i == 6 else None,
+                txs=[
+                    Transaction(
+                        sender=sender,
+                        nonce=(i - 6) * 50 + j,
+                        to=recipient,
+                        value=1,
+                    )
+                    for j in range(50)
+                ],
+            )
+        )
+        if i < 16:
+            steps += [
+                NewPayloadStep(block=f"a{i}"),
+                ForkchoiceUpdatedStep(head=f"a{i}"),
+            ]
+    blocks.append(ReorgBlock(label="s6", parent="a5", txs=[], extra_data=b"s"))
+
+    def back_to_the_tip() -> List[Step]:
+        return [
+            NewPayloadStep(block="s6"),
+            NewPayloadStep(block="a16"),
+            ForkchoiceUpdatedStep(head="a16", expect=applied("a16")),
+            AssertCanonicalStep(blocks={5: "a5", 6: "a6", 16: "a16"}),
+        ]
+
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="a5",
+            expect=reorg_outcomes("a5", depth=10),
+            branches={
+                "applied": [
+                    AssertCanonicalStep(blocks={5: "a5", 6: None}),
+                    *back_to_the_tip(),
+                ],
+                "refused": back_to_the_tip(),
+            },
+        )
+    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps)
+
+
+@pytest.mark.valid_from("Shanghai")
 def test_fcu_to_unknown_block_is_syncing(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
