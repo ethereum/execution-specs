@@ -640,7 +640,8 @@ def _fork_taking_fcu_version(
 ) -> Fork:
     """
     The fork whose ``forkchoiceUpdated`` takes ``version``: the attributes'
-    fork, either side of a transition, or a fork before the attributes'.
+    fork, either side of a transition, or the nearest fork before or after
+    the attributes'.
     """
     candidates: List[Fork] = [
         attrs_fork,
@@ -651,13 +652,15 @@ def _fork_taking_fcu_version(
     while parent is not None:
         candidates.append(parent)
         parent = parent.parent()
+    later = sorted(attrs_fork.children(), key=lambda f: f.name())
+    while later:
+        child = later.pop(0)
+        candidates.append(child)
+        later += sorted(child.children(), key=lambda f: f.name())
     for candidate in candidates:
         if candidate.engine_forkchoice_updated_version() == version:
             return candidate
-    raise ValueError(
-        f"no fork in {fork} or before {attrs_fork} takes "
-        f"forkchoiceUpdatedV{version}"
-    )
+    raise ValueError(f"no fork takes forkchoiceUpdatedV{version}")
 
 
 def _default_build_request(

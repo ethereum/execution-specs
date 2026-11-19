@@ -28,6 +28,7 @@ from execution_testing.forks import (
     BPO2ToAmsterdamAtTime15k,
     Cancun,
     Fork,
+    Osaka,
     Prague,
     ShanghaiToCancunAtTime15k,
 )
@@ -305,15 +306,22 @@ def test_build_request_version_follows_attributes_fork(
 
 
 @pytest.mark.parametrize(
-    "timestamp,version,shaped_like",
+    "fork,timestamp,version,shaped_like",
     [
-        pytest.param(15_000, 3, BPO2ToAmsterdamAtTime15k.transitions_from()),
-        pytest.param(14_990, 4, Amsterdam),
+        pytest.param(
+            BPO2ToAmsterdamAtTime15k,
+            15_000,
+            3,
+            BPO2ToAmsterdamAtTime15k.transitions_from(),
+        ),
+        pytest.param(BPO2ToAmsterdamAtTime15k, 14_990, 4, Amsterdam),
+        pytest.param(Osaka, 14_990, 4, Amsterdam),
     ],
-    ids=["v3_at_amsterdam_time", "v4_before_amsterdam"],
+    ids=["v3_at_amsterdam_time", "v4_before_amsterdam", "v4_on_osaka"],
 )
 def test_build_request_fields_follow_the_pinned_version(
     default_t8n: TransitionTool,
+    fork: Fork,
     timestamp: int,
     version: int,
     shaped_like: Fork,
@@ -324,7 +332,7 @@ def test_build_request_fields_follow_the_pinned_version(
     fork mismatch rather than a malformed structure.
     """
     test = ReorgTest(
-        fork=BPO2ToAmsterdamAtTime15k,
+        fork=fork,
         pre=Alloc().with_genesis_accounts(),
         blocks=[ReorgBlock(label="a1", timestamp=14_980)],
         steps=[
