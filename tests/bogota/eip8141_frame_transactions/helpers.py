@@ -320,9 +320,8 @@ class FrameTransaction(Transaction):
         if tx.error is not None:
             return tx
 
-        # The intrinsic cost and the floor both charge for the signature
-        # entries, which only exist once the transaction is signed.
-        tx.sign()
+        # The intrinsic cost and the floor price the signature entries
+        # before they are signed, from their signers' signature lengths.
         assert tx.frames is not None and tx.signatures is not None
         anchors: Dict[str, Any] = dict(
             frames=tx.frames,
