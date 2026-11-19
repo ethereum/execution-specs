@@ -21,6 +21,7 @@ from . import block as block_instructions
 from . import comparison as comparison_instructions
 from . import control_flow as control_flow_instructions
 from . import environment as environment_instructions
+from . import evm64 as evm64_instructions
 from . import keccak as keccak_instructions
 from . import log as log_instructions
 from . import memory as memory_instructions
@@ -194,6 +195,41 @@ class Ops(enum.Enum):
     SWAPN = 0xE7
     EXCHANGE = 0xE8
 
+    # EIP-7979: Call and return instructions
+    CALLDEST = 0xBB
+    CALLSUB = 0xBC
+    RETURNSUB = 0xBF
+
+    # EIP-8442: 64-bit instructions, the twin of each at its opcode + 0xC0
+    ADD64 = 0xC1
+    MUL64 = 0xC2
+    SUB64 = 0xC3
+    DIV64 = 0xC4
+    SDIV64 = 0xC5
+    MOD64 = 0xC6
+    SMOD64 = 0xC7
+    ADDMOD64 = 0xC8
+    MULMOD64 = 0xC9
+    EXP64 = 0xCA
+    SIGNEXTEND64 = 0xCB
+    CALLDATALOAD64 = 0xCC
+    MLOAD64 = 0xCD
+    MSTORE64 = 0xCE
+    LT64 = 0xD0
+    GT64 = 0xD1
+    SLT64 = 0xD2
+    SGT64 = 0xD3
+    EQ64 = 0xD4
+    ISZERO64 = 0xD5
+    AND64 = 0xD6
+    OR64 = 0xD7
+    XOR64 = 0xD8
+    NOT64 = 0xD9
+    SHL64 = 0xDB
+    SHR64 = 0xDC
+    SAR64 = 0xDD
+    CLZ64 = 0xDE
+
     # Memory Operations
     MLOAD = 0x51
     MSTORE = 0x52
@@ -291,6 +327,37 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.PC: control_flow_instructions.pc,
     Ops.GAS: control_flow_instructions.gas_left,
     Ops.JUMPDEST: control_flow_instructions.jumpdest,
+    Ops.CALLSUB: control_flow_instructions.callsub,
+    Ops.CALLDEST: control_flow_instructions.calldest,
+    Ops.RETURNSUB: control_flow_instructions.returnsub,
+    Ops.ADD64: evm64_instructions.add64,
+    Ops.MUL64: evm64_instructions.mul64,
+    Ops.SUB64: evm64_instructions.sub64,
+    Ops.DIV64: evm64_instructions.div64,
+    Ops.SDIV64: evm64_instructions.sdiv64,
+    Ops.MOD64: evm64_instructions.mod64,
+    Ops.SMOD64: evm64_instructions.smod64,
+    Ops.ADDMOD64: evm64_instructions.addmod64,
+    Ops.MULMOD64: evm64_instructions.mulmod64,
+    Ops.EXP64: evm64_instructions.exp64,
+    Ops.SIGNEXTEND64: evm64_instructions.signextend64,
+    Ops.CALLDATALOAD64: evm64_instructions.calldataload64,
+    Ops.MLOAD64: evm64_instructions.mload64,
+    Ops.MSTORE64: evm64_instructions.mstore64,
+    Ops.LT64: evm64_instructions.lt64,
+    Ops.GT64: evm64_instructions.gt64,
+    Ops.SLT64: evm64_instructions.slt64,
+    Ops.SGT64: evm64_instructions.sgt64,
+    Ops.EQ64: evm64_instructions.eq64,
+    Ops.ISZERO64: evm64_instructions.iszero64,
+    Ops.AND64: evm64_instructions.and64,
+    Ops.OR64: evm64_instructions.or64,
+    Ops.XOR64: evm64_instructions.xor64,
+    Ops.NOT64: evm64_instructions.not64,
+    Ops.SHL64: evm64_instructions.shl64,
+    Ops.SHR64: evm64_instructions.shr64,
+    Ops.SAR64: evm64_instructions.sar64,
+    Ops.CLZ64: evm64_instructions.clz64,
     Ops.POP: stack_instructions.pop,
     Ops.PUSH0: stack_instructions.push0,
     Ops.PUSH1: stack_instructions.push1,
