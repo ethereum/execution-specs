@@ -50,6 +50,9 @@ runs:
       if: inputs.split_label == ''
       shell: bash
       run: sudo apt-get install -y pigz
+    - name: Sync the PyPy environment (experiment)
+      if: steps.evm-builder.outputs.impl == 'eels'
+      uses: ./.github/actions/setup-env-pypy
     - name: Generate fixtures using fill
       shell: bash
       env:
@@ -72,7 +75,23 @@ runs:
 
         # Every fork range in the matrix contains tests, so any non-zero
         # exit (including 5, NO_TESTS_COLLECTED) fails the build.
-        just fill-release $EVM_ARGS ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }}
+        if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
+          # Experiment: fill with EELS under PyPy (same flags as
+          # `just fill-release`), then restore the CPython env for the
+          # steps that follow.
+          uv run --python pypy3.11.15 --no-dev --group test python --version
+          uv run --python pypy3.11.15 --no-dev --group test fill \
+            -n auto \
+            --output="$PWD/.just/fill-release/fixtures" \
+            --no-html \
+            --durations=100 \
+            --log-level=DEBUG \
+            ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }}
+          rm -rf .venv
+          uv sync --no-progress
+        else
+          just fill-release $EVM_ARGS ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }}
+        fi
     - name: Validate blockchain fixtures with EELS
       if: inputs.split_label != '' && steps.evm-builder.outputs.impl == 'eels'
       shell: bash
