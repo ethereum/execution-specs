@@ -233,7 +233,6 @@ def _model(ops: List[BuilderOp]) -> List[Tuple[Any, ...]]:
     return out
 
 
-@pytest.mark.spec_unit
 @given(ops=_ops())
 def test_builder_matches_reference_model(
     bal: ModuleType, tracker: ModuleType, ops: List[BuilderOp]
@@ -246,7 +245,6 @@ def test_builder_matches_reference_model(
     assert _norm(_built(bal, tracker, ops)) == _model(ops)
 
 
-@pytest.mark.spec_unit
 @given(ops=_ops(), addr=st.sampled_from(ADDR_POOL))
 def test_ensure_account_acts_as_a_touch(
     bal: ModuleType, tracker: ModuleType, ops: List[BuilderOp], addr: Address

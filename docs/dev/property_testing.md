@@ -20,7 +20,7 @@ just test-spec-properties tests_property/test_block_access_list.py
 
 The `ci` profile is derandomized, so a failure reproduces on every run and Hypothesis prints a `@reproduce_failure` blob for it. Once a failure is fixed, keep its input as an `@example(...)` on the test so it stays covered.
 
-Pull requests run the suite at the `ci` profile without the tests marked `spec_unit`. A nightly workflow runs every test, those included, at the `dev` profile.
+Pull requests run the suite at the `ci` profile. A nightly workflow runs it at the `dev` profile, whose randomized search reaches inputs the fixed `ci` examples do not.
 
 ## Forks
 
@@ -48,7 +48,7 @@ A property's expected result must come from outside the code under test. In orde
 
 Copying the spec's formula into the test only proves the spec agrees with itself, so such tests do not belong here.
 
-A test that checks one of the spec's own data structures against a Python model, such as the gas meter in `test_gas_meter.py` or the state tracker in `test_state_machine.py`, is a unit test of the spec rather than a property of the protocol. Mark it `@pytest.mark.spec_unit` so it runs nightly instead of on every pull request.
+A test that checks one of the spec's own data structures against a Python model, such as the gas meter in `test_gas_meter.py` or the state tracker in `test_state_machine.py`, is a unit test of the spec rather than a property of the protocol. It follows the structure's fields and functions, so a refactor of the structure updates the test with it.
 
 A rule about a limit is checked on both sides: the last input that passes and the first that fails.
 

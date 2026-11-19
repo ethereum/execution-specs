@@ -45,9 +45,6 @@ CODES = [b"", b"\x01", b"\x02"]
 CODE_HASHES = [keccak256(code) for code in CODES]
 
 
-pytestmark = pytest.mark.spec_unit
-
-
 class ModelAccount(NamedTuple):
     """An account in the model; the defaults make an empty account."""
 

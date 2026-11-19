@@ -257,7 +257,7 @@ def modify_deletes_empty_accounts(tracker: ModuleType) -> bool:
 
     Forks that sweep touched empty accounts at the end of a transaction
     keep them until then; later forks delete them on the spot. The answer
-    is read from the spec's own tracker, which only `spec_unit` tests may
-    do.
+    is read from the spec's own tracker, which only a model test of that
+    tracker may do.
     """
     return not hasattr(tracker, "destroy_touched_empty_accounts")

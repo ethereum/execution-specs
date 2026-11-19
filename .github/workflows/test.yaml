@@ -270,7 +270,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-uv
       - name: Run test-spec-properties
-        run: just test-spec-properties -m "not spec_unit"
+        run: just test-spec-properties
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 

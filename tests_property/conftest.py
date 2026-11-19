@@ -43,13 +43,9 @@ settings.load_profile("ci")
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register the suite's markers."""
+    """Register the suite's marker."""
     config.addinivalue_line(
         "markers", "requires(condition): run only on forks where it holds"
-    )
-    config.addinivalue_line(
-        "markers",
-        "spec_unit: a model test of a spec data structure, run nightly",
     )
 
 

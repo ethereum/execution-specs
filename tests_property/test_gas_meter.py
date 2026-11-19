@@ -48,7 +48,6 @@ from .strategies import (
 pytestmark = requires(lambda fork: fork.state_gas_reservoir_enabled())
 
 
-@pytest.mark.spec_unit
 @given(
     gas_left=pools(),
     reservoir=pools(),
@@ -102,7 +101,6 @@ def test_restore_returns_to_the_last_commit(
     assert gas.tx_state_gas_used(meter, Uint(reservoir)) == committed
 
 
-@pytest.mark.spec_unit
 @given(
     gas_left=pools(),
     reservoir=pools(),
@@ -139,7 +137,6 @@ def test_restore_to_entry_undoes_the_commit(
     assert gas.tx_state_gas_used(meter, Uint(reservoir)) == 0
 
 
-@pytest.mark.spec_unit
 @given(
     gas_left=pools(),
     reservoir=pools(),
@@ -169,7 +166,6 @@ def test_restore_child_gas_undoes_withhold_and_drain(
     assert meter_fields(meter) == before
 
 
-@pytest.mark.spec_unit
 @given(
     gas_left=pools(),
     reservoir=pools(),
@@ -464,7 +460,6 @@ class GasMeterMachine(RuleBasedStateMachine):
         )
 
 
-@pytest.mark.spec_unit
 def test_gas_meter_matches_model(gas: ModuleType) -> None:
     """The gas meter agrees with the reference model on every sequence."""
     machine = type("GasMeterMachine", (GasMeterMachine,), {"gas": gas})

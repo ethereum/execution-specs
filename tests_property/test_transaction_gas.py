@@ -236,7 +236,6 @@ def test_calldata_floor_cap_boundary(
         raise ValueError(f"unknown boundary side: {side}")
 
 
-@pytest.mark.spec_unit
 @with_state_gas_reservoir
 @given(data=st.data())
 def test_evm_gas_splits_at_the_cap(
@@ -270,7 +269,6 @@ def test_evm_gas_splits_at_the_cap(
     assert (reservoir == 0) == (tx_gas <= cap)
 
 
-@pytest.mark.spec_unit
 @with_state_gas_reservoir
 @given(data=st.data())
 def test_settlement_refunds_and_floors(
