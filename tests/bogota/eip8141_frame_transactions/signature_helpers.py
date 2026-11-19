@@ -47,7 +47,7 @@ def signed_digest_entry(key: Hash, **overrides: Any) -> FrameSignature:
     field.
     """
     entry = FrameSignature(scheme=Spec.SCHEME_SECP256K1, msg=Bytes(DIGEST))
-    entry.signed_over(bytes(DIGEST), key)
+    entry.signed_over(DIGEST, EOA(key=key))
     for field, value in overrides.items():
         setattr(entry, field, value)
     return entry
@@ -126,9 +126,7 @@ def canonical_entry(account: EOA, **overrides: Any) -> FrameSignature:
     signer, sender or not; keyword arguments override single fields.
     """
     fields: Dict[str, Any] = dict(
-        scheme=Spec.SCHEME_SECP256K1,
-        signer=Bytes(account),
-        secret_key=account.key,
+        signer=account,
     )
     fields.update(overrides)
     return FrameSignature(**fields)

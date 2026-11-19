@@ -25,7 +25,6 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytes,
     Fork,
-    FrameSignature,
     GasFee,
     Op,
     keccak256,
@@ -362,17 +361,7 @@ def test_bal_sponsored_payer_and_sender(
                 gas_limit=WRITE_FRAME_GAS,
             ),
         ],
-        signatures=[
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(sender),
-            ),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
+        signatures=[sender, payer],
     )
     payer_post_balance = start_balance - tx.payer_gas_used() * fee_per_gas
 
@@ -466,10 +455,7 @@ def test_bal_omits_signature_validation_precompiles(
         signatures=[
             # Index 0 authorizes the default code, and is validated with
             # `ecrecover`.
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(sender),
-            ),
+            sender,
             # Carried only to exercise `P256VERIFY`; no frame references it.
             # A P256 entry's signer is `keccak256(qx || qy)[12:]`.
             p256_entry(

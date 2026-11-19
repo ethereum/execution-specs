@@ -279,8 +279,7 @@ def test_tip_settlement(
     escrow = required_max_fee + min(full_tip, max_fee - required_max_fee)
 
     signature = FrameSignature(
-        scheme=Spec.SCHEME_SECP256K1,
-        signer=Bytes(sender),
+        signer=sender,
         signature=Bytes(bytes(SECP256K1_SIGNATURE_LENGTH)),
     )
     execution_gas = (

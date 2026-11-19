@@ -19,7 +19,6 @@ from execution_testing import (
     Bytes,
     Conditional,
     Fork,
-    FrameSignature,
     GasFee,
     Op,
     StateTestFiller,
@@ -111,17 +110,7 @@ def test_eoa_paymaster(
                 code=target_code,
             ),
         ],
-        signatures=[
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(sender),
-            ),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
+        signatures=[sender, payer],
     )
 
     state_test(
@@ -760,19 +749,19 @@ def test_refused_approval_charges_memory_expansion(
     granted.
     """
     sender = pre.fund_eoa()
-    payer_code = Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT)
+    payer_code = Op.APPROVE(offset=0, size=0, scope=Spec.APPROVE_PAYMENT)
     payer = pre.deploy_contract(code=payer_code, balance=10**18)
 
     inner_code = Op.APPROVE(
-        0,
-        REFUSED_RETURN_DATA_SIZE,
-        scope,
+        offset=0,
+        size=REFUSED_RETURN_DATA_SIZE,
+        scope=scope,
         new_memory_size=REFUSED_RETURN_DATA_SIZE,
     )
     inner = pre.deploy_contract(code=inner_code)
     target_code = Op.SSTORE(
         SLOT_CALL_OUTCOME,
-        call_opcode(gas=Op.GAS, address=inner),
+        call_opcode(address=inner),
         new_value=0,
     ) + Op.SSTORE(SLOT_EXECUTED, 1)
     # Funded, so that a payment approval on the target's behalf would

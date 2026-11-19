@@ -1015,7 +1015,7 @@ def test_signature_constraints(
         sender=sender,
         frames=[verify_frame()],
         signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            sender,
             *case_entries,
         ],
         error=error,
@@ -1052,7 +1052,7 @@ def test_signature_constraints_transaction(
         sender=sender,
         frames=[verify_frame()],
         signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            sender,
             *case_entries,
         ],
         error=error,

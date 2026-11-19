@@ -20,9 +20,7 @@ from execution_testing import (
     Alloc,
     BalAccountExpectation,
     BlockAccessListExpectation,
-    Bytes,
     Fork,
-    FrameSignature,
     Op,
     StateTestFiller,
     Transaction,
@@ -127,14 +125,7 @@ def transfer_exceeding_balance(
                 outcome=Outcome.REVERT,
             ),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
+        signatures=[sender, payer],
     )
     post = {
         sender: Account(nonce=1, balance_change=0),

@@ -16,9 +16,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Fork,
-    FrameSignature,
     Op,
     StateTestFiller,
     Transaction,
@@ -516,14 +514,7 @@ def test_default_code_entry_gas_shortfall(
                 gas_limit_delta=0 if affordable else -1,
             ),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
+        signatures=[sender, payer],
         error=(
             None
             if affordable

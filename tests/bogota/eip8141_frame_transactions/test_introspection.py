@@ -22,6 +22,7 @@ from execution_testing import (
     Fork,
     FrameSignature,
     Op,
+    Signer,
     StateTestFiller,
     Transaction,
 )
@@ -58,7 +59,7 @@ ARBITRARY_WITNESS = Bytes(b"\xab" * 5)
 def probe_transaction(
     sender: EOA,
     probe: Address,
-    signatures: List[FrameSignature] | None = None,
+    signatures: List[FrameSignature | Signer] | None = None,
 ) -> Transaction:
     """
     Return a two frame transaction: a `VERIFY` frame approving through
@@ -149,12 +150,9 @@ def test_txparam_sender_and_sig_hash(
             sender,
             probe,
             signatures=[
+                sender,
                 FrameSignature(
-                    scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)
-                ),
-                FrameSignature(
-                    scheme=Spec.SCHEME_SECP256K1,
-                    signer=Bytes(sender),
+                    signer=sender,
                     msg=explicit_msg,
                 ),
             ],
@@ -687,9 +685,7 @@ def test_sigparam(
             sender,
             probe,
             signatures=[
-                FrameSignature(
-                    scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)
-                ),
+                sender,
                 FrameSignature(
                     scheme=Spec.SCHEME_ARBITRARY, signature=ARBITRARY_WITNESS
                 ),
@@ -742,7 +738,7 @@ def test_sigparam_resolved_signer(
             ),
         ],
         signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            sender,
             FrameSignature(
                 scheme=Spec.SCHEME_ARBITRARY, signature=ARBITRARY_WITNESS
             ),
@@ -780,7 +776,7 @@ def test_sigdatacopy(
     )
 
     signatures = [
-        FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+        sender,
         FrameSignature(
             scheme=Spec.SCHEME_ARBITRARY, signature=ARBITRARY_WITNESS
         ),
