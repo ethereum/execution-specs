@@ -1234,7 +1234,13 @@ class Transaction(
             sig.signed_over(sig_hash, signer)
 
     def sign(self: "Transaction") -> None:
-        """Signs the authorization tuple with a private key."""
+        """
+        Sign the transaction.
+
+        Set `v`, `r` and `s` from `secret_key` or the sender's key. For a
+        frame transaction, fill in the raw bytes of its unsigned signature
+        entries instead.
+        """
         if self.frames is not None:
             self._sign_frame_signatures()
             return
