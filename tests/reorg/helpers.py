@@ -74,13 +74,14 @@ def chain(
     value: int = 1,
     recipient: Address | None = None,
     with_fcu: bool = True,
+    txs_per_block: int = 1,
 ) -> Tuple[List[ReorgBlock], List[Step]]:
     """
-    ``length`` blocks ``{prefix}{start}..`` on ``parent``, each with one value
-    transfer from a fresh sender (nonces independent per chain) to
-    ``recipient`` (a fresh empty account if unset), plus the newPayload steps
-    and, ``with_fcu``, the forkchoiceUpdated steps that make the last block
-    the head.
+    ``length`` blocks ``{prefix}{start}..`` on ``parent``, each with
+    ``txs_per_block`` value transfers from a fresh sender (nonces independent
+    per chain) to ``recipient`` (a fresh empty account if unset), plus the
+    newPayload steps and, ``with_fcu``, the forkchoiceUpdated steps that make
+    the last block the head.
     """
     sender = pre.fund_eoa()
     if recipient is None:
@@ -95,8 +96,12 @@ def chain(
                 parent=parent if i == 0 else None,
                 txs=[
                     Transaction(
-                        sender=sender, nonce=i, to=recipient, value=value
+                        sender=sender,
+                        nonce=i * txs_per_block + j,
+                        to=recipient,
+                        value=value,
                     )
+                    for j in range(txs_per_block)
                 ],
             )
         )

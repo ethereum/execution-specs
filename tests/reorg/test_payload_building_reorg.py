@@ -246,77 +246,89 @@ def test_two_built_payloads_same_parent(
     reorg_test(pre=pre, blocks=blocks, steps=steps)
 
 
-def _pool_transfer(pre: Alloc) -> Transaction:
-    """A transfer from a fresh sender, for the client's pool."""
-    # Tip above geth's default ``--miner.gasprice`` (1 gwei): the pool accepts
-    # cheaper txs but the payload builder skips them.
-    return Transaction(
-        sender=pre.fund_eoa(),
-        nonce=0,
-        to=pre.fund_eoa(amount=0),
-        value=7,
-        gas_limit=21_000,
-        gas_price=30 * 10**9,
-    )
-
-
 @pytest.mark.valid_from("Shanghai")
 @pytest.mark.parametrize(
-    "scenario", ["reorg_out", "different_block", "new_payload_on_revert"]
+    "scenario",
+    ["reorg_out", "different_block", "new_payload_on_revert", "back_in"],
 )
 def test_pool_tx_reorged_out_of_built_payload(
     reorg_test: ReorgTestFiller, pre: Alloc, scenario: str
 ) -> None:
     """
-    Follow the receipt of a built payload's transaction across reorgs.
+    Follow a built payload's pool transaction across reorgs.
 
     A pool transaction is included in a payload built on a1 (bound ``p``);
-    after FCU to ``p`` its receipt names ``p``. ``reorg_out``: the head
-    moves to b1, which does not contain it, and the receipt is gone.
-    ``different_block``: the head moves to q, a1's other child holding the
-    same transaction, and the receipt names q. ``new_payload_on_revert``
-    also re-sends ``p`` before the head returns to it. Back on ``p`` the
-    receipt names ``p``.
+    after FCU to ``p`` its receipt names ``p``. The head then moves to b2,
+    a1's other child: the receipt names b2 where b2 holds the same
+    transaction (``different_block``, ``new_payload_on_revert``) and is gone
+    otherwise. ``back_in`` then sends a second transaction, which the
+    payload built on b2 (bound ``r``) must hold. The others return the head
+    to ``p``, ``new_payload_on_revert`` re-sending ``p`` first, and the
+    receipt names ``p`` again.
     """
-    tx = _pool_transfer(pre)
-    moved = scenario != "reorg_out"
-    blocks = [ReorgBlock(label="a1", txs=[])]
-    setup: List[Step] = []
-    if moved:
-        blocks.append(
-            ReorgBlock(label="q", parent="a1", txs=[tx], extra_data=b"q")
+    recipient = pre.fund_eoa(amount=0)
+    # Tip above geth's default ``--miner.gasprice`` (1 gwei): the pool accepts
+    # cheaper txs but the payload builder skips them.
+    txs = [
+        Transaction(
+            sender=pre.fund_eoa(),
+            nonce=0,
+            to=recipient,
+            value=7,
+            gas_limit=21_000,
+            gas_price=30 * 10**9,
         )
-        pool_tx = TxRef(block="q", index=0)
-    else:
-        blocks += [
-            ReorgBlock(label="b1", parent="genesis", txs=[], extra_data=b"b"),
-            # Carrier block for the raw tx bytes (never sent as a payload).
-            ReorgBlock(
-                label="carrier", parent="genesis", txs=[tx], extra_data=b"c"
-            ),
-        ]
-        pool_tx = TxRef(block="carrier", index=0)
-        setup.append(NewPayloadStep(block="b1"))
+        for _ in range(2)
+    ]
+    moved = scenario in ("different_block", "new_payload_on_revert")
+    blocks = [
+        ReorgBlock(label="a1", txs=[]),
+        ReorgBlock(
+            label="b2",
+            parent="a1",
+            txs=txs[:1] if moved else [],
+            extra_data=b"b",
+        ),
+        # Carrier block for the raw tx bytes (never sent as a payload).
+        ReorgBlock(
+            label="carrier", parent="genesis", txs=txs, extra_data=b"c"
+        ),
+    ]
+    pool_tx, later = (TxRef(block="carrier", index=i) for i in range(2))
 
-    def head(label: str, receipt_in: str | None) -> ForkchoiceUpdatedStep:
+    def fcu(head: str, ref: TxRef, receipt_in: str | None) -> Step:
         return ForkchoiceUpdatedStep(
-            head=label,
-            expect=applied(label),
+            head=head,
+            expect=applied(head),
             branches={
-                "applied": [AssertReceiptStep(tx=pool_tx, block=receipt_in)]
+                "applied": [AssertReceiptStep(tx=ref, block=receipt_in)]
             },
         )
 
-    reorg: List[Step] = (
-        [NewPayloadStep(block="q"), head("q", "q")]
-        if moved
-        else [head("b1", None)]
-    )
-    if scenario == "new_payload_on_revert":
-        reorg.append(NewPayloadStep(block="p"))
+    if scenario == "back_in":
+        after: List[Step] = [
+            SendRawTransactionStep(tx=later),
+            ForkchoiceUpdatedStep(
+                head="b2",
+                payload_attributes=build_attrs(0x0B),
+                expect=applied("b2", payload_id=True),
+                branches={
+                    "applied": [
+                        GetPayloadStep(
+                            bind="r", parent="b2", transactions_include=[later]
+                        ),
+                        NewPayloadStep(block="r"),
+                        fcu("r", later, "r"),
+                    ]
+                },
+            ),
+        ]
+    elif scenario == "new_payload_on_revert":
+        after = [NewPayloadStep(block="p"), fcu("p", pool_tx, "p")]
+    else:
+        after = [fcu("p", pool_tx, "p")]
     steps: List[Step] = [
         NewPayloadStep(block="a1"),
-        *setup,
         ForkchoiceUpdatedStep(head="a1"),
         SendRawTransactionStep(tx=pool_tx),
         # Pending: no receipt yet.
@@ -333,85 +345,10 @@ def test_pool_tx_reorged_out_of_built_payload(
                     NewPayloadStep(block="p"),
                     # Delivered but not canonical: still no receipt.
                     AssertReceiptStep(tx=pool_tx, block=None),
-                    head("p", "p"),
-                    *reorg,
-                    head("p", "p"),
-                ]
-            },
-        ),
-    ]
-    reorg_test(pre=pre, blocks=blocks, steps=steps)
-
-
-@pytest.mark.valid_from("Shanghai")
-def test_pool_tx_built_after_reorg_out(
-    reorg_test: ReorgTestFiller, pre: Alloc
-) -> None:
-    """
-    Build a later pool transaction after a reorg drops a built payload.
-
-    tx1 is built into ``p`` on a1 and ``p`` becomes the head; a reorg to b2,
-    a1's other child, drops it. tx2, from another sender, is sent next and
-    must be in the payload built on b2 (bound ``r``), and its receipt names
-    ``r`` once ``r`` is the head. Whether tx1 returns to the pool is client
-    policy and not checked.
-    """
-    blocks = [
-        ReorgBlock(label="a1", txs=[]),
-        ReorgBlock(label="b2", parent="a1", txs=[], extra_data=b"b"),
-        # Carrier block for the raw tx bytes (never sent as a payload).
-        ReorgBlock(
-            label="carrier",
-            parent="genesis",
-            txs=[_pool_transfer(pre), _pool_transfer(pre)],
-            extra_data=b"c",
-        ),
-    ]
-    tx1, tx2 = TxRef(block="carrier", index=0), TxRef(block="carrier", index=1)
-    steps: List[Step] = [
-        NewPayloadStep(block="a1"),
-        ForkchoiceUpdatedStep(head="a1"),
-        SendRawTransactionStep(tx=tx1),
-        ForkchoiceUpdatedStep(
-            head="a1",
-            payload_attributes=build_attrs(0x0A),
-            expect=applied("a1", payload_id=True),
-            branches={
-                "applied": [
-                    GetPayloadStep(
-                        bind="p", parent="a1", transactions_include=[tx1]
-                    ),
-                    NewPayloadStep(block="p"),
-                    ForkchoiceUpdatedStep(head="p", expect=applied("p")),
+                    fcu("p", pool_tx, "p"),
                     NewPayloadStep(block="b2"),
-                    ForkchoiceUpdatedStep(head="b2", expect=applied("b2")),
-                    SendRawTransactionStep(tx=tx2),
-                    ForkchoiceUpdatedStep(
-                        head="b2",
-                        payload_attributes=build_attrs(0x0B),
-                        expect=applied("b2", payload_id=True),
-                        branches={
-                            "applied": [
-                                GetPayloadStep(
-                                    bind="r",
-                                    parent="b2",
-                                    transactions_include=[tx2],
-                                ),
-                                NewPayloadStep(block="r"),
-                                ForkchoiceUpdatedStep(
-                                    head="r",
-                                    expect=applied("r"),
-                                    branches={
-                                        "applied": [
-                                            AssertReceiptStep(
-                                                tx=tx2, block="r"
-                                            )
-                                        ]
-                                    },
-                                ),
-                            ]
-                        },
-                    ),
+                    fcu("b2", pool_tx, "b2" if moved else None),
+                    *after,
                 ]
             },
         ),
