@@ -339,12 +339,25 @@ def test_set_delegation_applies_and_charges(
             add_account(block_state, signer, nonce=nonce, balance=1, code=code)
     paid = {signer for signer in signers if model[signer].write_paid}
 
+    # The delegation indicator is charged once per authority, so some
+    # lists open by setting the first authority's delegation twice.
+    set_twice = data.draw(st.booleans(), label="set twice")
     authorizations = []
-    for _ in range(data.draw(st.integers(1, 4))):
-        index = data.draw(st.integers(0, len(keys) - 1))
-        account = model[signers[index]]
-        target = data.draw(st.one_of(st.just(CLEARING_ADDRESS), addresses()))
-        nonce = account.nonce + data.draw(st.sampled_from([0, 0, 1]))
+    for position in range(data.draw(st.integers(2 if set_twice else 1, 4))):
+        if set_twice and position < 2:
+            index = 0
+            account = model[signers[index]]
+            target = data.draw(
+                addresses().filter(lambda a: a != CLEARING_ADDRESS)
+            )
+            nonce = account.nonce
+        else:
+            index = data.draw(st.integers(0, len(keys) - 1))
+            account = model[signers[index]]
+            target = data.draw(
+                st.one_of(st.just(CLEARING_ADDRESS), addresses())
+            )
+            nonce = account.nonce + data.draw(st.sampled_from([0, 0, 1]))
         refused = account.code and not account.code.startswith(
             DELEGATION_PREFIX
         )

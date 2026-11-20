@@ -241,19 +241,20 @@ def test_excess_blob_gas(
     """
     blob_gas_per_blob = fork.blob_gas_per_blob()
     target = fork.target_blobs_per_block() * blob_gas_per_blob
-    # Only a parent at or past the target reaches the reserve price rule.
+    used = data.draw(
+        st.integers(0, fork.max_blobs_per_block()).map(
+            lambda blobs: blobs * blob_gas_per_blob
+        )
+    )
+    # Only a parent at or past the target reaches the reserve price rule,
+    # and one whose excess plus usage is exactly the target is the first.
     excess = data.draw(
         st.one_of(
-            st.sampled_from([0, target - 1, target]),
+            st.sampled_from([0, target - 1, target, max(target - used, 0)]),
             ints(4 * target),
             st.integers(target, 4 * target),
             # Far past the target, where the blob price is above 1.
             ints(BLOB_GAS_BOUND),
-        )
-    )
-    used = data.draw(
-        st.integers(0, fork.max_blobs_per_block()).map(
-            lambda blobs: blobs * blob_gas_per_blob
         )
     )
     base_fees = ints(MAX_U64)
