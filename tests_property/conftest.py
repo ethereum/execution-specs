@@ -26,12 +26,14 @@ settings.register_profile(
     print_blob=True,
 )
 # A quarter of the dev budget: the suite runs on every pull request, and the
-# nightly workflow runs it at the dev profile.
+# nightly workflow runs it at the dev profile. Without a database a local
+# run does not replay failures it saved earlier, so it sees what CI sees.
 settings.register_profile(
     "ci",
     parent=settings.get_profile("dev"),
     max_examples=50,
     derandomize=True,
+    database=None,
 )
 settings.register_profile(
     "long",

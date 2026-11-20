@@ -18,7 +18,7 @@ just test-spec-properties tests_property/test_block_access_list.py
 | `dev`       | 200                   | yes        |
 | `long`      | 5000, run by hand     | yes        |
 
-The `ci` profile is derandomized, so a failure reproduces on every run and Hypothesis prints a `@reproduce_failure` blob for it. Once a failure is fixed, keep its input as an `@example(...)` on the test so it stays covered.
+The `ci` profile is derandomized and keeps no example database, so a run draws the same inputs everywhere, a failure reproduces on every run, and Hypothesis prints a `@reproduce_failure` blob for it. Once a failure is fixed, keep its input as an `@example(...)` on the test so it stays covered.
 
 Pull requests run the suite at the `ci` profile. A nightly workflow runs it at the `dev` profile, whose randomized search reaches inputs the fixed `ci` examples do not.
 
