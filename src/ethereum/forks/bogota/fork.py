@@ -330,8 +330,7 @@ def execute_block(
 
     block_output = apply_body(
         block_env=block_env,
-        transactions=block.transactions,
-        withdrawals=block.withdrawals,
+        block=block,
         inclusion_list_transactions=inclusion_list_transactions,
     )
     block_diff = extract_block_diff(block_state)
@@ -795,8 +794,7 @@ def process_unchecked_system_transaction(
 
 def apply_body(
     block_env: vm.BlockEnvironment,
-    transactions: Tuple[LegacyTransaction | Bytes, ...],
-    withdrawals: Tuple[Withdrawal, ...],
+    block: Block,
     inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...],
 ) -> vm.BlockOutput:
     """
@@ -813,10 +811,9 @@ def apply_body(
     ----------
     block_env :
         The block scoped environment.
-    transactions :
-        Transactions included in the block.
-    withdrawals :
-        Withdrawals to be processed in the current block.
+    block :
+        Block whose transactions and withdrawals are processed, and
+        against which the inclusion list is checked.
     inclusion_list_transactions :
         Inclusion list transactions against which the block will be checked.
 
@@ -840,23 +837,23 @@ def apply_body(
         data=block_env.block_hashes[-1],  # The parent hash
     )
 
-    for i, tx in enumerate(map(decode_transaction, transactions)):
+    for i, tx in enumerate(map(decode_transaction, block.transactions)):
         process_transaction(block_env, block_output, tx, Uint(i))
 
     # Check if the block satisfies the inclusion list constraints (EIP-7805)
     block_output.inclusion_list_satisfied = check_inclusion_list_transactions(
         block_env=block_env,
         block_output=block_output,
-        transactions=transactions,
+        block=block,
         inclusion_list_transactions=inclusion_list_transactions,
     )
 
     # EIP-7928: Post-execution operations use index N+1
     block_env.block_access_list_builder.block_access_index = BlockAccessIndex(
-        ulen(transactions) + Uint(1)
+        ulen(block.transactions) + Uint(1)
     )
 
-    process_withdrawals(block_env, block_output, withdrawals)
+    process_withdrawals(block_env, block_output, block.withdrawals)
 
     process_general_purpose_requests(
         block_env=block_env,
@@ -1182,7 +1179,7 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
 def check_inclusion_list_transactions(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
-    transactions: Tuple[LegacyTransaction | Bytes, ...],
+    block: Block,
     inclusion_list_transactions: Tuple[LegacyTransaction | Bytes, ...],
 ) -> bool:
     """
@@ -1191,8 +1188,12 @@ def check_inclusion_list_transactions(
     For each inclusion list transaction not present in the block,
     check whether it could have been validly appended to the end of the block.
     Entries that do not decode, that are signed for another chain, or that
-    are blob transactions are skipped. If any other such transaction could
-    have been appended, the block fails the inclusion list check.
+    are blob transactions are skipped. A valid transaction is skipped as
+    well if appending it would take the block over [`MAX_RLP_BLOCK_SIZE`],
+    since a builder could not append it. The block is measured as received,
+    header unchanged, with the transaction's encoding appended to its
+    transactions. If any other such transaction could have been appended,
+    the block fails the inclusion list check.
 
     The inclusion list compliance does not affect any other block outputs.
 
@@ -1202,8 +1203,8 @@ def check_inclusion_list_transactions(
         The block scoped environment.
     block_output :
         The block output for the current block.
-    transactions :
-        Transactions included in the block.
+    block :
+        Block against which the inclusion list is checked.
     inclusion_list_transactions :
         Inclusion list transactions against which the block will be checked.
 
@@ -1212,8 +1213,10 @@ def check_inclusion_list_transactions(
     inclusion_list_satisfied : `bool`
         True if the block passes the inclusion list check, False otherwise.
 
+    [`MAX_RLP_BLOCK_SIZE`]: ref:ethereum.forks.bogota.fork.MAX_RLP_BLOCK_SIZE
+
     """
-    tx_hashes = {get_transaction_hash(raw_tx) for raw_tx in transactions}
+    tx_hashes = {get_transaction_hash(raw_tx) for raw_tx in block.transactions}
 
     for raw_tx in inclusion_list_transactions:
         if get_transaction_hash(raw_tx) in tx_hashes:
@@ -1237,12 +1240,21 @@ def check_inclusion_list_transactions(
                 block_env=block_env,
                 block_output=block_output,
                 tx=tx,
-                index=ulen(transactions),
+                index=ulen(block.transactions),
             )
         except EthereumException:
             continue
-        else:
-            # This inclusion list transaction could have been included.
-            return False
+
+        appended_block = Block(
+            header=block.header,
+            transactions=block.transactions + (encode_transaction(tx),),
+            ommers=block.ommers,
+            withdrawals=block.withdrawals,
+        )
+        if len(rlp.encode(appended_block)) > MAX_RLP_BLOCK_SIZE:
+            continue
+
+        # This inclusion list transaction could have been included.
+        return False
 
     return True

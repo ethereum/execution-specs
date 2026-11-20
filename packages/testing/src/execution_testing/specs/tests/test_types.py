@@ -31,7 +31,13 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessListExpectation,
 )
 
-from ..blockchain import Block, BlockchainTest, BuiltBlock, Header
+from ..blockchain import (
+    Block,
+    BlockchainTest,
+    BuiltBlock,
+    Header,
+    apply_new_parent,
+)
 
 fixture_header_ones = FixtureHeader(
     parent_hash=Hash(1),
@@ -514,3 +520,21 @@ class TestConflictingPayloadOverrides:
         BlockchainTest(
             fork=Amsterdam, pre=Alloc(), post=Alloc(), blocks=[block]
         )
+
+
+def test_block_extra_data_does_not_carry_over() -> None:
+    """
+    A block's `extra_data` reaches its environment, but not the environment
+    of the next block, which falls back to the default.
+    """
+    extra_data = Bytes(b"\x01" * 32)
+    env = Block(extra_data=extra_data).set_environment(
+        Environment(parent_timestamp=0)
+    )
+    assert env.extra_data == extra_data
+    next_env = apply_new_parent(env, fixture_header_ones)
+    assert next_env.extra_data == extra_data
+    assert (
+        Block().set_environment(next_env).extra_data
+        == Environment().extra_data
+    )
