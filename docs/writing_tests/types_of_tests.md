@@ -69,6 +69,8 @@ Test correct transaction rejection/acceptance of a serialized transaction (curre
 - Verify that a badly formatted transaction is correctly rejected by the client.
 - Verify that a transaction with an invalid value in one of its fields is correctly rejected by the client.
 
+When `fill` uses its default, in-process `t8n` (the execution specs themselves), the fixture's serialized bytes, including any `rlp_override`, are decoded by the target fork's own transaction code. If the fork cannot decode the bytes and the test sets no `error=`, the fill fails; for a frame transaction, which the fork also validates, the fill also fails if the fork accepts it but the test sets `error=`. Other `t8n` tools, selected with `--evm-bin`, skip this check.
+
 !!! info
 
     Using the `execute` command, transaction tests can be sent to clients in a live network using the `eth_sendRawTransaction` endpoint.
