@@ -16,9 +16,6 @@ from .timing import TimingData
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_NETWORK_ID = 1
-"""Network identifier the client is started with, and the peer claims."""
-
 
 def fork_schedule_of(fork: Fork | TransitionFork) -> ForkSchedule:
     """
@@ -39,6 +36,7 @@ def fork_schedule_of(fork: Fork | TransitionFork) -> ForkSchedule:
 def dial_mock_peer(
     client: Client,
     chain: Chain,
+    network_id: int,
     eth_versions: tuple[EthVersion, ...],
     serve_bals: bool,
     fork_schedule: ForkSchedule,
@@ -52,7 +50,7 @@ def dial_mock_peer(
         port=enode.port,
         remote_public_key=bytes.fromhex(enode.id),
         private_key=os.urandom(32),
-        network_id=DEFAULT_NETWORK_ID,
+        network_id=network_id,
         eth_versions=eth_versions,
         serve_bals=serve_bals,
         fork_schedule=fork_schedule,

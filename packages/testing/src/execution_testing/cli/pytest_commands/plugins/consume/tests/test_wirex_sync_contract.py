@@ -651,6 +651,7 @@ def _mock_peer_for_next_test(peer: _DroppedPeer) -> Any:
     case = SimpleNamespace(chain=_chain([_block(1, empty=False)]))
     return fixture_body(wirex.mock_peer)(
         client=SimpleNamespace(id="client"),
+        environment={"HIVE_NETWORK_ID": "1"},
         sync_target_cases=[case],
         mock_peers={"client": peer},
         wirex_eth_versions=(),
@@ -766,6 +767,7 @@ class TestForkSchedule:
         mock_peer.dial_mock_peer(
             cast(Any, client),
             _chain([_block(1, empty=False)]),
+            1,
             (),
             False,
             schedule,

@@ -370,6 +370,7 @@ def target_context_factory(
                 peer = dial_mock_peer(
                     target_client,
                     case.chain,
+                    int(environment["HIVE_NETWORK_ID"]),
                     wirex_eth_versions,
                     wirex_serve_bals,
                     wirex_fork_schedule,
