@@ -763,6 +763,7 @@ def test_reorg_via_engine(
     fixture: BlockchainEngineReorgFixture,
     genesis_header: FixtureHeader,
     get_payload_wait_time: float,
+    environment: dict,
 ) -> None:
     """
     Execute a reorg fixture against a fresh client.
@@ -776,6 +777,7 @@ def test_reorg_via_engine(
         return dial_mock_peer(
             client,
             chain,
+            network_id=int(environment["HIVE_NETWORK_ID"]),
             eth_versions=tuple(ETH_PROTOCOLS),
             serve_bals=False,
             fork_schedule=fork_schedule_of(fixture.fork),

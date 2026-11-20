@@ -527,6 +527,7 @@ def wirex_fork_schedule(pre_alloc_group: PreAllocGroup) -> ForkSchedule:
 @pytest.fixture(scope="function")
 def mock_peer(
     client: Client,
+    environment: dict[str, str],
     sync_target_cases: list[SyncTargetCase],
     mock_peers: Dict[str, MockPeer],
     wirex_eth_versions: tuple[EthVersion, ...],
@@ -547,6 +548,7 @@ def mock_peer(
         peer = dial_mock_peer(
             client,
             chain,
+            int(environment["HIVE_NETWORK_ID"]),
             wirex_eth_versions,
             wirex_serve_bals,
             wirex_fork_schedule,
