@@ -790,6 +790,22 @@ class Transaction(
             for sig in signatures
         ]
 
+    def copy(self, **kwargs: Any) -> Self:
+        """
+        Create a copy of the transaction with the updated fields that are
+        validated.
+
+        Frame transactions are not supported: the copy is rebuilt from the
+        serialized fields, which leave out each signature entry's signer
+        and each frame's expectations, so the copy would never be signed.
+        """
+        if self.frames is not None:
+            raise NotImplementedError(
+                "copying a frame transaction drops its signers and frame "
+                "expectations; build a new `Transaction` instead"
+            )
+        return super().copy(**kwargs)
+
     @model_validator(mode="before")
     @classmethod
     def treat_none_gas_limit_as_unset(cls, data: Any) -> Any:

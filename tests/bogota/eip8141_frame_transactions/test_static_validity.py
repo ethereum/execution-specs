@@ -425,12 +425,16 @@ FRAME_CASES = [
     ),
     pytest.param(
         # Each dimension's budget fits into 64 bits on its own; only
-        # their cross-dimension sum overflows.
+        # their cross-dimension sum overflows. The execution total also
+        # exceeds the EIP-7825 cap, which a client may check first.
         [
             Frame.verify(),
             Frame.default(gas_limit=2**63, state_gas_limit=2**63),
         ],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        [
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
+        ],
         id="frame_gas_cross_dimension_sum_overflows",
         marks=[
             pytest.mark.exception_test,
@@ -445,12 +449,12 @@ FRAME_CASES = [
     pytest.param(
         # As above, but the execution total stays within the EIP-7825
         # cap, which state gas is exempt from, so the sum overflow is
-        # the only rule broken. Each dimension's total fits into 64
-        # bits on its own; only their sum overflows, once the `VERIFY`
-        # frame's budgets are added.
+        # the only rule broken. Each frame's budgets fit into 64 bits
+        # on their own; only the running total across both frames
+        # reaches exactly 2**64, one past the largest 64-bit value.
         [
-            Frame.verify(),
-            Frame.default(gas_limit=2**20, state_gas_limit=2**64 - 2**20),
+            Frame.verify(gas_limit=2**20, state_gas_limit=0),
+            Frame.default(gas_limit=0, state_gas_limit=2**64 - 2**20),
         ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="frame_gas_cross_dimension_sum_overflows_within_gas_cap",
