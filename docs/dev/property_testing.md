@@ -40,7 +40,7 @@ The strategies in `tests_property/strategies.py` weight every number toward the 
 
 A property's expected result must come from outside the code under test. In order of preference:
 
-- the framework's calculator for the same fork, such as `fork.memory_expansion_gas_calculator()` or `fork.transaction_intrinsic_cost_calculator()`, compared with the spec function on random inputs; the framework's fork definitions are maintained apart from `src/` and import nothing from it;
+- the framework's calculator for the same fork, such as `fork.memory_expansion_gas_calculator()`, `fork.transaction_intrinsic_cost_calculator()` or an opcode's `gas_cost(fork)`, compared with the spec function on random inputs; the framework's fork definitions are maintained apart from `src/` and import nothing from it;
 - the framework's own model of an object, such as a `Transaction` whose `rlp()`, signing hash and sender the spec must reproduce;
 - a protocol value from a `fork.*()` accessor; a value no accessor provides is a literal with its EIP or the Yellow Paper named beside it;
 - a small reference model written from the EIP, such as the block access list model in `test_block_access_list.py`;

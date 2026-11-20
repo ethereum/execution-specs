@@ -11,6 +11,7 @@ import inspect
 from types import ModuleType, SimpleNamespace, UnionType
 from typing import (
     Any,
+    Iterable,
     Optional,
     Set,
     Tuple,
@@ -20,13 +21,14 @@ from typing import (
 )
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes, Bytes0
+from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U256, FixedUnsigned, Uint
 from execution_testing import Transaction, TransactionType
 
 from ethereum.crypto.hash import keccak256
 from ethereum.state import EMPTY_CODE_HASH, Account, Address
 from ethereum.state_mpt import State
+from ethereum_spec_tools.forks import Hardfork
 
 # The spec's class for each EIP-2718 transaction type. Forks before typed
 # transactions name their only class `Transaction`.
@@ -261,3 +263,92 @@ def modify_deletes_empty_accounts(tracker: ModuleType) -> bool:
     tracker may do.
     """
     return not hasattr(tracker, "destroy_touched_empty_accounts")
+
+
+def set_storage(
+    block_state: Any, address: bytes, key: int, value: int
+) -> None:
+    """Write a storage slot into a block's state."""
+    slots = block_state.storage_writes.setdefault(Address(address), {})
+    slots[Bytes32(key.to_bytes(32, "big"))] = U256(value)
+
+
+def run_code(
+    spec: Hardfork,
+    block_state: Any,
+    code: bytes,
+    *,
+    caller: bytes,
+    address: bytes,
+    gas: int,
+    state_gas: int = 0,
+    warm_addresses: Iterable[bytes] = (),
+    warm_storage_keys: Iterable[int] = (),
+) -> SimpleNamespace:
+    """
+    Run `code` as the account at `address`, called by `caller` with no
+    value or data, and return how the frame ended: its `error`, the
+    `gas_left`, the `state_gas_left` and the `refund` it earned.
+    """
+    vm = spec.module("vm")
+    interpreter = spec.module("vm.interpreter")
+    tracker = spec.module("state_tracker")
+    target = Address(address)
+    accessed_addresses = {Address(a) for a in warm_addresses}
+    accessed_storage_keys = {
+        (target, Bytes32(key.to_bytes(32, "big"))) for key in warm_storage_keys
+    }
+    tx_state = tracker.TransactionState(parent=block_state)
+    block_env = zeroed(vm.BlockEnvironment, state=block_state)
+
+    if hasattr(interpreter, "create_evm"):
+        # EIP-8037: the frame's gas is a meter with a state gas reservoir.
+        meter = spec.module("vm.gas").GasMeter(
+            gas_left=Uint(gas),
+            state_gas_left=Uint(state_gas),
+            state_gas_baseline=Uint(state_gas),
+        )
+        tx_env = zeroed(
+            vm.TransactionEnvironment,
+            origin=Address(caller),
+            recipient=target,
+            is_create=False,
+            state=tx_state,
+            access_list_addresses=accessed_addresses,
+            access_list_storage_keys=accessed_storage_keys,
+        )
+        evm = interpreter.process_call(
+            interpreter.create_evm(block_env, tx_env, meter)
+        )
+        return SimpleNamespace(
+            error=evm.error,
+            gas_left=int(meter.gas_left),
+            state_gas_left=int(meter.state_gas_left),
+            refund=int(meter.refund_counter),
+        )
+
+    tx_env = zeroed(
+        vm.TransactionEnvironment, origin=Address(caller), state=tx_state
+    )
+    message = zeroed(
+        vm.Message,
+        block_env=block_env,
+        tx_env=tx_env,
+        caller=Address(caller),
+        target=target,
+        current_target=target,
+        code_address=target,
+        gas=Uint(gas),
+        code=Bytes(code),
+        should_transfer_value=False,
+        accessed_addresses={target, Address(caller), *accessed_addresses},
+        accessed_storage_keys=accessed_storage_keys,
+        parent_evm=None,
+    )
+    evm = interpreter.process_message(message)
+    return SimpleNamespace(
+        error=evm.error,
+        gas_left=int(evm.gas_left),
+        state_gas_left=0,
+        refund=int(evm.refund_counter),
+    )
