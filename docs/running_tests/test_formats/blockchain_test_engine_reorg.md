@@ -152,7 +152,7 @@ The wait before `engine_getPayloadVX` is the consumer's `--get-payload-wait-time
 
 #### `servePeer`
 
-- `head`: `String` — label of the block whose chain, from genesis, a devp2p peer serves to the client; the consumer dials the peer into the client on the first `servePeer` step. A client may download a block's missing ancestors from the peer within a `newPayload` or `forkchoiceUpdated` call, so a head is announced before `servePeer`.
+- `head`: `String` — label of the block whose chain, from genesis, a devp2p peer serves to the client; the consumer dials the peer into the client on the first `servePeer` step. A later `servePeer` switches the served chain, and the peer still answers requests by hash for earlier ones. A client may download a block's missing ancestors from the peer within a `newPayload` or `forkchoiceUpdated` call, so a head is announced before `servePeer`.
 
 #### `awaitHead`
 

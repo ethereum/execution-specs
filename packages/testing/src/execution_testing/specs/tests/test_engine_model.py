@@ -196,8 +196,13 @@ def test_peer_sync_rejects_a_head_the_client_cannot_reach(
             ServePeerStep(head="a2"),
             ForkchoiceUpdatedStep(head="a3"),
         ],
+        [
+            ServePeerStep(head="a3"),
+            ServePeerStep(head="b2"),
+            NewPayloadStep(block="a3"),
+        ],
     ],
-    ids=["served_block", "served_parent", "held_head"],
+    ids=["served_block", "served_parent", "held_head", "earlier_chain"],
 )
 def test_syncing_is_refused_when_the_peer_serves_what_the_client_lacks(
     steps: List[Step],
