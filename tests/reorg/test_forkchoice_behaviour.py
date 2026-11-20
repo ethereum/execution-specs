@@ -255,30 +255,13 @@ def test_side_payload_executed_while_rewound(
     applied.
     """
     blocks, steps = chain(pre, "a", 5)
-    sender = pre.fund_eoa()
-    recipient = pre.fund_eoa(amount=0)
-    for i in range(6, 17):
-        blocks.append(
-            ReorgBlock(
-                label=f"a{i}",
-                parent="a5" if i == 6 else None,
-                txs=[
-                    Transaction(
-                        sender=sender,
-                        nonce=(i - 6) * 50 + j,
-                        to=recipient,
-                        value=1,
-                    )
-                    for j in range(50)
-                ],
-            )
-        )
-        if i < 16:
-            steps += [
-                NewPayloadStep(block=f"a{i}"),
-                ForkchoiceUpdatedStep(head=f"a{i}"),
-            ]
-    blocks.append(ReorgBlock(label="s6", parent="a5", txs=[], extra_data=b"s"))
+    canonical, canonical_steps = chain(
+        pre, "a", 10, parent="a5", start=6, txs_per_block=50
+    )
+    tip, _ = chain(pre, "a", 1, parent="a15", start=16)
+    side, _ = chain(pre, "s", 1, parent="a5", start=6)
+    blocks += canonical + tip + side
+    steps += canonical_steps
 
     def back_to_the_tip() -> List[Step]:
         return [
