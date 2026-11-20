@@ -1770,7 +1770,7 @@ class BlockchainTest(BaseTest):
                 options=stateless_options,
                 fork=fork,
                 execution_witness=execution_witness,
-                block_rlp=built_block.get_block_rlp(),
+                block_rlp=built_block.get_block_rlp,
                 block_access_list=bal,
                 requests_list=requests_list,
                 engine_payload_modifier=built_block.engine_payload_modifier(),
