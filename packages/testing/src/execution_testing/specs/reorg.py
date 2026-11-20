@@ -99,6 +99,12 @@ class ReorgTest(BlockchainTest):
     without refusing for capacity reasons; the consumer sets the client's
     cap to it.
     """
+    skip_stateless_validation: bool = True
+    """
+    A reorg fixture carries no stateless data. A block built on an invalid
+    parent also can't be validated statelessly when the parent header
+    commits to a state root that the witness doesn't match.
+    """
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
