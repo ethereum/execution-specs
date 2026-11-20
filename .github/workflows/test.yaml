@@ -3,7 +3,7 @@ name: Python Specification
 on:
   push:
     branches:
-      - master
+      - main
       - mainnet
       - "forks/**"
       - "benchmarks/**"

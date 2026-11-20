@@ -14,10 +14,10 @@
 #   - path: The branch name (must match the Git branch exactly)
 #   - label: Human-readable label for the version switcher UI
 
-default_branch: forks/bogota
+default_branch: main
 
 branches:
   - path: "mainnet"
     label: "Mainnet (BPO2)"
-  - path: "forks/bogota"
+  - path: "main"
     label: "Bogota"

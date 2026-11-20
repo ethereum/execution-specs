@@ -35,7 +35,6 @@ runs:
         echo "DEVNET_NAME=$DEVNET_NAME"
         echo "EIP_NUMBERS=$EIP_NUMBERS"
 
-        FORK_BRANCH="forks/${FORK}"
         DEVNET_BRANCH="devnets/${DEVNET_NAME}"
 
         # Basic ref-format validation for user-provided pieces
@@ -65,6 +64,14 @@ runs:
         fi
 
         git fetch "${REMOTE}" --prune
+
+        # The fork under active development lives on the default branch,
+        # `main`; a fork developed apart from it has its own `forks/<fork>`.
+        FORK_BRANCH="forks/${FORK}"
+        if ! git show-ref --verify --quiet "refs/remotes/${REMOTE}/${FORK_BRANCH}"; then
+          echo "No ${REMOTE}/${FORK_BRANCH}; using ${REMOTE}/main as the fork base"
+          FORK_BRANCH="main"
+        fi
 
         # Build the list of expected remote branches and verify all exist,
         # then checkout each branch and rebase it onto the fork branch automatically.

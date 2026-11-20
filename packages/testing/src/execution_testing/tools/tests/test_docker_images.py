@@ -22,7 +22,7 @@ from execution_testing.tools.docker_images import (
     releases_for_branch,
 )
 
-DEFAULT_BRANCH = "forks/amsterdam"
+DEFAULT_BRANCH = "main"
 MAINNET_ASSET = {"fixtures.tar.gz": "u/tests"}
 GLAM_ASSET = {"fixtures_glamsterdam-devnet.tar.gz": "u/glamsterdam"}
 # Newest publication first, as the GitHub API lists them. Two patches on
@@ -392,7 +392,7 @@ def test_plan_for_a_release() -> None:
             release_tag="tests-glamsterdam-devnet@v8.1.4",
             releases=RELEASES,
         )
-    with pytest.raises(ValueError, match="cut from forks/amsterdam"):
+    with pytest.raises(ValueError, match="cut from main"):
         plan(
             branch="devnets/glamsterdam/8",
             sha="abc1234def",

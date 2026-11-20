@@ -13,7 +13,7 @@ site_url = "https://specs.ethereum.foundation/docs/execution-specs/"
 repo_url = "https://github.com/ethereum/execution-specs"
 # Edit and view buttons. Generated pages set their own source file with
 # `edit_path` front matter (docs/overrides/partials/actions.html).
-edit_uri = "edit/forks/bogota/docs/"
+edit_uri = "edit/main/docs/"
 repo_name = "execution-specs"
 copyright = "Copyright: 2026, Ethereum Community"
 docs_dir = "docs"

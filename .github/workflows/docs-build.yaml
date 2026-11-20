@@ -23,8 +23,8 @@ on:
     # .github/configs/docs-branches.yaml publish only via workflow_dispatch
     # (use the `ref:` input to publish a tag/SHA).
     branches:
+      - main
       - mainnet
-      - forks/bogota
     paths: &docs_paths
       - "src/ethereum/**"
       - "src/ethereum_spec_tools/forks.py"
@@ -48,7 +48,7 @@ on:
         description: "Branch to publish under. Must be in the allowlist (see .github/configs/docs-branches.yaml)."
         required: true
         type: string
-        default: forks/bogota
+        default: main
       ref:
         description: "Ref to build: branch name, tag (e.g. v1.2.3), or commit SHA. Empty = tip of the branch above."
         required: false

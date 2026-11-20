@@ -3,7 +3,7 @@ name: Test checklist consistency
 on:
   push:
     branches:
-      - master
+      - main
       - mainnet
     paths: &checklist_paths
       - "docs/writing_tests/checklist_templates/**"

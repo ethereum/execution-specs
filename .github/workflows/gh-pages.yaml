@@ -3,6 +3,7 @@ name: render
 on:
   push:
     branches:
+      - main
       - mainnet
       - 'forks/**'
     paths:
