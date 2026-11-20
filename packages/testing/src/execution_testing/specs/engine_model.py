@@ -195,7 +195,15 @@ class ClientModel:
     depends on it is rejected.
     """
     served: Optional[str] = None
-    """Tip of the chain the peer serves; it serves every ancestor too."""
+    """
+    Tip of the chain the peer serves now, from which it answers requests by
+    block number.
+    """
+    servable: Set[str] = field(default_factory=set)
+    """
+    Blocks of every chain the peer has served, which it answers requests for
+    by hash.
+    """
     pending_head: Optional[str] = None
     """
     Head of the last ``forkchoiceUpdated`` answered SYNCING, which the client
@@ -215,6 +223,7 @@ class ClientModel:
                 f"servePeer({head!r}): the peer serves only valid chains"
             )
         self.served = head
+        self.servable.update(self.dag.ancestors(head))
 
     def await_head(self, head: str) -> None:
         """
@@ -245,9 +254,7 @@ class ClientModel:
         lacking = label
         while lacking in self.syncing:
             lacking = self.dag.parent(lacking)
-        if self.served is not None and lacking in self.dag.ancestors(
-            self.served
-        ):
+        if lacking in self.servable:
             raise ValueError(
                 f"{where}: the peer serves {lacking!r}, which a client may "
                 "download within the call; announce the block before "
@@ -617,6 +624,7 @@ class ClientModel:
             known=dict(self.known),
             diverged=dict(self.diverged),
             syncing=set(self.syncing),
+            servable=set(self.servable),
         )
 
 
