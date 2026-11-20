@@ -156,7 +156,7 @@ class FakeGh:
             return ""
         self.reads.append(call)
         if path == "repos/o/r":
-            return json.dumps({"default_branch": "forks/bogota"})
+            return json.dumps({"default_branch": "main"})
         if path.startswith("repos/o/r/pulls?"):
             return "\n".join(json.dumps(pr) for pr in self.pulls)
         if path.endswith("/permission"):
@@ -388,7 +388,7 @@ def test_sweep_closes_pr_into_another_branch(
 @pytest.mark.parametrize(
     "pr,comments",
     [
-        (pull(11, "forks/bogota", 1), {}),
+        (pull(11, "main", 1), {}),
         (pull(11, "forks/amsterdam", m.SWEEP_HOURS + 1), {}),
         (pull(11, "forks/amsterdam", 1, association="COLLABORATOR"), {}),
         (pull(11, "forks/amsterdam", 1), {11: [f"Closed.\n\n{m.MARKER}"]}),

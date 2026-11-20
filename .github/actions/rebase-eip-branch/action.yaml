@@ -1,5 +1,5 @@
 name: Rebase EIP Branches
-description: Rebases EIP branches onto a fork branch
+description: Rebases EIP branches onto `main` (or a leftover `forks/<fork>` branch while it exists)
 inputs:
   fork:
     description: 'Fork name (e.g., amsterdam)'
@@ -28,14 +28,15 @@ runs:
 
         echo "FORK=$FORK"
         echo "EIP_NUMBERS=$EIP_NUMBERS"
-        FORK_BRANCH="forks/${FORK}"
 
         git fetch "${REMOTE}" --prune
 
-        # Sanity: fork base must exist
+        # Forks live on the default branch, `main`. A `forks/<fork>`
+        # branch left over from the old branch scheme wins while it exists.
+        FORK_BRANCH="forks/${FORK}"
         if ! git show-ref --verify --quiet "refs/remotes/${REMOTE}/${FORK_BRANCH}"; then
-          echo "Error: Base fork branch ${REMOTE}/${FORK_BRANCH} does not exist"
-          exit 1
+          echo "No ${REMOTE}/${FORK_BRANCH}; using ${REMOTE}/main as the fork base"
+          FORK_BRANCH="main"
         fi
 
         # Convert comma-separated list to array

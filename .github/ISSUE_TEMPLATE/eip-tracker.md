@@ -40,7 +40,7 @@ When this occurs, owners should either unmark the relevant checkboxes if the iss
 
 - [ ] Testing complexity assessed and documented.
 - [ ] Specification implementation merged to `eips/<fork>/eip-<eip-number>` *(skip if the fork branch merge below is already complete)*.
-- [ ] Specification updates merged to the corresponding `forks/<fork>` branch.
+- [ ] Specification updates merged to `main`.
 - [ ] EIP updates proposed in case of architectural choices surfaced during implementation.
 - [ ] Required testing framework modifications implemented.
 - [ ] Test suite implemented.

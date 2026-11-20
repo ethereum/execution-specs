@@ -41,8 +41,9 @@ Spot-check code patterns mentioned in skills against actual code:
 
 ### 4. Verify Default Branch
 
-Check that the default branch named in `AGENTS.md` matches reality by
-inspecting `src/ethereum/forks/` and git branch configuration.
+Check that the default branch named in `AGENTS.md` (`main`) matches
+`git remote show origin | grep HEAD`, and that the fork it names as under
+active development matches the latest fork in `src/ethereum/forks/`.
 
 ### 5. Verify Docs References
 

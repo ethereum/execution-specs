@@ -4,7 +4,13 @@
 #     "click",
 # ]
 # ///
-"""Build a devnet branch by merging EIP branches onto a fork base."""
+"""
+Build a devnet branch by merging EIP branches onto a fork base.
+
+The fork base is `main`, the default branch, which holds every fork. A
+`forks/<fork>` branch left over from the old branch scheme is used instead
+while it exists.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +24,7 @@ from collections.abc import Sequence
 import click
 
 EIP_PATTERN = re.compile(r"^[0-9]+(?:\+[0-9]+)*$")
+DEFAULT_BRANCH = "main"
 CANONICAL_REMOTE_SUFFIXES = (
     "ethereum/execution-specs",
     "ethereum/execution-specs.git",
@@ -162,6 +169,35 @@ def detect_canonical_remote() -> str:
     selected_remote = matching_remotes[0]
     print(f"Using canonical remote {selected_remote}")
     return selected_remote
+
+
+def remote_branch_exists(remote: str, branch: str) -> bool:
+    """Return True if a remote-tracking branch exists locally."""
+    result = run_git(
+        ["show-ref", "--verify", "--quiet", f"refs/remotes/{remote}/{branch}"],
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def select_fork_branch(
+    *,
+    fork: str,
+    remote: str,
+    use_local_branches: bool,
+) -> str:
+    """
+    Return the branch that the fork's devnets are built on.
+
+    Use a leftover `forks/<fork>` branch while it exists, else `main`.
+    """
+    fork_branch = f"forks/{fork}"
+    if remote_branch_exists(remote, fork_branch) or (
+        use_local_branches and local_branch_exists(fork_branch)
+    ):
+        return fork_branch
+    print(f"No {fork_branch} branch; using {DEFAULT_BRANCH} as the fork base")
+    return DEFAULT_BRANCH
 
 
 def ensure_remote_branch_exists(remote: str, branch: str) -> None:
@@ -339,11 +375,9 @@ def main(
         original_branch = get_current_branch()
         resolved_remote = remote or detect_canonical_remote()
         parsed_eip_numbers = parse_eip_numbers(eip_numbers)
-        fork_branch = f"forks/{fork}"
 
         ensure_clean_tracked_worktree()
         ensure_valid_branch_name(devnet_branch)
-        ensure_valid_branch_name(fork_branch)
 
         eip_branches = [
             f"eips/{fork}/eip-{eip_number}"
@@ -354,6 +388,11 @@ def main(
 
         run_git(["fetch", resolved_remote, "--prune"])
 
+        fork_branch = select_fork_branch(
+            fork=fork,
+            remote=resolved_remote,
+            use_local_branches=use_local_branches,
+        )
         fork_ref = resolve_branch_ref(
             branch=fork_branch,
             remote=resolved_remote,

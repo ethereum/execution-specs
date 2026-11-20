@@ -3,9 +3,7 @@ name: Python Specification
 on:
   push:
     branches:
-      - master
-      - mainnet
-      - "forks/**"
+      - main
       - "benchmarks/**"
     paths-ignore:
       - "**.md"
