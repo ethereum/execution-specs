@@ -11,6 +11,7 @@ from execution_testing.client_clis import TransitionTool
 from execution_testing.fixtures.blockchain import PayloadStatusEnum
 from execution_testing.fixtures.reorg import (
     AssertLogsStep,
+    AssertReceiptStep,
     AssertStateStep,
     AssertTxStatusStep,
     BlockchainEngineReorgFixture,
@@ -297,6 +298,48 @@ def test_assert_tx_status_prefers_the_first_listed_status(
     ):
         step_runner.assert_tx_status("status", step)
     assert step_runner.matched[-1] == f"status:{status}"
+
+
+INDEXING = JSONRPCError(-32000, reorg_logic.TX_INDEXING_IN_PROGRESS)
+
+
+@pytest.mark.parametrize(
+    "replies,timeout,passes",
+    [
+        ([INDEXING, None], 5.0, True),
+        ([INDEXING], 0.0, False),
+        ([JSONRPCError(-32000, "header not found"), None], 5.0, False),
+    ],
+    ids=[
+        "retries_while_indexing",
+        "fails_at_deadline",
+        "fails_on_other_errors",
+    ],
+)
+def test_assert_receipt_waits_for_the_transaction_index(
+    make_runner: MakeRunner,
+    replies: List[JSONRPCError | None],
+    timeout: float,
+    passes: bool,
+) -> None:
+    """
+    A lookup the client cannot answer while indexing is retried until the
+    deadline; any other error fails at once.
+    """
+    eth = MagicMock()
+    eth.get_transaction_receipt.side_effect = replies
+    step_runner = make_runner(eth=eth)
+    step_runner.tx_hash = MagicMock(return_value=Hash(1))  # type: ignore[method-assign]
+    step = AssertReceiptStep(tx=TxRef(block="a1"), block=None)
+    with (
+        patch.object(reorg_logic, "TX_STATUS_TIMEOUT", timeout),
+        patch.object(reorg_logic, "TX_STATUS_POLL_INTERVAL", 0),
+    ):
+        if passes:
+            step_runner.assert_receipt("receipt", step)
+        else:
+            with pytest.raises(JSONRPCError):
+                step_runner.assert_receipt("receipt", step)
 
 
 def test_assert_state_rejects_noncanonical_block(
