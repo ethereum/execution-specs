@@ -21,9 +21,9 @@ from trie import HexaryTrie
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.fixtures.blockchain import (
-    FixtureEngineNewPayload,
     FixtureExecutionPayload,
     FixtureHeader,
+    FixtureNewPayloadRequest,
 )
 from execution_testing.forks import Requests
 from execution_testing.test_types.block_types import Withdrawal
@@ -93,7 +93,7 @@ class Block:
         return encode_list(items)
 
 
-def block_from_payload(payload: FixtureEngineNewPayload) -> Block:
+def block_from_payload(payload: FixtureNewPayloadRequest) -> Block:
     """
     Rebuild the block that `payload` delivers.
 
@@ -289,7 +289,7 @@ class ServedChains:
 
 
 def chain_from_payloads(
-    genesis: FixtureHeader, payloads: Sequence[FixtureEngineNewPayload]
+    genesis: FixtureHeader, payloads: Sequence[FixtureNewPayloadRequest]
 ) -> Chain:
     """
     Build the chain that `payloads` describe, rooted at `genesis`.
