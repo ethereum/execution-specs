@@ -188,6 +188,25 @@ def remove_accounts(
     return transform
 
 
+def remove_account_strictly(
+    address: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Remove one account, raising if it is absent.
+
+    ``remove_accounts`` is silent on a miss, which would leave a test
+    expecting a valid block to be rejected.
+    """
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        root = [a for a in bal.root if a.address != address]
+        if len(root) == len(bal.root):
+            raise ValueError(f"Address {address} not found in BAL to remove")
+        return BlockAccessList(root=root)
+
+    return transform
+
+
 def remove_nonces(
     *addresses: Address,
 ) -> Callable[[BlockAccessList], BlockAccessList]:
@@ -402,6 +421,27 @@ def append_account(
         new_root = list(bal.root)
         new_root.append(account_change)
         return BlockAccessList(root=new_root)
+
+    return transform
+
+
+def insert_accounts(
+    accounts: List[BalAccountChange],
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Insert accounts, keeping the list sorted by address.
+
+    Unlike ``append_account``, the result still passes the ordering
+    check, so only its content is wrong.
+    """
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        return BlockAccessList(
+            root=sorted(
+                list(bal.root) + accounts,
+                key=lambda account: account.address,
+            )
+        )
 
     return transform
 
@@ -767,6 +807,29 @@ def insert_storage_read(
     return transform
 
 
+def add_storage_reads(
+    reads_per_account: int,
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Add ``reads_per_account`` reads to every account without storage.
+
+    Accounts that already touch storage are skipped, since EIP-7928
+    forbids a slot in both an account's reads and its changes.
+    """
+    reads = [ZeroPaddedHexNumber(slot) for slot in range(reads_per_account)]
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        root = []
+        for account_change in bal.root:
+            account = account_change.model_copy(deep=True)
+            if not account.storage_changes and not account.storage_reads:
+                account.storage_reads = list(reads)
+            root.append(account)
+        return BlockAccessList(root=root)
+
+    return transform
+
+
 def remove_slot_change(
     address: Address, slot: int, block_access_index: int
 ) -> Callable[[BlockAccessList], BlockAccessList]:
@@ -864,6 +927,23 @@ def reorder_accounts(
             )
         new_root = [bal.root[i] for i in indices]
         return BlockAccessList(root=new_root)
+
+    return transform
+
+
+def swap_last_two_accounts() -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Break the sort between the last two accounts.
+
+    ``reverse_accounts`` breaks it at the first pair; breaking it at the
+    last makes a client that checks the order by scanning pay for the
+    whole scan first.
+    """
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        root = list(bal.root)
+        root[-2], root[-1] = root[-1], root[-2]
+        return BlockAccessList(root=root)
 
     return transform
 
