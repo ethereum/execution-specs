@@ -10,8 +10,6 @@ tests. `client_policy` holds the exceptions to client reuse.
 
 import json
 import logging
-import os
-import time
 from enum import StrEnum
 from functools import partial
 from typing import TYPE_CHECKING, Dict, Generator, Mapping, NamedTuple
@@ -20,7 +18,6 @@ import pytest
 from hive.client import Client, ClientType
 
 from execution_testing.devp2p.chain import (
-    Chain,
     ChainReconstructionError,
     block_from_payload,
     chain_from_payloads,
@@ -42,9 +39,8 @@ from execution_testing.fixtures.consume import (
     TestCaseIndexFile,
     TestCaseStream,
 )
-from execution_testing.forks import Fork, TransitionFork
-from execution_testing.forks.transition_base_fork import TransitionBaseClass
 
+from ..helpers.mock_peer import dial_mock_peer, fork_schedule_of
 from ..helpers.test_tracker import (
     GroupVariants,
     count_tests_per_group,
@@ -83,9 +79,6 @@ pytest_plugins = (
     # `environment` and `test_suite_description` fixtures.
     "execution_testing.cli.pytest_commands.plugins.consume.simulators.wirex.sync_loop_interval",
 )
-
-DEFAULT_NETWORK_ID = 1
-"""Network identifier the client is started with, and the peer claims."""
 
 
 class BalMode(StrEnum):
@@ -525,71 +518,10 @@ def mock_peers(
         peer.close()
 
 
-def fork_schedule_of(fork: Fork | TransitionFork) -> ForkSchedule:
-    """
-    Return when the network a client runs for `fork` forks after genesis.
-
-    The client is configured from the Hive ruleset of the group's fork
-    (see `multi_test_client`), which activates every fork of a post-merge
-    network at genesis except the second fork of a transition fork:
-    Shanghai at timestamp 15000 for `ParisToShanghaiAtTime15k`, say.
-    """
-    if not issubclass(fork, TransitionBaseClass):
-        return ForkSchedule()
-    return ForkSchedule(
-        block_numbers=(fork.at_block,), timestamps=(fork.at_timestamp,)
-    )
-
-
 @pytest.fixture(scope="function")
 def wirex_fork_schedule(pre_alloc_group: PreAllocGroup) -> ForkSchedule:
     """Return the fork schedule of the network the group's client runs."""
     return fork_schedule_of(pre_alloc_group.fork)
-
-
-def dial_mock_peer(
-    client: Client,
-    chain: Chain,
-    eth_versions: tuple[EthVersion, ...],
-    serve_bals: bool,
-    fork_schedule: ForkSchedule,
-    total_timing_data: "TimingData",
-) -> MockPeer:
-    """
-    Dial a fresh peer connection to `client`, serving `chain`.
-
-    Shared by the per-group `mock_peer` fixture and the per-target
-    isolated clients of multi-target fixtures (see `client_policy`).
-    """
-    enode = client.enode()
-    logger.info(f"Connecting mock peer to {enode}")
-    peer = MockPeer(
-        host=str(client.ip),
-        port=enode.port,
-        remote_public_key=bytes.fromhex(enode.id),
-        private_key=os.urandom(32),
-        network_id=DEFAULT_NETWORK_ID,
-        eth_versions=eth_versions,
-        serve_bals=serve_bals,
-        fork_schedule=fork_schedule,
-    )
-    with total_timing_data.time("Connect mock peer"):
-        # The client readiness gate waits on the Engine API port only;
-        # a freshly started client may open its devp2p listener a
-        # moment later, so the first dial gets a deadline rather than
-        # a single attempt.
-        deadline = time.monotonic() + 10.0
-        while True:
-            try:
-                peer.connect(chain)
-                break
-            except OSError:
-                if time.monotonic() >= deadline:
-                    raise
-                time.sleep(0.25)
-        peer.start()
-    logger.info(f"Mock peer connected to {peer.remote_name}")
-    return peer
 
 
 @pytest.fixture(scope="function")
