@@ -57,7 +57,7 @@ SUCCESS_SLOT = 0x1
         "state_tests/stNonZeroCallsTest/NonZeroValue_DELEGATECALL_ToNonNonZeroBalanceFiller.json",  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("Homestead")
 @pytest.mark.parametrize(
     "opcode, target_kind",
     [
@@ -158,12 +158,13 @@ def test_non_zero_value(
         sender=pre.fund_eoa(),
         to=contract,
         state_gas_reservoir=0,
+        protected=fork.supports_protected_txs(),
     )
 
     # A value-bearing call whose callee consumes nothing returns the stipend.
     measured = store_code.gas_cost(fork)
     if transfers_value:
-        measured -= fork.gas_costs().CALL_STIPEND
+        measured -= fork.call_value_stipend()
 
     if target_kind == "nonexistent":
         target_account = (

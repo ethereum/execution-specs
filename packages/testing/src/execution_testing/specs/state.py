@@ -204,6 +204,8 @@ class StateTest(BaseTest):
                 else env.excess_blob_gas
             ),
             fee_recipient=env.fee_recipient,
+            # State tests apply no block reward.
+            block_reward=0,
         )
         return context
 

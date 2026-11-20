@@ -1,16 +1,23 @@
 """
-Test_zero_value_suicide_oog_revert.
+CALL a contract that SELFDESTRUCTs without balance, in a transaction that runs
+out of gas.
 
 Ported from:
 state_tests/stZeroCallsRevert/ZeroValue_SUICIDE_OOGRevertFiller.json
+state_tests/stZeroCallsRevert/ZeroValue_SUICIDE_ToEmpty_OOGRevert_ParisFiller.json
+state_tests/stZeroCallsRevert/ZeroValue_SUICIDE_ToNonZeroBalance_OOGRevertFiller.json
+state_tests/stZeroCallsRevert/ZeroValue_SUICIDE_ToOneStorageKey_OOGRevert_ParisFiller.json
+
+@manually-enhanced: Do not overwrite. Four fillers in one file; the three with
+an EOA beneficiary are parametrized by recipient.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 from execution_testing.vm import Op
@@ -27,8 +34,8 @@ def test_zero_value_suicide_oog_revert(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test_zero_value_suicide_oog_revert."""
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    """CALL a contract that SELFDESTRUCTs to itself, then run out of gas."""
+    sender = pre.fund_eoa()
 
     # Source: lll
     # { (SELFDESTRUCT <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>)  }
@@ -38,17 +45,7 @@ def test_zero_value_suicide_oog_revert(
     # Source: lll
     # { (CALL 40000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]]12 [[3]]12 [[4]]12 [[100]](GAS) }  # noqa: E501
     target = pre.deploy_contract(
-        code=Op.POP(
-            Op.CALL(
-                gas=0x9C40,
-                address=addr,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
+        code=Op.POP(Op.CALL(gas=0x9C40, address=addr))
         + Op.SSTORE(key=0x2, value=0xC)
         + Op.SSTORE(key=0x3, value=0xC)
         + Op.SSTORE(key=0x4, value=0xC)
@@ -59,7 +56,6 @@ def test_zero_value_suicide_oog_revert(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=100000,
     )
 
@@ -67,6 +63,63 @@ def test_zero_value_suicide_oog_revert(
         sender: Account(nonce=1),
         target: Account(storage={}),
         addr: Account(storage={}),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stZeroCallsRevert/ZeroValue_SUICIDE_ToEmpty_OOGRevert_ParisFiller.json",  # noqa: E501
+        "state_tests/stZeroCallsRevert/ZeroValue_SUICIDE_ToNonZeroBalance_OOGRevertFiller.json",  # noqa: E501
+        "state_tests/stZeroCallsRevert/ZeroValue_SUICIDE_ToOneStorageKey_OOGRevert_ParisFiller.json",  # noqa: E501
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "recipient",
+    [
+        "funded_eoa",
+        "eoa_with_storage",
+    ],
+)
+def test_zero_value_suicide_to_eoa_oog_revert(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    recipient: str,
+) -> None:
+    """CALL a contract that SELFDESTRUCTs to `recipient`, then go OOG."""
+    sender = pre.fund_eoa()
+    storage = Storage()
+    if recipient == "eoa_with_storage":
+        storage[0] = 1
+        beneficiary = pre.fund_eoa(amount=1, storage=storage)
+    else:
+        beneficiary = pre.fund_eoa(amount=1)
+
+    addr = pre.deploy_contract(
+        code=Op.SELFDESTRUCT(address=beneficiary) + Op.STOP,
+        storage=storage,
+    )
+    target = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=0xC350, address=addr))
+        + Op.SSTORE(key=0x2, value=0xC)
+        + Op.SSTORE(key=0x3, value=0xC)
+        + Op.SSTORE(key=0x4, value=0xC)
+        + Op.STOP,
+        storage=storage,
+    )
+
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        gas_limit=75000,
+    )
+
+    post = {
+        sender: Account(nonce=1),
+        target: Account(storage=storage),
+        beneficiary: Account(storage=storage, balance_change=0),
     }
 
     state_test(pre=pre, post=post, tx=tx)

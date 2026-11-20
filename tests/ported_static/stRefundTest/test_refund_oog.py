@@ -1,18 +1,24 @@
 """
-Test_refund_oog.
+Test a transaction one gas short of clearing a storage slot.
 
 Ported from:
 state_tests/stRefundTest/refund_OOGFiller.json
+
+@manually-enhanced: Do not overwrite. The gas limit is one less than the
+intrinsic cost of the value transfer plus the cold SSTORE clear, from the
+fork's gas model. The fee recipient's priority fee is checked with `Tip`.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
+    BlockReward,
     Environment,
+    Fork,
+    GasFee,
     StateTestFiller,
+    Tip,
     Transaction,
 )
 from execution_testing.vm import Op
@@ -24,47 +30,52 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refund_OOGFiller.json"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="requires env.fee_recipient as block coinbase")
+)
 def test_refund_oog(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test_refund_oog."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0x7A120)
+    """Run out of gas on the slot clear: no refund and no value moves."""
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
+    code = (
+        Op.SSTORE(
+            key=0x1,
+            value=0x0,
+            key_warm=False,
+            original_value=1,
+            current_value=1,
+            new_value=0,
+        )
+        + Op.STOP
     )
+    target = pre.deploy_contract(code=code, storage={1: 1})
 
-    pre[coinbase] = Account(balance=0, nonce=1)
-    # Source: lll
-    # { [[ 1 ]] 0 }
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
-        storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-    )
-
+    # One gas short of the clear (see test_refund_no_oog_1).
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
-        gas_limit=26005,
+        gas_limit=fork.transaction_intrinsic_cost_calculator()(
+            sends_value=True
+        )
+        + code.gas_cost(fork)
+        - 1,
         value=10,
+        protected=fork.supports_protected_txs(),
     )
 
+    # The whole gas limit is consumed and nothing is refunded.
     post = {
-        target: Account(storage={1: 1}, balance=0xDE0B6B3A7640000),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0x3A94E, nonce=1),
+        target: Account(storage={1: 1}, balance_change=0),
+        sender: Account(balance_change=-GasFee(tx, gas=tx.gas_limit)),
     }
+    # Before the Merge the coinbase also receives the block reward.
+    post[Environment().fee_recipient] = Account(
+        balance_change=Tip(tx, gas=tx.gas_limit) + BlockReward(tx)
+    )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -291,6 +291,7 @@ class RecordedTransactionLanding(TransactionLanding):
     _base_fee_per_gas: int
     _blob_gas_price: int | None
     _fee_recipient: Address
+    _block_reward: int
 
     def __init__(
         self,
@@ -299,12 +300,14 @@ class RecordedTransactionLanding(TransactionLanding):
         base_fee_per_gas: int,
         blob_gas_price: int | None,
         fee_recipient: Address,
+        block_reward: int,
     ) -> None:
         """Store the block pricing."""
         self._effective_gas_price = effective_gas_price
         self._base_fee_per_gas = base_fee_per_gas
         self._blob_gas_price = blob_gas_price
         self._fee_recipient = fee_recipient
+        self._block_reward = block_reward
 
     def effective_gas_price(self) -> int:
         """Return the price per gas the transaction paid."""
@@ -321,6 +324,10 @@ class RecordedTransactionLanding(TransactionLanding):
     def fee_recipient(self) -> Address:
         """Return the block fee recipient."""
         return self._fee_recipient
+
+    def block_reward(self) -> int:
+        """Return the reward credited to the block's fee recipient."""
+        return self._block_reward
 
 
 @dataclass(kw_only=True)
@@ -344,6 +351,7 @@ class RecordedPostStateContext(PostStateContext):
         base_fee_per_gas: int | None,
         excess_blob_gas: int | None,
         fee_recipient: Address,
+        block_reward: int,
     ) -> None:
         """
         Record that `txs` landed in a block with the given pricing.
@@ -367,6 +375,7 @@ class RecordedPostStateContext(PostStateContext):
                 base_fee_per_gas=base_fee,
                 blob_gas_price=blob_gas_price,
                 fee_recipient=fee_recipient,
+                block_reward=block_reward,
             )
 
     def landing(self, key: TransactionKey) -> TransactionLanding:

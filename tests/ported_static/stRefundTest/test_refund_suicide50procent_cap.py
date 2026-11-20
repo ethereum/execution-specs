@@ -18,6 +18,7 @@ from execution_testing import (
     Account,
     Alloc,
     Fork,
+    GasFee,
     Hash,
     StateTestFiller,
     Transaction,
@@ -29,8 +30,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 TARGET_BALANCE = 0xDE0B6B3A7640000
 DESTRUCTOR_BALANCE = 0xDE0B6B3A7640000
-INITIAL_BALANCE = 10**18
-GAS_PRICE = 10
 FLAG_SLOT = 0xA
 RESULT_SLOT = 0xB
 GAS_SLOT = 0x17
@@ -42,7 +41,7 @@ GRANT_MARGIN = 1_000
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refundSuicide50procentCapFiller.json"],
 )
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     "call_succeeds",
     [False, True],
@@ -142,13 +141,13 @@ def test_refund_suicide50procent_cap(
     executed = intrinsic + gas_delta + tail.gas_cost(fork)
     gas_limit = executed + 5_000
 
-    sender = pre.fund_eoa(amount=INITIAL_BALANCE)
+    sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
         to=target,
         data=data,
         gas_limit=gas_limit,
-        gas_price=GAS_PRICE,
+        protected=fork.supports_protected_txs(),
     )
 
     # The refund is capped at a fork-defined fraction of the executed
@@ -180,7 +179,7 @@ def test_refund_suicide50procent_cap(
             if call_succeeds
             else Account(balance=DESTRUCTOR_BALANCE, storage={})
         ),
-        sender: Account(balance=INITIAL_BALANCE - gas_used * GAS_PRICE),
+        sender: Account(balance_change=-GasFee(tx, gas=gas_used)),
     }
 
     state_test(pre=pre, post=post, tx=tx)

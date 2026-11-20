@@ -1,210 +1,77 @@
 """
-Ori Pomerantz   qbzzt1@gmail.com.
+Test RETURNDATACOPY bounds against the length a callee returned.
+
+The original tests were written by Ori Pomerantz (qbzzt1@gmail.com).
 
 Ported from:
 state_tests/stReturnDataTest/tooLongReturnDataCopyFiller.yml
+
+@manually-enhanced: Do not overwrite. Parametrized on the returned length,
+the copied range and the callee's exit, with the outcome derived from
+whether the copied range fits in the return data. The calldata selector,
+gas price and gas limit are dropped.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     Hash,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+UNTOUCHED = 0x60A7
+SUCCESS = 0xDEAD
 
 
 @pytest.mark.ported_from(
     ["state_tests/stReturnDataTest/tooLongReturnDataCopyFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize(
-    "d, g, v",
+    "callee_reverts", [False, True], ids=["return", "revert"]
+)
+@pytest.mark.parametrize(
+    "returned_length, copy_offset, copy_length",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            2,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            3,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            4,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            5,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            6,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            7,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            8,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            9,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            10,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            11,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            12,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            13,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            14,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            15,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            16,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            17,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            18,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            19,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            20,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            21,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            22,
-            0,
-            0,
-            id="fail",
-        ),
-        pytest.param(
-            23,
-            0,
-            0,
-            id="fail",
-        ),
+        (0x0, 0x0, 0x0),
+        (0x0, 0x0, 0x1),
+        (0x10, 0x0, 0x8),
+        (0x10, 0x0, 0x10),
+        (0x10, 0x0, 0x11),
+        (0x10, 0x1, 0xF),
+        (0x10, 0x1, 0x10),
+        (0x10, 0x8, 0x8),
+        (0x10, 0x9, 0x8),
+        (0x10, 0x10, 0x8),
+        (0x10, 0x10, 0x10),
+        (0x10, 0x20, 0x10),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_too_long_return_data_copy(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    returned_length: int,
+    copy_offset: int,
+    copy_length: int,
+    callee_reverts: bool,
 ) -> None:
-    """Ori Pomerantz   qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000, nonce=1)
+    """
+    Copy a range of the data a callee returned or reverted with.
 
-    # Source: yul
-    # berlin
-    # {
-    #    // How many bytes to return
-    #    let byteCount := calldataload(0)
-    #
-    #    // Some junk data
-    #    mstore(0, 0x1F1E1D1C1B1A191817161514131211100F0E0D0C0B0A090807060504030201FF)  # noqa: E501
-    #
-    #    sstore(0, byteCount)
-    #
-    #    // Return the result
-    #    return(0x00, byteCount)
-    # }
-    addr = pre.deploy_contract(
+    The copy succeeds only when `copy_offset + copy_length` fits within
+    `returned_length`; otherwise RETURNDATACOPY halts the frame and the
+    target's storage keeps its pre-set value. A successful run also shows
+    that the other copy opcodes may read past the end of their source.
+    """
+    sender = pre.fund_eoa()
+
+    returning_callee = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.MSTORE(
             offset=0x0,
@@ -213,23 +80,8 @@ def test_too_long_return_data_copy(
         + Op.SSTORE(key=0x0, value=Op.DUP1)
         + Op.PUSH1[0x0]
         + Op.RETURN,
-        nonce=1,
     )
-    # Source: yul
-    # berlin
-    # {
-    #    // How many bytes to return
-    #    let byteCount := calldataload(0)
-    #
-    #    // Some junk data
-    #    mstore(0, 0x1F1E1D1C1B1A191817161514131211100F0E0D0C0B0A090807060504030201FF)  # noqa: E501
-    #
-    #    sstore(0, byteCount)
-    #
-    #    // Return the result
-    #    revert(0x00, byteCount)
-    # }
-    addr_2 = pre.deploy_contract(
+    reverting_callee = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.MSTORE(
             offset=0x0,
@@ -238,232 +90,53 @@ def test_too_long_return_data_copy(
         + Op.SSTORE(key=0x0, value=Op.DUP1)
         + Op.PUSH1[0x0]
         + Op.REVERT,
-        nonce=1,
     )
-    # Source: yul
-    # berlin
-    # {
-    #    let lengthReturned := calldataload(0x04)
-    #    let offsetCopied   := calldataload(0x24)
-    #    let lengthCopied   := calldataload(0x44)
-    #    let contract       := calldataload(0x64)
-    #    mstore(0, lengthReturned)
-    #
-    #    // The length of the buffer to be returned is part of the calldata
-    #    // for this contract. However, it is necessary to send it to the
-    #    // contract we're calling (either <contract:0x000000000000000000000000000000000000c0de> or <contract:0x0000000000000000000000000000000000000bad>) so it will know  # noqa: E501
-    #    // what size of buffer to return to us
-    #    let retVal := call(gas(), contract, 0,
-    #       0, 0x20,    // input buffer with lengthReturned
-    #       0, 0x100)    // output buffer
-    #
-    #    // Copy the return data (which fails if
-    #    // offsetCopied+lengthCopied > lengthReturned)
-    #    returndatacopy(0x100, offsetCopied, lengthCopied)
-    #
-    #
-    #    // Show that other copies of excess length work (otherwise
-    #    // the goat will never die)
-    #    extcodecopy(<contract:0x000000000000000000000000000000000000c0de>, 0,0, add(0x20,extcodesize(<contract:0x000000000000000000000000000000000000c0de>)))  # noqa: E501
-    #    calldatacopy(0,0, add(0x20,calldatasize()))
-    #    codecopy(0,0, add(0x20,codesize()))
-    #
-    #
-    #    // If we get here, kill the goat to show success
-    #    sstore(0, 0xDEAD)
-    # ... (1 more lines)
+    # Calldata: returned length, copy offset, copy length, callee address.
     target = pre.deploy_contract(
-        code=Op.CALLDATALOAD(offset=0x4)
-        + Op.CALLDATALOAD(offset=0x24)
-        + Op.PUSH2[0x100]
-        + Op.PUSH1[0x0]
-        + Op.PUSH1[0x20]
-        + Op.DUP2
-        + Op.DUP1
-        + Op.CALLDATALOAD(offset=0x44)
-        + Op.SWAP7
-        + Op.CALLDATALOAD(offset=0x64)
-        + Op.SWAP1
-        + Op.DUP3
-        + Op.MSTORE
-        + Op.GAS
-        + Op.POP(Op.CALL)
-        + Op.PUSH2[0x100]
-        + Op.RETURNDATACOPY
+        # Ask the callee to return (or revert with) `returned_length` bytes.
+        code=Op.MSTORE(offset=0, value=Op.CALLDATALOAD(offset=0x0))
+        + Op.POP(
+            Op.CALL(
+                address=Op.CALLDATALOAD(offset=0x60),
+                args_offset=0,
+                args_size=0x20,
+                ret_offset=0,
+                ret_size=0x100,
+            )
+        )
+        # Halts the frame if the copied range overruns the return data.
+        + Op.RETURNDATACOPY(
+            dest_offset=0x100,
+            offset=Op.CALLDATALOAD(offset=0x20),
+            size=Op.CALLDATALOAD(offset=0x40),
+        )
+        # The other copy opcodes may read past the end of their source.
         + Op.EXTCODECOPY(
-            address=addr,
-            dest_offset=Op.DUP1,
-            offset=0x0,
-            size=Op.ADD(0x20, Op.EXTCODESIZE(address=addr)),
+            address=returning_callee,
+            dest_offset=0,
+            offset=0,
+            size=Op.ADD(0x20, Op.EXTCODESIZE(address=returning_callee)),
         )
         + Op.CALLDATACOPY(
-            dest_offset=Op.DUP1, offset=0x0, size=Op.ADD(0x20, Op.CALLDATASIZE)
+            dest_offset=0, offset=0, size=Op.ADD(0x20, Op.CALLDATASIZE)
         )
-        + Op.CODECOPY(
-            dest_offset=Op.DUP1, offset=0x0, size=Op.ADD(0x20, Op.CODESIZE)
-        )
-        + Op.SSTORE(key=0x0, value=0xDEAD)
+        + Op.CODECOPY(dest_offset=0, offset=0, size=Op.ADD(0x20, Op.CODESIZE))
+        + Op.SSTORE(key=0x0, value=SUCCESS)
         + Op.STOP,
-        storage={0: 24743},
-        balance=0xDE0B6B3A7640000,
-        nonce=1,
+        storage={0: UNTOUCHED},
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {
-                "data": [1, 4, 6, 8, 9, 10, 11, 13, 16, 18, 20, 21, 22, 23],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 24743})},
-        },
-        {
-            "indexes": {
-                "data": [0, 2, 3, 5, 7, 12, 14, 15, 17, 19],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 57005})},
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes("917694f9")
-        + Hash(0x0)
-        + Hash(0x0)
-        + Hash(0x0)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x0)
-        + Hash(0x0)
-        + Hash(0x1)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x0)
-        + Hash(0x8)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x0)
-        + Hash(0x10)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x0)
-        + Hash(0x11)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x1)
-        + Hash(0xF)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x1)
-        + Hash(0x10)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x8)
-        + Hash(0x8)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x9)
-        + Hash(0x8)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x10)
-        + Hash(0x8)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x10)
-        + Hash(0x10)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x20)
-        + Hash(0x10)
-        + Hash(addr, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x0)
-        + Hash(0x0)
-        + Hash(0x0)
-        + Hash(addr_2, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x0)
-        + Hash(0x0)
-        + Hash(0x1)
-        + Hash(addr_2, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x0)
-        + Hash(0x8)
-        + Hash(addr_2, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x0)
-        + Hash(0x10)
-        + Hash(addr_2, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x0)
-        + Hash(0x11)
-        + Hash(addr_2, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x1)
-        + Hash(0xF)
-        + Hash(addr_2, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x1)
-        + Hash(0x10)
-        + Hash(addr_2, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x8)
-        + Hash(0x8)
-        + Hash(addr_2, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x9)
-        + Hash(0x8)
-        + Hash(addr_2, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x10)
-        + Hash(0x8)
-        + Hash(addr_2, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x10)
-        + Hash(0x10)
-        + Hash(addr_2, left_padding=True),
-        Bytes("917694f9")
-        + Hash(0x10)
-        + Hash(0x20)
-        + Hash(0x10)
-        + Hash(addr_2, left_padding=True),
-    ]
-    tx_gas = [16777216]
+    callee = reverting_callee if callee_reverts else returning_callee
+    succeeds = copy_offset + copy_length <= returned_length
+    post = {target: Account(storage={0: SUCCESS if succeeds else UNTOUCHED})}
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        nonce=1,
-        gas_price=100,
-        error=_exc,
+        data=Hash(returned_length)
+        + Hash(copy_offset)
+        + Hash(copy_length)
+        + Hash(callee, left_padding=True),
     )
 
     state_test(pre=pre, post=post, tx=tx)

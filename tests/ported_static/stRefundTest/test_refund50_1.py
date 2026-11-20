@@ -1,31 +1,27 @@
 """
-Test_refund50_1.
+Test that the refund for clearing five storage slots is capped.
 
 Ported from:
 state_tests/stRefundTest/refund50_1Filler.json
 
-@manually-enhanced: Do not overwrite. The post-state asserts the sender
-balance, which equals its start minus `gas_used * gas_price`. The
-contract clears five cold storage slots; EIP-8038 raises each cold
-SSTORE-clear charge. The EIP-3529 refund cap (`gas_used // 5`) binds at
-both forks (the clear refunds far exceed a fifth of gas used), so the
-extra charge raises `gas_used` by exactly four fifths of itself. Derive
-the per-clear charge delta from the fork gas model (0 pre-EIP-8037) and
-subtract `gas_price * 5 * delta * 4 // 5` from the Cancun balance; do
-not hardcode the Amsterdam value.
+@manually-enhanced: Do not overwrite. The expected gas used is computed from
+the fork's gas model: intrinsic cost plus the five cold SSTORE clears, minus
+their refund capped at `max_refund_quotient`. The fee recipient's priority fee
+and block reward are checked with `Tip` and `BlockReward`.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
+    BlockReward,
     Environment,
+    Fork,
+    GasFee,
     StateTestFiller,
+    Tip,
     Transaction,
 )
-from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -35,66 +31,56 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refund50_1Filler.json"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="requires env.fee_recipient as block coinbase")
+)
 def test_refund50_1(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Test_refund50_1."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0x989680)
+    """Clear five cold storage slots; the refund exceeds the cap."""
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
+    # Each SSTORE clears a cold slot that was set in the pre-state.
+    cold_clear = Op.SSTORE.with_metadata(
+        key_warm=False, original_value=1, current_value=1, new_value=0
     )
-
-    pre[coinbase] = Account(balance=0, nonce=1)
-    # Source: lll
-    # { [[ 1 ]] 0 [[ 2 ]] 0 [[ 3 ]] 0 [[ 4 ]] 0 [[ 5 ]] 0 }
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x0)
-        + Op.SSTORE(key=0x2, value=0x0)
-        + Op.SSTORE(key=0x3, value=0x0)
-        + Op.SSTORE(key=0x4, value=0x0)
-        + Op.SSTORE(key=0x5, value=0x0)
-        + Op.STOP,
+    code = (
+        cold_clear(key=0x1, value=0x0)
+        + cold_clear(key=0x2, value=0x0)
+        + cold_clear(key=0x3, value=0x0)
+        + cold_clear(key=0x4, value=0x0)
+        + cold_clear(key=0x5, value=0x0)
+        + Op.STOP
+    )
+    target = pre.deploy_contract(
+        code=code,
         storage={1: 1, 2: 1, 3: 1, 4: 1, 5: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
         gas_limit=100000,
+        protected=fork.supports_protected_txs(),
     )
 
-    # EIP-8038 raises each cold SSTORE-clear charge and EIP-2780
-    # shifts the tx intrinsic. With the EIP-3529 refund cap binding,
-    # gas_used rises by 4/5 of the gross-gas delta.
-    cold_clear = Op.SSTORE.with_metadata(
-        key_warm=False, original_value=1, current_value=1, new_value=0
+    gas_before_refund = (
+        fork.transaction_intrinsic_cost_calculator()() + code.gas_cost(fork)
     )
-    cold_clear_delta = cold_clear.gas_cost(fork) - cold_clear.gas_cost(Cancun)
-    intrinsic_delta = (
-        fork.transaction_intrinsic_cost_calculator()()
-        - Cancun.transaction_intrinsic_cost_calculator()()
+    refund = min(
+        code.refund(fork), gas_before_refund // fork.max_refund_quotient()
     )
-    gross_delta = 5 * cold_clear_delta + intrinsic_delta
-    extra_gas_used = gross_delta * 4 // 5
+    gas_used = gas_before_refund - refund
 
     post = {
         target: Account(storage={}),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0x92F810 - 10 * extra_gas_used, nonce=1),
+        sender: Account(balance_change=-GasFee(tx, gas=gas_used)),
     }
+    post[Environment().fee_recipient] = Account(
+        balance_change=Tip(tx, gas=gas_used) + BlockReward(tx)
+    )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
