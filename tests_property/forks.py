@@ -10,6 +10,7 @@ fork rather than naming forks.
 
 from functools import cache
 from importlib import import_module
+from inspect import isclass, isfunction
 from types import ModuleType
 from typing import Callable, Dict, List, Sequence
 
@@ -94,12 +95,19 @@ def spec_module(fork: Fork, path: str) -> ModuleType:
 
 @cache
 def defines(fork: Fork, name: str) -> bool:
-    """Return whether the spec package of `fork` defines `name`."""
-    module, _, attribute = name.rpartition(".")
+    """
+    Return whether the spec package of `fork` defines `name` at that path.
+    A function or class that the module only imports does not count.
+    """
+    path, _, attribute = name.rpartition(".")
     try:
-        return hasattr(spec_module(fork, module), attribute)
+        module = spec_module(fork, path)
     except ModuleNotFoundError:
         return False
+    found = getattr(module, attribute, None)
+    if isfunction(found) or isclass(found):
+        return found.__module__ == module.__name__
+    return found is not None
 
 
 def targets_of(item: pytest.Item, fork: Fork) -> List[str]:

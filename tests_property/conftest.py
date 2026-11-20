@@ -101,6 +101,13 @@ def pytest_collection_modifyitems(
             for name in marker.args
         )
 
+    for item in items:
+        for marker in item.iter_markers("targets"):
+            for name in marker.args:
+                if not any(defines(fork, name) for fork in SPEC_PACKAGES):
+                    raise pytest.UsageError(
+                        f"no fork defines {name}, for {item.nodeid}"
+                    )
     dropped = [item for item in items if not applies(item)]
     if dropped:
         config.hook.pytest_deselected(items=dropped)
