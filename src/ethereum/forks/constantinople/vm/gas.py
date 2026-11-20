@@ -81,6 +81,11 @@ class GasCosts:
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
     LIMIT_MINIMUM: Final[Uint] = Uint(5000)
+    LIMIT_MAXIMUM: Final[Uint] = Uint(2**63 - 1)
+    """
+    Largest gas limit a block may have, so that it fits in a signed 64-bit
+    integer.
+    """
 
     # Static Opcodes
     OPCODE_ADD: Final[Uint] = VERY_LOW

@@ -82,7 +82,6 @@ def exceptional_blockchain_test_patterns(
         # InvalidBlockTest
         "bcForgedTest",
         "bcMultiChainTest",
-        f"GasLimitHigherThan2p63m1_{jf}",
     )
 
     # All tests that recursively create a large number of frames (50000)

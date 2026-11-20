@@ -414,6 +414,10 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_GASLIMIT: (
             "InvalidGasLimit: Gas limit is not correct"
         ),
+        # Nethermind gives a gas limit above 2**63 - 1 the same message.
+        BlockException.GASLIMIT_TOO_BIG: (
+            "InvalidGasLimit: Gas limit is not correct"
+        ),
         BlockException.INVALID_RECEIPTS_ROOT: (
             "InvalidReceiptsRoot: Receipts root in header does not match"
         ),
