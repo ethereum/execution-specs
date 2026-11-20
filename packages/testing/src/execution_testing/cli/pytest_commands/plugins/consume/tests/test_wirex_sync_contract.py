@@ -28,6 +28,7 @@ from execution_testing.forks import (
 )
 from execution_testing.test_types.block_types import Withdrawal
 
+from ..simulators.helpers import mock_peer
 from ..simulators.helpers.exceptions import LoggedError
 from ..simulators.helpers.ruleset import ruleset
 from ..simulators.helpers.timing import TimingData
@@ -714,18 +715,18 @@ class TestForkSchedule:
         self,
     ) -> None:
         """ParisToShanghaiAtTime15k forks to Shanghai at t=15000."""
-        assert wirex.fork_schedule_of(
+        assert mock_peer.fork_schedule_of(
             ParisToShanghaiAtTime15k
         ) == ForkSchedule(block_numbers=(0,), timestamps=(15000,))
 
     def test_a_single_fork_runs_from_genesis(self) -> None:
         """A fork that is no transition schedules nothing past genesis."""
-        assert wirex.fork_schedule_of(Cancun) == ForkSchedule()
+        assert mock_peer.fork_schedule_of(Cancun) == ForkSchedule()
 
     @pytest.mark.parametrize("fork", POST_MERGE_FORKS, ids=str)
     def test_the_schedule_matches_the_hive_ruleset(self, fork: Any) -> None:
         """Every activation past genesis the client gets, and no other."""
-        schedule = wirex.fork_schedule_of(fork)
+        schedule = mock_peer.fork_schedule_of(fork)
         blocks, times = _ruleset_activations(fork)
         assert {n for n in schedule.block_numbers if n} == blocks
         assert {t for t in schedule.timestamps if t} == times
@@ -756,13 +757,13 @@ class TestForkSchedule:
             def start(self) -> None:
                 pass
 
-        monkeypatch.setattr(wirex, "MockPeer", _DialedPeer)
+        monkeypatch.setattr(mock_peer, "MockPeer", _DialedPeer)
         client = SimpleNamespace(
             ip="127.0.0.1",
             enode=lambda: SimpleNamespace(port=30303, id="00" * 64),
         )
-        schedule = wirex.fork_schedule_of(ParisToShanghaiAtTime15k)
-        wirex.dial_mock_peer(
+        schedule = mock_peer.fork_schedule_of(ParisToShanghaiAtTime15k)
+        mock_peer.dial_mock_peer(
             cast(Any, client),
             _chain([_block(1, empty=False)]),
             (),
