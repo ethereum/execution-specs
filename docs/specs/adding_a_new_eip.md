@@ -33,18 +33,11 @@ For example, if Amsterdam is under development and Prague is live on mainnet, th
 
 ## Branch structure
 
-### Forks live on mainnet
+- `main`: The default branch. It holds every fork, both the forks live on mainnet and the forks under development, and keeps its name from one fork to the next.
+- `eips/<FORK_NAME>/<EIP_NUMBER>`: Branches for each EIP, based on `main`. For example, `eips/bogota/eip-7928` is the branch for EIP-7928 for the Bogota fork. This branch will be merged into `main` after the EIP has been confirmed for release in the fork.
+- `devnets/<NAME>/<NUMBER>`: The combination of EIP branches that a devnet runs.
 
-The final stable specification for all forks that are currently live on mainnet are on the `mainnet` branch.
-
-### Fork under development
-
-At any given time there is exactly one fork under active development. The branch structure for the fork under development is:
-
-- `main`: The default branch, which holds the fork under development. It keeps its name from one fork to the next and is merged into `mainnet` after the fork has gone live.
-- `eips/<FORK_NAME>/<EIP_NUMBER>`: Branches for each EIP within the fork under development. For example, `eips/bogota/eip-7928` is the branch for EIP-7928 for the Bogota fork. This branch will be merged into `main` after the EIP has been confirmed for release in the fork.
-
-A fork that is developed apart from `main`, for example one that is finished but not yet live while `main` moves on to the next fork, keeps its own `forks/<FORK_NAME>` branch until it is merged into `mainnet`.
+The stable specification of the forks live on mainnet is published as a tagged release (`vX.Y.Z`) and on PyPI. A release ships only the forks up to the fork it is for, see [Releasing](../dev/releasing.md#publishing-to-pypi).
 
 ## Writing a new EIP
 
@@ -53,7 +46,7 @@ Implementing a new EIP in this repository involves the following steps:
 1. **Create a new branch.** Create a branch for the EIP under the appropriate fork. For example, if you are implementing an EIP for the Bogota fork, create a branch `eips/bogota/eip-<EIP_NUMBER>`.
 2. **Implement the EIP.** Implement the EIP in the `src/ethereum/forks/<FORK_NAME>/` folder. See [Writing Specs](writing_specs.md) for style rules and the `ethereum_spec_tools` CLI utilities (the *New Fork Tool* in particular).
 3. **Basic sanity checks.** Run `just static` to run formatting, linting, and spec-specific lints.
-4. **Raise a PR.** Raise a PR against the fork's base branch: `main` for the fork under development, or `forks/<FORK_NAME>` for a fork developed apart from `main`.
+4. **Raise a PR.** Raise a PR against `main`.
 
 An EIP can only be CFI'd (Considered For Inclusion) if it has a reference EELS implementation. The EIP author is responsible for keeping their EIP up to date with the latest changes. For example, if an author had written their EIP for Prague under `eips/prague/eip-x`, but for some reason it didn't make it into Prague, they would need to rebase their EIP to reflect the changes in Amsterdam under `eips/amsterdam/eip-x`.
 

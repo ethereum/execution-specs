@@ -24,7 +24,6 @@ on:
     # (use the `ref:` input to publish a tag/SHA).
     branches:
       - main
-      - mainnet
     paths: &docs_paths
       - "src/ethereum/**"
       - "src/ethereum_spec_tools/forks.py"
@@ -227,7 +226,7 @@ jobs:
         run: |
           # zensical.toml can't read environment variables; set the
           # per-branch site_url (canonical/OG/sitemap URLs) in place.
-          # Refs without zensical.toml (e.g. mainnet, still on MkDocs)
+          # Refs without zensical.toml (older tags, still on MkDocs)
           # read SITE_URL from the environment instead.
           if [ -f zensical.toml ]; then
             sed -i "s|^site_url = .*|site_url = \"${SITE_URL}\"|" zensical.toml

@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - "forks/**"
     paths-ignore:
       - "**.md"
       - "LICENSE*"

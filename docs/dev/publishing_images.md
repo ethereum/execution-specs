@@ -6,7 +6,7 @@ The workflow `.github/workflows/docker-images.yaml` publishes the images describ
 
 | Run | Trigger | Builds |
 | --- | --- | --- |
-| push | a push to `main` or a `forks/**` or `devnets/**` branch that is still current when its run starts | the repository image of the head, and the simulator images of the branch's current release, its highest one, rebuilt with the head and pushed under the branch's channel tag (`latest`, `glamsterdam-devnet-8`) only; the release tag is left as the release run published it |
+| push | a push to `main` or a `devnets/**` branch that is still current when its run starts | the repository image of the head, and the simulator images of the branch's current release, its highest one, rebuilt with the head and pushed under the branch's channel tag (`latest`, `glamsterdam-devnet-8`) only; the release tag is left as the release run published it |
 | release | a fixture release is published (`release: published`) | the fixture images and the tests image of the release, and the simulator images pairing it with the head of the branch it was cut from, under the immutable release tag and, for the branch's highest release, its channel |
 | nightly | the scheduled fill in `release_fixtures.yaml` completes, which calls this workflow | every image at the fill commit, from the fill's `fixtures_<sha>` artifact; test-carrying images get `nightly`, the repository image `sha-<sha>` |
 | by hand | the Actions tab or `gh workflow run` | any of the above, and testing on a fork |

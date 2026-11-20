@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - mainnet
     paths: &checklist_paths
       - "docs/writing_tests/checklist_templates/**"
       - "packages/testing/src/execution_testing/checklists/eip_checklist.py"

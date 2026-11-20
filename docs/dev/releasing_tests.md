@@ -43,7 +43,7 @@ gh workflow run release_fixtures.yaml -f feature=frames-devnet -f version=v0.1.0
 ```
 
 !!! warning "The selected branch supplies the release scripts"
-    The `setup` job checks out `branch` first and runs the input validation and build-matrix script from that tree, so `gh workflow run --ref` only selects the workflow file. The selected branch must itself contain the current release scripts: rebase it onto its base, `main` or `forks/<fork>`, or cherry-pick the scripts onto it before releasing. A stale branch also fills without whatever landed on the base since.
+    The `setup` job checks out `branch` first and runs the input validation and build-matrix script from that tree, so `gh workflow run --ref` only selects the workflow file. The selected branch must itself contain the current release scripts: rebase it onto `main` (or cherry-pick the scripts onto it) before releasing. A stale branch also fills without whatever landed on the base since.
 
 ## What the workflow produces
 

@@ -24,7 +24,7 @@ name: Hive simulator images
 
 on:
   push:
-    branches: ["main", "forks/**", "devnets/**"]
+    branches: ["main", "devnets/**"]
   release:
     types: [published]
   workflow_call:

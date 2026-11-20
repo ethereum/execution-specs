@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-      - mainnet
-      - "forks/**"
       - "benchmarks/**"
     paths-ignore:
       - "**.md"

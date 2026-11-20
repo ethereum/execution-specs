@@ -7,9 +7,9 @@
 """
 Build a devnet branch by merging EIP branches onto a fork base.
 
-The fork base is `forks/<fork>` when that branch exists, for a fork that is
-developed apart from the default branch. Otherwise it is `main`, the default
-branch, which holds the fork under active development.
+The fork base is `main`, the default branch, which holds every fork. A
+`forks/<fork>` branch left over from the old branch scheme is used instead
+while it exists.
 """
 
 from __future__ import annotations
@@ -189,7 +189,7 @@ def select_fork_branch(
     """
     Return the branch that the fork's devnets are built on.
 
-    Use `forks/<fork>` when it exists and fall back to the default branch.
+    Use a leftover `forks/<fork>` branch while it exists, else `main`.
     """
     fork_branch = f"forks/{fork}"
     if remote_branch_exists(remote, fork_branch) or (

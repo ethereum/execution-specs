@@ -23,7 +23,7 @@ Every simulator image is checked before publication. A failed check leaves that 
 
 | Image | Contents | Built |
 | --- | --- | --- |
-| `ghcr.io/ethereum/execution-specs` | The repository: the execution-specs source tree, test sources included, and its synced virtualenv. Tagged `sha-<commit>` only. | On current pushes to `main`, `forks/**` or `devnets/**`; at the selected branch head for a release; at the fill commit for a nightly. |
+| `ghcr.io/ethereum/execution-specs` | The repository: the execution-specs source tree, test sources included, and its synced virtualenv. Tagged `sha-<commit>` only. | On current pushes to `main` or `devnets/**`; at the selected branch head for a release; at the fill commit for a nightly. |
 | `ghcr.io/ethereum/execution-specs/fixtures/<format>` | One fixture format of one release or nightly fill under `/fixtures`, with `.meta/index.json` filtered to that format. No filesystem otherwise. Tagged by release and `nightly` only. | When a fixture release is published and after every nightly fill, one image per format. |
 | `ghcr.io/ethereum/execution-specs/tests` | The `tests/` tree at the commit that produced a release or fill, under `/execution-specs/tests`. No filesystem otherwise. Tagged by release and `nightly` only. | When a fixture release is published and after every nightly fill. |
 | `ghcr.io/ethereum/execution-specs/hive/<simulator>` | A ready-to-run simulator: the repository image with the fixtures or test sources of a release or fill. | On current pushes, for the branch's current release; when a release is published; after every nightly fill. |

@@ -17,7 +17,5 @@
 default_branch: main
 
 branches:
-  - path: "mainnet"
-    label: "Mainnet (BPO2)"
   - path: "main"
     label: "Bogota"
