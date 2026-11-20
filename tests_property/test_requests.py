@@ -15,8 +15,9 @@ import pytest
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import Uint
 from execution_testing.base_types import Bytes as FrameworkBytes
-from execution_testing.forks import DepositRequest, Requests
-from execution_testing.forks.forks.eips.prague.eip_6110 import (
+from execution_testing.forks import (
+    DepositRequest,
+    Requests,
     create_deposit_log_bytes,
 )
 from hypothesis import given
