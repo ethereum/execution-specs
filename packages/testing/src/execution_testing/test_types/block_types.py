@@ -9,6 +9,7 @@ import ethereum_rlp as eth_rlp
 from ethereum_types.numeric import Uint
 from pydantic import Field, computed_field, model_validator
 from trie import HexaryTrie
+from typing_extensions import Self
 
 from execution_testing.base_types import (
     Address,
@@ -184,6 +185,17 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
 
         last_index = max(self.block_hashes.keys())
         return Hash(self.block_hashes[last_index])
+
+    def copy(self, **kwargs: Any) -> Self:
+        """
+        Copy the environment, keeping a set `extra_data`.
+
+        The field is excluded from dumps, which the base copy is built from,
+        so without this every copy would reset it to the default.
+        """
+        if "extra_data" in self.model_fields_set:
+            kwargs = {"extra_data": self.extra_data} | kwargs
+        return super().copy(**kwargs)
 
     def set_fork_requirements(self, fork: Fork) -> "Environment":
         """Fill required fields in an environment depending on the fork."""

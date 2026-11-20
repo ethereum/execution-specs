@@ -17,6 +17,7 @@ from execution_testing import (
     EIPChecklist,
     Environment,
     Fork,
+    Header,
     Op,
     Transaction,
     TransitionFork,
@@ -216,20 +217,26 @@ def get_block_rlp_size(
     transactions: List[Transaction],
     block_gas_limit: int,
     withdrawals: List[Withdrawal] | None = None,
+    *,
+    extra_data: bytes = EXTRA_DATA_AT_LIMIT,
+    gas_used: int | None = None,
 ) -> int:
     """
     Calculate the RLP size of a block with given transactions
     and withdrawals.
+
+    The header's gas used defaults to the transactions' total gas limit.
     """
     header = fork.build_default_block_header(
         block_number=1,
         timestamp=HEADER_TIMESTAMP,
     )
     header.gas_limit = ZeroPaddedHexNumber(block_gas_limit)
-    header.extra_data = Bytes(EXTRA_DATA_AT_LIMIT)
+    header.extra_data = Bytes(extra_data)
 
-    total_gas = sum((tx.gas_limit or 21000) for tx in transactions)
-    header.gas_used = ZeroPaddedHexNumber(total_gas)
+    if gas_used is None:
+        gas_used = sum((tx.gas_limit or 21000) for tx in transactions)
+    header.gas_used = ZeroPaddedHexNumber(gas_used)
 
     # Calculate blob gas used if there are blob transactions
     blob_gas_used = 0
@@ -694,6 +701,156 @@ def test_block_at_rlp_size_limit_boundary(
         pre=pre,
         post=post,
         blocks=[block],
+    )
+
+
+@pytest.mark.parametrize(
+    "delta",
+    [
+        pytest.param(0, id="appended_at_max_rlp_size"),
+        pytest.param(1, id="appended_over_max_rlp_size"),
+    ],
+)
+# A legacy transaction is the block's list item itself; a typed one is
+# wrapped in a byte string, whose header adds to the appended size.
+@pytest.mark.parametrize("il_tx_type", [0, 2], ids=["legacy", "typed"])
+@pytest.mark.blockchain_test_engine_only
+@pytest.mark.valid_from("Bogota")
+def test_inclusion_list_tx_appended_at_rlp_size_limit(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    post: Alloc,
+    env: Environment,
+    sender: EOA,
+    fork: Fork,
+    block_size_limit: int,
+    delta: int,
+    il_tx_type: int,
+) -> None:
+    """
+    An inclusion list transaction the block omits leaves the list
+    unsatisfied only if appending it keeps the block within the RLP size
+    limit; a builder cannot append a transaction that would invalidate the
+    block.
+    """
+    calculator = fork.transaction_intrinsic_cost_calculator()
+    block_gas_limit = int(env.gas_limit)
+    if il_tx_type == 0:
+        fees: dict[str, int] = {"gas_price": 10**11}
+    elif il_tx_type == 2:
+        fees = {
+            "max_fee_per_gas": 10**11,
+            "max_priority_fee_per_gas": 10**11,
+        }
+    else:
+        raise ValueError(f"unexpected transaction type: {il_tx_type}")
+
+    def make_il_tx(data: bytes) -> Transaction:
+        return Transaction(
+            ty=il_tx_type,
+            sender=pre.fund_eoa(),
+            to=pre.fund_eoa(amount=1),
+            data=data,
+            gas_limit=calculator(calldata=data),
+            **fees,
+        )
+
+    il_tx = make_il_tx(b"")
+    # Listed first and always over the limit, so it shows that a skipped
+    # entry does not end the check. One zero byte encodes to the same size
+    # as none, so it carries two.
+    oversized_il_tx = make_il_tx(b"\x00" * 2)
+
+    transactions, _ = exact_size_transactions(
+        sender,
+        fork,
+        pre,
+        block_gas_limit,
+    )
+    padded = transactions[0]
+    assert len(padded.data) > 1_000
+
+    def shorten_first_tx(removed_bytes: int) -> List[Transaction]:
+        data = Bytes(b"\x00" * (len(padded.data) - removed_bytes))
+        first = Transaction(
+            sender=sender,
+            nonce=padded.nonce,
+            max_fee_per_gas=10**11,
+            max_priority_fee_per_gas=10**11,
+            gas_limit=calculator(calldata=data),
+            data=data,
+        )
+        return [first] + transactions[1:]
+
+    def appended_block_size(
+        block_txs: List[Transaction],
+        extra_data_len: int,
+        appended_tx: Transaction = il_tx,
+    ) -> int:
+        # The block's own header, with the IL transaction appended to its
+        # transaction list.
+        return get_block_rlp_size(
+            fork,
+            block_txs + [appended_tx],
+            block_gas_limit=block_gas_limit,
+            extra_data=b"\x00" * extra_data_len,
+            gas_used=sum(int(tx.gas_limit) for tx in block_txs),
+        )
+
+    # Shrink the block by the appended transaction's size, then let
+    # extra_data (kept off the 0/1 byte encodings) absorb the remainder.
+    target_size = block_size_limit + delta
+    extra_data_len = 16
+    removed_bytes = 0
+    for _ in range(4):
+        overshoot = (
+            appended_block_size(
+                shorten_first_tx(removed_bytes), extra_data_len
+            )
+            - target_size
+        )
+        if 2 <= extra_data_len - overshoot <= 32:
+            extra_data_len -= overshoot
+            break
+        removed_bytes += overshoot
+    block_txs = shorten_first_tx(removed_bytes)
+    assert appended_block_size(block_txs, extra_data_len) == target_size, (
+        "could not place the appended block at the size boundary"
+    )
+    assert (
+        appended_block_size(block_txs, extra_data_len, oversized_il_tx)
+        > block_size_limit
+    )
+
+    # The IL transaction fits the block's remaining gas, so only the size
+    # can excuse it.
+    block_gas_used = sum(int(tx.gas_limit) for tx in block_txs)
+    appended_gas_used = block_gas_used + int(il_tx.gas_limit)
+    assert appended_gas_used <= block_gas_limit
+    # Appending the transaction must not change the length of the header's
+    # gas used, so the boundary holds whether or not the header is updated.
+    assert (block_gas_used.bit_length() + 7) // 8 == (
+        appended_gas_used.bit_length() + 7
+    ) // 8, "appending the IL transaction changes the gas used length"
+
+    blockchain_test(
+        genesis_environment=env,
+        pre=pre,
+        post=post,
+        blocks=[
+            Block(
+                txs=block_txs,
+                extra_data=Bytes(b"\x00" * extra_data_len),
+                timestamp=ZeroPaddedHexNumber(HEADER_TIMESTAMP),
+                # The size boundary assumes each transaction uses its whole
+                # gas limit.
+                header_verify=Header(gas_used=block_gas_used),
+                inclusion_list_txs=[oversized_il_tx, il_tx],
+                # Over the limit, the builder could not append the
+                # transaction, so its omission is excused.
+                expected_inclusion_list_satisfied=delta > 0,
+            )
+        ],
     )
 
 

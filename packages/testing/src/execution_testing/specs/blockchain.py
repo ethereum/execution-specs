@@ -596,6 +596,15 @@ class Block(Header):
             new_env_values["block_access_list"] = self.block_access_list
         if not isinstance(self.slot_number, Removable):
             new_env_values["slot_number"] = self.slot_number
+        # A transition tool that measures the block must see the header's
+        # extra data. Set it for every block, so one block's value does not
+        # carry over to the next. The default's one byte encodes to the same
+        # size as the header's empty default.
+        new_env_values["extra_data"] = (
+            self.extra_data
+            if self.extra_data is not None
+            else Environment().extra_data
+        )
         """
         These values are required, but they depend on the previous environment,
         so they can be calculated here.

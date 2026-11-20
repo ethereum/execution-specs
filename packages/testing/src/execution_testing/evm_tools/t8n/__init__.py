@@ -19,6 +19,7 @@ from typing import (
 )
 
 from ethereum import trace
+from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
 from ethereum.merkle_patricia_trie import trie_set
@@ -34,7 +35,7 @@ from ethereum_spec_tools.loaders.transaction_loader import (
     UnsupportedTxError,
 )
 from ethereum_spec_tools.utils import get_stream_logger, resolve_fork
-from ethereum_types.bytes import Bytes
+from ethereum_types.bytes import Bytes, Bytes8, Bytes256
 from ethereum_types.numeric import U64, U256, Uint
 from typing_extensions import override
 
@@ -419,6 +420,67 @@ class T8N(Load):
             self.rejected_transactions,
         )
 
+    def _fork_withdrawals(self) -> Any:
+        """Convert the environment's withdrawals into the fork's type."""
+        return tuple(
+            self.fork.Withdrawal(
+                U64(int(w.index)),
+                U64(int(w.validator_index)),
+                self.fork.hex_to_address(w.address.hex()),
+                U64(int(w.amount)),
+            )
+            for w in self.env.withdrawals or []
+        )
+
+    def _inclusion_list_block(self, block_env: Any, block_output: Any) -> Any:
+        """
+        Build the block the inclusion list is checked against.
+
+        The check needs the block only for its RLP size. The roots and
+        hashes are not known until the block is finished, so they are
+        zero placeholders; they are fixed-size, so the size is exact.
+        The body holds the transactions as supplied, as the filler builds
+        it, and the extra data comes from the environment, where
+        `Block.set_environment` sets the block's value.
+        """
+        gas_used = block_output.block_gas_used
+        if block_output.block_state_gas_used > gas_used:
+            gas_used = block_output.block_state_gas_used
+        header = self.fork.Header(
+            parent_hash=Hash32(b"\0" * 32),
+            ommers_hash=Hash32(b"\0" * 32),
+            coinbase=block_env.coinbase,
+            state_root=Hash32(b"\0" * 32),
+            transactions_root=Hash32(b"\0" * 32),
+            receipt_root=Hash32(b"\0" * 32),
+            bloom=Bytes256(b"\0" * 256),
+            difficulty=Uint(0),
+            number=block_env.number,
+            gas_limit=block_env.block_gas_limit,
+            gas_used=gas_used,
+            timestamp=block_env.time,
+            extra_data=Bytes(self.env.extra_data),
+            prev_randao=block_env.prev_randao,
+            nonce=Bytes8(b"\0" * 8),
+            base_fee_per_gas=block_env.base_fee_per_gas,
+            withdrawals_root=Hash32(b"\0" * 32),
+            blob_gas_used=block_output.blob_gas_used,
+            excess_blob_gas=block_env.excess_blob_gas,
+            parent_beacon_block_root=Hash32(b"\0" * 32),
+            requests_hash=Hash32(b"\0" * 32),
+            block_access_list_hash=Hash32(b"\0" * 32),
+            slot_number=block_env.slot_number,
+        )
+        return self.fork.Block(
+            header=header,
+            transactions=tuple(
+                self.fork.encode_transaction(self.convert_transaction(tx))
+                for tx in self.txs
+            ),
+            ommers=(),
+            withdrawals=self._fork_withdrawals(),
+        )
+
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
         # Same order as the fork's `apply_body`: beacon roots, then history.
         if self.fork.has_beacon_roots_address:
@@ -467,29 +529,14 @@ class T8N(Load):
                 self.fork.check_inclusion_list_transactions(
                     block_env,
                     block_output,
-                    tuple(
-                        self.fork.encode_transaction(
-                            self.convert_transaction(tx)
-                        )
-                        for tx in self.txs
-                    ),
+                    self._inclusion_list_block(block_env, block_output),
                     tuple(Bytes(entry) for entry in self.inclusion_list_txs),
                 )
             )
 
         if self.fork.has_withdrawal:
-            withdrawals = self.env.withdrawals or []
-            fork_withdrawals = tuple(
-                self.fork.Withdrawal(
-                    U64(int(w.index)),
-                    U64(int(w.validator_index)),
-                    self.fork.hex_to_address(w.address.hex()),
-                    U64(int(w.amount)),
-                )
-                for w in withdrawals
-            )
             self.fork.process_withdrawals(
-                block_env, block_output, fork_withdrawals
+                block_env, block_output, self._fork_withdrawals()
             )
 
         if self.fork.has_compute_requests_hash:

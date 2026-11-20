@@ -961,6 +961,12 @@ def test_model_copy(model: CopyValidateModel) -> None:
     assert model.copy().model_fields_set == model.model_fields_set
 
 
+def test_environment_copy_keeps_extra_data() -> None:
+    """Test that copying an environment keeps a set `extra_data`."""
+    env = Environment(extra_data=Bytes(b"\x01" * 32))
+    assert env.copy(number=2).extra_data == env.extra_data
+
+
 @pytest.mark.parametrize(
     "value, expected",
     [
