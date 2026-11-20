@@ -10,6 +10,12 @@ from ethereum.cancun.blocks import Withdrawal
 
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
+from ethereum.forks.amsterdam.execution_engine.requests import (
+    BuilderExitRequest,
+    ConsolidationRequest,
+    WithdrawalRequest,
+)
+from ethereum.stateless.types import ProtocolFork, deserialize_stateless_output
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
@@ -24,6 +30,7 @@ from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
 )
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
 from ethereum_spec_tools.lint.lints.uint_len import UintLenHygiene
+from ethereum_spec_tools.loaders.fork_loader import ForkLoad
 from ethereum_spec_tools.loaders.transaction_loader import (
     TransactionLoad,
 )
@@ -147,6 +154,44 @@ RemoveDocstringCommand
 _configure_client_manager  # autouse fixture
 test_suite_name  # hive test suite name fixture
 genesis_header  # genesis header fixture
+
+# src/ethereum/forks/*/execution_engine/requests.py - SSZ fields, read by
+# reflection when encoding and decoding
+WithdrawalRequest.source_address
+WithdrawalRequest.validator_pubkey
+ConsolidationRequest.source_address
+ConsolidationRequest.source_pubkey
+ConsolidationRequest.target_pubkey
+BuilderExitRequest.source_address
+
+# src/ethereum/stateless/types.py and src/ethereum_spec_tools/loaders/
+# fork_loader.py - stateless public API, called from the testing framework
+# outside vulture's scanned paths
+deserialize_stateless_output
+ForkLoad.has_stateless
+
+# src/ethereum/stateless/types.py - fork ids that no stateless input schema
+# uses yet
+ProtocolFork.Frontier
+ProtocolFork.Homestead
+ProtocolFork.DAOFork
+ProtocolFork.TangerineWhistle
+ProtocolFork.SpuriousDragon
+ProtocolFork.Byzantium
+ProtocolFork.StPetersburg
+ProtocolFork.Istanbul
+ProtocolFork.MuirGlacier
+ProtocolFork.Berlin
+ProtocolFork.London
+ProtocolFork.ArrowGlacier
+ProtocolFork.GrayGlacier
+ProtocolFork.Paris
+ProtocolFork.Shanghai
+ProtocolFork.Cancun
+ProtocolFork.Prague
+ProtocolFork.Osaka
+ProtocolFork.BPO1
+ProtocolFork.BPO2
 
 # packages/testing/src/execution_testing/evm_tools/t8n/evm_trace/
 # eip3155.py - EIP-3155 trace output field names, serialized to JSON

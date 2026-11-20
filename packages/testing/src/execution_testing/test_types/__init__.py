@@ -28,6 +28,13 @@ from .block_types import (
     Withdrawal,
 )
 from .chain_config_types import ChainConfig, ChainConfigDefaults
+from .execution_witness import (
+    ExecutionWitness,
+    ExecutionWitnessCodesExpectation,
+    ExecutionWitnessHeadersExpectation,
+    ExecutionWitnessStateExpectation,
+    ExecutionWitnessValidationError,
+)
 from .helpers import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
@@ -95,6 +102,11 @@ __all__ = (
     "EnvironmentDefaults",
     "EmptyPostStateContext",
     "EOA",
+    "ExecutionWitness",
+    "ExecutionWitnessCodesExpectation",
+    "ExecutionWitnessHeadersExpectation",
+    "ExecutionWitnessStateExpectation",
+    "ExecutionWitnessValidationError",
     "fee_increment_blocks",
     "GasFee",
     "LogMismatchError",

@@ -632,6 +632,36 @@ def test_lazy_alloc_file_empty_object_yields_empty_alloc(
     assert lazy.materialize() == Alloc.model_validate({})
 
 
+@pytest.mark.parametrize(
+    "reported,successful_validation",
+    [
+        pytest.param({"successfulValidation": True}, True, id="true"),
+        pytest.param({"successfulValidation": False}, False, id="false"),
+        pytest.param({}, None, id="not-reported"),
+    ],
+)
+def test_result_reads_if_the_witness_validates_the_block(
+    reported: dict, successful_validation: bool | None
+) -> None:
+    """
+    A result carries what the tool says about its own witness, and `None`
+    for a tool that says nothing.
+    """
+    result = Result.model_validate(
+        {
+            "stateRoot": bytes(32),
+            "txRoot": bytes(32),
+            "receiptsRoot": bytes(32),
+            "logsHash": bytes(32),
+            "logsBloom": bytes(256),
+            "receipts": [],
+            "gasUsed": 0,
+            **reported,
+        }
+    )
+    assert result.successful_validation is successful_validation
+
+
 def _output_with_opcode_count(counts: dict) -> TransitionToolOutput:
     """Build a minimal t8n output carrying the given opcode counts."""
     result = Result.model_validate(

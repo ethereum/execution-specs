@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       feature:
-        description: "Feature name, e.g. tests, benchmark, bal-devnet"
+        description: "Feature name, e.g. tests, benchmark, zkevm, bal-devnet"
         required: true
         type: string
       version:
@@ -27,7 +27,7 @@ on:
         required: true
         type: string
       branch:
-        description: "Branch to release from, e.g. devnets/bal/7 or eips/amsterdam/eip-8141 (required for *-devnet features)"
+        description: "Branch to release from, e.g. devnets/bal/7 (required for *-devnet features)"
         required: false
         type: string
       evm:
@@ -145,8 +145,11 @@ jobs:
     timeout-minutes: 1440
     strategy:
       # A release must be complete, so abort on the first failed range; a
-      # nightly wants every range's result for debugging.
-      fail-fast: ${{ github.event_name != 'schedule' }}
+      # nightly wants every range's result for debugging. A zkevm release
+      # doesn't fail fast either, so a failed benchmark fill doesn't cancel
+      # its tests fill, and "Re-run failed jobs" refills only what failed,
+      # on the same commit.
+      fail-fast: ${{ github.event_name != 'schedule' && inputs.feature != 'zkevm' }}
       matrix:
         include: ${{ fromJson(needs.setup.outputs.build_matrix) }}
     steps:

@@ -298,6 +298,8 @@ def test_system_contract_logs(
     ids=["one_byte", "record_minus_one", "record_plus_one"],
 )
 @EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
+# Partial request records cannot be represented in the typed stateless input.
+@pytest.mark.skip_stateless_validation
 def test_partial_request_records(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

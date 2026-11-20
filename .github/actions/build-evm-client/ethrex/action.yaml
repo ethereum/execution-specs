@@ -1,0 +1,79 @@
+name: 'Build Ethrex EVM'
+description: 'Builds the Ethrex `ethrex-evm` binary'
+inputs:
+  repo:
+    description: 'Source repository to use to build the EVM binary'
+    required: true
+    default: 'lambdaclass/ethrex'
+  ref:
+    description: 'Branch or full commit SHA to use to build the EVM binary'
+    required: true
+    default: 'main'
+runs:
+  using: "composite"
+  steps:
+    - name: Resolve ethrex commit
+      id: ethrex-sha
+      shell: bash
+      env:
+        ETHREX_REPOSITORY: ${{ inputs.repo }}
+        ETHREX_REF: ${{ inputs.ref }}
+      run: |
+        SHA=$(python3 .github/scripts/resolve_git_ref.py "$ETHREX_REPOSITORY" "$ETHREX_REF")
+        echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+        echo "Resolved ethrex commit: $SHA"
+    - name: Prepare cache target dir
+      shell: bash
+      run: mkdir -p "$GITHUB_WORKSPACE/ethrex/tooling/target/release"
+    - name: Restore build cache
+      id: cache-restore
+      uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: |
+          ${{ github.workspace }}/ethrex/tooling/target/release/ethrex-evm
+        key: ethrex-evm-build-sha=${{ steps.ethrex-sha.outputs.sha }}
+    - name: Checkout ethrex
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        repository: ${{ inputs.repo }}
+        ref: ${{ steps.ethrex-sha.outputs.sha }}
+        path: ethrex
+    # GitHub-hosted runners ship rustup, the self-hosted ones may not.
+    - name: Install rustup
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        if ! command -v rustup > /dev/null; then
+          sudo apt-get -q update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -qy install build-essential rustup
+        fi
+    # Ethrex pins its toolchain in `rust-toolchain.toml`. Install it by name,
+    # since not every rustup version installs it on the first `cargo` call.
+    - name: Install the Rust toolchain that ethrex pins
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ethrex
+      run: |
+        CHANNEL=$(sed -nE 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml)
+        if [ -z "$CHANNEL" ]; then
+          echo "could not read the toolchain channel from rust-toolchain.toml"
+          exit 1
+        fi
+        rustup toolchain install "$CHANNEL" --profile minimal --no-self-update
+    # `ethrex-evm` lives in the `tooling` workspace, not in the root one.
+    - name: Build ethrex-evm
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ethrex/tooling
+      run: cargo build --release -p ethrex-evm
+    - name: Add ethrex-evm to PATH
+      shell: bash
+      run: echo $GITHUB_WORKSPACE/ethrex/tooling/target/release >> $GITHUB_PATH
+    - name: Save build cache
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: |
+          ${{ github.workspace }}/ethrex/tooling/target/release/ethrex-evm
+        key: ethrex-evm-build-sha=${{ steps.ethrex-sha.outputs.sha }}

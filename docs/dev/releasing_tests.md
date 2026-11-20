@@ -12,9 +12,9 @@ gh workflow run release_fixtures.yaml -f feature=<feature> -f version=vX.Y.Z [-f
 
 | Input      | Required          | Description                                                                                          |
 | ---------- | ----------------- | ---------------------------------------------------------------------------------------------------- |
-| `feature`  | yes               | Feature name, e.g. `tests`, `benchmark`, or a `<feat>-devnet` name.                                   |
+| `feature`  | yes               | Feature name, for example `tests`, `benchmark`, `zkevm`, or a `<feat>-devnet` name.                    |
 | `version`  | yes               | Release version `vX.Y.Z` (validated against `^v[0-9]+\.[0-9]+\.[0-9]+$`). Tagged as `tests-<feature>@<version>` (the `tests` feature tags as `tests@<version>`). |
-| `branch`   | for `*-devnet`    | Branch to build and release from (any branch). Defaults to the dispatch ref for other fresh fills; must be empty for [cached releases](#cached-releases). |
+| `branch`   | feature-dependent | Branch to release from. Required for devnet releases. Defaults to the dispatch ref for other fresh fills; must be empty for [cached releases](#cached-releases). |
 | `evm`      | no                | Override the evm impl (e.g. `geth`, `evmone`). Defaults to the feature's `evm-type` in `feature.yaml`. |
 | `evm_repo` | no                | Override the t8n tool repo (e.g. `ethereum/go-ethereum`).                                              |
 | `evm_ref`  | no                | Override the t8n tool branch / tag / commit.                                                          |
@@ -27,6 +27,7 @@ Input validation runs in [`generate_build_matrix.py`](https://github.com/ethereu
 
 - an empty `feature` or a `version` that is not `vX.Y.Z`;
 - an `evm` override that is not a key in `.github/configs/evm.yaml`;
+- a feature that another feature lists in its `also-builds` (so `feature=zkevm-benchmark` is rejected in favour of `feature=zkevm`), or an `evm` override for a feature with `also-builds`;
 - a bare `devnet` feature name (must carry a `<feat>-` prefix, e.g. `bal-devnet`);
 - a `<feat>-devnet-<n>` feature name — the devnet index belongs in the `version` major, not the feature name (so `feature=bal-devnet-7` is rejected in favour of `feature=bal-devnet version=v7.0.0`);
 - a `*-devnet` release missing a `branch`; a `branch` under `devnets/` that does not follow `devnets/<feat>/<n>` (e.g. `devnets/bal/7-benchmark`); or a `devnets/<feat>/<n>` branch whose devnet number `<n>` does not equal the `version` major (so `feature=bal-devnet branch=devnets/bal/7` must use `version=v7.*.*`). A branch outside `devnets/` (e.g. `eips/amsterdam/eip-8141`) carries no number to check and is accepted as-is.
@@ -45,11 +46,30 @@ gh workflow run release_fixtures.yaml -f feature=frames-devnet -f version=v0.1.0
 !!! warning "The selected branch supplies the release scripts"
     The `setup` job checks out `branch` first and runs the input validation and build-matrix script from that tree, so `gh workflow run --ref` only selects the workflow file. The selected branch must itself contain the current release scripts: rebase it onto its `forks/<fork>` base (or cherry-pick the scripts onto it) before releasing. A stale branch also fills without whatever landed on the base since.
 
+## zkEVM releases
+
+A `zkevm` release fills the zkEVM tests and the zkEVM benchmarks from the same commit, and attaches both to one `tests-zkevm@vX.Y.Z` release. Dispatch it from the `projects/zkevm` branch:
+
+```bash
+gh workflow run release_fixtures.yaml --ref projects/zkevm -f feature=zkevm -f version=vX.Y.Z
+```
+
+The `zkevm` entry in `feature.yaml` lists `zkevm-benchmark` in its `also-builds` key, so the run has two `build` jobs:
+
+- `fill (zkevm)` fills the Amsterdam `blockchain_test` and `blockchain_test_engine` fixtures with EELS into `fixtures_zkevm.tar.gz`.
+- `fill (zkevm-benchmark)` fills the Amsterdam compute benchmarks at 30M, 60M, 100M, 150M, and 200M gas with the Ethrex repository and commit in `evm.yaml`. It produces only `blockchain_test` fixtures. One tarball of every gas value exceeds GitHub's 2 GiB release asset limit, so it fills each gas value separately and attaches one tarball per gas value, such as `fixtures_zkevm-benchmark_0060M.tar.gz`. The `gas-benchmark-values` key in `feature.yaml` lists the gas values. Before upload, it checks the stateless data in each fixture.
+
+The benchmark fill fails with a t8n tool that returns a witness without saying if it validates the block, see the [stateless validation fields](../running_tests/test_formats/blockchain_test.md#stateless-validation-fields).
+
+The `evm_repo` and `evm_ref` inputs override the Ethrex build, since the EELS build has no t8n tool to override. The `evm` input is rejected, because it would replace the t8n tool of both builds. `feature=zkevm-benchmark` is rejected too, since the benchmarks are only released with the tests.
+
+A failed build doesn't cancel the other one. Use "Re-run failed jobs" to refill only the failed one, on the same commit; the release is drafted once both succeed.
+
 ## What the workflow produces
 
 On success the workflow:
 
-1. Builds `fixtures_<feature>.tar.gz` (the `tests` feature builds `fixtures.tar.gz`) for the resolved feature (per its `evm-type` and `fill-params` in `feature.yaml`).
+1. Builds `fixtures_<feature>.tar.gz` (the `tests` feature builds `fixtures.tar.gz`) for the resolved feature (per its `evm-type` and `fill-params` in `feature.yaml`), and one more build per name in its `also-builds`.
 2. Drafts a **pre-release** to [`ethereum/execution-specs`](https://github.com/ethereum/execution-specs/releases) with the fixture tarball(s) attached, titled and tagged `tests-<feature>@vX.Y.Z` (the `tests` feature tags as `tests@vX.Y.Z`, no doubled prefix).
 3. Targets the tag at the released commit (the SHA resolved once from the `branch` HEAD when given, otherwise the dispatch commit). The tag name and target are stored as draft metadata; the git tag itself is only created when the draft is published, so an unpublished draft can be edited or deleted without leaving a tag behind.
 
@@ -57,6 +77,7 @@ On success the workflow:
 | ---------------- | ------- | ------------- | -------- |
 | `feature=tests version=v24.0.0` | `tests@v24.0.0` | `tests@v24.0.0` | `fixtures.tar.gz` |
 | `feature=bal-devnet version=v7.0.0 branch=devnets/bal/7` | `tests-bal-devnet@v7.0.0` | `tests-bal-devnet@v7.0.0` | `fixtures_bal-devnet.tar.gz` |
+| `feature=zkevm version=v21.0.8` | `tests-zkevm@v21.0.8` | `tests-zkevm@v21.0.8` | `fixtures_zkevm.tar.gz`, `fixtures_zkevm-benchmark_<gas>.tar.gz` (one per gas value) |
 | `feature=frames-devnet version=v0.1.0 branch=eips/amsterdam/eip-8141` | `tests-frames-devnet@v0.1.0` | `tests-frames-devnet@v0.1.0` | `fixtures_frames-devnet.tar.gz` |
 
 The release is created as a draft; review and publish it from the GitHub releases page.

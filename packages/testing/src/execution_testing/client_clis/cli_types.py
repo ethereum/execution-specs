@@ -53,6 +53,7 @@ from execution_testing.test_types import (
     Account,
     Alloc,
     Environment,
+    ExecutionWitness,
     Transaction,
     TransactionReceipt,
 )
@@ -552,6 +553,12 @@ class Result(CamelModel):
     requests: List[Bytes] | None = None
     block_access_list: Bytes | None = None
     block_access_list_hash: Hash | None = None
+    execution_witness: ExecutionWitness | None = None
+    successful_validation: bool | None = None
+    """
+    Whether `execution_witness` validates the block statelessly, for the
+    tools that check their own witness.
+    """
     # Header fields a block builder may choose itself. A transition tool
     # uses the values it is given and leaves these unset; a client that
     # seals the block reports what it chose, and the hash it sealed.

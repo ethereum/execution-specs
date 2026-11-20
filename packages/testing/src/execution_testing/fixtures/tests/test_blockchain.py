@@ -34,6 +34,7 @@ from execution_testing.forks import (
 from execution_testing.test_types import (
     EOA,
     AuthorizationTuple,
+    ExecutionWitness,
     Transaction,
     Withdrawal,
 )
@@ -755,6 +756,12 @@ fixture_header_ones = FixtureHeader(
                         target_pubkey=BLSPublicKey(2),
                     ),
                 ).requests_list,
+                execution_witness=ExecutionWitness(
+                    state=[Bytes(b"state")],
+                    codes=[Bytes(b"code")],
+                    headers=[Bytes(b"header")],
+                ),
+                execution_witness_mutated=True,
                 validation_error=[
                     BlockException.INCORRECT_BLOCK_FORMAT,
                     TransactionException.INTRINSIC_GAS_TOO_LOW,
@@ -840,6 +847,12 @@ fixture_header_ones = FixtureHeader(
                         ).requests_list
                     ],
                 ],
+                "executionWitness": {
+                    "state": [Bytes(b"state").hex()],
+                    "codes": [Bytes(b"code").hex()],
+                    "headers": [Bytes(b"header").hex()],
+                },
+                "executionWitnessMutated": True,
                 "forkchoiceUpdatedVersion": "3",
                 "newPayloadVersion": "4",
                 "validationError": "BlockException.INCORRECT_BLOCK_FORMAT"

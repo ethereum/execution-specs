@@ -28,7 +28,7 @@ from ethereum.exceptions import (
 )
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.merkle_patricia_trie import root, trie_set
-from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff
+from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff, PreState
 from ethereum.state_mpt import State, apply_changes_to_state
 
 from . import vm
@@ -266,7 +266,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 
 def execute_block(
     block: Block,
-    pre_state: State,
+    pre_state: PreState,
     chain_context: ChainContext,
 ) -> BlockDiff:
     """

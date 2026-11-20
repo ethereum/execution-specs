@@ -5,12 +5,16 @@ Each test invokes the script via `uv run` to validate the actual CLI
 interface, matching how GitHub Actions calls them.
 """
 
+import io
 import json
 import os
+import shutil
 import subprocess
 import tarfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import yaml
 
 SCRIPTS_DIR = Path(__file__).parent.parent
 REPO_ROOT = SCRIPTS_DIR.parent.parent
@@ -20,15 +24,25 @@ TARBALL_SCRIPT = SCRIPTS_DIR / "create_release_tarball.py"
 MERGE_INDEX_SCRIPT = SCRIPTS_DIR / "merge_index_files.py"
 CHECK_COMMITS_SCRIPT = SCRIPTS_DIR / "check_new_commits.py"
 RESOLVE_CACHED_SCRIPT = SCRIPTS_DIR / "resolve_cached_release.py"
+RESOLVE_GIT_REF_SCRIPT = SCRIPTS_DIR / "resolve_git_ref.py"
+VALIDATE_ZKEVM_FIXTURES_SCRIPT = (
+    SCRIPTS_DIR / "validate_zkevm_benchmark_fixtures.py"
+)
 
 
-def run_script(script: Path, *args: str) -> subprocess.CompletedProcess:
+def run_script(
+    script: Path,
+    *args: str,
+    env: dict[str, str] | None = None,
+    cwd: Path = REPO_ROOT,
+) -> subprocess.CompletedProcess:
     """Run a uv inline-deps script and return the result."""
     return subprocess.run(
         ["uv", "run", "-q", str(script), *args],
         capture_output=True,
         text=True,
-        cwd=REPO_ROOT,
+        cwd=cwd,
+        env=env,
     )
 
 
@@ -73,6 +87,68 @@ class TestGenerateBuildMatrix:
         assert matrix[0]["label"] == ""
         assert matrix[0]["from_fork"] == ""
         assert matrix[0]["until_fork"] == ""
+
+    def test_zkevm_also_builds_the_benchmarks(self):
+        """Verify a zkevm release fills its tests and its benchmarks."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "zkevm", "v21.0.8")
+        assert result.returncode == 0
+        out = parse_matrix_output(result.stdout)
+        matrix = json.loads(out["build_matrix"])
+        assert matrix == [
+            {
+                "feature": "zkevm",
+                "label": "",
+                "from_fork": "",
+                "until_fork": "",
+            },
+            {
+                "feature": "zkevm-benchmark",
+                "label": "",
+                "from_fork": "",
+                "until_fork": "",
+            },
+        ]
+        assert out["feature_name"] == "zkevm"
+        assert out["combine_labels"] == ""
+
+    @staticmethod
+    def release_zkevm_with(
+        tmp_path: Path, also_builds: dict[str, object]
+    ) -> subprocess.CompletedProcess:
+        """Release zkevm with `also-builds` set per feature as given."""
+        configs = tmp_path / ".github" / "configs"
+        shutil.copytree(REPO_ROOT / ".github" / "configs", configs)
+        feature_config = configs / "feature.yaml"
+        config = yaml.safe_load(feature_config.read_text())
+        for feature, names in also_builds.items():
+            config[feature]["also-builds"] = names
+        feature_config.write_text(yaml.safe_dump(config))
+        return run_script(
+            BUILD_MATRIX_SCRIPT, "zkevm", "v21.0.8", cwd=tmp_path
+        )
+
+    def test_also_builds_unknown_feature_fails(self, tmp_path):
+        """Verify an `also-builds` name must be a key of feature.yaml."""
+        result = self.release_zkevm_with(tmp_path, {"zkevm": ["nonexistent"]})
+        assert result.returncode == 1
+        assert "'nonexistent' in the also-builds of 'zkevm'" in result.stderr
+        assert "is not a key" in result.stderr
+
+    def test_also_builds_nested_fails(self, tmp_path):
+        """Verify an `also-builds` entry can't have `also-builds`."""
+        result = self.release_zkevm_with(
+            tmp_path, {"zkevm-benchmark": ["benchmark"]}
+        )
+        assert result.returncode == 1
+        assert "can't have also-builds itself" in result.stderr
+
+    def test_also_builds_not_a_list_fails(self, tmp_path):
+        """Verify `also-builds` must be a list of names."""
+        result = self.release_zkevm_with(
+            tmp_path, {"zkevm": "zkevm-benchmark"}
+        )
+        assert result.returncode == 1
+        assert "must be a list" in result.stderr
 
     def test_devnet_name_resolves_to_shared_feature(self):
         """Verify a <feat>-devnet name resolves to the devnet feature."""
@@ -228,6 +304,20 @@ class TestValidateInputs:
         )
         assert result.returncode == 0
 
+    def test_zkevm_benchmark_release_fails(self):
+        """Verify the zkEVM benchmarks are only released with zkevm."""
+        result = run_script(BUILD_MATRIX_SCRIPT, "zkevm-benchmark", "v21.0.8")
+        assert result.returncode == 1
+        assert "dispatch feature=zkevm instead" in result.stderr
+
+    def test_evm_override_with_also_builds_fails(self):
+        """Verify an evm override can't apply to every build of zkevm."""
+        result = run_script(
+            BUILD_MATRIX_SCRIPT, "zkevm", "v21.0.8", "", "zkevm-benchmark"
+        )
+        assert result.returncode == 1
+        assert "which also builds zkevm-benchmark" in result.stderr
+
 
 # Fake `gh` served from PATH: answers the API calls the commit-check
 # and cached-release scripts make with canned JSON from env vars, and
@@ -261,6 +351,205 @@ printf '%s' "$response"
 LIVE_ARTIFACTS = '{"artifacts": [{"expired": false}]}'
 EXPIRED_ARTIFACTS = '{"artifacts": [{"expired": true}]}'
 NO_ARTIFACTS = '{"artifacts": []}'
+
+
+class TestResolveGitRef:
+    """Test resolve_git_ref.py."""
+
+    def run_with_fake_git(
+        self, tmp_path: Path, ref: str, output: str, exit_code: int
+    ) -> subprocess.CompletedProcess:
+        """Run the resolver with a fake git command."""
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        fake_git = bin_dir / "git"
+        fake_git.write_text(
+            f"#!/usr/bin/env bash\nprintf '%s' '{output}'\nexit {exit_code}\n"
+        )
+        fake_git.chmod(0o755)
+        env = os.environ.copy()
+        env["PATH"] = f"{bin_dir}:{env['PATH']}"
+        return run_script(
+            RESOLVE_GIT_REF_SCRIPT,
+            "example/geth",
+            ref,
+            env=env,
+        )
+
+    def test_full_commit_does_not_query_remote(self):
+        """Verify a full commit SHA resolves without a git command."""
+        commit = "a" * 40
+        result = run_script(RESOLVE_GIT_REF_SCRIPT, "example/geth", commit)
+        assert result.returncode == 0
+        assert result.stdout.strip() == commit
+
+    def test_branch_resolves_to_full_commit(self, tmp_path):
+        """Verify a branch uses the commit returned by git ls-remote."""
+        commit = "b" * 40
+        result = self.run_with_fake_git(
+            tmp_path,
+            "devnet",
+            f"{commit}\trefs/heads/devnet\n",
+            0,
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == commit
+
+    def test_unresolved_branch_fails(self, tmp_path):
+        """Verify an unresolved branch stops the build."""
+        result = self.run_with_fake_git(tmp_path, "missing", "", 2)
+        assert result.returncode == 1
+        assert "could not resolve branch 'missing'" in result.stderr
+
+    def test_empty_ref_fails(self):
+        """Verify an empty ref stops the build."""
+        result = run_script(RESOLVE_GIT_REF_SCRIPT, "example/geth", "")
+        assert result.returncode == 1
+        assert "ref is empty" in result.stderr
+
+
+class TestValidateZkevmBenchmarkFixtures:
+    """Test validate_zkevm_benchmark_fixtures.py."""
+
+    fixture_path = (
+        "fixtures/blockchain_tests/for_amsterdam_at_0060M/"
+        "benchmark/compute/test_example.json"
+    )
+
+    @staticmethod
+    def valid_fixture() -> dict:
+        """Return one valid zkEVM benchmark fixture file."""
+        return {
+            "test_example": {
+                "network": "Amsterdam",
+                "blocks": [
+                    {
+                        "statelessInputBytes": "0x1234",
+                        "statelessOutputBytes": "0xabcd",
+                    }
+                ],
+                "_info": {
+                    "metadata": {
+                        "opcode_count_per_block": [{"ADD": 1}],
+                    }
+                },
+            }
+        }
+
+    @staticmethod
+    def make_archive(tmp_path: Path, files: dict[str, dict]) -> Path:
+        """Create a fixture archive from JSON file mappings."""
+        archive_path = tmp_path / "fixtures_zkevm-benchmark.tar.gz"
+        with tarfile.open(archive_path, "w:gz") as archive:
+            for name, contents in files.items():
+                data = json.dumps(contents).encode()
+                member = tarfile.TarInfo(name)
+                member.size = len(data)
+                archive.addfile(member, io.BytesIO(data))
+        return archive_path
+
+    def run_validator(
+        self, tmp_path: Path, files: dict[str, dict]
+    ) -> subprocess.CompletedProcess:
+        """Create and validate one fixture archive."""
+        archive_path = self.make_archive(tmp_path, files)
+        return run_script(VALIDATE_ZKEVM_FIXTURES_SCRIPT, str(archive_path))
+
+    def test_valid_archive_passes(self, tmp_path):
+        """Verify an archive with all configured gas limits passes."""
+        files = {
+            self.fixture_path.replace("0060M", gas_limit): self.valid_fixture()
+            for gas_limit in ("0030M", "0060M", "0100M", "0150M", "0200M")
+        }
+        result = self.run_validator(tmp_path, files)
+        assert result.returncode == 0
+        assert "Validated 5 fixture cases in 5 fixture files" in result.stdout
+
+    def test_empty_archive_fails(self, tmp_path):
+        """Verify an empty archive fails."""
+        result = self.run_validator(tmp_path, {})
+        assert result.returncode == 1
+        assert "contains no zkEVM benchmark fixtures" in result.stderr
+
+    def test_wrong_target_directory_fails(self, tmp_path):
+        """Verify fixtures must use a configured gas limit."""
+        path = self.fixture_path.replace("0060M", "0010M")
+        result = self.run_validator(tmp_path, {path: self.valid_fixture()})
+        assert result.returncode == 1
+        assert "target must be one of" in result.stderr
+
+    def test_wrong_fork_directory_fails(self, tmp_path):
+        """Verify fixtures cannot target another fork."""
+        path = self.fixture_path.replace("amsterdam", "prague")
+        result = self.run_validator(tmp_path, {path: self.valid_fixture()})
+        assert result.returncode == 1
+        assert "target must be one of" in result.stderr
+
+    def test_extra_fixture_format_fails(self, tmp_path):
+        """Verify the archive cannot contain another fixture format."""
+        engine_path = (
+            "fixtures/blockchain_tests_engine/for_amsterdam_at_0060M/"
+            "benchmark/compute/test_example.json"
+        )
+        result = self.run_validator(
+            tmp_path,
+            {
+                self.fixture_path: self.valid_fixture(),
+                engine_path: self.valid_fixture(),
+            },
+        )
+        assert result.returncode == 1
+        assert "unexpected fixture formats" in result.stderr
+
+    def test_missing_stateless_input_fails(self, tmp_path):
+        """Verify the final block must contain stateless input bytes."""
+        fixture = self.valid_fixture()
+        del fixture["test_example"]["blocks"][-1]["statelessInputBytes"]
+        result = self.run_validator(tmp_path, {self.fixture_path: fixture})
+        assert result.returncode == 1
+        assert "statelessInputBytes must be" in result.stderr
+
+    def test_malformed_stateless_output_fails(self, tmp_path):
+        """Verify the final block output must contain complete bytes."""
+        fixture = self.valid_fixture()
+        fixture["test_example"]["blocks"][-1]["statelessOutputBytes"] = "0x1"
+        result = self.run_validator(tmp_path, {self.fixture_path: fixture})
+        assert result.returncode == 1
+        assert "statelessOutputBytes must be" in result.stderr
+
+    def test_empty_blocks_fails(self, tmp_path):
+        """Verify each fixture case must contain a block."""
+        fixture = self.valid_fixture()
+        fixture["test_example"]["blocks"] = []
+        result = self.run_validator(tmp_path, {self.fixture_path: fixture})
+        assert result.returncode == 1
+        assert "blocks must be a non-empty list" in result.stderr
+
+    def test_opcode_count_length_must_match_blocks(self, tmp_path):
+        """Verify opcode count metadata has one entry for each block."""
+        fixture = self.valid_fixture()
+        metadata = fixture["test_example"]["_info"]["metadata"]
+        metadata["opcode_count_per_block"] = []
+        result = self.run_validator(tmp_path, {self.fixture_path: fixture})
+        assert result.returncode == 1
+        assert "has 0 entries for 1 blocks" in result.stderr
+
+    def test_opcode_count_metadata_is_required(self, tmp_path):
+        """Verify each fixture case contains opcode count metadata."""
+        fixture = self.valid_fixture()
+        del fixture["test_example"]["_info"]["metadata"]
+        result = self.run_validator(tmp_path, {self.fixture_path: fixture})
+        assert result.returncode == 1
+        assert "opcode_count_per_block must be a list" in result.stderr
+
+    def test_final_opcode_count_must_not_be_empty(self, tmp_path):
+        """Verify the final opcode count contains at least one opcode."""
+        fixture = self.valid_fixture()
+        metadata = fixture["test_example"]["_info"]["metadata"]
+        metadata["opcode_count_per_block"] = [{}]
+        result = self.run_validator(tmp_path, {self.fixture_path: fixture})
+        assert result.returncode == 1
+        assert "final opcode count must be a non-empty object" in result.stderr
 
 
 class TestCheckNewCommits:
