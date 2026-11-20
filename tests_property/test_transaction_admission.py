@@ -26,7 +26,7 @@ from hypothesis import strategies as st
 import ethereum.exceptions
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import requires
+from .forks import requires, targets
 from .spec_api import block_state_with, spec_transaction, zeroed
 from .strategies import (
     BLOB_GAS_BOUND,
@@ -415,6 +415,7 @@ def check_environment(
     assert env.accounts_with_paid_writes == paid
 
 
+@targets("fork.check_transaction")
 @pytest.mark.parametrize("case_name", sorted(CASES))
 @given(data=st.data())
 def test_admission_rule_boundary(
@@ -459,6 +460,7 @@ def test_admission_rule_boundary(
             admit(spec, fork, changed, changed_block, case.spec_tx)
 
 
+@targets("fork.update_sender_state", "fork.disburse_gas_fees")
 @given(data=st.data())
 def test_fees_follow_the_gas_used(
     spec: Hardfork, fork: Fork, data: st.DataObject

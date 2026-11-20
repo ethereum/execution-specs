@@ -6,8 +6,10 @@ from its printed blob. `dev` explores randomly and `long` runs a larger
 budget by hand; select one with `--hypothesis-profile`.
 """
 
+from functools import wraps
+from inspect import isfunction
 from types import ModuleType
-from typing import List
+from typing import Any, Callable, Generator, List, Optional, Set
 
 import pytest
 from execution_testing.forks import Fork
@@ -15,7 +17,16 @@ from hypothesis import HealthCheck, settings
 
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import SPEC_PACKAGES, forks_for
+from .forks import (
+    SPEC_PACKAGES,
+    defines,
+    forks_for,
+    spec_module,
+    targets_of,
+)
+from .targets_report import report
+
+TARGETS_REPORT = pytest.StashKey[List[str]]()
 
 # Spec code is slow and its timing varies between runs and interpreters, so
 # no profile enforces a per-example deadline.
@@ -44,31 +55,122 @@ settings.register_profile(
 settings.load_profile("ci")
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Add the option that reports what a fork's properties target."""
+    parser.addoption(
+        "--spec-targets",
+        metavar="FORK",
+        help=(
+            "List the spec functions FORK adds or changes and the tests "
+            "that target them. Use with --collect-only."
+        ),
+    )
+
+
 def pytest_configure(config: pytest.Config) -> None:
-    """Register the suite's marker."""
+    """Register the suite's markers."""
     config.addinivalue_line(
         "markers", "requires(condition): run only on forks where it holds"
+    )
+    config.addinivalue_line(
+        "markers", "targets(*names): the spec functions the test checks"
     )
 
 
 def pytest_collection_modifyitems(
     config: pytest.Config, items: List[pytest.Item]
 ) -> None:
-    """Deselect the forks a parameter's `requires` marker rules out."""
+    """
+    Deselect the forks a parameter's `requires` and `targets` markers rule
+    out, and fail for a fork test that names nothing it checks in the spec.
+    """
+
+    def fork_of(item: pytest.Item) -> Optional[Fork]:
+        params = getattr(item, "callspec", None)
+        return params.params.get("fork") if params else None
 
     def applies(item: pytest.Item) -> bool:
-        params = getattr(item, "callspec", None)
-        if params is None or "fork" not in params.params:
+        fork = fork_of(item)
+        if fork is None:
             return True
-        fork = params.params["fork"]
         return all(
             marker.args[0](fork) for marker in item.iter_markers("requires")
+        ) and all(
+            defines(fork, name)
+            for marker in item.iter_markers("targets")
+            for name in marker.args
         )
 
     dropped = [item for item in items if not applies(item)]
     if dropped:
         config.hook.pytest_deselected(items=dropped)
         items[:] = [item for item in items if applies(item)]
+    for item in items:
+        fork = fork_of(item)
+        if fork is not None and not targets_of(item, fork):
+            raise pytest.UsageError(f"{item.nodeid} has no `targets` marker")
+
+    name = config.getoption("--spec-targets")
+    if name is not None:
+        by_name = {fork.name(): fork for fork in SPEC_PACKAGES}
+        if name not in by_name:
+            raise pytest.UsageError(f"--spec-targets: no fork named {name}")
+        config.stash[TARGETS_REPORT] = report(by_name[name], items)
+
+
+def pytest_terminal_summary(
+    terminalreporter: Any, config: pytest.Config
+) -> None:
+    """Print the report `--spec-targets` asked for."""
+    lines = config.stash.get(TARGETS_REPORT, None)
+    if lines is not None:
+        terminalreporter.section("spec targets")
+        for line in lines:
+            terminalreporter.write_line(line)
+
+
+def _counting(
+    function: Callable[..., Any], name: str, called: Set[str]
+) -> Callable[..., Any]:
+    """Return `function`, recording `name` in `called` when it runs."""
+
+    @wraps(function)
+    def counted(*args: Any, **kwargs: Any) -> Any:
+        called.add(name)
+        return function(*args, **kwargs)
+
+    return counted
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
+    """Fail a test that never calls a spec function it targets."""
+    callspec = getattr(item, "callspec", None)
+    fork = callspec.params.get("fork") if callspec else None
+    # A random run may not reach every function a model test targets, so
+    # only the profile that draws the same inputs every time is held to it.
+    if fork is None or not settings().derandomize:
+        return (yield)
+    called: Set[str] = set()
+    names = []
+    replaced = []
+    for name in targets_of(item, fork):
+        module_name, _, function_name = name.rpartition(".")
+        module = spec_module(fork, module_name)
+        function = getattr(module, function_name)
+        if not isfunction(function):
+            continue
+        names.append(name)
+        replaced.append((module, function_name, function))
+        setattr(module, function_name, _counting(function, name, called))
+    try:
+        result = yield
+    finally:
+        for module, function_name, function in replaced:
+            setattr(module, function_name, function)
+    never_called = sorted(set(names) - called)
+    assert not never_called, f"the test never called {never_called}"
+    return result
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:

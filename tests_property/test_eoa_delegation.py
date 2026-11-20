@@ -22,7 +22,7 @@ from ethereum.state import Address
 from ethereum.state_mpt import State
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import requires
+from .forks import requires, targets
 from .spec_api import (
     add_account,
     block_state_with,
@@ -42,8 +42,6 @@ from .strategies import (
     private_keys,
 )
 
-pytestmark = requires(lambda fork: fork.is_eip_enabled(7702))
-
 # Each rule flips at its bound, so the first values past it and the top of
 # the field are the offsets that matter.
 OFFSETS = st.sampled_from([0, 1, 2, 2**64, MAX_U256])
@@ -55,6 +53,7 @@ def delegation(spec: Hardfork) -> ModuleType:
     return spec.module("vm.eoa_delegation")
 
 
+@targets("vm.eoa_delegation.recover_authority")
 @pytest.mark.parametrize("break_name", sorted(SIGNATURE_BREAKS))
 @given(
     chain_id=ints(MAX_U256),
@@ -91,6 +90,7 @@ def test_authority_signature_values_past_their_bounds_are_rejected(
         delegation.recover_authority(broken)
 
 
+@targets("vm.eoa_delegation.get_delegated_code_address")
 @given(
     address=addresses(),
     extra=st.binary(min_size=1, max_size=1),
@@ -227,6 +227,7 @@ def check(
     return framework, *validate_authorization(vm, block_env, tx_env, auth)
 
 
+@targets("vm.eoa_delegation.validate_authorization")
 @pytest.mark.parametrize("case_name", sorted(CASES))
 @given(
     # One below the chain's id must not be 0, which every chain accepts.
@@ -289,6 +290,7 @@ class ModelAuthority:
     write_paid: bool = False
 
 
+@targets("vm.eoa_delegation.set_delegation")
 @requires(lambda fork: fork.state_gas_reservoir_enabled())
 @pytest.mark.parametrize("gas_side", ["exact", "one_short"])
 @given(data=st.data())

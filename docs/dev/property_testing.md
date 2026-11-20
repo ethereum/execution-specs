@@ -26,11 +26,21 @@ Pull requests run the suite at the `ci` profile. A nightly workflow runs it at t
 
 Every test that uses the `fork` fixture runs once per fork of the testing framework (`execution_testing.forks`) that has a spec package, so a new fork is tested without edits. The spec module fixtures (`gas`, `transactions`, `blocks`, `tracker`, `bal`, ...) depend on `fork` and load that fork's package. Test ids carry the fork name, so `-k Osaka` runs one fork. The forks left out are blob-parameter-only forks not yet scheduled, whose framework schedule is for testing only, the blob schedule scenario forks, which reuse their parent's spec package, and Constantinople, which the spec folds into its fix; `test_forks.py` fails if any other spec package goes untested.
 
-A test that needs a feature states it with `requires` from `tests_property/forks.py`, asking the framework rather than naming forks. A condition that no fork meets fails collection:
+A test names the spec functions it checks with `targets` from `tests_property/forks.py`, as paths inside a fork's package, and runs on the forks that define them:
 
 ```python
-@requires(lambda fork: fork.header_bal_hash_required())
+@targets("vm.gas.calculate_gas_extend_memory")
 ```
+
+A function that only some of those forks define goes in `where_present`, and a parameter that checks a function of its own carries the marker itself. Collection fails for a fork test with no target, and for a target that one fork defines and a later fork lacks, so a rename cannot drop a fork unnoticed. At the `ci` profile a test also fails if it never calls a function it targets.
+
+A test that needs a behavior, and not only a function, states it with `requires`, asking the framework rather than naming forks. A condition that no fork meets fails collection:
+
+```python
+@requires(lambda fork: fork.is_eip_enabled(2200))
+```
+
+`just spec-property-targets Amsterdam` lists the spec functions a fork adds or changes beside the tests that target them, and so the ones no property checks yet.
 
 Forks are full copies of each other, so spec names and signatures drift between them. `tests_property/spec_api.py` builds spec objects and calls spec functions the same way on every fork, and converts the framework's `Transaction` into the spec's class for that fork. A property that would need a large bridge for old forks gates on a feature instead.
 

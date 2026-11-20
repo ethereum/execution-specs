@@ -20,7 +20,7 @@ from hypothesis import strategies as st
 
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import SPEC_PACKAGES, requires
+from .forks import SPEC_PACKAGES, requires, targets
 from .spec_api import add_account, block_state_with, run_code, set_storage
 from .strategies import DELEGATION_PREFIX
 
@@ -334,11 +334,21 @@ def check_charge(
         )
 
 
+# The function that runs a frame's code, which EIP-8037 renamed.
+runs_code = targets(
+    where_present=[
+        "vm.interpreter.process_message",
+        "vm.interpreter.process_call",
+    ]
+)
+
+
 def priced_by(opcode: Op) -> Callable[[Fork], bool]:
     """Return the condition that a fork has `opcode`."""
     return lambda fork: opcode in fork.valid_opcodes()
 
 
+@runs_code
 def test_constant_opcodes_charge_what_the_framework_prices(
     fork: Fork, spec: Hardfork
 ) -> None:
@@ -357,6 +367,7 @@ def test_constant_opcodes_charge_what_the_framework_prices(
             raise AssertionError(f"{opcode._name_}: {error}") from error
 
 
+@runs_code
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -380,6 +391,7 @@ def test_opcode_charge_matches_the_framework(
     check_charge(fork, spec, code_of(opcode, scenario), scenario, data)
 
 
+@runs_code
 @requires(lambda fork: fork.is_eip_enabled(2200))
 @pytest.mark.parametrize("gas_left", ["stipend", "above_stipend"])
 def test_sstore_needs_more_gas_than_the_stipend(
@@ -421,6 +433,7 @@ def test_sstore_needs_more_gas_than_the_stipend(
         assert frame.error is None
 
 
+@targets("vm.interpreter.process_call")
 @requires(lambda fork: fork.state_gas_reservoir_enabled())
 def test_failed_creation_returns_its_state_gas(
     fork: Fork, spec: Hardfork

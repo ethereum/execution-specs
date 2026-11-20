@@ -21,7 +21,7 @@ from hypothesis import strategies as st
 from ethereum.exceptions import InsufficientTransactionGasError
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import requires
+from .forks import requires, targets
 from .spec_api import (
     spec_transaction,
     validate_tx,
@@ -39,10 +39,6 @@ from .strategies import (
 
 BOUNDARY_SIDES = ["at_cap", "above_cap"]
 
-with_state_gas_reservoir = requires(
-    lambda fork: fork.state_gas_reservoir_enabled()
-)
-
 # From EIP-8037 a separate cap bounds the gas limit, and the EIP-7825 cap
 # bounds the intrinsic execution gas and the calldata floor instead.
 with_intrinsic_gas_cap = requires(
@@ -57,6 +53,7 @@ def validate(transactions: ModuleType, framework: Transaction) -> None:
     validate_tx(transactions, tx, framework.sender)
 
 
+@targets("transactions.validate_transaction")
 @pytest.mark.parametrize(
     "creation",
     [pytest.param(False, id="call"), pytest.param(True, id="creation")],
@@ -98,6 +95,7 @@ def test_minimum_gas_limit_boundary(
         validate_tx(transactions, below, framework.sender)
 
 
+@targets("transactions.validate_transaction")
 @requires(lambda fork: fork.transaction_gas_limit_cap() is not None)
 @pytest.mark.parametrize("side", BOUNDARY_SIDES)
 def test_gas_limit_cap_boundary(
@@ -134,6 +132,7 @@ def largest_size_within(cap: int, cost_of: Callable[[int], int]) -> int:
     return (cap - cost_of(0)) // step
 
 
+@targets("transactions.validate_transaction")
 @with_intrinsic_gas_cap
 @pytest.mark.parametrize("side", BOUNDARY_SIDES)
 def test_intrinsic_execution_gas_cap_boundary(
@@ -191,6 +190,7 @@ def test_intrinsic_execution_gas_cap_boundary(
         raise ValueError(f"unknown boundary side: {side}")
 
 
+@targets("transactions.validate_transaction")
 @with_intrinsic_gas_cap
 @pytest.mark.parametrize("side", BOUNDARY_SIDES)
 def test_calldata_floor_cap_boundary(
@@ -236,7 +236,7 @@ def test_calldata_floor_cap_boundary(
         raise ValueError(f"unknown boundary side: {side}")
 
 
-@with_state_gas_reservoir
+@targets("vm.gas.allocate_evm_gas")
 @given(data=st.data())
 def test_evm_gas_splits_at_the_cap(
     fork: Fork, gas: ModuleType, spec: Hardfork, data: st.DataObject
@@ -269,7 +269,7 @@ def test_evm_gas_splits_at_the_cap(
     assert (reservoir == 0) == (tx_gas <= cap)
 
 
-@with_state_gas_reservoir
+@targets("vm.gas.settle_transaction_gas")
 @given(data=st.data())
 def test_settlement_refunds_and_floors(
     fork: Fork, gas: ModuleType, data: st.DataObject

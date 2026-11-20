@@ -16,6 +16,8 @@ from hypothesis import strategies as st
 
 from ethereum_spec_tools.forks import Hardfork
 
+from .forks import targets
+
 PUSHES = [getattr(Op, f"PUSH{n}") for n in range(1, 33)]
 OTHER_BYTES = sorted(
     set(range(256)) - {opcode.int() for opcode in [Op.JUMPDEST, *PUSHES]}
@@ -91,6 +93,7 @@ def code_with_jump_destinations(draw: st.DrawFn) -> Tuple[bytes, List[int]]:
     return code, destinations
 
 
+@targets("vm.runtime.get_valid_jump_destinations")
 @given(code_and_destinations=code_with_jump_destinations())
 def test_jump_destinations_are_the_jumpdest_instructions(
     spec: Hardfork, code_and_destinations: Tuple[bytes, List[int]]

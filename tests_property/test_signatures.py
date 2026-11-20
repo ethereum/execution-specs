@@ -21,7 +21,7 @@ from hypothesis import strategies as st
 from ethereum.exceptions import InvalidSignatureError
 from ethereum.state import Address
 
-from .forks import requires
+from .forks import requires, targets
 from .spec_api import (
     sender_of,
     spec_transaction,
@@ -79,6 +79,7 @@ def breakable(break_name: str) -> Any:
     return pytest.param(break_name, marks=has_a_type)
 
 
+@targets("transactions.recover_sender")
 @pytest.mark.parametrize("break_name", [breakable(b) for b in sorted(BREAKS)])
 @given(data=st.data(), offset=OFFSETS)
 def test_signature_values_past_their_bounds_are_rejected(
@@ -103,6 +104,7 @@ def test_signature_values_past_their_bounds_are_rejected(
         sender_of(transactions, broken)
 
 
+@targets("transactions.recover_sender")
 @given(data=st.data())
 def test_s_at_its_bound_is_accepted(
     fork: Fork, transactions: ModuleType, data: st.DataObject
@@ -129,6 +131,7 @@ def signed_legacy_tx(key: int, data: Bytes, to: Address) -> Transaction:
     ).with_signature_and_sender()
 
 
+@targets("transactions.recover_sender")
 @given(key=private_keys, data=bytes_data(max_size=64), to=addresses())
 def test_high_s_signatures_are_rejected_from_eip_2(
     fork: Fork, transactions: ModuleType, key: int, data: Bytes, to: Address
@@ -149,7 +152,7 @@ def test_high_s_signatures_are_rejected_from_eip_2(
         assert transactions.recover_sender(flipped) == framework.sender
 
 
-@requires(lambda fork: fork.supports_protected_txs())
+@targets("transactions.signing_hash_155", "transactions.recover_sender")
 def test_replay_protected_signing_matches_the_worked_example(
     transactions: ModuleType,
 ) -> None:

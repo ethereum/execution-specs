@@ -29,11 +29,9 @@ from ethereum.merkle_patricia_trie import trie_set
 from ethereum.state import Address
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import requires
+from .forks import targets
 from .spec_api import transaction_types, zeroed
 from .strategies import MAX_U64, MAX_U256, addresses, ints
-
-pytestmark = requires(lambda fork: fork.header_requests_required())
 
 # EIP-6110: the event the deposit contract logs for each deposit.
 DEPOSIT_EVENT_TOPIC = keccak256(b"DepositEvent(bytes,bytes,bytes,bytes,bytes)")
@@ -83,6 +81,7 @@ def event_data(deposit: DepositRequest, **layout: int) -> bytes:
     )
 
 
+@targets("requests.extract_deposit_data")
 @pytest.mark.parametrize("word", sorted(WELL_FORMED_LAYOUT))
 @given(deposit=deposits, data=st.data())
 def test_deposit_event_layout_is_exact(
@@ -124,6 +123,7 @@ def test_deposit_event_layout_is_exact(
             )
 
 
+@targets("requests.extract_deposit_data")
 @given(deposit=deposits, extra=st.binary(min_size=1, max_size=32))
 def test_deposit_event_length_is_exact(
     requests: ModuleType, deposit: DepositRequest, extra: bytes
@@ -140,6 +140,7 @@ def test_deposit_event_length_is_exact(
 LOG_KINDS = ["deposit", "other_address", "other_topic", "no_topics"]
 
 
+@targets("requests.parse_deposit_requests")
 @given(data=st.data())
 def test_only_deposit_events_become_requests(
     spec: Hardfork, requests: ModuleType, data: st.DataObject
@@ -203,6 +204,7 @@ def test_only_deposit_events_become_requests(
     assert requests.parse_deposit_requests(block_output) == expected
 
 
+@targets("requests.compute_requests_hash")
 @given(
     requests_list=st.lists(st.binary(min_size=1, max_size=64), max_size=6),
 )

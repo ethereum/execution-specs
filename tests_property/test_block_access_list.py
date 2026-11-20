@@ -30,10 +30,8 @@ from ethereum.crypto.hash import keccak256
 from ethereum.state import Account, Address
 from ethereum.state_mpt import State, set_account, set_storage, store_code
 
-from .forks import requires
+from .forks import targets
 from .strategies import bytes_data, u64s, u256s
-
-pytestmark = requires(lambda fork: fork.header_bal_hash_required())
 
 # Addresses whose sorted order differs from their listed order, so a
 # missing sort shows up.
@@ -233,6 +231,15 @@ def _model(ops: List[BuilderOp]) -> List[Tuple[Any, ...]]:
     return out
 
 
+@targets(
+    "block_access_lists.add_balance_change",
+    "block_access_lists.add_code_change",
+    "block_access_lists.add_nonce_change",
+    "block_access_lists.add_storage_read",
+    "block_access_lists.add_storage_write",
+    "block_access_lists.add_touched_account",
+    "block_access_lists.build_block_access_list",
+)
 @given(ops=_ops())
 # One account's code and one slot, each written at a later index first.
 @example(
@@ -254,6 +261,7 @@ def test_builder_matches_reference_model(
     assert _norm(_built(bal, tracker, ops)) == _model(ops)
 
 
+@targets("block_access_lists.ensure_account")
 @given(ops=_ops(), addr=st.sampled_from(ADDR_POOL))
 def test_ensure_account_acts_as_a_touch(
     bal: ModuleType, tracker: ModuleType, ops: List[BuilderOp], addr: Address
@@ -272,6 +280,7 @@ def test_ensure_account_acts_as_a_touch(
     assert twice == once
 
 
+@targets("block_access_lists.validate_block_access_list_gas_limit")
 @given(ops=_ops())
 def test_gas_limit_boundary_is_exact(
     bal: ModuleType, fork: Fork, tracker: ModuleType, ops: List[BuilderOp]
@@ -573,6 +582,10 @@ def expected_list(
     return accounts
 
 
+@targets(
+    "block_access_lists.build_block_access_list",
+    "block_access_lists.hash_block_access_list",
+)
 @given(pre=pre_states(), block=blocks())
 # A slot set, left alone for an index and set again to the same value: only
 # the first index changed it.

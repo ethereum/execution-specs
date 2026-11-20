@@ -26,7 +26,7 @@ from hypothesis.stateful import (
 
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import requires
+from .forks import targets
 from .gas_meter import (
     CHARGES,
     CHARGES_AND_REFUNDS,
@@ -45,9 +45,12 @@ from .strategies import (
     pools,
 )
 
-pytestmark = requires(lambda fork: fork.state_gas_reservoir_enabled())
 
-
+@targets(
+    "vm.gas.commit_state_gas",
+    "vm.gas.restore_state_gas",
+    "vm.gas.forfeit_remaining_gas",
+)
 @given(
     gas_left=pools(),
     reservoir=pools(),
@@ -101,6 +104,7 @@ def test_restore_returns_to_the_last_commit(
     assert gas.tx_state_gas_used(meter, Uint(reservoir)) == committed
 
 
+@targets("vm.gas.restore_state_gas_to_entry", "vm.gas.commit_state_gas")
 @given(
     gas_left=pools(),
     reservoir=pools(),
@@ -137,6 +141,11 @@ def test_restore_to_entry_undoes_the_commit(
     assert gas.tx_state_gas_used(meter, Uint(reservoir)) == 0
 
 
+@targets(
+    "vm.gas.restore_child_gas",
+    "vm.gas.withhold_create_gas",
+    "vm.gas.drain_state_gas_reservoir",
+)
 @given(
     gas_left=pools(),
     reservoir=pools(),
@@ -166,6 +175,12 @@ def test_restore_child_gas_undoes_withhold_and_drain(
     assert meter_fields(meter) == before
 
 
+@targets(
+    "vm.incorporate_child",
+    "vm.gas.drain_state_gas_reservoir",
+    "vm.gas.restore_state_gas",
+    "vm.gas.forfeit_remaining_gas",
+)
 @given(
     gas_left=pools(),
     reservoir=pools(),
@@ -460,6 +475,14 @@ class GasMeterMachine(RuleBasedStateMachine):
         )
 
 
+@targets(
+    "vm.gas.charge_gas",
+    "vm.gas.charge_state_gas",
+    "vm.gas.check_gas",
+    "vm.gas.commit_state_gas",
+    "vm.gas.credit_state_gas_refund",
+    "vm.gas.tx_state_gas_used",
+)
 def test_gas_meter_matches_model(gas: ModuleType) -> None:
     """The gas meter agrees with the reference model on every sequence."""
     machine = type("GasMeterMachine", (GasMeterMachine,), {"gas": gas})

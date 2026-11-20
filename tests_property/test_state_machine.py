@@ -34,6 +34,7 @@ from ethereum.state import EMPTY_CODE_HASH, Account
 from ethereum.state_mpt import State, set_account, set_storage, store_code
 from ethereum_spec_tools.forks import Hardfork
 
+from .forks import targets
 from .spec_api import (
     modify_deletes_empty_accounts,
 )
@@ -451,6 +452,32 @@ class StateTrackerMachine(RuleBasedStateMachine):
         assert set(self.tx.created_accounts) == self.created
 
 
+@targets(
+    "state_tracker.account_deployable",
+    "state_tracker.account_exists",
+    "state_tracker.account_exists_and_is_empty",
+    "state_tracker.copy_tx_state",
+    "state_tracker.create_ether",
+    "state_tracker.destroy_account",
+    "state_tracker.get_account_optional",
+    "state_tracker.get_storage",
+    "state_tracker.get_storage_original",
+    "state_tracker.get_transient_storage",
+    "state_tracker.incorporate_tx_into_block",
+    "state_tracker.increment_nonce",
+    "state_tracker.is_account_alive",
+    "state_tracker.mark_account_created",
+    "state_tracker.move_ether",
+    "state_tracker.restore_tx_state",
+    "state_tracker.set_account",
+    "state_tracker.set_code",
+    "state_tracker.set_storage",
+    "state_tracker.set_transient_storage",
+    where_present=[
+        "state_tracker.clear_account_preserving_balance",
+        "state_tracker.get_pre_state_account",
+    ],
+)
 def test_state_tracker_matches_model(
     fork: Fork, spec: Hardfork, tracker: ModuleType
 ) -> None:
@@ -470,6 +497,7 @@ def test_state_tracker_matches_model(
     )
 
 
+@targets("state_tracker.copy_tx_state", "state_tracker.restore_tx_state")
 def test_rollback_restores_a_rewritten_slot(tracker: ModuleType) -> None:
     """
     A rollback restores a slot the transaction had already written before

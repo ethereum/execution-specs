@@ -11,7 +11,6 @@ import pytest
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import Uint
 from execution_testing import (
-    Op,
     compute_create2_address,
     compute_create_address,
 )
@@ -21,7 +20,7 @@ from hypothesis import strategies as st
 from ethereum.state import Address
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import requires
+from .forks import targets
 from .strategies import MAX_U64, addresses, bytes_data, ints
 
 
@@ -32,6 +31,7 @@ def address_utils(spec: Hardfork) -> ModuleType:
 
 
 # The nonce is RLP-encoded, so the address depends on its byte length.
+@targets("utils.address.compute_contract_address")
 @given(creator=addresses(), nonce=ints(MAX_U64))
 def test_create_address_matches_the_framework(
     address_utils: ModuleType, creator: Address, nonce: int
@@ -42,7 +42,7 @@ def test_create_address_matches_the_framework(
     assert actual == expected
 
 
-@requires(lambda fork: Op.CREATE2 in fork.create_opcodes())
+@targets("utils.address.compute_create2_contract_address")
 @given(
     creator=addresses(),
     salt=st.binary(min_size=32, max_size=32),

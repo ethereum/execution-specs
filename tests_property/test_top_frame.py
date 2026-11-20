@@ -25,7 +25,7 @@ from ethereum.state import Address
 from ethereum.state_mpt import State
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import requires
+from .forks import requires, targets
 from .spec_api import add_account, zeroed
 from .strategies import CONTRACT_CODE, DELEGATION_PREFIX, ints
 
@@ -85,6 +85,7 @@ def top_frame(
     return create_evm(block_env, tx_env, meter), meter
 
 
+@targets("vm.interpreter.create_evm")
 @pytest.mark.parametrize("gas_side", ["exact", "one_short"])
 @given(data=st.data())
 def test_top_frame_charges_match_the_framework(
@@ -144,6 +145,7 @@ def test_top_frame_charges_match_the_framework(
     assert {SENDER, RECIPIENT} <= evm.accessed_addresses
 
 
+@targets("vm.interpreter.create_evm")
 @given(
     recipient_type=st.sampled_from(
         [RecipientType.CONTRACT, RecipientType.DELEGATION_7702]

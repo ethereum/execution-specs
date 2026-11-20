@@ -17,7 +17,7 @@ from hypothesis import strategies as st
 
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import requires
+from .forks import requires, targets
 from .spec_api import spec_transaction, zeroed
 from .strategies import (
     AMOUNT_BOUND,
@@ -35,14 +35,13 @@ from .strategies import (
 
 GAS_LIMIT_BOUND = 1 << 40
 
-with_blobs = requires(lambda fork: fork.supports_blobs())
-
 
 def ceil32(value: int) -> int:
     """Round up to the next multiple of 32."""
     return (value + 31) // 32 * 32
 
 
+@targets("vm.gas.calculate_memory_gas_cost")
 @given(size=uints(MAX_U64))
 def test_memory_gas_cost(gas: ModuleType, fork: Fork, size: Uint) -> None:
     """The cost of memory of a given size matches the framework."""
@@ -56,6 +55,7 @@ def test_memory_gas_cost(gas: ModuleType, fork: Fork, size: Uint) -> None:
 range_sizes = st.one_of(st.just(0), ints(MAX_U256))
 
 
+@targets("vm.gas.calculate_gas_extend_memory")
 @given(
     initial_words=ints(64),
     extensions=st.lists(st.tuples(ints(MAX_U256), range_sizes), max_size=8),
@@ -92,6 +92,7 @@ def test_memory_extension(
 with_call_gas_cap = requires(lambda fork: fork.is_eip_enabled(150))
 
 
+@targets("vm.gas.calculate_message_call_gas")
 @with_call_gas_cap
 @given(
     request=amounts(),
@@ -132,6 +133,7 @@ def test_value_adds_only_the_stipend_to_the_child_grant(
     assert with_big == with_one
 
 
+@targets("vm.gas.calculate_message_call_gas")
 @with_call_gas_cap
 @given(
     request=amounts(),
@@ -178,7 +180,7 @@ def test_call_runs_out_of_gas_only_on_its_own_costs(
         assert gas_left - charged >= remaining // RETAINED_FRACTION
 
 
-@requires(lambda fork: fork.header_base_fee_required())
+@targets("fork.calculate_base_fee_per_gas")
 @given(data=st.data())
 def test_base_fee_per_gas(
     spec: Hardfork, fork: Fork, data: st.DataObject
@@ -210,7 +212,7 @@ def test_base_fee_per_gas(
     )
 
 
-@with_blobs
+@targets("vm.gas.calculate_blob_gas_price")
 @given(excess=ints(BLOB_GAS_BOUND))
 def test_blob_gas_price(gas: ModuleType, fork: Fork, excess: int) -> None:
     """The blob gas price at any excess blob gas matches the framework."""
@@ -230,7 +232,7 @@ def parent_header(
     )
 
 
-@with_blobs
+@targets("vm.gas.calculate_excess_blob_gas")
 @given(data=st.data())
 def test_excess_blob_gas(
     gas: ModuleType, fork: Fork, blocks: ModuleType, data: st.DataObject
@@ -284,7 +286,7 @@ def test_excess_blob_gas(
     )
 
 
-@with_blobs
+@targets("vm.gas.calculate_data_fee", "vm.gas.calculate_total_blob_gas")
 @given(excess=ints(BLOB_GAS_BOUND), data=st.data())
 def test_blob_fee(
     gas: ModuleType,

@@ -18,7 +18,7 @@ from hypothesis import strategies as st
 from ethereum.exceptions import InvalidBlock
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import requires
+from .forks import requires, targets
 from .spec_api import (
     decode_transaction,
     encode_transaction,
@@ -35,12 +35,12 @@ LONG_STRING = 56
 # EIP-2718: a first byte up to this one is a transaction type, not RLP.
 LAST_TYPE_BYTE = 0x7F
 
-with_typed_transactions = requires(lambda fork: max(fork.tx_types()) > 0)
 # EIP-2718: a first byte past the type range starts an RLP string or 0xff,
 # and starts neither a typed transaction nor a legacy one, an RLP list.
 NEITHER_FIRST_BYTES = [*range(LAST_TYPE_BYTE + 1, 0xC0), 0xFF]
 
 
+@targets("transactions.Transaction")
 def test_transaction_types_match_the_framework(
     fork: Fork, transactions: ModuleType
 ) -> None:
@@ -57,13 +57,28 @@ def has_type(ty: int) -> pytest.MarkDecorator:
 
 
 def each_transaction_type() -> List[Any]:
-    """Return every transaction type as a parameter for forks that have it."""
+    """
+    Return every transaction type as a parameter for forks that have it. A
+    typed transaction also checks the function that decodes it, which a
+    legacy one, an RLP list, does not go through.
+    """
+    decodes = targets("transactions.decode_transaction")
     return [
-        pytest.param(ty, id=ty.name.lower(), marks=has_type(ty))
+        pytest.param(
+            ty,
+            id=ty.name.lower(),
+            marks=[has_type(ty)]
+            if ty == TransactionType.LEGACY
+            else [has_type(ty), decodes],
+        )
         for ty in TransactionType
     ]
 
 
+@targets(
+    "transactions.get_transaction_hash",
+    where_present=["transactions.encode_transaction"],
+)
 @pytest.mark.parametrize("tx_type", each_transaction_type())
 @given(data=st.data())
 def test_transaction_encoding_matches_the_framework(
@@ -81,7 +96,7 @@ def test_transaction_encoding_matches_the_framework(
     assert decode_transaction(transactions, framework.rlp()) == tx
 
 
-@with_typed_transactions
+@targets("transactions.decode_transaction")
 @given(data=st.data(), payload=st.binary(max_size=8))
 def test_decoding_rejects_unknown_types(
     fork: Fork,
@@ -106,14 +121,14 @@ def test_decoding_rejects_unknown_types(
         transactions.decode_transaction(Bytes([unknown]) + payload)
 
 
-@with_typed_transactions
+@targets("transactions.decode_transaction")
 def test_decoding_rejects_an_empty_encoding(transactions: ModuleType) -> None:
     """An empty encoding is no transaction."""
     with pytest.raises(InvalidBlock):
         transactions.decode_transaction(Bytes(b""))
 
 
-@with_typed_transactions
+@targets("transactions.decode_transaction")
 @given(
     first=st.one_of(
         st.sampled_from([0x80, 0xBF, 0xFF]),

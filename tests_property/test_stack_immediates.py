@@ -17,9 +17,7 @@ from execution_testing import Op
 
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import requires
-
-pytestmark = requires(lambda fork: fork.is_eip_enabled(8024))
+from .forks import targets
 
 # EIP-8024: an immediate is never one of these, so that skipping it during
 # jump destination analysis cannot hide or invent a `JUMPDEST`.
@@ -62,6 +60,7 @@ def pair_immediates() -> Dict[int, Tuple[int, int]]:
     return immediates
 
 
+@targets("vm.stack.decode_single")
 def test_single_immediates_decode_to_the_encoded_index(
     spec: Hardfork, stack: ModuleType
 ) -> None:
@@ -79,6 +78,7 @@ def test_single_immediates_decode_to_the_encoded_index(
                 stack.decode_single(U8(byte))
 
 
+@targets("vm.stack.decode_pair")
 def test_pair_immediates_decode_to_the_encoded_indices(
     spec: Hardfork, stack: ModuleType
 ) -> None:
@@ -96,7 +96,13 @@ def test_pair_immediates_decode_to_the_encoded_indices(
                 stack.decode_pair(U8(byte))
 
 
-@pytest.mark.parametrize("decoder", ["decode_single", "decode_pair"])
+@pytest.mark.parametrize(
+    "decoder",
+    [
+        pytest.param(decoder, marks=targets(f"vm.stack.{decoder}"))
+        for decoder in ["decode_single", "decode_pair"]
+    ],
+)
 def test_no_immediate_reads_as_a_jump_destination(
     spec: Hardfork, stack: ModuleType, decoder: str
 ) -> None:

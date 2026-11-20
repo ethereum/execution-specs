@@ -25,7 +25,7 @@ from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock
 from ethereum_spec_tools.forks import Hardfork
 
-from .forks import requires
+from .forks import requires, targets
 from .spec_api import validate_header, zeroed
 from .strategies import BLOB_GAS_BOUND, MAX_U64, ints
 
@@ -245,6 +245,7 @@ BLOB_CASES: Dict[str, Case] = {
 }
 
 
+@targets("fork.validate_header")
 @pytest.mark.parametrize("case_name", sorted(CASES))
 @given(data=st.data())
 def test_header_rule_boundary(
@@ -261,6 +262,7 @@ def test_header_rule_boundary(
     check_case(spec, data.draw(families(fork, blocks)), CASES[case_name])
 
 
+@targets("fork.validate_header")
 @requires(lambda fork: fork.header_excess_blob_gas_required())
 @pytest.mark.parametrize("case_name", sorted(BLOB_CASES))
 @given(data=st.data())
