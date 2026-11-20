@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test the gas of SELFDESTRUCT to a cold or pre-warmed beneficiary.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/eip2929-ffFiller.yml
@@ -16,10 +16,9 @@ hardcode the Amsterdam number.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
+    Bytecode,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -33,6 +32,34 @@ from tests.ported_static.post_state_resolution import (
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+
+def if_then(
+    start: int, condition: Bytecode, body: Bytecode, has_value: bool
+) -> Bytecode:
+    """
+    Build the LLL `(if condition body NOP)` layout at code offset `start`.
+
+    Jump destinations are derived from the code length, so the layout
+    holds for any address push width.
+    """
+    skip = Op.PUSH1[0] if has_value else Op.POP(0)
+    head = (
+        len(Op.JUMPI(pc=Op.PUSH2[0], condition=condition))
+        + len(skip)
+        + len(Op.JUMP(pc=Op.PUSH2[0]))
+    )
+    then = start + head
+    end = then + len(Op.JUMPDEST) + len(body)
+    code = (
+        Op.JUMPI(pc=Op.PUSH2[then], condition=condition)
+        + skip
+        + Op.JUMP(pc=Op.PUSH2[end])
+        + Op.JUMPDEST
+        + body
+        + Op.JUMPDEST
+    )
+    return code + Op.POP if has_value else code
 
 
 @pytest.mark.ported_from(
@@ -98,7 +125,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_eip2929_minus_ff(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -107,191 +133,47 @@ def test_eip2929_minus_ff(
     g: int,
     v: int,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
+    """Store the gas of a CALL into a SELFDESTRUCT after a warm-up."""
     # EIP-8038 raises COLD_ACCOUNT_ACCESS, 0 on earlier forks.
     cold_account_delta = (
         fork.gas_costs().COLD_ACCOUNT_ACCESS
         - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
     )
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x000000000000000000000000000000000000DE57)
-    contract_1 = Address(0x000000000000000000000000000000000000CA11)
-    contract_2 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    # Source: raw
-    # 0x00
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000DE57),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #      (selfdestruct 0xDE57)
-    # }
     contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(address=0xDE57) + Op.STOP,
+        code=Op.SELFDESTRUCT(address=contract_0) + Op.STOP,
         balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000CA11),  # noqa: E501
     )
-    # Source: lll
-    # {
-    #    (def 'operation $4)
-    #
-    #    (def 'measurementCost 0x08)
-    #
-    #    ; Make sure not to be overwritten by extcodecopy
-    #    (def 'gasB4     0x100)
-    #    (def 'gasAfter  0x120)
-    #
-    #    ; Write something so the storage won't be new
-    #    [gasB4] 0xFF
-    #    [gasAfter] 0xFF
-    #
-    #    (def 'NOP 0)
-    #    (def 'dest 0xDE57)   ; destination address
-    #
-    #    ; Read so access to that account later won't trigger EIP2929 costs
-    #    (balance 0xca11)
-    #
-    #    ; If we need to add the destination address to the active set,
-    #    ; do so.
-    #    (if (= operation 0x31) (balance dest) NOP)
-    #    (if (= operation 0x3B) (extcodesize dest) NOP)
-    #    (if (= operation 0x3C) (extcodecopy dest 0 0 1) NOP)
-    #    (if (= operation 0x3F) (extcodehash dest) NOP)
-    #    (if (= operation 0xF1) (call 0x10000 dest 0 0 0 0 0) NOP)
-    #    (if (= operation 0xF2) (callcode 0x10000 dest 0 0 0 0 0) NOP)
-    #    (if (= operation 0xF4) (delegatecall 0x10000 dest 0 0 0 0) NOP)
-    #    (if (= operation 0xFA) (staticcall 0x10000 dest 0 0 0 0) NOP)
-    #
-    # ... (18 more lines)
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x100, value=0xFF)
+    warm_ups = [
+        (0x31, Op.BALANCE(address=contract_0), True),
+        (0x3B, Op.EXTCODESIZE(address=contract_0), True),
+        (
+            0x3C,
+            Op.EXTCODECOPY(
+                address=contract_0, dest_offset=0, offset=0, size=1
+            ),
+            False,
+        ),
+        (0x3F, Op.EXTCODEHASH(address=contract_0), True),
+        (0xF1, Op.CALL(gas=0x10000, address=contract_0), True),
+        (0xF2, Op.CALLCODE(gas=0x10000, address=contract_0), True),
+        (0xF4, Op.DELEGATECALL(gas=0x10000, address=contract_0), True),
+        (0xFA, Op.STATICCALL(gas=0x10000, address=contract_0), True),
+    ]
+    measurement = (
+        Op.MSTORE(offset=0x100, value=0xFF)
         + Op.MSTORE(offset=0x120, value=0xFF)
         + Op.POP(Op.BALANCE(address=contract_1))
-        + Op.JUMPI(
-            pc=Op.PUSH2[0x21],
-            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x31),
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0x26])
-        + Op.JUMPDEST
-        + Op.BALANCE(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(
-            pc=Op.PUSH2[0x38],
-            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3B),
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0x3D])
-        + Op.JUMPDEST
-        + Op.EXTCODESIZE(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(
-            pc=Op.PUSH2[0x50],
-            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3C),
-        )
-        + Op.POP(0x0)
-        + Op.JUMP(pc=Op.PUSH2[0x5B])
-        + Op.JUMPDEST
-        + Op.EXTCODECOPY(
-            address=contract_0, dest_offset=0x0, offset=0x0, size=0x1
-        )
-        + Op.JUMPDEST
-        + Op.JUMPI(
-            pc=Op.PUSH2[0x6C],
-            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3F),
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0x71])
-        + Op.JUMPDEST
-        + Op.EXTCODEHASH(address=contract_0)
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(
-            pc=Op.PUSH2[0x83],
-            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xF1),
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0x96])
-        + Op.JUMPDEST
-        + Op.CALL(
-            gas=0x10000,
-            address=contract_0,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(
-            pc=Op.PUSH2[0xA8],
-            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xF2),
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0xBB])
-        + Op.JUMPDEST
-        + Op.CALLCODE(
-            gas=0x10000,
-            address=contract_0,
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(
-            pc=Op.PUSH2[0xCD],
-            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xF4),
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=Op.PUSH2[0xDE])
-        + Op.JUMPDEST
-        + Op.DELEGATECALL(
-            gas=0x10000,
-            address=contract_0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
-        + Op.JUMPI(
-            pc=Op.PUSH2[0xF0],
-            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xFA),
-        )
-        + Op.PUSH1[0x0]
-        + Op.JUMP(pc=0x101)
-        + Op.JUMPDEST
-        + Op.STATICCALL(
-            gas=0x10000,
-            address=contract_0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.JUMPDEST
-        + Op.POP
+    )
+    for operation, body, has_value in warm_ups:
+        condition = Op.EQ(Op.CALLDATALOAD(offset=0x4), operation)
+        measurement += if_then(len(measurement), condition, body, has_value)
+    contract_2 = pre.deploy_contract(
+        code=measurement
         + Op.MSTORE(offset=0x100, value=Op.GAS)
         + Op.POP(
             Op.CALL(
@@ -322,7 +204,6 @@ def test_eip2929_minus_ff(
         )
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
     )
 
     expect_entries_: list[dict] = [
@@ -371,4 +252,4 @@ def test_eip2929_minus_ff(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
