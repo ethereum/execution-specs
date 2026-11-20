@@ -220,7 +220,7 @@ The `consume reorg` command:
 
 1. **Initializes the client under test** with genesis state.
 2. **Sends an initial forkchoice update** to genesis and verifies the client's genesis block hash via `eth_getBlockByNumber(0)`.
-3. **Runs the fixture's step script**: sends each request verbatim, selects the first outcome (of possibly several spec-legal ones) that matches the observed response, and runs that outcome's branch steps.
+3. **Runs the fixture's step script**: sends each request verbatim, selects the first outcome (of possibly several spec-legal ones) that matches the observed response, and runs that outcome's branch steps. For `servePeer` steps it dials a mock devp2p peer into the client, as `consume wirex` does, to serve it blocks to sync.
 4. **Fails** on the first step whose observed result matches none of its listed outcomes.
 
 Unlike `consume engine`, which sends a linear payload list and always follows each valid payload with a forkchoice update to it, `consume reorg` fixtures describe explicit forkchoice states (head, safe, finalized), client-built payloads bound to new labels via `engine_getPayloadVX`, and assertions of observable state (`eth_getBalance`, `eth_getLogs`, `eth_getTransactionReceipt`, ...) after each forkchoice update. See the [Blockchain Engine Reorg Tests](./test_formats/blockchain_test_engine_reorg.md) format page for the full fixture structure.
