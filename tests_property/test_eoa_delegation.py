@@ -340,16 +340,20 @@ def test_set_delegation_applies_and_charges(
     paid = {signer for signer in signers if model[signer].write_paid}
 
     # The delegation indicator is charged once per authority, so some
-    # lists open by setting the first authority's delegation twice.
+    # lists open by setting the first authority's delegation twice, or by
+    # clearing and setting again one it held before the transaction.
     set_twice = data.draw(st.booleans(), label="set twice")
     authorizations = []
     for position in range(data.draw(st.integers(2 if set_twice else 1, 4))):
         if set_twice and position < 2:
             index = 0
             account = model[signers[index]]
-            target = data.draw(
-                addresses().filter(lambda a: a != CLEARING_ADDRESS)
-            )
+            if position == 0 and account.delegated_before:
+                target = CLEARING_ADDRESS
+            else:
+                target = data.draw(
+                    addresses().filter(lambda a: a != CLEARING_ADDRESS)
+                )
             nonce = account.nonce
         else:
             index = data.draw(st.integers(0, len(keys) - 1))

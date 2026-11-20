@@ -234,6 +234,15 @@ def _model(ops: List[BuilderOp]) -> List[Tuple[Any, ...]]:
 
 
 @given(ops=_ops())
+# One account's code and one slot, each written at a later index first.
+@example(
+    ops=[
+        ("code", ADDR_POOL[0], 2, b"\x01"),
+        ("code", ADDR_POOL[0], 1, b"\x02"),
+        ("storage_write", ADDR_POOL[0], SLOT_POOL[0], 2, U256(1)),
+        ("storage_write", ADDR_POOL[0], SLOT_POOL[0], 1, U256(2)),
+    ]
+)
 def test_builder_matches_reference_model(
     bal: ModuleType, tracker: ModuleType, ops: List[BuilderOp]
 ) -> None:

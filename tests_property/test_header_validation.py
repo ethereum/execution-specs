@@ -150,6 +150,9 @@ CASES: Dict[str, Case] = {
         valid=False,
     ),
     "number_zero": Case(with_values(number=Uint(0)), valid=False),
+    "number_equal_to_the_parent": Case(
+        lambda f: replace(f.child, number=f.parent.number), valid=False
+    ),
     "timestamp_one_after_the_parent": Case(
         lambda f: replace(f.child, timestamp=f.parent.timestamp + U256(1)),
         valid=True,

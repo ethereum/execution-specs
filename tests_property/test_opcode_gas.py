@@ -316,8 +316,11 @@ def check_charge(
     if scenario.metadata.get("value_transfer"):
         stipend = fork.call_value_stipend()
     if state_refund:
-        returned = exact.gas_left + exact.state_gas_left - unspent
-        assert returned == state_refund
+        # The refund fills the frame's gas up to what the charge took
+        # from it, and the reservoir with the rest.
+        to_gas_left = min(state_refund, state_gas - min(state_gas, reservoir))
+        assert exact.gas_left == to_gas_left
+        assert exact.state_gas_left == unspent + state_refund - to_gas_left
     else:
         assert exact.gas_left == stipend
         assert exact.state_gas_left == unspent
@@ -397,12 +400,18 @@ def test_sstore_needs_more_gas_than_the_stipend(
     elif gas_left != "stipend":
         raise ValueError(f"unknown gas left: {gas_left}")
     code = arguments + write + Op.JUMPDEST * padding
+    # EIP-8037: the check counts the frame's gas only, so a reservoir of
+    # state gas does not help.
+    reservoir = 0
+    if fork.state_gas_reservoir_enabled():
+        reservoir = fork.call_value_stipend()
 
     frame = run(
         spec,
         code,
         Scenario(warm_storage_keys={SLOT}),
         gas=code.gas_cost(fork),
+        reservoir=reservoir,
     )
 
     if gas_left == "stipend":

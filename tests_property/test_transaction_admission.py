@@ -10,12 +10,12 @@ still allows.
 """
 
 from dataclasses import dataclass, replace
-from typing import Any, Callable, Dict, Sequence, Tuple
+from typing import Any, Callable, Dict, Sequence, Set, Tuple
 
 import pytest
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U64, Uint
-from execution_testing import Hash, Transaction, TransactionType
+from execution_testing import Address, Hash, Transaction, TransactionType
 from execution_testing.forks import Fork
 from execution_testing.test_types.balance_expectations import (
     effective_gas_price,
@@ -403,6 +403,16 @@ def check_environment(
     grant = int(env.execution_gas_grant)
     assert grant == min(tx.gas_limit, cap) - intrinsic
     assert grant + int(env.state_gas_reservoir) == tx.gas_limit - intrinsic
+    # EIP-2780: the transaction pays to write its sender, and its recipient
+    # when it creates one or sends it value, so their authorizations skip
+    # the charge.
+    assert tx.sender is not None
+    paid: Set[Address] = {tx.sender}
+    if tx.to is None:
+        paid.add(tx.created_contract)
+    elif tx.value > 0:
+        paid.add(tx.to)
+    assert env.accounts_with_paid_writes == paid
 
 
 @pytest.mark.parametrize("case_name", sorted(CASES))
