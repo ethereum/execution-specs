@@ -11,11 +11,14 @@ decision is in the fixture.
 
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Tuple
+from typing import Any, Callable, Dict, List, Literal, Tuple
 
 from hive.client import Client
 
 from execution_testing.base_types import Bytes, Hash
+from execution_testing.devp2p.chain import Chain, chain_from_payloads
+from execution_testing.devp2p.peer import MockPeer
+from execution_testing.devp2p.protocol import ETH_PROTOCOLS
 from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayload,
@@ -34,11 +37,13 @@ from execution_testing.fixtures.reorg import (
     AssertReceiptStep,
     AssertStateStep,
     AssertTxStatusStep,
+    AwaitHeadStep,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     NewPayloadStep,
     Outcome,
     SendRawTransactionStep,
+    ServePeerStep,
     Step,
     TxRef,
 )
@@ -55,6 +60,7 @@ from ..helpers.genesis import (
     send_forkchoice_update_to_genesis,
     verify_genesis_block_hash,
 )
+from ..helpers.mock_peer import dial_mock_peer, fork_schedule_of
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)
@@ -63,6 +69,14 @@ logger = get_logger(__name__)
 TX_STATUS_TIMEOUT = 5.0
 """Seconds to wait for a transaction to reach an expected pool/chain status."""
 TX_STATUS_POLL_INTERVAL = 0.25
+SYNC_TIMEOUT = 60.0
+"""Seconds to wait for the client to reach a head it syncs from the peer."""
+SYNC_POLL_INTERVAL = 0.25
+REANNOUNCE_INTERVAL = 3.0
+"""
+Seconds between re-sends of the last ``newPayload`` and ``forkchoiceUpdated``
+while waiting for a head that was announced before the peer connected.
+"""
 
 HEAD_TAGS: Tuple[Literal["latest", "safe", "finalized"], ...] = (
     "latest",
@@ -120,6 +134,7 @@ class StepRunner:
         engine_rpc: EngineRPC,
         timing_data: TimingData,
         get_payload_wait_time: float,
+        dial_peer: Callable[[Chain], MockPeer] | None = None,
     ) -> None:
         """Initialize with the fixture, RPC endpoints and consumer options."""
         self.fixture = fixture
@@ -127,10 +142,14 @@ class StepRunner:
         self.engine = engine_rpc
         self.timing_data = timing_data
         self.get_payload_wait_time = get_payload_wait_time
+        self.dial_peer = dial_peer
+        self.peer: MockPeer | None = None
         self.labels_by_hash = fixture.labels_by_hash()
         self.bound: Dict[str, BoundPayload] = {}
         self.last_payload_id: Bytes | None = None
         self.last_payload_attributes: PayloadAttributes | None = None
+        self.last_new_payload: tuple[list, int] | None = None
+        self.last_forkchoice: tuple[ForkchoiceState, int] | None = None
         self.matched: List[str] = []
         """Log of ``<step>:<outcome id>`` selections, for offline analysis."""
 
@@ -266,6 +285,10 @@ class StepRunner:
                 self.send_raw_transaction(name, step)
             elif isinstance(step, AssertTxStatusStep):
                 self.assert_tx_status(name, step)
+            elif isinstance(step, ServePeerStep):
+                self.serve_peer(name, step)
+            elif isinstance(step, AwaitHeadStep):
+                self.await_head(name, step)
             else:  # pragma: no cover - schema is closed
                 raise LoggedError(f"{name}: unsupported step type")
 
@@ -293,6 +316,7 @@ class StepRunner:
     def new_payload(self, name: str, step: NewPayloadStep, depth: int) -> None:
         """Send ``engine_newPayloadVX`` and check the outcome."""
         params, version = self._new_payload_params(step.block)
+        self.last_new_payload = (params, version)
         name = f"{name}({step.block})"
         with self.timing_data.time(
             f"engine_newPayloadV{version} {step.block}"
@@ -323,6 +347,7 @@ class StepRunner:
             finalized_block_hash=self.resolve(step.finalized),
         )
         attributes = step.payload_attributes
+        self.last_forkchoice = (state, int(step.version))
         with self.timing_data.time(f"engine_forkchoiceUpdatedV{step.version}"):
             try:
                 response = self.engine.forkchoice_updated(
@@ -634,6 +659,61 @@ class StepRunner:
         logger.info(f"{name}: tx {ref} is {status}")
         self.matched.append(f"{name}:{status}")
 
+    def serve_peer(self, name: str, step: ServePeerStep) -> None:
+        """Serve genesis to ``step.head`` from the peer, dialing it first."""
+        payloads = self.fixture.chain_to(step.head)
+        chain = chain_from_payloads(self.fixture.genesis, payloads)
+        if self.peer is None:
+            if self.dial_peer is None:
+                raise LoggedError(f"{name}: no peer can be dialed")
+            self.peer = self.dial_peer(chain)
+        else:
+            self.peer.set_chain(chain)
+        logger.info(
+            f"{name}: peer serves {len(payloads)} blocks to {step.head}"
+        )
+
+    def await_head(self, name: str, step: AwaitHeadStep) -> None:
+        """
+        Poll the latest block until it is ``step.latest``, re-sending the
+        last ``newPayload`` and ``forkchoiceUpdated`` every
+        ``REANNOUNCE_INTERVAL``; fail after ``SYNC_TIMEOUT``.
+        """
+        target = self.resolve(step.latest)
+        start = time.monotonic()
+        announced = start
+        while (head := self._head_hash(name, "latest")) != target:
+            now = time.monotonic()
+            if now - start >= SYNC_TIMEOUT:
+                raise LoggedError(
+                    f"{name}: latest is {self.label_of(head)} after "
+                    f"{SYNC_TIMEOUT:.0f} s, expected {step.latest}"
+                )
+            if now - announced >= REANNOUNCE_INTERVAL:
+                self.reannounce(name)
+                announced = now
+            time.sleep(SYNC_POLL_INTERVAL)
+        logger.info(
+            f"{name}: latest == {step.latest} after "
+            f"{time.monotonic() - start:.1f} s"
+        )
+
+    def reannounce(self, name: str) -> None:
+        """Re-send the last ``newPayload`` and ``forkchoiceUpdated``."""
+        try:
+            if self.last_new_payload is not None:
+                params, version = self.last_new_payload
+                self.engine.new_payload(*params, version=version)
+            if self.last_forkchoice is not None:
+                state, version = self.last_forkchoice
+                self.engine.forkchoice_updated(
+                    forkchoice_state=state,
+                    payload_attributes=None,
+                    version=version,
+                )
+        except JSONRPCError as e:
+            logger.info(f"{name}: re-announcement answered {e.code}")
+
 
 def test_reorg_via_engine(
     timing_data: TimingData,
@@ -651,7 +731,17 @@ def test_reorg_via_engine(
     2. Verify the client's genesis hash.
     3. Run the fixture's steps.
     """
-    del client
+
+    def dial_peer(chain: Chain) -> MockPeer:
+        return dial_mock_peer(
+            client,
+            chain,
+            eth_versions=tuple(ETH_PROTOCOLS),
+            serve_bals=False,
+            fork_schedule=fork_schedule_of(fixture.fork),
+            total_timing_data=timing_data,
+        )
+
     fcu_version = fixture.fork.fork_at(
         block_number=0, timestamp=int(genesis_header.timestamp)
     ).engine_forkchoice_updated_version()
@@ -666,8 +756,17 @@ def test_reorg_via_engine(
     verify_genesis_block_hash(eth_rpc, genesis_header, timing_data)
 
     runner = StepRunner(
-        fixture, eth_rpc, engine_rpc, timing_data, get_payload_wait_time
+        fixture,
+        eth_rpc,
+        engine_rpc,
+        timing_data,
+        get_payload_wait_time,
+        dial_peer,
     )
-    with timing_data.time("Steps"):
-        runner.run(fixture.steps)
+    try:
+        with timing_data.time("Steps"):
+            runner.run(fixture.steps)
+    finally:
+        if runner.peer is not None:
+            runner.peer.close()
     logger.info(f"All steps passed. Outcomes: {runner.matched}")

@@ -465,6 +465,34 @@ class AssertTxStatusStep(StepBase):
         return [self.tx]
 
 
+class ServePeerStep(StepBase):
+    """
+    Serve the chain from genesis to ``head`` from a devp2p peer, which the
+    consumer dials into the client on the first such step.
+    """
+
+    type: Literal["servePeer"] = "servePeer"
+    head: BlockLabel
+
+    def label_refs(self) -> List[str]:
+        """The tip of the served chain."""
+        return [self.head]
+
+
+class AwaitHeadStep(StepBase):
+    """
+    Wait until ``eth_getBlockByNumber("latest")`` is ``latest``, which the
+    client reaches by syncing from the peer.
+    """
+
+    type: Literal["awaitHead"] = "awaitHead"
+    latest: BlockLabel
+
+    def label_refs(self) -> List[str]:
+        """The awaited head."""
+        return [self.latest]
+
+
 Step = Annotated[
     Union[
         NewPayloadStep,
@@ -477,6 +505,8 @@ Step = Annotated[
         AssertLogsStep,
         SendRawTransactionStep,
         AssertTxStatusStep,
+        ServePeerStep,
+        AwaitHeadStep,
     ],
     Field(discriminator="type"),
 ]
@@ -569,6 +599,15 @@ class BlockchainEngineReorgFixture(EngineFixtureCommon):
         for label, block in self.blocks.items():
             result[block.block_hash] = label
         return result
+
+    def chain_to(self, label: str) -> List[FixtureNewPayloadRequest]:
+        """Payloads of the blocks from genesis (exclusive) to ``label``."""
+        payloads = []
+        while label != GENESIS_LABEL:
+            block = self.blocks[label]
+            payloads.append(block.payload)
+            label = block.parent
+        return payloads[::-1]
 
     def tx_rlp(self, ref: TxRef) -> Bytes:
         """Raw transaction bytes referenced by ``ref``."""
