@@ -9,7 +9,7 @@ on:
       - ".vscode/**"
       - "whitelist.txt"
       - "docs/**"
-      - "mkdocs.yml"
+      - "zensical.toml"
   workflow_dispatch:
 
 concurrency:

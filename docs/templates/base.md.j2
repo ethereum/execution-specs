@@ -1,3 +1,10 @@
+---
+edit_path: "{{ edit_path }}"
+{% block front_matter %}
+{# templates inheriting from this base template can add front matter keys #}
+{% endblock %}
+---
+
 {% block title %}
 # {{ title }}
 {# templates inheriting from this base template can re-define the title block #}

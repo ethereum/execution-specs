@@ -35,6 +35,7 @@ from tenacity import (
 )
 
 from execution_testing.base_types import Address, Bytes, Hash, to_json
+from execution_testing.fixtures.blockchain import PayloadAttributes
 from execution_testing.forks import Fork
 from execution_testing.logging import (
     get_logger,
@@ -53,7 +54,6 @@ from .rpc_types import (
     JSONRPCRequest,
     JSONRPCResponse,
     NewPayloadWithWitnessResponse,
-    PayloadAttributes,
     PayloadStatus,
     PayloadStatusEnum,
     RPCCall,
@@ -62,7 +62,9 @@ from .rpc_types import (
 )
 
 logger = get_logger(__name__)
-BlockNumberType = int | Literal["latest", "earliest", "pending"]
+BlockNumberType = (
+    int | Literal["latest", "earliest", "pending", "safe", "finalized"]
+)
 TimeoutType = float | tuple[float, float] | None
 
 # Default (connect, read) timeout for JSON-RPC requests. Without one, a
@@ -326,9 +328,14 @@ class BaseRPC:
         - 4xx errors are client errors (permanent failures, no point retrying)
         - 5xx errors are server errors that typically indicate
           application-level issues rather than transient network problems
+
+        The namespace headers are built for each attempt rather than once
+        per call: a JWT issued before a timed out attempt can be too old
+        for the client to accept on the retry.
         """
         if timeout is None:
             timeout = self.request_timeout
+        headers = headers | self.namespace_extra_headers()
         logger.debug(f"Making HTTP request to {url}, timeout={timeout}")
         return self.session.post(
             url, json=json_payload, headers=headers, timeout=timeout
@@ -380,7 +387,7 @@ class BaseRPC:
         base_header = {
             "Content-Type": "application/json",
         }
-        headers = base_header | extra_headers | self.namespace_extra_headers()
+        headers = base_header | extra_headers
 
         logger.debug(
             f"Sending RPC request to {self.url}, "
@@ -408,7 +415,7 @@ class BaseRPC:
         base_header = {
             "Content-Type": "application/json",
         }
-        headers = base_header | extra_headers | self.namespace_extra_headers()
+        headers = base_header | extra_headers
 
         logger.debug(
             f"Sending batch RPC request to {self.url}, "
@@ -516,7 +523,9 @@ class EthRPC(BaseRPC):
     _gas_information_cache: Dict[str, int]
     _gas_information_cache_timestamp: Dict[str, float]
 
-    BlockNumberType = int | Literal["latest", "earliest", "pending"]
+    BlockNumberType = (
+        int | Literal["latest", "earliest", "pending", "safe", "finalized"]
+    )
 
     def __init__(
         self,
@@ -618,6 +627,28 @@ class EthRPC(BaseRPC):
             request=RPCCall(
                 method="getBlockReceipts", params=[f"{block_hash}"]
             )
+        ).result_or_raise()
+
+    def get_logs(
+        self,
+        from_block: BlockNumberType = "earliest",
+        to_block: BlockNumberType = "latest",
+        address: Address | None = None,
+    ) -> List[dict[str, Any]]:
+        """`eth_getLogs`: Returns the logs in a block range."""
+        params: Dict[str, Any] = {
+            "fromBlock": hex(from_block)
+            if isinstance(from_block, int)
+            else from_block,
+            "toBlock": hex(to_block)
+            if isinstance(to_block, int)
+            else to_block,
+        }
+        if address is not None:
+            params["address"] = f"{address}"
+        logger.info(f"Requesting logs for {params}..")
+        return self.post_request(
+            request=RPCCall(method="getLogs", params=[params])
         ).result_or_raise()
 
     def get_block_by_hash(
@@ -1572,11 +1603,15 @@ class EngineRPC(BaseJwtRPC):
         """
         method = f"getPayloadV{version}"
 
+        result = self.post_request(
+            request=RPCCall(method=method, params=[f"{payload_id}"]),
+        ).result_or_raise()
+        if version == 1:
+            # V1's result is the execution payload itself, not wrapped in
+            # an `executionPayload` field (execution-apis paris.md).
+            result = {"executionPayload": result}
         return GetPayloadResponse.model_validate(
-            self.post_request(
-                request=RPCCall(method=method, params=[f"{payload_id}"]),
-            ).result_or_raise(),
-            context=self.response_validation_context,
+            result, context=self.response_validation_context
         )
 
     def get_blobs(

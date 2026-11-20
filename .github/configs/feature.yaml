@@ -15,7 +15,7 @@
 # entries are not released on their own.
 tests:
   evm-type: eels
-  fill-params: --until=Amsterdam --generate-all-formats
+  fill-params: --until=Amsterdam --generate-all-formats --invariant-checks
 
 benchmark:
   evm-type: benchmark
@@ -36,10 +36,10 @@ zkevm-benchmark:
 # Shared entry for all `<feat>-devnet` releases; matched by `-devnet` suffix.
 devnet:
   evm-type: eels
-  fill-params: --until=Amsterdam --generate-all-formats
+  fill-params: --until=Amsterdam --generate-all-formats --invariant-checks
 
 zkevm:
   evm-type: eels
-  fill-params: -m "blockchain_test or blockchain_test_engine" --fork=Amsterdam ./tests/
+  fill-params: -m "blockchain_test or blockchain_test_engine" --fork=Amsterdam --invariant-checks ./tests/
   also-builds: [zkevm-benchmark]
   feature_only: true

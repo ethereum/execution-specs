@@ -493,6 +493,9 @@ class NethermindExceptionMapper(ExceptionMapper):
             r"InvalidBlockLevelAccessListHash:"
             r"|InvalidBlockLevelAccessList:"
             r"|BlockLevelAccessListIndexOutOfRange:"
+            # The BAL decoder refuses a slot listed in both storage reads
+            # and storage changes.
+            r"|Invalid storage read, already in storage changes"
             r"|could not be parsed as a block: "
             r"Error decoding block access list:"
             r"|Error decoding block access list:"

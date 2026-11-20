@@ -772,7 +772,7 @@ def calculate_intrinsic_cost(
         )
 
     # EIP-7976 floor tokens: all calldata bytes count uniformly.
-    floor_tokens_in_calldata = ulen(tx.data) * GasCosts.TX_DATA_TOKEN_STANDARD
+    floor_tokens_in_calldata = ulen(tx.data) * Uint(4)
 
     # Decomposed execution-gas intrinsic base (EIP-2780), which also
     # anchors the calldata floor.
@@ -820,7 +820,7 @@ def calculate_effective_gas_price(
     capped by both of its fee caps; its maximum fee must cover the base
     fee, or an `InsufficientMaxFeePerGasError` is raised. A transaction
     priced with a plain gas price pays that price outright, which must
-    likewise cover the base fee.
+    likewise cover the base fee, or the same error is raised.
     """
     if isinstance(tx, FeeMarketCapableTransaction):
         if tx.max_fee_per_gas < base_fee_per_gas:
@@ -835,7 +835,7 @@ def calculate_effective_gas_price(
         return priority_fee_per_gas + base_fee_per_gas
 
     if tx.gas_price < base_fee_per_gas:
-        raise InvalidBlock
+        raise InsufficientMaxFeePerGasError(tx.gas_price, base_fee_per_gas)
     return tx.gas_price
 
 

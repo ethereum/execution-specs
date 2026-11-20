@@ -100,7 +100,9 @@ IMAGES: tuple[Image, ...] = (
     Image("consume-rlp", "hive", "blockchain_tests"),
     Image("consume-engine", "hive", "blockchain_tests_engine"),
     Image("consume-enginex", "hive", "blockchain_tests_engine_x"),
+    Image("consume-wirex", "hive", "blockchain_tests_engine_x"),
     Image("consume-sync", "hive", "blockchain_tests_sync"),
+    Image("consume-reorg", "hive", "blockchain_tests_engine_reorg"),
     Image("execute-blobs", "hive", tests=True),
 )
 """Every published image; adding one here adds it to the publishing plan."""

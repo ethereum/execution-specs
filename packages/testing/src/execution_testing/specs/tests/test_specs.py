@@ -11,7 +11,18 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
     StateFixture,
 )
-from execution_testing.forks import Amsterdam, Istanbul
+from execution_testing.forks import (
+    BPO1,
+    BPO2,
+    Amsterdam,
+    Cancun,
+    Fork,
+    Istanbul,
+    Osaka,
+    OsakaToBPO1AtTime15k,
+    Prague,
+    TransitionFork,
+)
 from execution_testing.test_types import Alloc, Environment, Transaction
 
 from ..base import BaseTest
@@ -199,6 +210,94 @@ def test_state_test_conversion_checks_the_env_first() -> None:
         fork=Istanbul,
     )
     with pytest.raises(ValueError, match="excess_blob_gas"):
+        state_test.generate_blockchain_test()
+
+
+@pytest.mark.parametrize(
+    "fork,timestamp",
+    [
+        (Cancun, 1000),
+        (Prague, 1000),
+        (Osaka, 1000),
+        (BPO1, 1000),
+        (BPO2, 1000),
+        (Amsterdam, 1000),
+        # The first block runs under BPO1's blob schedule, the genesis
+        # under Osaka's.
+        (OsakaToBPO1AtTime15k, 15_000),
+    ],
+)
+@pytest.mark.parametrize(
+    "base_fee_per_gas,excess_blob_gas",
+    [
+        (7, 1),
+        (7, 2**17),
+        (7, 10**7),
+        # From EIP-7918 on these base fees are above the blob reserve
+        # price, so only an excess of at least one block's target has an
+        # exact genesis.
+        (1000, 10**7),
+        (10**9, 10**7),
+    ],
+)
+def test_state_test_blockchain_form_keeps_the_block_env(
+    fork: Fork | TransitionFork,
+    timestamp: int,
+    base_fee_per_gas: int,
+    excess_blob_gas: int,
+) -> None:
+    """
+    Verify the block a state test's blockchain form runs in has the state
+    test's base fee and excess blob gas.
+    """
+    state_test = StateTest(
+        env=Environment(
+            timestamp=timestamp,
+            base_fee_per_gas=base_fee_per_gas,
+            excess_blob_gas=excess_blob_gas,
+        ),
+        pre=Alloc(),
+        post=Alloc(),
+        tx=Transaction(),
+        fork=fork,
+    )
+    blockchain_test = state_test.generate_blockchain_test()
+    genesis_fork = fork.fork_at(block_number=0, timestamp=0)
+    block_fork = fork.fork_at(block_number=1, timestamp=timestamp)
+    genesis = blockchain_test.genesis_environment.set_fork_requirements(
+        genesis_fork
+    )
+    assert genesis.base_fee_per_gas is not None
+    assert genesis.excess_blob_gas is not None
+    block_base_fee = block_fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=int(genesis.base_fee_per_gas),
+        parent_gas_used=0,
+        parent_gas_limit=int(genesis.gas_limit),
+    )
+    block_excess_blob_gas = block_fork.excess_blob_gas_calculator()(
+        parent_excess_blob_gas=int(genesis.excess_blob_gas),
+        parent_blob_gas_used=0,
+        parent_base_fee_per_gas=int(genesis.base_fee_per_gas),
+    )
+    assert (block_base_fee, block_excess_blob_gas) == (
+        base_fee_per_gas,
+        excess_blob_gas,
+    )
+
+
+def test_state_test_excess_without_a_genesis_is_rejected() -> None:
+    """
+    Verify a state test whose excess blob gas no genesis can give its
+    first block fails to convert instead of running at another excess.
+    """
+    state_test = StateTest(
+        env=Environment(base_fee_per_gas=1000, excess_blob_gas=1),
+        pre=Alloc(),
+        post=Alloc(),
+        tx=Transaction(),
+        fork=Osaka,
+    )
+    with pytest.raises(ValueError, match="no genesis gives block 1"):
         state_test.generate_blockchain_test()
 
 

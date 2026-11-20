@@ -3,7 +3,7 @@
 from typing import List, Tuple
 
 from execution_testing.base_types import Address
-from execution_testing.client_clis.cli_types import EnginePayloadMetadata
+from execution_testing.fixtures.blockchain import FixtureEngineNewPayload
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
@@ -49,9 +49,9 @@ def check_deterministic_factory_deployment(
 def _send_tx_capturing(
     eth_rpc: EthRPC,
     tx: Transaction,
-) -> EnginePayloadMetadata | None:
+) -> FixtureEngineNewPayload | None:
     """
-    Send a single tx, returning the built engine payload metadata when
+    Send a single tx, returning the built block's fixture payload when
     routed through ``testing_buildBlockV1`` (fill-stateful path) or
     ``None`` for the mempool path (execute).
     """
@@ -70,7 +70,7 @@ def deploy_deterministic_factory_contract(
     seed_key: EOA,
     gas_price: int,
     tx_index: int = 0,
-) -> Tuple[int, List[EnginePayloadMetadata]]:
+) -> Tuple[int, List[FixtureEngineNewPayload]]:
     """
     Deploy the deterministic deployment contract.
 
@@ -79,7 +79,7 @@ def deploy_deterministic_factory_contract(
     ``testing_rpc``) so callers can write payloads into
     ``pre_run/<start_block_hash>.json``.
     """
-    captured: List[EnginePayloadMetadata] = []
+    captured: List[FixtureEngineNewPayload] = []
     deploy_tx_gas_price = 0x174876E800
     deploy_tx_gas_limit = 0x0186A0
     deploy_tx = Transaction(

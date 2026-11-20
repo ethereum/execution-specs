@@ -1,5 +1,6 @@
 """Ethereum state test spec definition and filler."""
 
+from dataclasses import replace
 from pprint import pprint
 from typing import (
     Any,
@@ -61,14 +62,55 @@ from execution_testing.test_types import (
     PostStateContext,
     Transaction,
 )
+from execution_testing.test_types.balance_expectations import transaction_key
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 
 from .base import BaseTest, FillResult, OpMode
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
 from .helpers import RecordedPostStateContext, verify_transactions
+from .invariants import BlockTotals, check_block_invariants
 
 logger = get_logger(__name__)
+
+
+def state_test_block_totals(
+    *,
+    fork: Fork,
+    tx: Transaction,
+    env: Environment,
+    result: Result,
+    context: PostStateContext,
+) -> BlockTotals:
+    """
+    Return the totals of a state test's transaction, priced as its
+    post-state is. A state test pays no reward and no withdrawals.
+    """
+    totals = BlockTotals(
+        gas_limit=int(env.gas_limit),
+        gas_used=int(result.gas_used),
+        receipts_gas_used=0,
+        base_fee_per_gas=0,
+        blob_gas_used=0,
+        blob_gas_price=0,
+        issued=0,
+    )
+    if tx.error is not None:
+        return totals
+    receipt_gas = result.receipts[-1].cumulative_gas_used
+    assert receipt_gas is not None, "receipt has no cumulative gas used"
+    blob_gas_used = 0
+    if tx.blob_versioned_hashes:
+        blob_count = len(tx.blob_versioned_hashes)
+        blob_gas_used = fork.blob_gas_per_blob() * blob_count
+    landing = context.landing(transaction_key(tx))
+    return replace(
+        totals,
+        receipts_gas_used=int(receipt_gas),
+        base_fee_per_gas=landing.base_fee_per_gas(),
+        blob_gas_used=blob_gas_used,
+        blob_gas_price=landing.blob_gas_price() or 0,
+    )
 
 
 class StateTest(BaseTest):
@@ -348,19 +390,50 @@ class StateTest(BaseTest):
             )
 
         if self.env.excess_blob_gas:
-            # The excess blob gas environment value means the value of the
-            # context (block header) where the transaction is executed. In a
-            # blockchain test, we need to indirectly set the excess blob gas by
-            # setting the excess blob gas of the genesis block to the expected
-            # value plus the BLOB_TARGET_GAS_PER_BLOCK, which is the value that
-            # will be subtracted from the excess blob gas when the first block
-            # is mined.
-            kwargs["excess_blob_gas"] = self.env.excess_blob_gas + (
-                genesis_fork.target_blobs_per_block()
-                * genesis_fork.blob_gas_per_blob()
+            genesis_base_fee_per_gas = (
+                Environment(**kwargs)
+                .set_fork_requirements(genesis_fork)
+                .base_fee_per_gas
+            )
+            assert genesis_base_fee_per_gas is not None
+            kwargs["excess_blob_gas"] = self._genesis_excess_blob_gas(
+                excess_blob_gas=int(self.env.excess_blob_gas),
+                genesis_base_fee_per_gas=int(genesis_base_fee_per_gas),
             )
 
         return Environment(**kwargs)
+
+    def _genesis_excess_blob_gas(
+        self, *, excess_blob_gas: int, genesis_base_fee_per_gas: int
+    ) -> int:
+        """
+        Return the genesis excess blob gas from which the first block, which
+        uses no blob gas, computes the state test's `excess_blob_gas`.
+
+        That is usually one block's blob gas target more, taken from the
+        first block's fork, which a transition fork can change from the
+        genesis's. From EIP-7918 on, a parent base fee above the blob
+        reserve price leaves the excess unchanged instead. Raise when no
+        genesis can give that excess.
+        """
+        fork = self.fork.fork_at(
+            block_number=self.env.number, timestamp=self.env.timestamp
+        )
+        calculator = fork.excess_blob_gas_calculator()
+        target = fork.target_blobs_per_block() * fork.blob_gas_per_blob()
+        for candidate in (excess_blob_gas + target, excess_blob_gas):
+            child = calculator(
+                parent_excess_blob_gas=candidate,
+                parent_blob_gas_used=0,
+                parent_base_fee_per_gas=genesis_base_fee_per_gas,
+            )
+            if child == excess_blob_gas:
+                return candidate
+        raise ValueError(
+            f"no genesis gives block 1 an excess blob gas of "
+            f"{excess_blob_gas} at base fee {genesis_base_fee_per_gas}: "
+            "below one block's target the reserve price keeps the excess"
+        )
 
     def _generate_blockchain_blocks(self) -> List[Block]:
         """
@@ -412,13 +485,14 @@ class StateTest(BaseTest):
                 block_number=self.env.number, timestamp=self.env.timestamp
             )
         )
-        return BlockchainTest.from_test(
+        blockchain_test = BlockchainTest.from_test(
             base_test=self,
             genesis_environment=self._generate_blockchain_genesis_environment(),
             pre=self.pre,
             post=self.post,
             blocks=self._generate_blockchain_blocks(),
         )
+        return blockchain_test
 
     def make_state_test_fixture(
         self,
@@ -462,17 +536,13 @@ class StateTest(BaseTest):
             slow_request=self.is_tx_gas_heavy_test,
         )
         output_alloc = transition_tool_output.alloc.materialize()
+        context = self.post_state_context(
+            tx=tx, env=env, fork=fork, result=transition_tool_output.result
+        )
 
         try:
             self.post.verify_post_alloc(
-                pre_alloc=pre_alloc,
-                got_alloc=output_alloc,
-                context=self.post_state_context(
-                    tx=tx,
-                    env=env,
-                    fork=fork,
-                    result=transition_tool_output.result,
-                ),
+                pre_alloc=pre_alloc, got_alloc=output_alloc, context=context
             )
         except Exception as e:
             print_traces(t8n.get_traces())
@@ -489,6 +559,24 @@ class StateTest(BaseTest):
             pprint(transition_tool_output.result)
             pprint(output_alloc)
             raise e
+
+        if self.invariant_checks:
+            # A state test runs no block finalization, so it has no block
+            # access list to check.
+            check_block_invariants(
+                fork=fork,
+                pre_alloc=pre_alloc,
+                post_alloc=output_alloc,
+                result=transition_tool_output.result,
+                txs=[tx],
+                totals=state_test_block_totals(
+                    fork=fork,
+                    tx=tx,
+                    env=env,
+                    result=transition_tool_output.result,
+                    context=context,
+                ),
+            )
 
         gas_optimization: int | None = None
 

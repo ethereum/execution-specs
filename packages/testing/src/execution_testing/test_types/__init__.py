@@ -47,6 +47,7 @@ from .helpers import (
     contract_address_from_hash,
     eoa_from_hash,
 )
+from .p256 import P256Signature, p256_sign
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import (
     LogMismatchError,
@@ -110,6 +111,7 @@ __all__ = (
     "GasFee",
     "LogMismatchError",
     "NetworkWrappedTransaction",
+    "P256Signature",
     "PostStateContext",
     "Removable",
     "SystemContractInteractionBase",
@@ -137,6 +139,7 @@ __all__ = (
     "contract_address_from_hash",
     "eoa_from_hash",
     "keccak256",
+    "p256_sign",
     "relay_contract_code",
     "verify_log",
     "verify_transaction_receipt",

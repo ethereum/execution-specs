@@ -222,7 +222,7 @@ def build_stateless_artifacts(
     options: StatelessBlockOptions,
     fork: Fork,
     execution_witness: ExecutionWitness | None,
-    block_rlp: Bytes,
+    block_rlp: Callable[[], Bytes],
     block_access_list: BlockAccessList | None,
     requests_list: List[Bytes] | None,
     engine_payload_modifier: FixtureExecutionPayloadModifier | None,
@@ -241,6 +241,9 @@ def build_stateless_artifacts(
     Without ``run_guest`` the output trusts the transition tool instead of
     re-executing the block. It reports ``transition_tool_validation``, which
     is what the tool says about its own witness, so the tool has to say it.
+
+    ``block_rlp`` is only called when there is an input to build, because
+    encoding a block with many transactions is expensive.
 
     Omit the input and output when the fork has no stateless validation,
     when the transition tool runs the fork with a blob schedule its spec
@@ -272,8 +275,9 @@ def build_stateless_artifacts(
         return artifacts
     assert block_access_list is not None
 
+    block_bytes = block_rlp()
     try:
-        spec_block = rlp.decode_to(spec.Block, block_rlp)
+        spec_block = rlp.decode_to(spec.Block, block_bytes)
         execution_requests = spec.decode_execution_requests(
             tuple(requests_list or ())
         )

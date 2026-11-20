@@ -22,7 +22,7 @@ from ...pytest_hive.hive_info import ClientFile, HiveInfo
 logger = logging.getLogger(__name__)
 
 HIVE_DEV_MODE_DOCS_URL = (
-    "https://steel.ethereum.foundation/docs/execution-specs/"
+    "https://specs.ethereum.foundation/docs/execution-specs/"
     "running_tests/hive/dev_mode/"
 )
 """Docs page on running a simulator against a hive developer backend."""

@@ -1,6 +1,7 @@
 """Benchmark POINT EVALUATION precompile."""
 
 import math
+from functools import cache
 
 import ckzg  # type: ignore
 import pytest
@@ -121,6 +122,7 @@ def test_point_evaluation(
     )
 
 
+@cache
 def _generate_point_evaluation_input(
     *,
     blob_data: bytes,

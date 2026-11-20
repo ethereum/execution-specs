@@ -378,6 +378,11 @@ class BesuExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
             "block timestamp not greater than parent"
         ),
+        # Besu returns this one message when any body check fails, and the
+        # gas used check runs first.
+        BlockException.INVALID_GAS_USED: (
+            "failed to validate output of imported block"
+        ),
         BlockException.INVALID_LOG_BLOOM: (
             "failed to validate output of imported block"
         ),
@@ -458,7 +463,9 @@ class BesuExceptionMapper(ExceptionMapper):
             r"(?:transaction invalid )?Signature s value should be less "
             r"than \d+, but got \d+|"
             # In-range r that is not an x-coordinate on the curve.
-            r"Cannot recover public key from signature"
+            r"Cannot recover public key from signature|"
+            r"(?:transaction invalid )?sender could not be extracted from "
+            r"transaction signature"
         ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"Blob transaction 0x[0-9a-f]+ exceeds "

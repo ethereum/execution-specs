@@ -1,10 +1,13 @@
 """Test completion tracking for multi-test client architectures."""
 
 import logging
+from typing import Callable, Sequence
 
 import pytest
+from hive.client import ClientType
 from pytest import StashKey
 
+from execution_testing.fixtures.consume import TestCaseBase
 from execution_testing.test_types import AllocGroupHash
 
 logger = logging.getLogger(__name__)
@@ -12,10 +15,76 @@ logger = logging.getLogger(__name__)
 # Typed stash keys for session-scoped data (replaces dynamic attributes)
 enginex_group_counts_key: StashKey[dict[str, int]] = StashKey()
 
+GroupVariants = Callable[[TestCaseBase, ClientType], Sequence[str]]
+"""
+Return the group variants to run a test case under on a client type.
 
-def make_group_identifier(pre_hash: AllocGroupHash, client_name: str) -> str:
-    """Build xdist group key from pre-alloc hash and client name."""
-    return f"{pre_hash}-{client_name}"
+A variant names one of several client configurations a simulator runs
+the same fixture under (see `make_group_identifier`); `""` means none.
+"""
+
+group_variants_key: StashKey[GroupVariants] = StashKey()
+"""Set by a simulator that runs fixtures under group variants."""
+
+
+def xdist_group_of(item: pytest.Item) -> str | None:
+    """Return the client group `item` was assigned, if any."""
+    for marker in item.iter_markers("xdist_group"):
+        if "name" in marker.kwargs:
+            return str(marker.kwargs["name"])
+    return None
+
+
+def count_tests_per_group(
+    session: pytest.Session, items: list[pytest.Item]
+) -> dict[str, int]:
+    """
+    Count the collected tests per xdist group and stash the counts.
+
+    The collection hooks sort by them, and the test tracker reads them
+    to stop each group's client on time.
+    """
+    group_counts: dict[str, int] = {}
+    for item in items:
+        group = xdist_group_of(item)
+        if group is not None:
+            group_counts[group] = group_counts.get(group, 0) + 1
+
+    session.stash[enginex_group_counts_key] = group_counts
+    logger.info(
+        f"Counted {len(group_counts)} pre-alloc groups with "
+        f"{sum(group_counts.values())} total tests"
+    )
+    return group_counts
+
+
+def make_group_identifier(
+    pre_hash: AllocGroupHash, client_name: str, variant: str = ""
+) -> str:
+    """
+    Build xdist group key from pre-alloc hash, client name and variant.
+
+    A variant names one of several client configurations a simulator
+    runs the same fixture under (see `GroupVariants`); each gets its
+    own group, and with it its own client, because a client that has
+    imported a fixture's chain cannot import it again.
+    """
+    identifier = f"{pre_hash}-{client_name}"
+    return f"{identifier}-{variant}" if variant else identifier
+
+
+def group_identifier_of(item: pytest.Item) -> str:
+    """Return the client group `item` was assigned at parametrization."""
+    group = xdist_group_of(item)
+    if group is None:
+        raise ValueError(f"{item.nodeid} has no xdist_group marker")
+    return group
+
+
+def group_variant_of(item: pytest.Item) -> str:
+    """Return the group variant `item` runs under, or "" for none."""
+    marker = item.get_closest_marker("group_variant")
+    return "" if marker is None else str(marker.args[0])
 
 
 class PreAllocGroupTestTracker:

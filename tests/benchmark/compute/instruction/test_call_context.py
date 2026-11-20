@@ -137,6 +137,27 @@ def test_calldataload(
     )
 
 
+@pytest.mark.repricing(calldata_size=31)
+@pytest.mark.parametrize("calldata_size", [0, 31, 32])
+def test_calldataload_chained(
+    benchmark_test: BenchmarkTestFiller, calldata_size: int
+) -> None:
+    """
+    Benchmark CALLDATALOAD taking its offset from the previous load.
+
+    The calldata is all zeros, so every load reads offset 0. An input of 1
+    to 31 bytes makes every load a partial, zero-padded word.
+    """
+    benchmark_test(
+        target_opcode=Op.CALLDATALOAD,
+        code_generator=JumpLoopGenerator(
+            setup=Op.PUSH0,
+            attack_block=Op.CALLDATALOAD,
+            tx_kwargs={"data": b"\x00" * calldata_size},
+        ),
+    )
+
+
 @pytest.mark.repricing(fixed_src_dst=True)
 @pytest.mark.parametrize(
     "mem_size",

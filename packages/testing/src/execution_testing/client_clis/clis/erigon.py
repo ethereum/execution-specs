@@ -120,6 +120,9 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.GAS_USED_OVERFLOW: "block gas used overflow",
     }
     mapping_regex = {
+        TransactionException.TYPE_3_TX_ZERO_BLOBS: (
+            r"blob txn must contain at least one blob versioned hash"
+        ),
         # In-range r that is not an x-coordinate on the curve: the range
         # check passes and libsecp256k1 recovery itself fails.
         TransactionException.INVALID_SIGNATURE_VRS: r"recovery failed",

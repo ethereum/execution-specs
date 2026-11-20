@@ -279,6 +279,8 @@ jobs:
           first=${TAGS%% *}
           EEST_FIXTURES_RELEASE="$RELEASE" EEST_FIXTURES_GIT_SHA="$COMMIT" EEST_REPOSITORY="$GITHUB_REPOSITORY" \
             packages/testing/docker/fixtures/build.sh "$source" "$FORMAT" "${IMAGE}/${FORMAT}:${first}"
+          # build.sh builds no image for a format the release does not contain.
+          docker image inspect "${IMAGE}/${FORMAT}:${first}" > /dev/null 2>&1 || exit 0
           .github/scripts/push_image_tags.sh "${IMAGE}/${FORMAT}:${first}" "${IMAGE}/${FORMAT}" \
             "$TAGS" "$IMMUTABLE" "$COMMIT" "$RELEASE"
 
@@ -357,12 +359,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # A push pairs the head with fixture and tests images that only a
-      # release run publishes. Until one has, as on the first push after the
-      # workflow lands on a branch, skip with a notice instead of failing.
+      # Skip with a notice instead of failing when the test content is not
+      # published: a push pairs the head with fixture and tests images that
+      # only a release run publishes, so the first push after the workflow
+      # lands on a branch finds none, and a release cut before a fixture
+      # format existed has no fixture image of it.
       - name: Check the test content is published
         id: content
-        if: needs.plan.outputs.mode == 'push'
         env:
           REQUIRES: ${{ matrix.requires }}
         run: |
@@ -372,7 +375,7 @@ jobs:
           if docker buildx imagetools inspect "$REQUIRES" > /dev/null 2> inspect.log; then
             echo "published=true" >> "$GITHUB_OUTPUT"
           elif grep -qiE "not found|denied|403 forbidden" inspect.log; then
-            echo "::notice::$REQUIRES is not published yet; run a release build first"
+            echo "::notice::$REQUIRES is not published; skipping this image"
             echo "published=false" >> "$GITHUB_OUTPUT"
           else
             cat inspect.log >&2

@@ -13,12 +13,9 @@ import pkgutil
 import ethereum
 import ethereum_spec_tools
 
-# `docc` plugins only load once the `doc` group installs docc, and
-# importing a `__main__` would run it.
-SKIP = {"ethereum_spec_tools.docc"}
-
+# Importing a `__main__` would run it.
 for pkg in (ethereum, ethereum_spec_tools):
     for mod in pkgutil.walk_packages(pkg.__path__, f"{pkg.__name__}."):
-        if mod.name in SKIP or mod.name.endswith(".__main__"):
+        if mod.name.endswith(".__main__"):
             continue
         importlib.import_module(mod.name)
