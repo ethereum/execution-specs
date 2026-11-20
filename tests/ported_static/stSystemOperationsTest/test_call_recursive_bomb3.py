@@ -1,31 +1,35 @@
 """
-Verify a self-recursive CALL bomb that keeps only a 224-gas reserve.
+Verify a self-recursive CALL bomb that keeps a fixed gas reserve.
 
 Each level bumps a shared depth counter and forwards everything but a
-tiny reserve to a call to itself, so descent is throttled only by the
-EIP-150 63/64 withhold. On the way back up a level must afford its
+reserve to a call to itself, so descent is throttled by the reserve
+and the EIP-150 63/64 withhold. On the way back up a level must afford its
 success-flag store from its 1/64 retention plus whatever its child
 returned; levels that cannot (EIP-2200's stipend rule included) halt
 and forfeit, so the surviving storage pins the exact depth the budget
 sustains.
 
 Ported from:
+state_tests/stSystemOperationsTest/CallRecursiveBomb1Filler.json
+state_tests/stSystemOperationsTest/CallRecursiveBomb2Filler.json
 state_tests/stSystemOperationsTest/CallRecursiveBomb3Filler.json
 
 @manually-enhanced: Do not overwrite. The post state is predicted by an
 exact fork-derived replay of the recursion's gas flow (EIP-150 grants,
 returned-leftover propagation, warm/cold and SSTORE pricing via opcode
 metadata, EIP-8037 state-gas spill), validated against the ported
-Cancun depth. Under Amsterdam's revised storage-growth pricing even the
-top level cannot afford its zero-to-one flag store at the ported
-budget, so the whole transaction reverts and the post pins empty
-storage.
+Cancun depths (256 for CallRecursiveBomb1/2, whose tx gas limits differ
+by one gas). Under Amsterdam's revised storage-growth pricing, at the
+CallRecursiveBomb3 budget even the top level cannot afford its
+zero-to-one flag store, so the whole transaction reverts and the post
+pins empty storage.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Bytecode,
     Fork,
     StateTestFiller,
     Transaction,
@@ -37,30 +41,29 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 COUNTER_SLOT = 0
 RESULT_SLOT = 1
-# Gas each level keeps back; far below a cold store, so completing the
-# post-call flag store depends on the 1/64 retention and the child's
-# returned leftover.
-GAS_RESERVE = 224
-# Ported budget; pins the OOG-terminated depth.
-TX_GAS_LIMIT = 1_000_000
 
-RECURSION_CODE = (
-    Op.SSTORE(
-        key=COUNTER_SLOT,
-        value=Op.ADD(Op.SLOAD(key=COUNTER_SLOT), 1),
+
+def recursion_code(gas_reserve: int) -> Bytecode:
+    """Bump the depth counter, then call self keeping `gas_reserve`."""
+    return (
+        Op.SSTORE(
+            key=COUNTER_SLOT,
+            value=Op.ADD(Op.SLOAD(key=COUNTER_SLOT), 1),
+        )
+        + Op.SSTORE(
+            key=RESULT_SLOT,
+            value=Op.CALL(
+                gas=Op.SUB(Op.GAS, gas_reserve),
+                address=Op.ADDRESS,
+            ),
+        )
+        + Op.STOP
     )
-    + Op.SSTORE(
-        key=RESULT_SLOT,
-        value=Op.CALL(
-            gas=Op.SUB(Op.GAS, GAS_RESERVE),
-            address=Op.ADDRESS,
-        ),
-    )
-    + Op.STOP
-)
 
 
-def predict_recursion_storage(fork: Fork, tx_gas_limit: int) -> dict[int, int]:
+def predict_recursion_storage(
+    fork: Fork, tx_gas_limit: int, gas_reserve: int
+) -> dict[int, int]:
     """
     Replay the recursion's gas flow and return the surviving storage.
 
@@ -107,7 +110,7 @@ def predict_recursion_storage(fork: Fork, tx_gas_limit: int) -> dict[int, int]:
     bump_statics_cold = bump_statics(False)
     bump_statics_warm = bump_statics(True)
 
-    ask_expr = Op.SUB(Op.GAS, GAS_RESERVE)
+    ask_expr = Op.SUB(Op.GAS, gas_reserve)
     call_upfront = Op.CALL(address_warm=True).gas_cost(fork)
     # Everything charged before GAS reads gas_left: the call's argument
     # pushes, ADDRESS, and the reserve push plus the GAS opcode itself.
@@ -146,7 +149,7 @@ def predict_recursion_storage(fork: Fork, tx_gas_limit: int) -> dict[int, int]:
         assert level < 1024, "recursion must die of gas, not depth"
         # A reserve underflow wraps mod 2**256: an effectively infinite
         # ask, clamped to the 63/64 forwardable maximum.
-        ask = gas_read - GAS_RESERVE if gas_read >= GAS_RESERVE else 1 << 256
+        ask = gas_read - gas_reserve if gas_read >= gas_reserve else 1 << 256
         forwarded = min(ask, gas - gas // 64)
         levels.append((gas, forwarded))
         gas = forwarded
@@ -195,25 +198,43 @@ def predict_recursion_storage(fork: Fork, tx_gas_limit: int) -> dict[int, int]:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stSystemOperationsTest/CallRecursiveBomb3Filler.json"],
+    [
+        "state_tests/stSystemOperationsTest/CallRecursiveBomb1Filler.json",
+        "state_tests/stSystemOperationsTest/CallRecursiveBomb2Filler.json",
+        "state_tests/stSystemOperationsTest/CallRecursiveBomb3Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Berlin")
+@pytest.mark.parametrize(
+    "gas_reserve, tx_gas_limit",
+    [
+        # Ported budget 20622100 exceeds the Osaka tx gas limit cap.
+        pytest.param(15_000, 2**24, id="call_recursive_bomb1"),
+        # Far below a cold store, so completing the post-call flag store
+        # depends on the 1/64 retention and the child's returned leftover.
+        pytest.param(224, 1_000_000, id="call_recursive_bomb3"),
+    ],
+)
 def test_call_recursive_bomb3(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    gas_reserve: int,
+    tx_gas_limit: int,
 ) -> None:
-    """Pin the depth a thin-reserve CALL self-recursion sustains."""
-    target = pre.deploy_contract(code=RECURSION_CODE)
+    """Pin the depth a reserve-throttled CALL self-recursion sustains."""
+    target = pre.deploy_contract(code=recursion_code(gas_reserve))
 
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=target,
-        gas_limit=TX_GAS_LIMIT,
+        gas_limit=tx_gas_limit,
     )
 
     post = {
-        target: Account(storage=predict_recursion_storage(fork, TX_GAS_LIMIT)),
+        target: Account(
+            storage=predict_recursion_storage(fork, tx_gas_limit, gas_reserve)
+        ),
     }
 
     state_test(pre=pre, post=post, tx=tx)

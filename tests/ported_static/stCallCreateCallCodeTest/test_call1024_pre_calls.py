@@ -3,140 +3,81 @@ Calldepth with subcall.
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/Call1024PreCallsFiller.json
+state_tests/stDelegatecallTestHomestead/Call1024PreCallsFiller.json
+
+@manually-enhanced: Do not overwrite. CALL and DELEGATECALL merged; the target
+is funded to the depth limit.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 from tests.ported_static.constants import HIGH_GAS_LIMIT
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+MAX_CALL_DEPTH = 1024
+GAS_LIMITED_TX_GAS = 9_193_697_319_756
+GAS_LIMITED_FRAMES = 989
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stCallCreateCallCodeTest/Call1024PreCallsFiller.json"],
+    [
+        "state_tests/stCallCreateCallCodeTest/Call1024PreCallsFiller.json",
+        "state_tests/stDelegatecallTestHomestead/Call1024PreCallsFiller.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
+@pytest.mark.parametrize("opcode", [Op.CALL, Op.DELEGATECALL])
 @pytest.mark.parametrize(
-    "d, g, v",
+    "tx_gas",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="-g0",
-        ),
-        pytest.param(
-            0,
-            1,
-            0,
-            id="-g1",
-        ),
+        pytest.param(11_937_600_034_817, id="depth_limit"),
+        pytest.param(9_214_364_837_600_034_817, id="depth_limit_max_gas"),
+        pytest.param(GAS_LIMITED_TX_GAS, id="gas_limited"),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_call1024_pre_calls(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    opcode: Op,
+    tx_gas: int,
 ) -> None:
-    """Calldepth with subcall."""
-    addr = Address(0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0)
-    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    """
+    Send value twice, count the frame, then recurse into ADDRESS.
 
-    pre[addr] = Account(balance=7000)
-    # Source: lll
-    # { [[ 2 ]] (CALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) [[ 3 ]] (CALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0)  [[ 0 ]] (ADD @@0 1) [[ 1 ]] (CALL 0xfffffffffff <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) }  # noqa: E501
-    target = pre.deploy_contract(
-        code=Op.SSTORE(
-            key=0x2,
-            value=Op.CALL(
-                gas=0xFFFF,
-                address=0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0,
-                value=0x1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(
-            key=0x3,
-            value=Op.CALL(
-                gas=0xFFFF,
-                address=0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0,
-                value=0x1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
-        + Op.SSTORE(
-            key=0x1,
-            value=Op.CALL(
-                gas=0xFFFFFFFFFFF,
-                address=Op.ADDRESS,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        balance=2024,
-    )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {target: Account(storage={0: 1025, 1: 1, 2: 0})},
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {target: Account(storage={0: 1025, 1: 1, 2: 0, 3: 0})},
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes(""),
-    ]
-    tx_gas = [9214364837600034817, 11837600034817]
-    tx_value = [10]
-
+    With enough gas the recursion stops at the call depth limit, where
+    the value calls fail. With less gas it stops earlier, at a depth
+    pinned for the Cancun/Prague gas schedule, where they succeed.
+    """
     env = Environment(gas_limit=HIGH_GAS_LIMIT)
+    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    recipient = pre.fund_eoa()
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+    target = pre.deploy_contract(
+        code=Op.SSTORE(2, Op.CALL(gas=0xFFFF, address=recipient, value=1))
+        + Op.SSTORE(3, Op.CALL(gas=0xFFFF, address=recipient, value=1))
+        + Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
+        + Op.SSTORE(1, opcode(gas=0xFFFFFFFFFFF, address=Op.ADDRESS))
+        + Op.STOP,
+        balance=2 * (MAX_CALL_DEPTH + 1),
     )
+
+    tx = Transaction(sender=sender, to=target, gas_limit=tx_gas, value=10)
+
+    if tx_gas == GAS_LIMITED_TX_GAS:
+        storage = {0: GAS_LIMITED_FRAMES, 1: 1, 2: 1, 3: 1}
+    else:
+        storage = {0: MAX_CALL_DEPTH + 1, 1: 1, 2: 0, 3: 0}
+    post = {target: Account(storage=storage)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -3,6 +3,8 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stRevertTest/costRevertFiller.yml
+
+@manually-enhanced: Do not overwrite. Prague cap dropped.
 """
 
 import pytest
@@ -14,7 +16,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 from tests.ported_static.post_state_resolution import (
@@ -24,12 +26,18 @@ from tests.ported_static.post_state_resolution import (
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+# The filler used an 80M budget and a 0x04000000 threshold for "the
+# call took all the gas"; both are lowered to fit the Osaka tx gas
+# limit cap. A failing call burns nearly the whole budget, a REVERT
+# only a few thousand gas.
+TX_GAS_LIMIT = 16_000_000
+ALL_GAS_THRESHOLD = 0x00100000
+
 
 @pytest.mark.ported_from(
     ["state_tests/stRevertTest/costRevertFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Prague")
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -212,20 +220,17 @@ def test_cost_revert(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
+    # EIP-8038 cold account access reprice; 0 before EIP-8038.
+    cold_account_delta = (
+        fork.gas_costs().COLD_ACCOUNT_ACCESS
+        - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
+    )
     sender = pre.fund_eoa(amount=0x100000000000)
 
-    # Source: lll
-    # {
-    #     (revert 0 0x10)
-    # }
     contract_0 = pre.deploy_contract(
         code=Op.REVERT(offset=0x0, size=0x10) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #     (while 1 (sha3 0 0x1000000))
-    # }
     contract_1 = pre.deploy_contract(
         code=Op.JUMPDEST
         + Op.JUMPI(pc=0x13, condition=Op.ISZERO(0x1))
@@ -235,24 +240,16 @@ def test_cost_revert(
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #     (sha3 0 (- 0 1))
-    # }
     contract_2 = pre.deploy_contract(
         code=Op.SHA3(offset=0x0, size=Op.SUB(0x0, 0x1)) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: raw
-    # 0x610103600155600060006000600061dead6175305a03f450BA
     contract_3 = pre.deploy_contract(
-        code=bytes.fromhex(
-            "610103600155600060006000600061dead6175305a03f450ba"
-        ),
+        code=Op.SSTORE(key=0x1, value=0x103)
+        + Op.POP(Op.DELEGATECALL(gas=Op.SUB(Op.GAS, 0x7530), address=0xDEAD))
+        + Bytes("ba"),
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: raw
-    # 0x610104600155600060006000600061dead6175305a03f450600056
     contract_4 = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x104)
         + Op.POP(
@@ -268,50 +265,14 @@ def test_cost_revert(
         + Op.JUMP(pc=0x0),
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: raw
-    # 0x1000
     contract_5 = pre.deploy_contract(
         code=Op.LT + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: raw
-    # 0x5b586004580356
     contract_6 = pre.deploy_contract(
         code=Op.JUMPDEST + Op.PC + Op.JUMP(pc=Op.SUB(Op.PC, 0x4)),
         balance=0xBA1A9CE0BA1A9CE,
     )
-    # Source: lll
-    # {
-    #     (if (= $36 0) {     ; CALL
-    #        [0x00] (gas)
-    #
-    #       ; Leave us some gas even if the call takes all of it
-    #       (call (- (gas) 30000) $4 0 0 0 0 0)
-    #
-    #       [0x20] (gas)
-    #
-    #       ; Opcodes between the two gas measurements cost 42 gas
-    #
-    #       ; 0-1            GAS         2         0  79978808
-    #       ; 1-1          PUSH1         3         2  79978806
-    #       ; 2-1         MSTORE         6         5  79978803
-    #       ; 3-1          PUSH1         3        11  79978797
-    #       ; 4-1          PUSH1         3        14  79978794
-    #       ; 5-1          PUSH1         3        17  79978791
-    #       ; 6-1          PUSH1         3        20  79978788
-    #       ; 7-1          PUSH1         3        23  79978785
-    #       ; 8-1          PUSH1         3        26  79978782
-    #       ; 9-1   CALLDATALOAD         3        29  79978779
-    #       ; 10-1          PUSH2         3        38  79978770
-    #       ; 11-1            GAS         2        41  79978767
-    #       ; 12-1            SUB         3        43  79978765
-    #       ;
-    #       ;  The call goes here, and the cost varies based
-    #       ;  on what the call does
-    #       ;
-    #       ; 17-1            POP         2     24761  79954047
-    #
-    # ... (59 more lines)
     contract_7 = pre.deploy_contract(
         code=Op.JUMPI(
             pc=Op.PUSH2[0x11],
@@ -419,7 +380,10 @@ def test_cost_revert(
             ),
         )
         + Op.JUMPDEST
-        + Op.JUMPI(pc=0x100, condition=Op.GT(Op.SLOAD(key=0x0), 0x4000000))
+        + Op.JUMPI(
+            pc=0x100,
+            condition=Op.GT(Op.SLOAD(key=0x0), Op.PUSH4[ALL_GAS_THRESHOLD]),
+        )
         + Op.SLOAD(key=0x0)
         + Op.JUMP(pc=0x105)
         + Op.JUMPDEST
@@ -434,8 +398,10 @@ def test_cost_revert(
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0, 21, 14, 7], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_7: Account(storage={0: 2609})},
+            "network": [">=Cancun"],
+            "result": {
+                contract_7: Account(storage={0: 2609 + cold_account_delta})
+            },
         },
         {
             "indexes": {
@@ -468,7 +434,7 @@ def test_cost_revert(
                 "gas": -1,
                 "value": -1,
             },
-            "network": [">=Cancun<Osaka"],
+            "network": [">=Cancun"],
             "result": {contract_7: Account(storage={0: 0xFFFFFF})},
         },
     ]
@@ -505,7 +471,7 @@ def test_cost_revert(
         Bytes("1a8451e6") + Hash(contract_5, left_padding=True) + Hash(0x3),
         Bytes("1a8451e6") + Hash(contract_6, left_padding=True) + Hash(0x3),
     ]
-    tx_gas = [80000000]
+    tx_gas = [TX_GAS_LIMIT]
     tx_value = [1]
 
     tx = Transaction(

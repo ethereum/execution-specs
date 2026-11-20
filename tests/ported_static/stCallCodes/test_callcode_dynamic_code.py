@@ -3,377 +3,117 @@ Callcode to a contract that is being created in the same transaction.
 
 Ported from:
 state_tests/stCallCodes/callcodeDynamicCodeFiller.json
+state_tests/stDelegatecallTestHomestead/delegatecodeDynamicCodeFiller.json
 
-
-@manually-enhanced: Do not overwrite. Hardcoded inner-CALL gas values
-from the original filler (100k / 800k / 150k / 50k) were tuned to the
-pre-EIP-8037 gas budget. On Amsterdam each SSTORE in the inner
-callee adds the EIP-8037 per-storage state-gas (37 568 wei of
-regular gas), and the inner CALL OoGs before the test's SSTORE
-markers fire. Bumped uniformly with extra headroom; older forks are
-unaffected because only the requested gas changes, the actual
-consumption is identical.
+@manually-enhanced: Do not overwrite. CALLCODE and DELEGATECALL merged; the
+DELEGATECALL case delegates into the created child.
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Hash,
+    Initcode,
     StateTestFiller,
     Transaction,
+    compute_create2_address,
     compute_create_address,
 )
-from execution_testing.forks import Fork
+from execution_testing import Macros as Om
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+SALT = 0
+
+CHILD_CODE = (
+    Op.SSTORE(0x0, 1)
+    + Op.SSTORE(0x14, Op.ADDRESS)
+    + Op.SSTORE(0x15, Op.ORIGIN)
+    + Op.SSTORE(0x16, Op.CALLER)
+    + Op.STOP
+)
+CHILD_INITCODE = Initcode(deploy_code=CHILD_CODE)
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stCallCodes/callcodeDynamicCodeFiller.json"],
+    [
+        "state_tests/stCallCodes/callcodeDynamicCodeFiller.json",
+        "state_tests/stDelegatecallTestHomestead/delegatecodeDynamicCodeFiller.json",  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="d0",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="d1",
-        ),
-        pytest.param(
-            2,
-            0,
-            0,
-            id="d2",
-        ),
-        pytest.param(
-            3,
-            0,
-            0,
-            id="d3",
-        ),
-    ],
+    "opcode", [Op.CALLCODE, Op.DELEGATECALL], ids=["callcode", "delegatecall"]
 )
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize(
+    "create_opcode", [Op.CREATE, Op.CREATE2], ids=["create", "create2"]
+)
+@pytest.mark.parametrize(
+    "in_initcode", [False, True], ids=["code", "initcode"]
+)
 def test_callcode_dynamic_code(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    opcode: Op,
+    create_opcode: Op,
+    in_initcode: bool,
 ) -> None:
-    """Callcode to a contract that is being created in the same transaction."""
-    # EIP-8037 inner-CALL gas bumps (original gas values restored for
-    # pre-EIP-8037 forks; bumped values cover the per-storage state-gas
-    # spill into regular gas on Amsterdam).
-    inner_call_gas = 0x186A0
-    outer_call_gas = 0xC3500
-    if fork.is_eip_enabled(8037):
-        inner_call_gas = 0x2DC6C0
-        outer_call_gas = 0x4C4B40
+    """
+    Create a child contract, then CALLCODE or DELEGATECALL into it.
 
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    The creator runs as deployed code, or as the init code of a contract
+    created by the transaction target.
+    """
+    sender = pre.fund_eoa()
 
-    pre[sender] = Account(balance=0x2386F26FC10000)
-    # Source: lll
-    # { (CALL 800000 (CALLDATALOAD 0) 0 0 0 0 0) }
-    contract_0 = pre.deploy_contract(
-        code=Op.CALL(
-            gas=outer_call_gas,
-            address=Op.CALLDATALOAD(offset=0x0),
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x1100000000000000000000000000000000000000),  # noqa: E501
-    )
-    # Source: lll
-    # {(seq [[10]] (CREATE 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)   )0) )  )0)   )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)                   )}  # noqa: E501
-    contract_1 = pre.deploy_contract(
-        code=Op.PUSH1[0x1F]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x27, size=Op.DUP1)
-        + Op.PUSH1[0x0] * 2
-        + Op.SSTORE(key=0xA, value=Op.CREATE)
+    if create_opcode == Op.CREATE:
+        create = Op.CREATE(0, 0, len(CHILD_INITCODE))
+    else:
+        create = Op.CREATE2(0, 0, len(CHILD_INITCODE), SALT)
+    creator_code = (
+        Om.MSTORE(CHILD_INITCODE, 0)
+        + Op.SSTORE(0xA, create)
         + Op.SSTORE(
-            key=0xB,
-            value=Op.CALLCODE(
-                gas=inner_call_gas,
-                address=Op.SLOAD(key=0xA),
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            ),
+            0xB, opcode(address=Op.SLOAD(0xA), args_size=0x40, ret_size=0x40)
         )
         + Op.STOP
-        + Op.INVALID
-        + Op.PUSH1[0x12]
-        + Op.CODECOPY(dest_offset=0x0, offset=0xD, size=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.RETURN
-        + Op.STOP
-        + Op.INVALID
-        + Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=0x14, value=Op.ADDRESS)
-        + Op.SSTORE(key=0x15, value=Op.ORIGIN)
-        + Op.SSTORE(key=0x16, value=Op.CALLER)
-        + Op.STOP,
-        balance=10000,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
-    # Source: lll
-    # {(seq [[10]] (CREATE2 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)  0 )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)                   )}  # noqa: E501
-    contract_2 = pre.deploy_contract(
-        code=Op.PUSH1[0x0]
-        + Op.PUSH1[0x1F]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x29, size=Op.DUP1)
-        + Op.PUSH1[0x0] * 2
-        + Op.SSTORE(key=0xA, value=Op.CREATE2)
-        + Op.SSTORE(
-            key=0xB,
-            value=Op.CALLCODE(
-                gas=inner_call_gas,
-                address=Op.SLOAD(key=0xA),
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            ),
+
+    if in_initcode:
+        target = pre.deploy_contract(
+            code=Om.MSTORE(creator_code, 0)
+            + Op.CREATE(0, 0, len(creator_code))
+            + Op.STOP,
         )
-        + Op.STOP
-        + Op.INVALID
-        + Op.PUSH1[0x12]
-        + Op.CODECOPY(dest_offset=0x0, offset=0xD, size=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.RETURN
-        + Op.STOP
-        + Op.INVALID
-        + Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=0x14, value=Op.ADDRESS)
-        + Op.SSTORE(key=0x15, value=Op.ORIGIN)
-        + Op.SSTORE(key=0x16, value=Op.CALLER)
-        + Op.STOP,
-        balance=1000,
-        nonce=0,
-        address=Address(0x2000000000000000000000000000000000000000),  # noqa: E501
-    )
-    # Source: lll
-    # {(seq (CREATE 0 0 (lll(seq       [[10]] (CREATE 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS)  [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)   )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)            )0))       )}  # noqa: E501
-    contract_3 = pre.deploy_contract(
-        code=Op.PUSH1[0x46]
-        + Op.CODECOPY(dest_offset=0x0, offset=0xF, size=Op.DUP1)
-        + Op.PUSH1[0x0] * 2
-        + Op.CREATE
-        + Op.STOP
-        + Op.INVALID
-        + Op.PUSH1[0x1F]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x27, size=Op.DUP1)
-        + Op.PUSH1[0x0] * 2
-        + Op.SSTORE(key=0xA, value=Op.CREATE)
-        + Op.SSTORE(
-            key=0xB,
-            value=Op.CALLCODE(
-                gas=inner_call_gas,
-                address=Op.SLOAD(key=0xA),
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            ),
-        )
-        + Op.STOP
-        + Op.INVALID
-        + Op.PUSH1[0x12]
-        + Op.CODECOPY(dest_offset=0x0, offset=0xD, size=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.RETURN
-        + Op.STOP
-        + Op.INVALID
-        + Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=0x14, value=Op.ADDRESS)
-        + Op.SSTORE(key=0x15, value=Op.ORIGIN)
-        + Op.SSTORE(key=0x16, value=Op.CALLER)
-        + Op.STOP,
-        balance=10000,
-        nonce=0,
-        address=Address(0x3000000000000000000000000000000000000000),  # noqa: E501
-    )
-    # Source: lll
-    # {(seq (CREATE 0 0 (lll(seq       [[10]] (CREATE2 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS)  [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)  0 )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)            )0))       )}  # noqa: E501
-    contract_4 = pre.deploy_contract(
-        code=Op.PUSH1[0x48]
-        + Op.CODECOPY(dest_offset=0x0, offset=0xF, size=Op.DUP1)
-        + Op.PUSH1[0x0] * 2
-        + Op.CREATE
-        + Op.STOP
-        + Op.INVALID
-        + Op.PUSH1[0x0]
-        + Op.PUSH1[0x1F]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x29, size=Op.DUP1)
-        + Op.PUSH1[0x0] * 2
-        + Op.SSTORE(key=0xA, value=Op.CREATE2)
-        + Op.SSTORE(
-            key=0xB,
-            value=Op.CALLCODE(
-                gas=inner_call_gas,
-                address=Op.SLOAD(key=0xA),
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            ),
-        )
-        + Op.STOP
-        + Op.INVALID
-        + Op.PUSH1[0x12]
-        + Op.CODECOPY(dest_offset=0x0, offset=0xD, size=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.RETURN
-        + Op.STOP
-        + Op.INVALID
-        + Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=0x14, value=Op.ADDRESS)
-        + Op.SSTORE(key=0x15, value=Op.ORIGIN)
-        + Op.SSTORE(key=0x16, value=Op.CALLER)
-        + Op.STOP,
-        balance=10000,
-        nonce=0,
-        address=Address(0x4000000000000000000000000000000000000000),  # noqa: E501
-    )
+        context = compute_create_address(address=target, nonce=1)
+        context_caller = target
+    else:
+        target = pre.deploy_contract(code=creator_code)
+        context = target
+        context_caller = sender
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_1: Account(
-                    storage={
-                        0: 1,
-                        10: compute_create_address(
-                            address=contract_1, nonce=0
-                        ),
-                        11: 1,
-                        20: contract_1,
-                        21: sender,
-                        22: contract_1,
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_2: Account(
-                    storage={
-                        0: 1,
-                        10: 0x2D39FAD743351D4CF3F4717907D3DDA5E0A689A7,
-                        11: 1,
-                        20: contract_2,
-                        21: sender,
-                        22: contract_2,
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 2, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_3, nonce=0): Account(
-                    storage={
-                        0: 1,
-                        10: 0xBF1676BE6038AB86D66E00824C2E3577858040F6,
-                        11: 1,
-                        20: compute_create_address(
-                            address=contract_3, nonce=0
-                        ),
-                        21: sender,
-                        22: compute_create_address(
-                            address=contract_3, nonce=0
-                        ),
-                    },
-                    code=b"",
-                    balance=0,
-                    nonce=2,
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 3, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_4, nonce=0): Account(
-                    storage={
-                        0: 1,
-                        10: 0xF2D6BF688FAE45DA62AB2DD4F36945BC924CC61,
-                        11: 1,
-                        20: compute_create_address(
-                            address=contract_4, nonce=0
-                        ),
-                        21: sender,
-                        22: compute_create_address(
-                            address=contract_4, nonce=0
-                        ),
-                    },
-                    code=b"",
-                    balance=0,
-                    nonce=2,
-                ),
-            },
-        },
-    ]
+    if create_opcode == Op.CREATE:
+        child = compute_create_address(address=context, nonce=1)
+    else:
+        child = compute_create2_address(context, SALT, CHILD_INITCODE)
 
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    tx = Transaction(sender=sender, to=target)
 
-    tx_data = [
-        Hash(contract_1, left_padding=True),
-        Hash(contract_2, left_padding=True),
-        Hash(contract_3, left_padding=True),
-        Hash(contract_4, left_padding=True),
-    ]
-    # d2/d3 parametrizations do double-nested CREATE chains; EIP-8037
-    # NEW_ACCOUNT state-gas spill on Amsterdam exceeds the original
-    # 1 000 000 budget.
-    outer_tx_gas = 1_000_000
-    if fork.is_eip_enabled(8037):
-        outer_tx_gas = 6_000_000
-    tx_gas = [outer_tx_gas]
-
-    tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        error=_exc,
-    )
+    storage = {
+        0x0: 1,
+        0xA: child,
+        0xB: 1,
+        0x14: context,
+        0x15: sender,
+        0x16: context if opcode == Op.CALLCODE else context_caller,
+    }
+    post = {
+        context: Account(storage=storage),
+        child: Account(code=CHILD_CODE, storage={}),
+    }
+    if in_initcode:
+        post[context] = Account(storage=storage, code=b"", nonce=2)
 
     state_test(pre=pre, post=post, tx=tx)
