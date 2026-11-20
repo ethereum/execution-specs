@@ -204,10 +204,11 @@ class ClientModel:
     Blocks of every chain the peer has served, which it answers requests for
     by hash.
     """
-    pending_head: Optional[str] = None
+    pending: Optional[Tuple[str, str, str]] = None
     """
-    Head of the last ``forkchoiceUpdated`` answered SYNCING, which the client
-    makes its head once it has synced the chain.
+    Head, safe and finalized of the last ``forkchoiceUpdated`` answered
+    SYNCING; the client makes that head its head once it has synced the
+    chain.
     """
 
     def __post_init__(self) -> None:
@@ -234,15 +235,21 @@ class ClientModel:
             raise ValueError(
                 f"awaitHead({head!r}): the peer does not serve it"
             )
-        if head != self.pending_head:
+        if self.pending is None or self.pending[0] != head:
             raise ValueError(
                 f"awaitHead({head!r}): no forkchoiceUpdated to it is pending"
+            )
+        if self.pending[1:] != (self.safe, self.finalized):
+            raise ValueError(
+                f"awaitHead({head!r}): the pending forkchoiceUpdated moves "
+                "safe or finalized, which a client may apply with the head "
+                "or only on a later update; move them after awaitHead"
             )
         for label in self.dag.ancestors(head):
             self.known[label] = Validity.VALID
             self.syncing.discard(label)
         self.head = head
-        self.pending_head = None
+        self.pending = None
 
     def _unknown_ancestors(self, label: str, where: str) -> List[Outcome]:
         """
@@ -598,12 +605,12 @@ class ClientModel:
             ):
                 self.build = (step.head, attrs)
         if outcome.status == PayloadStatusEnum.SYNCING:
-            self.pending_head = step.head
+            self.pending = (step.head, step.safe, step.finalized)
         elif applied:
             self.head = step.head
             self.safe = step.safe
             self.finalized = step.finalized
-            self.pending_head = None
+            self.pending = None
 
     def head_assertion(self) -> AssertHeadStep:
         """``assertHead`` for the current model state."""
