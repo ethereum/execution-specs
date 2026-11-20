@@ -175,13 +175,25 @@ def test_fcu_unknown_head_is_syncing() -> None:  # noqa: D103
             "no forkchoiceUpdated",
         ),
         ([ServePeerStep(head="b3")], "only valid chains"),
+        (
+            [
+                NewPayloadStep(block="a3"),
+                ForkchoiceUpdatedStep(head="a3", safe="a1", finalized="a1"),
+                ServePeerStep(head="a3"),
+                AwaitHeadStep(latest="a3"),
+            ],
+            "safe or finalized",
+        ),
     ],
-    ids=["unserved", "not_pending", "invalid_chain"],
+    ids=["unserved", "not_pending", "invalid_chain", "moves_finality"],
 )
 def test_peer_sync_rejects_a_head_the_client_cannot_reach(
     steps: List[Step], error: str
 ) -> None:
-    """Awaiting needs a served head the client was told to sync to."""
+    """
+    Awaiting needs a served head that a pending forkchoiceUpdated asked for,
+    with safe and finalized unchanged.
+    """
     with pytest.raises(ValueError, match=error):
         annotate_steps(steps, ClientModel(dag=dag_linear_with_fork()), Cancun)
 
