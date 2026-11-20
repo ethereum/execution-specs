@@ -13,10 +13,12 @@ from execution_testing.fixtures.reorg import (
     AssertCanonicalStep,
     AssertHeadStep,
     AssertStateStep,
+    AwaitHeadStep,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     NewPayloadStep,
     Outcome,
+    ServePeerStep,
     Step,
 )
 from execution_testing.forks import Cancun
@@ -162,6 +164,78 @@ def test_fcu_unknown_head_is_syncing() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
     step = ForkchoiceUpdatedStep(head="a1")
     assert ids(model.forkchoice_outcomes(step)) == ["syncing"]
+
+
+@pytest.mark.parametrize(
+    "steps,error",
+    [
+        ([AwaitHeadStep(latest="a3")], "does not serve"),
+        (
+            [ServePeerStep(head="a3"), AwaitHeadStep(latest="a3")],
+            "no forkchoiceUpdated",
+        ),
+        ([ServePeerStep(head="b3")], "only valid chains"),
+        (
+            [
+                NewPayloadStep(block="a3"),
+                ForkchoiceUpdatedStep(head="a3", safe="a1", finalized="a1"),
+                ServePeerStep(head="a3"),
+                AwaitHeadStep(latest="a3"),
+            ],
+            "safe or finalized",
+        ),
+    ],
+    ids=["unserved", "not_pending", "invalid_chain", "moves_finality"],
+)
+def test_peer_sync_rejects_a_head_the_client_cannot_reach(
+    steps: List[Step], error: str
+) -> None:
+    """
+    Awaiting needs a served head that a pending forkchoiceUpdated asked for,
+    with safe and finalized unchanged.
+    """
+    with pytest.raises(ValueError, match=error):
+        annotate_steps(steps, ClientModel(dag=dag_linear_with_fork()), Cancun)
+
+
+@pytest.mark.parametrize(
+    "steps",
+    [
+        [ServePeerStep(head="a3"), NewPayloadStep(block="a3")],
+        [ServePeerStep(head="a2"), NewPayloadStep(block="a3")],
+        [
+            NewPayloadStep(block="a3"),
+            ServePeerStep(head="a2"),
+            ForkchoiceUpdatedStep(head="a3"),
+        ],
+        [
+            ServePeerStep(head="a3"),
+            ServePeerStep(head="b2"),
+            NewPayloadStep(block="a3"),
+        ],
+    ],
+    ids=["served_block", "served_parent", "held_head", "earlier_chain"],
+)
+def test_syncing_is_refused_when_the_peer_serves_what_the_client_lacks(
+    steps: List[Step],
+) -> None:
+    """The client may download it within the call and answer VALID."""
+    with pytest.raises(ValueError, match="within the call"):
+        annotate_steps(steps, ClientModel(dag=dag_linear_with_fork()), Cancun)
+
+
+def test_await_head_makes_the_synced_chain_known() -> None:
+    """After the sync, the client has validated every block it downloaded."""
+    model = ClientModel(dag=dag_linear_with_fork())
+    steps: List[Step] = [
+        NewPayloadStep(block="a3"),
+        ForkchoiceUpdatedStep(head="a3"),
+        ServePeerStep(head="a3"),
+        AwaitHeadStep(latest="a3"),
+    ]
+    annotate_steps(steps, model, Cancun)
+    assert model.head == "a3"
+    assert ids(model.new_payload_outcomes("a2")) == ["valid"]
 
 
 def test_fcu_extend_head_is_applied_only() -> None:  # noqa: D103

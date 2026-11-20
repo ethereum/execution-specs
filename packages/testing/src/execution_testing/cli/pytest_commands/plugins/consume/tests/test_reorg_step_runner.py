@@ -13,6 +13,7 @@ from execution_testing.fixtures.reorg import (
     AssertLogsStep,
     AssertStateStep,
     AssertTxStatusStep,
+    AwaitHeadStep,
     BlockchainEngineReorgFixture,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
@@ -297,6 +298,34 @@ def test_assert_tx_status_prefers_the_first_listed_status(
     ):
         step_runner.assert_tx_status("status", step)
     assert step_runner.matched[-1] == f"status:{status}"
+
+
+def test_await_head_reannounces_until_the_client_has_synced(
+    make_runner: MakeRunner,
+) -> None:
+    """
+    The last newPayload and forkchoiceUpdated are re-sent while ``latest`` is
+    another block, and the step passes once it is the awaited head.
+    """
+    eth = MagicMock()
+    engine = MagicMock()
+    step_runner = make_runner(eth=eth, engine=engine)
+    behind = {"hash": step_runner.resolve("genesis")}
+    synced = {"hash": step_runner.resolve("a1")}
+    eth.get_block_by_number.side_effect = [behind, behind, synced]
+    state = MagicMock()
+    step_runner.last_new_payload = (["payload"], 3)
+    step_runner.last_forkchoice = (state, 3)
+    with (
+        patch.object(reorg_logic, "REANNOUNCE_INTERVAL", 0),
+        patch.object(reorg_logic, "SYNC_POLL_INTERVAL", 0),
+    ):
+        step_runner.await_head("await", AwaitHeadStep(latest="a1"))
+    assert engine.new_payload.call_count == 2
+    assert engine.forkchoice_updated.call_count == 2
+    engine.forkchoice_updated.assert_called_with(
+        forkchoice_state=state, payload_attributes=None, version=3
+    )
 
 
 def test_assert_state_rejects_noncanonical_block(

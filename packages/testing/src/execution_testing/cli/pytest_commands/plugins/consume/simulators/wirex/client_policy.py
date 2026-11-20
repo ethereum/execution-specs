@@ -36,13 +36,13 @@ from execution_testing.devp2p.protocol import EthVersion, ForkSchedule
 from execution_testing.exceptions import ExceptionMapper
 from execution_testing.rpc import EngineRPC, EthRPC
 
+from ..helpers.mock_peer import dial_mock_peer
 from ..helpers.test_tracker import group_identifier_of
 from ..multi_test_client import (
     MultiTestClientManager,
     boot_managed_client,
     group_client,
 )
-from .conftest import dial_mock_peer
 from .sync_targets import SyncTargetCase, TargetContext, TargetContextFactory
 
 if TYPE_CHECKING:
@@ -370,6 +370,7 @@ def target_context_factory(
                 peer = dial_mock_peer(
                     target_client,
                     case.chain,
+                    int(environment["HIVE_NETWORK_ID"]),
                     wirex_eth_versions,
                     wirex_serve_bals,
                     wirex_fork_schedule,

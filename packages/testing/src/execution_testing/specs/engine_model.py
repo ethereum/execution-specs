@@ -57,11 +57,13 @@ from execution_testing.fixtures.reorg import (
     AssertCanonicalStep,
     AssertHeadStep,
     AssertStateStep,
+    AwaitHeadStep,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     NewPayloadStep,
     Outcome,
     OutcomeStep,
+    ServePeerStep,
     Step,
 )
 from execution_testing.forks import Fork, TransitionFork
@@ -192,10 +194,80 @@ class ClientModel:
     The step whose outcomes leave different builds; a ``getPayload`` that
     depends on it is rejected.
     """
+    served: Optional[str] = None
+    """
+    Tip of the chain the peer serves now, from which it answers requests by
+    block number.
+    """
+    servable: Set[str] = field(default_factory=set)
+    """
+    Blocks of every chain the peer has served, which it answers requests for
+    by hash.
+    """
+    pending: Optional[Tuple[str, str, str]] = None
+    """
+    Head, safe and finalized of the last ``forkchoiceUpdated`` answered
+    SYNCING; the client makes that head its head once it has synced the
+    chain.
+    """
 
     def __post_init__(self) -> None:
         """Genesis is always known and valid."""
         self.known.setdefault(GENESIS_LABEL, Validity.VALID)
+
+    # -- sync from the peer --------------------------------------------
+
+    def serve(self, head: str) -> None:
+        """Record that the peer serves the chain from genesis to ``head``."""
+        if not self.dag.fully_valid(head):
+            raise ValueError(
+                f"servePeer({head!r}): the peer serves only valid chains"
+            )
+        self.served = head
+        self.servable.update(self.dag.ancestors(head))
+
+    def await_head(self, head: str) -> None:
+        """
+        Record that the client synced ``head`` from the peer and made it its
+        head, as the ``forkchoiceUpdated`` it answered SYNCING asked.
+        """
+        if self.served is None or head not in self.dag.ancestors(self.served):
+            raise ValueError(
+                f"awaitHead({head!r}): the peer does not serve it"
+            )
+        if self.pending is None or self.pending[0] != head:
+            raise ValueError(
+                f"awaitHead({head!r}): no forkchoiceUpdated to it is pending"
+            )
+        if self.pending[1:] != (self.safe, self.finalized):
+            raise ValueError(
+                f"awaitHead({head!r}): the pending forkchoiceUpdated moves "
+                "safe or finalized, which a client may apply with the head "
+                "or only on a later update; move them after awaitHead"
+            )
+        for label in self.dag.ancestors(head):
+            self.known[label] = Validity.VALID
+            self.syncing.discard(label)
+        self.head = head
+        self.pending = None
+
+    def _unknown_ancestors(self, label: str, where: str) -> List[Outcome]:
+        """
+        SYNCING, for a block the client cannot connect: ``label`` is the
+        parent of a new payload or a forkchoice head. Refused when the peer
+        serves the newest block the client lacks there, which it may then
+        download within the call (payload validation 1).
+        """
+        lacking = label
+        while lacking in self.syncing:
+            lacking = self.dag.parent(lacking)
+        if lacking in self.servable:
+            raise ValueError(
+                f"{where}: the peer serves {lacking!r}, which a client may "
+                "download within the call; announce the block before "
+                "servePeer"
+            )
+        return [Outcome(id="syncing", status=PayloadStatusEnum.SYNCING)]
 
     # -- newPayload -----------------------------------------------------
 
@@ -262,7 +334,7 @@ class ClientModel:
             ]
         parent_state = self._known(parent)
         if parent_state is None:
-            return [Outcome(id="syncing", status=PayloadStatusEnum.SYNCING)]
+            return self._unknown_ancestors(parent, f"newPayload({block!r})")
         # ACCEPTED: the payload does not extend the canonical chain, was not
         # fully validated, and its ancestors are known (paris.md
         # newPayload 6); off the canonical chain the client may skip
@@ -371,7 +443,9 @@ class ClientModel:
             ]
         head_state = self._known(head)
         if head_state is None:
-            return [Outcome(id="syncing", status=PayloadStatusEnum.SYNCING)]
+            return self._unknown_ancestors(
+                head, f"forkchoiceUpdated(head={head!r})"
+            )
         if head_state == Validity.RECEIVED:
             if not self.dag.fully_valid(head):
                 lva = self.dag.last_valid_ancestor(head)
@@ -530,10 +604,13 @@ class ClientModel:
                 or (outcome.payload_id is None and applied)
             ):
                 self.build = (step.head, attrs)
-        if applied:
+        if outcome.status == PayloadStatusEnum.SYNCING:
+            self.pending = (step.head, step.safe, step.finalized)
+        elif applied:
             self.head = step.head
             self.safe = step.safe
             self.finalized = step.finalized
+            self.pending = None
 
     def head_assertion(self) -> AssertHeadStep:
         """``assertHead`` for the current model state."""
@@ -554,6 +631,7 @@ class ClientModel:
             known=dict(self.known),
             diverged=dict(self.diverged),
             syncing=set(self.syncing),
+            servable=set(self.servable),
         )
 
 
@@ -900,6 +978,10 @@ def annotate_steps(
                     step.verify(label, state)
         elif isinstance(step, GetPayloadStep):
             _bind_payload(step, model, fork)
+        elif isinstance(step, ServePeerStep):
+            model.serve(step.head)
+        elif isinstance(step, AwaitHeadStep):
+            model.await_head(step.latest)
     return steps
 
 
