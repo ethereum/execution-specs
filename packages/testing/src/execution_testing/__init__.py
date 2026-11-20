@@ -91,6 +91,7 @@ from .test_types import (
     ExecutionWitnessStateExpectation,
     GasFee,
     NetworkWrappedTransaction,
+    P256Signature,
     Removable,
     SystemContractInteractionBase,
     SystemContractInteractionContract,
@@ -111,6 +112,7 @@ from .test_types import (
     compute_deterministic_create2_address,
     fee_increment_blocks,
     keccak256,
+    p256_sign,
     relay_contract_code,
 )
 from .tools import (
@@ -231,6 +233,7 @@ __all__ = (
     "Opcode",
     "OpcodeCallArg",
     "Opcodes",
+    "P256Signature",
     "ParameterSet",
     "RecipientType",
     "ReferenceSpec",
@@ -286,5 +289,6 @@ __all__ = (
     "generate_system_contract_deploy_test",
     "generate_system_contract_error_test",
     "keccak256",
+    "p256_sign",
     "relay_contract_code",
 )

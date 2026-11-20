@@ -19,7 +19,6 @@ from ethereum.stateless.types import ProtocolFork, deserialize_stateless_output
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
-from ethereum_spec_tools.docc import *
 from ethereum_spec_tools.lint.lints.final_decorator import (
     FinalDecoratorHygiene,
 )
@@ -69,30 +68,6 @@ from ethereum_optimized.state_db import (
 begin_transaction
 commit_transaction
 rollback_transaction
-
-# src/ethereum_spec_tools/docc.py
-docc.EthereumDiscover
-docc.EthereumBuilder
-docc.EthereumPythonDiscover
-docc.EthereumListingDiscover
-docc.DiffSource.show_in_listing
-docc.FixIndexTransform
-docc.FixIndexTransform.transform
-docc.MinimizeDiffsTransform
-docc.MinimizeDiffsTransform.transform
-docc.PruneReferencesTransform
-docc.PruneReferencesTransform.transform
-docc._FixIndexVisitor.enter
-docc._DoccAdapter.shallow_equals
-docc._DoccAdapter.shallow_hash
-docc._DoccApply.ascend
-docc._DoccApply.descend
-docc._DoccApply.insert
-docc._HardenVisitor.enter
-docc._MinimizeDiffsVisitor.enter
-docc.render_diff
-docc.render_before_after
-docc._EthereumListingSource.listing_order_key
 
 # src/ethereum_spec_tools/loaders/transaction_loader.py
 TransactionLoad.json_to_authorizations
@@ -228,6 +203,14 @@ refund
 returnData
 stateGas
 stateGasCost
+
+# packages/testing/src/execution_testing/evm_tools/t8n/evm_trace/
+# bal_witness.py - used from client_clis/ and specs/, which vulture does not
+# scan
+BalWitnessTracer
+witness
+started
+ended
 
 # packages/testing/src/execution_testing/evm_tools/daemon.py -
 # overrides `BaseHTTPRequestHandler.log_request`

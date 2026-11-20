@@ -10,7 +10,6 @@ on:
       - 'static/**'
       - '.github/workflows/gh-pages.yaml'
       - 'uv.lock'
-      - 'src/ethereum_spec_tools/docc.py'
       - 'src/ethereum_spec_tools/forks.py'
   workflow_dispatch:
 
@@ -34,8 +33,6 @@ jobs:
         run: |
           just docs-spec
           touch .just/docs-spec/.nojekyll
-        env:
-          DOCC_SKIP_DIFFS: ${{ case(github.event_name == 'push' && github.ref_name == github.event.repository.default_branch, '', '1') }}
 
       - name: Upload Pages Artifact
         id: artifact

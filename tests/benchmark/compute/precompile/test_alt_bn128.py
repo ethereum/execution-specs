@@ -2,6 +2,7 @@
 
 import math
 import random
+from functools import cache
 
 import pytest
 from execution_testing import (
@@ -19,8 +20,7 @@ from execution_testing import (
     While,
     WhileGas,
 )
-from py_ecc.bn128 import G1, G2, multiply
-from py_ecc.fields import bn128_FQ2
+from py_ecc.optimized_bn128 import G1, G2, multiply, normalize
 
 from tests.benchmark.helper.precompile import Precompile
 from tests.byzantium.eip196_ec_add_mul.spec import (
@@ -543,6 +543,7 @@ def test_alt_bn128(
     )
 
 
+@cache
 def _generate_bn128_pairs(n: int, seed: int = 0) -> Bytes:
     rng = random.Random(seed)
     calldata = Bytes()
@@ -551,17 +552,8 @@ def _generate_bn128_pairs(n: int, seed: int = 0) -> Bytes:
         priv_key_g1 = rng.randint(1, 2**32 - 1)
         priv_key_g2 = rng.randint(1, 2**32 - 1)
 
-        point_x_affine = multiply(G1, priv_key_g1)
-        point_y_affine = multiply(G2, priv_key_g2)
-
-        assert point_x_affine is not None, (
-            "G1 multiplication resulted in point at infinity"
-        )
-        assert point_y_affine is not None, (
-            "G2 multiplication resulted in point at infinity"
-        )
-        assert isinstance(point_y_affine[0], bn128_FQ2)
-        assert isinstance(point_y_affine[1], bn128_FQ2)
+        point_x_affine = normalize(multiply(G1, priv_key_g1))
+        point_y_affine = normalize(multiply(G2, priv_key_g2))
 
         g1 = PointG1(
             x=point_x_affine[0].n,
@@ -812,12 +804,12 @@ def test_ec_pairing(
     )
 
 
+@cache
 def _generate_g1_point(seed: int) -> Bytes:
     """Generate a valid random G1 point from a deterministic seed."""
     rng = random.Random(seed)
     priv_key = rng.randint(1, 2**32 - 1)
-    point = multiply(G1, priv_key)
-    assert point is not None
+    point = normalize(multiply(G1, priv_key))
     return Bytes(PointG1(x=point[0].n, y=point[1].n))
 
 

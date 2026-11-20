@@ -3,13 +3,13 @@
 <!-- Don't submit this PR if it could expose a mainnet bug, see SECURITY.md in the repo root for details -->
 
 ### Related Issues or PRs
-<!-- Reference any related issues using the GitHub issue number (e.g., Fixes #123). Default is N/A. -->
+<!-- Reference any related issues using the GitHub issue number (e.g., Fixes #123). Outside contributors must reference an issue they are assigned to, see CONTRIBUTING.md. Default is N/A. -->
 N/A.
 
 ### Checklist
 <!-- Please check off all items before marking the PR ready for review. -->
 
-- [ ] Ran fast static checks to avoid CI fails, see [Code Standards](https://steel.ethereum.foundation/docs/execution-specs/getting_started/code_standards/) & [Verifying Changes](https://steel.ethereum.foundation/docs/execution-specs/getting_started/verifying_changes/): `just static`
+- [ ] Ran fast static checks to avoid CI fails, see [Code Standards](https://specs.ethereum.foundation/docs/execution-specs/getting_started/code_standards/) & [Verifying Changes](https://specs.ethereum.foundation/docs/execution-specs/getting_started/verifying_changes/): `just static`
 - [ ] PR title has the form `<type>(<area>): <description>`, where `<type>` and `<area>` come from an appropriate [`C-<type>`](https://github.com/ethereum/execution-specs/labels?q=C-), respectively [`A-<area>`](https://github.com/ethereum/execution-specs/labels?q=A-), label. The title should match the target squash commit message.
 
 ### Cute Animal Picture

@@ -31,6 +31,23 @@ logger = get_logger(__name__)
 FEE_BUMP_MULTIPLIER = 1.5
 
 
+def add_get_payload_wait_time_option(
+    group: pytest.OptionGroup, default: float
+) -> None:
+    """Register ``--get-payload-wait-time`` on the given option group."""
+    group.addoption(
+        "--get-payload-wait-time",
+        action="store",
+        dest="get_payload_wait_time",
+        type=float,
+        default=default,
+        help=(
+            "Time to wait after sending a forkchoice_updated before "
+            "getting the payload."
+        ),
+    )
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Register live-client CLI flags."""
     group = parser.getgroup(
@@ -105,17 +122,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Number of transactions to send before producing the next block."
         ),
     )
-    group.addoption(
-        "--get-payload-wait-time",
-        action="store",
-        dest="get_payload_wait_time",
-        type=float,
-        default=0.3,
-        help=(
-            "Time to wait after sending a forkchoice_updated before getting "
-            "the payload."
-        ),
-    )
+    add_get_payload_wait_time_option(group, default=0.3)
     group.addoption(
         "--max-gas-per-test",
         action="store",

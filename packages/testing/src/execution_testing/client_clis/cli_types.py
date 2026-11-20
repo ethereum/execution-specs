@@ -8,6 +8,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Annotated,
     Any,
     Dict,
@@ -27,6 +28,7 @@ from rich.table import Table
 from rich.text import Text
 
 from execution_testing.base_types import (
+    Address,
     Bloom,
     Bytes,
     CamelModel,
@@ -47,7 +49,6 @@ from execution_testing.exceptions import (
 from execution_testing.logging import (
     get_logger,
 )
-from execution_testing.rpc.rpc_types import GetPayloadResponse
 from execution_testing.test_types import (
     Account,
     Alloc,
@@ -57,6 +58,11 @@ from execution_testing.test_types import (
     TransactionReceipt,
 )
 from execution_testing.vm import Opcode, Opcodes
+
+if TYPE_CHECKING:
+    from execution_testing.evm_tools.t8n.evm_trace.bal_witness import (
+        BalWitness,
+    )
 
 logger = get_logger(__name__)
 
@@ -553,6 +559,18 @@ class Result(CamelModel):
     Whether `execution_witness` validates the block statelessly, for the
     tools that check their own witness.
     """
+    # Header fields a block builder may choose itself. A transition tool
+    # uses the values it is given and leaves these unset; a client that
+    # seals the block reports what it chose, and the hash it sealed.
+    parent_hash: Hash | None = None
+    fee_recipient: Address | None = None
+    number: HexNumber | None = None
+    gas_limit: HexNumber | None = None
+    timestamp: HexNumber | None = None
+    extra_data: Bytes | None = None
+    prev_randao: Hash | None = None
+    slot_number: HexNumber | None = None
+    block_hash: Hash | None = None
     block_exception: Annotated[
         BlockExceptionWithMessage | UndefinedException | None,
         ExceptionMapperValidator,
@@ -872,30 +890,14 @@ class TransitionToolInput:
 
 
 @dataclass
-class EnginePayloadMetadata:
-    """
-    Engine API payload + versions captured from ``testing_buildBlockV1``.
-
-    Carried in :class:`TransitionToolOutput` so ``make_stateful_fixture``
-    can record what the client built without side-channel state.
-    """
-
-    payload_response: GetPayloadResponse
-    new_payload_version: int
-    forkchoice_updated_version: int
-    parent_beacon_block_root: Hash | None
-
-
-@dataclass
 class TransitionToolOutput:
     """Transition tool output."""
 
     alloc: LazyAlloc
     result: Result
     body: Bytes | None = None
-    # Populated by ``ClientBackend.evaluate`` (live-client path). Always
-    # ``None`` from the classical t8n path.
-    engine_payload: EnginePayloadMetadata | None = None
+    # Set only by a tool honoring ``TransitionTool.invariant_checks``.
+    bal_witness: "BalWitness | None" = None
 
     @classmethod
     def model_validate_files(

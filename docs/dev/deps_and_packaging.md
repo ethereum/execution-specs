@@ -60,7 +60,7 @@ Development dependencies are grouped into `[dependency-groups]`, one group per c
 
 Groups defined by the specs package:
 
-- `test`, `lint`, `actionlint`, `doc`, `mkdocs`.
+- `test`, `lint`, `actionlint`, `doc` (spec reference via `docc`), `docs` (documentation site via Zensical).
 - `dev` includes all of the above.
 - `optimized` pulls in the `optimized` extra for the sync tool. It is not part of `dev` because `ethash` has no CPython 3.14 wheels and would require a C toolchain to install; enable it with `uv sync --group optimized` when needed.
 

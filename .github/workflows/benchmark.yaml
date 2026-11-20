@@ -11,7 +11,7 @@ on:
       - ".vscode/**"
       - "whitelist.txt"
       - "docs/**"
-      - "mkdocs.yml"
+      - "zensical.toml"
   pull_request:
     branches:
       - "benchmarks/**"

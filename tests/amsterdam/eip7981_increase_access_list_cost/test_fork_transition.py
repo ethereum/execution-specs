@@ -313,7 +313,7 @@ def test_access_list_floor_across_amsterdam_transition(
     ) == pre_fork.transaction_data_floor_cost_calculator()(data=data)
     # Post-fork: uniform calldata tokens and the access list surcharge,
     # anchored on the EIP-2780 decomposed base.
-    post_tokens = len(data) * int(post_costs.TX_DATA_TOKEN_STANDARD)
+    post_tokens = len(data) * 4
     expected_post = int(
         post_costs.TX_BASE
         + post_costs.COLD_ACCOUNT_ACCESS

@@ -3,6 +3,7 @@
 import math
 import random
 from collections.abc import Callable
+from functools import cache
 
 import pytest
 from execution_testing import (
@@ -166,6 +167,7 @@ def test_bls12_pairing(
     )
 
 
+@cache
 def _generate_bls12_g1_point(seed: int) -> Bytes:
     """Generate a valid BLS12-381 G1 point from a seed."""
     rng = random.Random(seed)
@@ -176,6 +178,7 @@ def _generate_bls12_g1_point(seed: int) -> Bytes:
     return Bytes(x.to_bytes(64, "big") + y.to_bytes(64, "big"))
 
 
+@cache
 def _generate_bls12_g2_point(seed: int) -> Bytes:
     """Generate a valid BLS12-381 G2 point from a seed."""
     rng = random.Random(seed)

@@ -56,6 +56,7 @@ def is_help_or_collectonly_mode(config: pytest.Config) -> bool:
         "show_execute_hive_help",
         "show_execute_recover_help",
         "show_execute_eth_config_help",
+        "show_execute_deploy_required_contracts_help",
         "show_check_eip_versions_help",
     )
     return (

@@ -4,9 +4,9 @@ The work in this repository is a community effort to help improve Ethereum's for
 
 We encourage contributions and recognize that Python is not everyone's  primary language - if you stumble over issues or need help, please reach out to one of the execution-specs maintainers either directly or in the `#el-testing` channel in the [Ethereum R&D Discord Server](https://discord.com/invite/qGpsxSA).
 
-## Contact STEEL
+## Contact the Specs team
 
-Feel free to contact any [STEEL team member](https://steel.ethereum.foundation/team/):
+Feel free to contact any [Specs team member](https://specs.ethereum.foundation/team/):
 
 - Dan on [Discord](https://discordapp.com/users/danceratopz) or [Telegram](https://t.me/danceratopz) (`danceratopz`).
 - Spencer on [Discord](https://discordapp.com/users/spencertaylorbrown) or [Telegram](https://t.me/spencertb) (`spencertaylorbrown`/`@techbro_ccoli`).

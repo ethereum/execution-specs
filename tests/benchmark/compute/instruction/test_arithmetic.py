@@ -164,123 +164,64 @@ def test_arithmetic(
 @pytest.mark.repricing
 def test_mod(
     benchmark_test: BenchmarkTestFiller,
-    fixed_opcode_count: int,
+    pre: Alloc,
+    fork: Fork,
     mod_bits: int,
     opcode: Op,
 ) -> None:
     """
     Benchmark MOD instructions.
 
-    The program consists of code segments evaluating the "MOD chain":
-    mod[0] = calldataload(0)
-    mod[1] = numerators[indexes[0]] % mod[0]
-    mod[2] = numerators[indexes[1]] % mod[1] ...
+    The code pushes a pool of 15 numerators to the EVM stack, then loops over
+    as many "MOD chains" as fit in the code size limit. A chain pushes a
+    random `mod_bits`-bit modulus and evaluates `mod = numerators[i] % mod`
+    until the modulus has lost 16 bits, so it keeps its word count, and pops
+    the result. Every step takes the numerator leaving the largest remainder,
+    so the modulus shrinks slowly and a chain runs about 160 steps. The code
+    holds thousands of distinct moduli, too many for a branch predictor to
+    learn.
 
-    The "numerators" is a pool of 15 constants pushed to the EVM stack at the
-    program start.
-
-    The order of accessing the numerators is selected in a way the mod value
-    remains in the range as long as possible.
+    SMOD builds the same kind of chains on negated numerators and moduli.
+    The sign takes the top bit, so its numerators have 255-bit magnitudes
+    and its moduli at most 254 bits.
     """
-    # For SMOD we negate both numerator and modulus. The underlying
-    # computation is the same,
-    # just the SMOD implementation will have to additionally handle the
-    # sign bits.
-    # The result stays negative.
-    if fixed_opcode_count is not None:
-        pytest.skip(
-            "test_mod uses a data-dependent chain length, "
-            "incompatible with --fixed-opcode-count"
-        )
     should_negate = opcode == Op.SMOD
-
-    num_numerators = 15
     numerator_bits = 256 if not should_negate else 255
-    numerator_max = 2**numerator_bits - 1
-    numerator_min = 2 ** (numerator_bits - 1)
+    modulus_bits = min(mod_bits, numerator_bits - 1)
+    min_modulus = 2 ** (modulus_bits - 16)
 
-    # Pick the modulus min value so that it is _unlikely_ to drop to the lower
-    # word count.
-    assert mod_bits >= 63
-    mod_min = 2 ** (mod_bits - 63)
+    rng = random.Random(1)
+    numerators = [
+        rng.randint(2 ** (numerator_bits - 1), 2**numerator_bits - 1)
+        for _ in range(15)
+    ]
 
-    # Select the random seed giving the longest found MOD chain. You can look
-    # for a longer one by increasing the numerators_min_len. This will activate
-    # the while loop below.
-    match opcode, mod_bits:
-        case Op.MOD, 255:
-            seed = 20393
-            numerators_min_len = 750
-        case Op.MOD, 191:
-            seed = 25979
-            numerators_min_len = 770
-        case Op.MOD, 127:
-            seed = 17671
-            numerators_min_len = 750
-        case Op.MOD, 63:
-            seed = 29181
-            numerators_min_len = 730
-        case Op.SMOD, 255:
-            seed = 4015
-            numerators_min_len = 750
-        case Op.SMOD, 191:
-            seed = 17355
-            numerators_min_len = 750
-        case Op.SMOD, 127:
-            seed = 897
-            numerators_min_len = 750
-        case Op.SMOD, 63:
-            seed = 7562
-            numerators_min_len = 720
-        case _:
-            raise ValueError(f"{mod_bits}-bit {opcode} not supported.")
+    def push(magnitude: int) -> Bytecode:
+        value = neg(magnitude) if should_negate else magnitude
+        push_op: Op = getattr(Op, f"PUSH{(value.bit_length() + 7) // 8}")
+        return push_op[value]
 
+    pool = sum((push(n) for n in numerators), Bytecode())
+    code_prefix = pool + Op.JUMPDEST
+    code_suffix = Op.JUMP(len(pool))
+    room = fork.max_code_size() - len(code_prefix) - len(code_suffix)
+    chains = Bytecode()
     while True:
-        rng = random.Random(seed)
-
-        # Create the list of random numerators.
-        numerators = [
-            rng.randint(numerator_min, numerator_max)
-            for _ in range(num_numerators)
-        ]
-
-        # Create the random initial modulus.
-        initial_mod = rng.randint(2 ** (mod_bits - 1), 2**mod_bits - 1)
-
-        # Evaluate the MOD chain and collect the order of accessing numerators.
-        mod = initial_mod
-        indexes = []
-        while mod >= mod_min:
-            # Compute results for each numerator.
-            results = [n % mod for n in numerators]
-            # And pick the best one.
-            i = max(range(len(results)), key=results.__getitem__)
-            mod = results[i]
-            indexes.append(i)
-
-        # Disable if you want to find longer MOD chains.
-        assert len(indexes) > numerators_min_len
-        if len(indexes) > numerators_min_len:
+        mod = rng.randint(2 ** (modulus_bits - 1), 2**modulus_bits - 1)
+        chain = push(mod)
+        while mod >= min_modulus:
+            mod, i = max((n % mod, i) for i, n in enumerate(numerators))
+            chain += make_dup(len(numerators) - i) + opcode
+        chain += Op.POP
+        if len(chains) + len(chain) > room:
             break
-        seed += 1
-        print(f"{seed=}")
+        chains += chain
 
-    # TODO: Don't use fixed PUSH32. Let Bytecode helpers to select optimal
-    # push opcode.
-    setup = sum((Op.PUSH32[n] for n in numerators), Bytecode())
-    attack_block = (
-        Op.CALLDATALOAD(0)
-        + sum(make_dup(len(numerators) - i) + opcode for i in indexes)
-        + Op.POP
-    )
-
-    input_value = initial_mod if not should_negate else neg(initial_mod)
+    code = code_prefix + chains + code_suffix
     benchmark_test(
         target_opcode=opcode,
-        code_generator=JumpLoopGenerator(
-            setup=setup,
-            attack_block=attack_block,
-            tx_kwargs={"data": input_value.to_bytes(32, byteorder="big")},
+        tx=Transaction(
+            to=pre.deploy_contract(code=code), sender=pre.fund_eoa()
         ),
     )
 

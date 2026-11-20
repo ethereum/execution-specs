@@ -90,10 +90,29 @@ def nav_path_to_sanitized_str_tuple(nav_path: Path) -> tuple:
     return tuple(sanitize_string_title(part) for part in nav_path.parts)
 
 
+TABLE_DELIMITER_ROW = re.compile(r"^\|(?:\s*:?-+:?\s*\|)+\s*$")
+TABLE_CELL_PADDING = re.compile(r" {2,}\|")
+
+
+def compact_table_row(line: str) -> str:
+    """
+    Remove the alignment padding from a Markdown table row.
+
+    The checklist template pads its table cells to align the columns, which
+    makes up a third of a filled checklist page and slows down Zensical's
+    link reference scanner considerably. The rendered HTML is the same.
+    """
+    if not line.startswith("|"):
+        return line
+    if TABLE_DELIMITER_ROW.match(line):
+        return "|" + " --- |" * (line.count("|") - 1)
+    return TABLE_CELL_PADDING.sub(" |", line)
+
+
 class FileOpener(Protocol):
     """
-    Protocol to replace `mkdocs_gen_files` so it doesn't have to be
-    imported/installed for unit tests.
+    Protocol for the object used to write generated pages (implemented by
+    `gen_test_doc.DocsFileWriter`; easily faked in unit tests).
     """
 
     def open(self, path: Path, mode: str) -> ContextManager[IO[Any]]:
@@ -137,12 +156,22 @@ class PagePropsBase:
         path = top_level_nav_entry / Path(*self.path.parts[1:]).with_suffix("")
         return nav_path_to_sanitized_str_tuple(path)
 
+    @property
+    def edit_path(self) -> str:
+        """
+        Return the repo-relative source file for the page's edit and view
+        buttons, or an empty string for none.
+        """
+        return str(self.path)
+
     def write_page(
         self, file_opener: FileOpener, jinja2_env: Environment
     ) -> None:
         """Write the page to the target directory."""
         template = jinja2_env.get_template(self.template)
-        rendered_content = template.render(**asdict(self))
+        rendered_content = template.render(
+            **asdict(self), edit_path=self.edit_path
+        )
         with file_opener.open(self.target_output_file, "w") as destination:
             for line in rendered_content.splitlines(keepends=True):
                 destination.write(line)
@@ -168,10 +197,20 @@ class EipChecklistPageProps(PagePropsBase):
     def write_page(
         self, file_opener: FileOpener, jinja2_env: Environment
     ) -> None:
-        """Write the page to the target directory."""
+        """
+        Write the page to the target directory.
+
+        Filled checklists are excluded from the site search index: when
+        they listed every test case ID they were huge (MBs) and Zensical's
+        search index rejects overly large sections. They now list one entry
+        per test function (see `EIP.generate_filled_checklist_lines`).
+        """
         del jinja2_env
         with file_opener.open(self.target_output_file, "w") as destination:
-            destination.write("\n".join(self.lines))
+            destination.write("---\nsearch:\n  exclude: true\n---\n\n")
+            destination.write(
+                "\n".join(compact_table_row(line) for line in self.lines)
+            )
 
 
 @dataclass
@@ -296,6 +335,12 @@ class DirectoryPageProps(PagePropsBase):
         """Get the target output file for this page."""
         return self.path / "index.md"
 
+    @property
+    def edit_path(self) -> str:
+        """Return the package's `__init__.py`, which holds its docstring."""
+        init_file = self.path / "__init__.py"
+        return str(init_file) if init_file.is_file() else ""
+
 
 @dataclass
 class MarkdownPageProps(PagePropsBase):
@@ -319,10 +364,12 @@ class MarkdownPageProps(PagePropsBase):
         """
         Write the page to the target directory.
 
-        We read the md file and write it with `mkdocs_gen_files`.
+        We read the md file and write it with the given file opener.
         """
         template = jinja2_env.get_template(self.template)
-        rendered_content = template.render(**asdict(self))
+        rendered_content = template.render(
+            **asdict(self), edit_path=self.edit_path
+        )
         with open(self.path, "r") as md_source:
             with file_opener.open(self.target_output_file, "w") as destination:
                 for line in rendered_content.splitlines(keepends=True):
