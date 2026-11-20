@@ -22,15 +22,13 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Fork,
+    Frame,
     Op,
+    Transaction,
 )
 
 from .helpers import (
-    FrameTransaction,
-    expiry_frame,
     expiry_verifier_gas,
-    sender_frame,
-    verify_frame,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -74,15 +72,14 @@ def test_expiry_frame_in_first_post_fork_block(
     target = pre.deploy_contract(code=target_code)
     # The frame transaction runs in a block past the transition.
     post_fork = fork.transitions_to()
-    tx = FrameTransaction.build(
-        fork=post_fork,
+    tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            expiry_frame(execution_gas=expiry_verifier_gas(post_fork)),
-            sender_frame(target=target, code=target_code),
+            Frame.verify(),
+            Frame.expiry(execution_gas=expiry_verifier_gas(post_fork)),
+            Frame.sender(target=target, code=target_code),
         ],
-    )
+    ).expect_frame_receipts(post_fork)
     blocks = [
         Block(timestamp=FORK_TIMESTAMP - 1),
         Block(

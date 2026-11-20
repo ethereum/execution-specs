@@ -51,6 +51,12 @@ from .serialization import (
     encoded_prefixed_size,
     encoded_size,
 )
+from .signer_types import (
+    P256_SIGNATURE_LENGTH,
+    SECP256K1_SIGNATURE_LENGTH,
+    FrameSignatureScheme,
+    Signer,
+)
 from .typing_utils import unwrap_annotation
 
 __all__ = (
@@ -73,6 +79,7 @@ __all__ = (
     "EthereumTestBaseModel",
     "EthereumTestRootModel",
     "FixedSizeBytes",
+    "FrameSignatureScheme",
     "ForkBlobSchedule",
     "ForkHash",
     "Hash",
@@ -80,11 +87,14 @@ __all__ = (
     "HeaderNonce",
     "HexNumber",
     "Number",
+    "P256_SIGNATURE_LENGTH",
     "NumberBoundTypeVar",
     "ReferenceSpec",
     "KnownEncodedSize",
     "RLPSerializable",
+    "SECP256K1_SIGNATURE_LENGTH",
     "SignableRLPSerializable",
+    "Signer",
     "encoded_prefixed_size",
     "encoded_size",
     "StateCommitment",

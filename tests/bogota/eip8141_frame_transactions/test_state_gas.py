@@ -20,24 +20,16 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytes,
     Conditional,
     Fork,
-    FrameSignature,
+    Frame,
+    FrameOutcome,
     Op,
     StateTestFiller,
     Transaction,
     TransactionException,
 )
 
-from .helpers import (
-    FrameCase,
-    FrameTransaction,
-    Outcome,
-    default_frame,
-    sender_frame,
-    verify_frame,
-)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -96,7 +88,7 @@ present in the state but empty, so `APPROVE` still creates it.
 
 def unfunded_sender(
     pre: Alloc, sender_state: str
-) -> Tuple[EOA, List[FrameCase], Address | None]:
+) -> Tuple[EOA, List[Frame], Address | None]:
     """
     Return the sender, the frames that run between its execution and
     payment approvals, and the account those frames pay, if any.
@@ -106,7 +98,7 @@ def unfunded_sender(
     elif sender_state == "emptied":
         sender = pre.fund_eoa(amount=SPENT_SENDER_BALANCE)
         recipient = pre.fund_eoa(amount=1)
-        spend = sender_frame(target=recipient, value=SPENT_SENDER_BALANCE)
+        spend = Frame.sender(target=recipient, value=SPENT_SENDER_BALANCE)
         return sender, [spend], recipient
     else:
         raise ValueError(f"unknown sender state: {sender_state}")
@@ -141,21 +133,19 @@ def test_same_frame_refill(
     worker_code = create + clear + observe_pool + Op.STOP
     worker = pre.deploy_contract(code=worker_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         # The clearing write refunds execution gas this test does not
         # price, so the transaction total is left unpinned.
-        settle=False,
         frames=[
-            verify_frame(),
-            default_frame(
+            Frame.verify(),
+            Frame.default(
                 target=worker,
                 code=worker_code,
                 state_gas_used=observe_pool.state_cost(fork),
             ),
         ],
-    )
+    ).expect_frame_receipts(fork, settle=False)
 
     state_test(
         pre=pre,
@@ -220,28 +210,27 @@ def test_cross_frame_refill(
     )
     worker = pre.deploy_contract(code=worker_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
+            Frame.verify(),
             # The owner's attribution is gone: the refill returned its
             # charge at settlement.
-            default_frame(
+            Frame.default(
                 target=worker,
                 pin_gas=False,
                 state_gas_used=0,
             ),
             # The refilling frame pays only for its three fresh
             # recording slots; the refill credits it nothing.
-            default_frame(
+            Frame.default(
                 target=worker,
                 data=b"\x01",
                 pin_gas=False,
                 state_gas_used=3 * fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -289,19 +278,20 @@ def test_state_gas_exhaustion(
 
     succeeds = state_gas_limit_delta >= 0
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            default_frame(
+            Frame.verify(),
+            Frame.default(
                 target=worker,
                 code=worker_code,
                 state_gas_limit_delta=state_gas_limit_delta,
-                outcome=Outcome.SUCCESS if succeeds else Outcome.HALT,
+                outcome=FrameOutcome.SUCCESS
+                if succeeds
+                else FrameOutcome.HALT,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -334,29 +324,20 @@ def test_approve_creates_sender(
     payer = pre.fund_eoa()
     sender_creation = fork.gas_costs().NEW_ACCOUNT
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            Frame.verify(flags=Spec.APPROVE_EXECUTION),
             *spend_frames,
-            verify_frame(
+            Frame.verify(
                 flags=Spec.APPROVE_PAYMENT,
                 target=payer,
                 state_gas_limit=sender_creation,
                 state_gas_used=sender_creation,
             ),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
-    )
+        signatures=[sender, payer],
+    ).expect_frame_receipts(fork, payer=payer)
 
     post: Dict[Address, Account] = {sender: Account(nonce=1, balance=0)}
     if recipient is not None:
@@ -388,22 +369,15 @@ def test_approve_sender_creation_unaffordable(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            Frame.verify(flags=Spec.APPROVE_EXECUTION),
             *spend_frames,
-            verify_frame(
+            Frame.verify(
                 flags=Spec.APPROVE_PAYMENT,
                 target=payer,
                 state_gas_limit=fork.gas_costs().NEW_ACCOUNT - 1,
             ),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
+        signatures=[sender, payer],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
 
@@ -465,23 +439,22 @@ def test_refill_after_intermediate_modification(
     )
     worker = pre.deploy_contract(code=worker_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
-            verify_frame(),
+            Frame.verify(),
             # Frame 1: create the slot (0 -> 1). The creation's
             # attribution is gone: the third frame's refill returned it
             # at settlement.
-            default_frame(
+            Frame.default(
                 target=worker,
                 pin_gas=False,
                 state_gas_used=0,
             ),
             # Frame 2: modify the dirty slot (1 -> 2), which charges no
             # state gas.
-            default_frame(
+            Frame.default(
                 target=worker,
                 data=(1).to_bytes(32, "big"),
                 pin_gas=False,
@@ -490,14 +463,14 @@ def test_refill_after_intermediate_modification(
             # Frame 3: return the slot to its start value (2 -> 0) and
             # record frame 1's attribution. Only the recording write is
             # charged; the refill credits the owner, not this frame.
-            default_frame(
+            Frame.default(
                 target=worker,
                 data=(2).to_bytes(32, "big"),
                 pin_gas=False,
                 state_gas_used=fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -570,21 +543,20 @@ def test_batch_unroll_restores_refilled_receipt(
         + Op.STOP
     )
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
-            verify_frame(),
+            Frame.verify(),
             # Frame 1: create the slot (0 -> 1). The unroll restored
             # the refill the batch frame applied to this receipt.
-            default_frame(
+            Frame.default(
                 target=worker,
                 pin_gas=False,
                 state_gas_used=fresh_write_state_cost,
             ),
             # Frame 2: modify the dirty slot (1 -> 2).
-            default_frame(
+            Frame.default(
                 target=worker,
                 data=(1).to_bytes(32, "big"),
                 pin_gas=False,
@@ -592,28 +564,28 @@ def test_batch_unroll_restores_refilled_receipt(
             ),
             # Frame 3: open the batch and return the slot to its
             # start value (2 -> 0), refilling frame 1's receipt.
-            default_frame(
+            Frame.default(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=worker,
                 data=(2).to_bytes(32, "big"),
-                outcome=Outcome.UNROLLED,
+                outcome=FrameOutcome.UNROLLED,
                 pin_gas=False,
             ),
             # Frame 4: terminate the batch with a revert, unrolling it.
-            default_frame(
+            Frame.default(
                 target=reverter,
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
                 pin_gas=False,
             ),
             # Frame 5: record frame 1's and frame 3's attributions and
             # frame 4's status after the unroll.
-            default_frame(
+            Frame.default(
                 target=probe,
                 pin_gas=False,
                 state_gas_used=3 * fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -679,36 +651,35 @@ def test_frame_revert_restores_refilled_receipt(
         + Op.STOP
     )
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
-            verify_frame(),
+            Frame.verify(),
             # Frame 1: create the slot (0 -> 1). The revert restored
             # the refill the failing frame applied to this receipt.
-            default_frame(
+            Frame.default(
                 target=worker,
                 pin_gas=False,
                 state_gas_used=fresh_write_state_cost,
             ),
             # Frame 2: return the slot to its start value (1 -> 0),
             # refilling frame 1's receipt, then revert.
-            default_frame(
+            Frame.default(
                 target=worker,
                 data=b"\x01",
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
                 pin_gas=False,
             ),
             # Frame 3: record frame 1's and frame 2's attributions and
             # frame 2's status after the revert.
-            default_frame(
+            Frame.default(
                 target=probe,
                 pin_gas=False,
                 state_gas_used=3 * fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -777,15 +748,14 @@ def test_call_revert_restores_refilled_receipt(
     )
     worker = pre.deploy_contract(code=worker_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
-            verify_frame(),
+            Frame.verify(),
             # Frame 1: create the slot (0 -> 1). The call's revert
             # restored the refill it applied to this receipt.
-            default_frame(
+            Frame.default(
                 target=worker,
                 pin_gas=False,
                 state_gas_used=fresh_write_state_cost,
@@ -793,7 +763,7 @@ def test_call_revert_restores_refilled_receipt(
             # Frame 2: a call returns the slot to its start value
             # (1 -> 0), refilling frame 1's receipt, and reverts; the
             # frame then creates a second slot from its own pool.
-            default_frame(
+            Frame.default(
                 target=worker,
                 state_gas_limit=fresh_write_state_cost,
                 data=(1).to_bytes(32, "big"),
@@ -801,7 +771,7 @@ def test_call_revert_restores_refilled_receipt(
                 state_gas_used=fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,
@@ -881,8 +851,8 @@ def test_reversion_restores_charge_ownership(
     worker = pre.deploy_contract(code=worker_code)
     reverter = pre.deploy_contract(code=Op.REVERT(0, 0))
 
-    def worker_frame(selector: int, **overrides: Any) -> FrameCase:
-        return default_frame(
+    def worker_frame(selector: int, **overrides: Any) -> Frame:
+        return Frame.default(
             target=worker,
             data=selector.to_bytes(32, "big"),
             pin_gas=False,
@@ -895,7 +865,7 @@ def test_reversion_restores_charge_ownership(
         ]
     elif reversion == "reverted_frame":
         reverting_frames = [
-            worker_frame(2, state_gas_limit=0, outcome=Outcome.REVERT)
+            worker_frame(2, state_gas_limit=0, outcome=FrameOutcome.REVERT)
         ]
     else:
         reverting_frames = [
@@ -903,22 +873,21 @@ def test_reversion_restores_charge_ownership(
                 3,
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 state_gas_limit=0,
-                outcome=Outcome.UNROLLED,
+                outcome=FrameOutcome.UNROLLED,
             ),
             # Terminate the batch with a revert, unrolling it.
-            default_frame(
+            Frame.default(
                 target=reverter,
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
                 pin_gas=False,
             ),
         ]
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
-            verify_frame(),
+            Frame.verify(),
             # Frame 1: create the slot (0 -> 1). The final clear
             # refilled this receipt.
             worker_frame(0, state_gas_used=0),
@@ -932,7 +901,7 @@ def test_reversion_restores_charge_ownership(
                 state_gas_used=fresh_write_state_cost,
             ),
         ],
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         pre=pre,

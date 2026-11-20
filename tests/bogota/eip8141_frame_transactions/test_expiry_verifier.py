@@ -16,17 +16,15 @@ from execution_testing import (
     Bytes,
     Environment,
     Fork,
+    Frame,
     Op,
     StateTestFiller,
+    Transaction,
     TransactionException,
 )
 
 from .helpers import (
-    FrameTransaction,
-    expiry_frame,
     expiry_verifier_gas,
-    sender_frame,
-    verify_frame,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -75,19 +73,18 @@ def test_expiry_verifier_frame(
     target_code = Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP
     target = pre.deploy_contract(code=target_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            expiry_frame(
+            Frame.verify(),
+            Frame.expiry(
                 data=Bytes(expiry.to_bytes(Spec.EXPIRY_DATA_LENGTH, "big")),
                 execution_gas=expiry_verifier_gas(fork),
             ),
-            sender_frame(target=target, code=target_code),
+            Frame.sender(target=target, code=target_code),
         ],
         error=error,
-    )
+    ).expect_frame_receipts(fork)
 
     state_test(
         env=Environment(timestamp=BLOCK_TIMESTAMP),

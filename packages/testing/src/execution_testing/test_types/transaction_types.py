@@ -2,9 +2,19 @@
 
 import numbers
 from dataclasses import dataclass
-from enum import IntEnum, IntFlag
+from enum import Enum, IntEnum, IntFlag, auto, unique
 from functools import cached_property
-from typing import Any, ClassVar, Dict, Generic, List, Literal, Self, Sequence
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Generic,
+    List,
+    Literal,
+    Optional,
+    Self,
+    Sequence,
+)
 
 import ethereum_rlp as eth_rlp
 from pydantic import (
@@ -12,7 +22,9 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    InstanceOf,
     computed_field,
+    field_validator,
     model_serializer,
     model_validator,
 )
@@ -23,11 +35,13 @@ from execution_testing.base_types import (
     Address,
     Bytes,
     CamelModel,
+    FrameSignatureScheme,
     Hash,
     HexNumber,
     NumberBoundTypeVar,
     RLPSerializable,
     SignableRLPSerializable,
+    Signer,
     TestAddress,
     TestPrivateKey,
     encoded_prefixed_size,
@@ -35,15 +49,19 @@ from execution_testing.base_types import (
 )
 from execution_testing.exceptions import TransactionException
 from execution_testing.forks import Fork
+from execution_testing.forks.forks.eips.bogota.eip_8141 import (
+    EXPIRY_VERIFIER_ADDRESS,
+)
 from execution_testing.logging import (
     get_logger,
 )
+from execution_testing.vm import Bytecode
 
 from .account_types import EOA
 from .blob_types import Blob
 from .chain_config_types import ChainConfigDefaults
 from .phase_manager import TestPhase, TestPhaseManager
-from .receipt_types import TransactionReceipt
+from .receipt_types import FrameReceipt, TransactionLog, TransactionReceipt
 from .utils import int_to_bytes, keccak256
 
 logger = get_logger(__name__)
@@ -94,15 +112,33 @@ class FrameStatus(IntEnum):
     SKIPPED = 2
 
 
-class FrameSignatureScheme(IntEnum):
+@unique
+class FrameOutcome(Enum):
     """
-    Scheme of a signature entry of an
-    [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) frame transaction.
+    How a frame of an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction ends, and therefore what its receipt reports.
     """
 
-    ARBITRARY = 0
-    SECP256K1 = 1
-    P256 = 2
+    SUCCESS = auto()
+    REVERT = auto()
+    HALT = auto()
+    SKIPPED = auto()
+    UNROLLED = auto()
+    """Succeeded, then undone by its atomic batch."""
+
+    @property
+    def status(self) -> FrameStatus:
+        """Return the status this outcome reports."""
+        if self in (FrameOutcome.SUCCESS, FrameOutcome.UNROLLED):
+            return FrameStatus.SUCCESS
+        if self is FrameOutcome.SKIPPED:
+            return FrameStatus.SKIPPED
+        return FrameStatus.FAILURE
+
+    @property
+    def keeps_state_gas(self) -> bool:
+        """Check whether the frame's state changes survive."""
+        return self is FrameOutcome.SUCCESS
 
 
 @dataclass
@@ -295,9 +331,179 @@ class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
 
 
 class Frame(FrameGeneric[HexNumber]):
-    """Frame within an EIP-8141 frame transaction (test authoring)."""
+    """
+    Frame within an EIP-8141 frame transaction (test authoring).
 
-    pass
+    Besides its own fields, a frame can carry the facts its budget and its
+    expected receipt follow from: how it ends, the code its target runs,
+    and whether its target is warm or delegated. These are excluded from
+    serialization, and only take effect when the frame's budgets are
+    settled or its receipt is requested.
+    """
+
+    # What the frame runs
+    outcome: FrameOutcome = Field(FrameOutcome.SUCCESS, exclude=True)
+    """How the frame ends."""
+
+    code: Optional[Bytecode] = Field(None, exclude=True)
+    """Code the frame's target runs, which prices it."""
+
+    execution_gas: Optional[int] = Field(None, exclude=True)
+    """Execution gas after entry, where `code` cannot price it."""
+
+    # What it is budgeted
+    gas_limit_delta: Optional[int] = Field(None, exclude=True)
+    """Execution budget, relative to the gas the frame spends."""
+
+    state_gas_limit_delta: Optional[int] = Field(None, exclude=True)
+    """State budget, relative to the state gas the frame writes."""
+
+    # What its target's entry access costs
+    warm: bool = Field(False, exclude=True)
+    """
+    Whether the resolved target is warm. Unless set explicitly,
+    `Transaction.expect_frame_receipts` sets it for a resolved target in
+    the warm set the transaction starts with: the sender or a precompile.
+    """
+
+    delegated: bool = Field(False, exclude=True)
+    """Whether the target carries an EIP-7702 designation."""
+
+    delegation_warm: bool = Field(False, exclude=True)
+    """Whether the designated address is warm."""
+
+    # What its receipt reports
+    pin_gas: bool = Field(True, exclude=True)
+    """Whether the receipt's execution gas is pinned."""
+
+    gas_used: Optional[int] = Field(None, exclude=True)
+    """Execution gas the receipt reports."""
+
+    state_gas_used: Optional[int] = Field(None, exclude=True)
+    """State gas the receipt reports."""
+
+    logs: Optional[List[TransactionLog]] = Field(None, exclude=True)
+    """Logs the receipt reports."""
+
+    @classmethod
+    def default(cls, **overrides: Any) -> Self:
+        """Return a `DEFAULT` frame executing the frame entry point."""
+        mode = overrides.setdefault("mode", FrameMode.DEFAULT)
+        assert mode == FrameMode.DEFAULT, f"not a DEFAULT frame: mode {mode}"
+        return cls(**overrides)
+
+    @classmethod
+    def sender(cls, **overrides: Any) -> Self:
+        """Return a `SENDER` frame executing as the transaction sender."""
+        mode = overrides.setdefault("mode", FrameMode.SENDER)
+        assert mode == FrameMode.SENDER, f"not a SENDER frame: mode {mode}"
+        return cls(**overrides)
+
+    @classmethod
+    def verify(cls, **overrides: Any) -> Self:
+        """Return a `VERIFY` frame approving execution and payment."""
+        mode = overrides.setdefault("mode", FrameMode.VERIFY)
+        assert mode == FrameMode.VERIFY, f"not a VERIFY frame: mode {mode}"
+        overrides.setdefault(
+            "flags", FrameFlag.APPROVE_EXECUTION | FrameFlag.APPROVE_PAYMENT
+        )
+        return cls(**overrides)
+
+    @classmethod
+    def expiry(cls, **overrides: Any) -> Self:
+        """Return a `VERIFY` frame targeting the expiry verifier predeploy."""
+        mode = overrides.setdefault("mode", FrameMode.VERIFY)
+        assert mode == FrameMode.VERIFY, f"not a VERIFY frame: mode {mode}"
+        overrides.setdefault("flags", FrameFlag(0))
+        overrides.setdefault("target", Address(EXPIRY_VERIFIER_ADDRESS))
+        # Such a frame is only valid with a zero state gas budget, and never
+        # expires at the maximum 64-bit timestamp.
+        overrides.setdefault("state_gas_limit", 0)
+        overrides.setdefault("data", (2**64 - 1).to_bytes(8, "big"))
+        return cls(**overrides)
+
+    def entry_gas(self, fork: Fork) -> int:
+        """Return the access the frame is charged at entry."""
+        return fork.frame_entry_gas_calculator()(
+            target_warm=self.warm,
+            delegated=self.delegated,
+            delegation_warm=self.delegation_warm,
+        )
+
+    def code_gas(self, fork: Fork) -> int:
+        """Return the execution gas the frame draws after entry."""
+        if self.execution_gas is not None:
+            return self.execution_gas
+        if self.code is None:
+            return 0
+        return self.code.execution_cost(fork)
+
+    def code_state_gas(self, fork: Fork) -> int:
+        """Return the state gas the frame's code writes."""
+        if self.code is None:
+            return 0
+        return self.code.state_cost(fork)
+
+    def settle_budgets(self, fork: Fork) -> None:
+        """Settle the budgets the frame declares as deltas on its cost."""
+        if self.gas_limit_delta is not None:
+            assert "gas_limit" not in self.model_fields_set, (
+                "a frame declares its execution budget once"
+            )
+            self.gas_limit = HexNumber(
+                self.entry_gas(fork)
+                + self.code_gas(fork)
+                + self.gas_limit_delta
+            )
+        if self.state_gas_limit_delta is not None:
+            assert "state_gas_limit" not in self.model_fields_set, (
+                "a frame declares its state budget once"
+            )
+            self.state_gas_limit = HexNumber(
+                self.code_state_gas(fork) + self.state_gas_limit_delta
+            )
+
+    def receipt(self, fork: Fork) -> FrameReceipt:
+        """Return the receipt the frame should report."""
+        gas_used: Optional[int]
+        match self.pin_gas, self.gas_used, self.outcome:
+            case False, None, _:
+                gas_used = None
+            case True, int() as pinned, _:
+                gas_used = pinned
+            case True, None, FrameOutcome.SKIPPED:
+                gas_used = 0
+            case True, None, FrameOutcome.HALT:
+                # A halting frame forfeits its entire execution budget.
+                gas_used = int(self.gas_limit)
+            case True, None, (
+                FrameOutcome.SUCCESS
+                | FrameOutcome.REVERT
+                | FrameOutcome.UNROLLED
+            ):
+                gas_used = self.entry_gas(fork) + self.code_gas(fork)
+            case _:
+                raise ValueError(
+                    f"no receipt gas for pin_gas={self.pin_gas}, "
+                    f"gas_used={self.gas_used}, outcome={self.outcome}"
+                )
+
+        state_gas_used = 0
+        if self.state_gas_used is not None:
+            state_gas_used = self.state_gas_used
+        elif self.outcome.keeps_state_gas:
+            state_gas_used = self.code_state_gas(fork)
+
+        logs = self.logs
+        if logs is None and self.outcome is not FrameOutcome.SUCCESS:
+            logs = []
+
+        return FrameReceipt(
+            status=self.outcome.status,
+            gas_used=gas_used,
+            state_gas_used=state_gas_used,
+            logs=logs,
+        )
 
 
 class FrameSignatureGeneric(
@@ -320,31 +526,78 @@ class FrameSignatureGeneric(
         "signature",
     ]
 
-
-SECP256K1_SIGNATURE_LENGTH = 65
-"""Length of an EIP-8141 secp256k1 signature: `v || r || s`."""
+    @property
+    def signature_length(self) -> int:
+        """Return the length of the raw signature bytes."""
+        return len(self.signature)
 
 
 class FrameSignature(FrameSignatureGeneric[HexNumber]):
     """
     Signature entry within an EIP-8141 frame transaction (test authoring).
 
-    When `secret_key` is set (or the entry's `signer` matches the
-    transaction sender), the raw `signature` bytes are filled in
-    automatically when the transaction is signed: entries with an
-    explicit 32-byte `msg` sign that digest, while entries with an empty
-    `msg` sign the canonical transaction signature hash.
+    When the entry has a `signed_by` signer and no `signature` bytes, the
+    raw `signature` bytes are filled in automatically: entries with an
+    explicit 32-byte `msg` sign that digest as soon as they are built,
+    while entries with an empty `msg` sign the canonical transaction
+    signature hash when the transaction is signed. Until then, the
+    `signature_length` of an unsigned entry is its signer's.
+
+    `signer` also accepts a `Signer`, which becomes `signed_by`, while the
+    `signer` field keeps the bytes written in the entry: `bytes(signer)`,
+    or empty for `ARBITRARY` entries. Without an explicit `scheme`, the
+    signer's preferred scheme is used. Pass `signed_by` and `signer`
+    separately for entries whose bytes differ from the signer's.
     """
 
-    secret_key: Hash | None = Field(None, exclude=True)
+    signed_by: InstanceOf[Signer] | None = Field(None, exclude=True)
 
-    def signed_over(self, digest: bytes, key: Hash) -> None:
-        """Fill the raw signature bytes by signing `digest` with `key`."""
-        signature_bytes = PrivateKey(key).sign_recoverable(digest)
-        # EIP-8141 secp256k1 encoding: v (1 byte) || r || s, v in {0, 1}.
-        self.signature = Bytes(
-            bytes([signature_bytes[64]]) + signature_bytes[0:64]
-        )
+    @model_validator(mode="before")
+    @classmethod
+    def split_signer(cls, data: Any) -> Any:
+        """Split a `Signer` passed as `signer` into `signed_by`."""
+        if not isinstance(data, dict):
+            return data
+        signer = data.get("signer")
+        if not isinstance(signer, Signer):
+            return data
+        data = dict(data)
+        data.setdefault("signed_by", signer)
+        if data.get("scheme") is None:
+            data["scheme"] = signer.signature_schemes[0]
+        if data["scheme"] == FrameSignatureScheme.ARBITRARY:
+            data["signer"] = Bytes(b"")
+        else:
+            data["signer"] = Bytes(bytes(signer))
+        return data
+
+    @model_validator(mode="after")
+    def sign_explicit_digest(self) -> Self:
+        """
+        Sign an explicit 32-byte `msg` right away, since its signature does
+        not depend on the transaction and is priced by its content.
+        """
+        if (
+            self.signed_by is not None
+            and len(self.msg) == 32
+            and len(self.signature) == 0
+        ):
+            self.signed_over(Hash(self.msg), self.signed_by)
+        return self
+
+    @property
+    def signature_length(self) -> int:
+        """
+        Return the length of the raw signature bytes, or of the bytes its
+        signer will produce while the entry is unsigned.
+        """
+        if len(self.signature) == 0 and self.signed_by is not None:
+            return self.signed_by.signature_length
+        return len(self.signature)
+
+    def signed_over(self, digest: Hash, signer: Signer) -> None:
+        """Fill the raw signature bytes by signing `digest` with `signer`."""
+        self.signature = signer.sign_message(digest)
 
 
 class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
@@ -454,6 +707,50 @@ class TransactionTestMetadata(CamelModel):
         return self.model_dump_json(exclude_none=True, by_alias=True)
 
 
+@dataclass(frozen=True)
+class FrameSettlement:
+    """
+    How the gas of an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction settles, from its intrinsic cost and the expected
+    receipts of its frames.
+    """
+
+    execution_gas: int
+    """Pre-refund execution gas: the intrinsic cost plus every receipt."""
+
+    state_gas: int
+    """Attributed state gas, which no refund and no floor touches."""
+
+    calldata_floor: int
+    """The floor the execution dimension is held to."""
+
+    effective_refund: int
+    """The refund that survives the cap."""
+
+    @property
+    def gas_before_refund(self) -> int:
+        """Return the spent gas in both dimensions, before refunds."""
+        return self.execution_gas + self.state_gas
+
+    def floor_binds(self, *, after_refund: bool = True) -> bool:
+        """Check whether the calldata floor sets the settled execution gas."""
+        charged = self.execution_gas
+        if after_refund:
+            charged -= self.effective_refund
+        return self.calldata_floor > charged
+
+    def payer_gas_used(self) -> int:
+        """Return the gas the payer is charged."""
+        execution = max(
+            self.execution_gas - self.effective_refund, self.calldata_floor
+        )
+        return execution + self.state_gas
+
+    def block_gas_used(self) -> int:
+        """Return the gas the block accounts for, before refunds."""
+        return max(self.execution_gas, self.calldata_floor) + self.state_gas
+
+
 class Transaction(
     TransactionGeneric[HexNumber],
     TransactionTransitionToolConverter,
@@ -471,6 +768,43 @@ class Transaction(
             if "transaction_hash" not in cls.model_fields:
                 data.pop("hash", None)
         return data
+
+    @field_validator("signatures", mode="before")
+    @classmethod
+    def signers_to_frame_signatures(cls, signatures: Any) -> Any:
+        """
+        Turn each `Signer` in the signature list into an entry signed by it
+        over the canonical signature hash.
+
+        Entries are copied, since signing fills in their raw bytes and must
+        not modify entries shared with the caller.
+        """
+        if signatures is None:
+            return None
+        return [
+            FrameSignature(signer=sig)
+            if isinstance(sig, Signer)
+            else sig.model_copy()
+            if isinstance(sig, FrameSignature)
+            else sig
+            for sig in signatures
+        ]
+
+    def copy(self, **kwargs: Any) -> Self:
+        """
+        Create a copy of the transaction with the updated fields that are
+        validated.
+
+        Frame transactions are not supported: the copy is rebuilt from the
+        serialized fields, which leave out each signature entry's signer
+        and each frame's expectations, so the copy would never be signed.
+        """
+        if self.frames is not None:
+            raise NotImplementedError(
+                "copying a frame transaction drops its signers and frame "
+                "expectations; build a new `Transaction` instead"
+            )
+        return super().copy(**kwargs)
 
     @model_validator(mode="before")
     @classmethod
@@ -622,6 +956,17 @@ class Transaction(
             assert self.sender is not None, (
                 "frame transactions require an explicit sender"
             )
+            if self.signatures is None:
+                # A sender holding a key signs the canonical signature
+                # hash, as consumed by the default code; the entry stays
+                # unsigned until the transaction is signed. Contract
+                # senders authorize via their code; no protocol-validated
+                # signature is required.
+                self.signatures = (
+                    [FrameSignature(signer=self.sender)]
+                    if self.sender.key is not None
+                    else []
+                )
         elif "v" not in self.model_fields_set and self.secret_key is None:
             if self.sender is not None:
                 self.secret_key = self.sender.key
@@ -761,6 +1106,110 @@ class Transaction(
             for sig in self.signatures
         ]
 
+    def frame_settlement(
+        self, fork: Fork, *, refund: int = 0
+    ) -> FrameSettlement:
+        """
+        Return how the frame transaction's gas settles under `fork`, from
+        its frames' expected receipts and the `refund` its execution
+        earns before the cap.
+
+        The frames' budgets must already be settled, which
+        `expect_frame_receipts` does.
+        """
+        assert self.frames is not None, "not a frame transaction"
+        assert self.signatures is not None
+        receipts = [frame.receipt(fork) for frame in self.frames]
+        anchors: Dict[str, Any] = dict(
+            frames=self.frames,
+            signatures=self.signatures,
+            sender=self.sender,
+        )
+        intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+            return_cost_deducted_prior_execution=True, **anchors
+        )
+        execution_gas = intrinsic + sum(
+            int(receipt.gas_used or 0) for receipt in receipts
+        )
+        state_gas = sum(
+            int(receipt.state_gas_used or 0) for receipt in receipts
+        )
+        return FrameSettlement(
+            execution_gas=execution_gas,
+            state_gas=state_gas,
+            calldata_floor=(
+                fork.frame_transaction_data_floor_cost_calculator()(**anchors)
+            ),
+            effective_refund=min(
+                refund,
+                (execution_gas + state_gas) // fork.max_refund_quotient(),
+            ),
+        )
+
+    def expect_frame_receipts(
+        self,
+        fork: Fork,
+        *,
+        payer: Address | None = None,
+        refund: int = 0,
+        settle: bool = True,
+    ) -> Self:
+        """
+        Settle the budgets the frames declare as deltas on their cost, and
+        expect the receipt the frames' outcomes follow from. A frame whose
+        `warm` is unset is warm when its resolved target is the sender or a
+        precompile.
+
+        The receipt names `payer`, the sender by default, and pins the
+        gas the payer is charged, after `refund`. `settle=False` leaves
+        that total unpinned for a test that prices neither the refund nor
+        the floor; so does any frame whose execution gas is unpinned,
+        since the total follows from every receipt. A transaction expected
+        to be rejected carries no receipt expectation at all.
+        """
+        assert self.frames is not None, "not a frame transaction"
+        assert self.expected_receipt is None, (
+            "the receipt follows from the frames, so it is never given"
+        )
+        # The transaction starts with the sender and the precompiles warm,
+        # and they stay warm: a frame's revert only restores the warmth the
+        # frame started with. Other warm targets, such as the coinbase or
+        # an address an earlier frame touched, are set explicitly.
+        initially_warm = {Address(a) for a in fork.precompiles()}
+        if self.sender is not None:
+            initially_warm.add(Address(self.sender))
+        for frame in self.frames:
+            if "warm" in frame.model_fields_set:
+                continue
+            resolved_target = (
+                frame.target if frame.target is not None else self.sender
+            )
+            if (
+                resolved_target is not None
+                and Address(resolved_target) in initially_warm
+            ):
+                frame.warm = True
+        for frame in self.frames:
+            frame.settle_budgets(fork)
+        self._drop_cached_properties()
+        if self.error is not None:
+            return self
+
+        receipts = [frame.receipt(fork) for frame in self.frames]
+        settled = settle and all(
+            receipt.gas_used is not None for receipt in receipts
+        )
+        self.expected_receipt = TransactionReceipt(
+            payer=payer if payer is not None else self.sender,
+            cumulative_gas_used=(
+                self.frame_settlement(fork, refund=refund).payer_gas_used()
+                if settled
+                else None
+            ),
+            frame_receipts=receipts,
+        )
+        return self
+
     def _drop_cached_properties(self) -> None:
         """
         Drop every cached property value, so that each is computed again
@@ -776,77 +1225,38 @@ class Transaction(
         Fill in the raw signature bytes of the frame transaction's
         signature entries.
 
-        A missing signature list defaults to a single secp256k1 entry
-        from the sender over the canonical signature hash. Entries with
-        an explicit 32-byte `msg` are signed first since their raw bytes
-        are committed to by the canonical hash.
+        Entries with an explicit 32-byte `msg` were signed when built, so
+        their raw bytes are in place before the canonical hash commits to
+        them.
         """
         assert self.frames is not None
-        if self.signatures is None:
-            assert self.sender is not None
-            if getattr(self.sender, "key", None) is not None:
-                # EOA sender: default to a single secp256k1 entry over
-                # the canonical signature hash, as consumed by the
-                # default code.
-                self.signatures = [
-                    FrameSignature(
-                        scheme=HexNumber(FrameSignatureScheme.SECP256K1),
-                        signer=Bytes(self.sender),
-                    )
-                ]
-            else:
-                # Contract senders authorize via their code; no
-                # protocol-validated signature is required.
-                self.signatures = []
+        assert self.signatures is not None
 
-        def resolve_key(sig: FrameSignature) -> Hash | None:
-            if sig.secret_key is not None:
-                return sig.secret_key
-            if (
-                self.sender is not None
-                and Bytes(self.sender) == sig.signer
-                and self.sender.key is not None
-            ):
-                return self.sender.key
-            return None
-
-        # Explicit-digest entries first: their raw bytes are part of the
-        # canonical signature hash signed by empty-msg entries.
-        for sig in self.signatures:
-            if (
-                sig.scheme != FrameSignatureScheme.SECP256K1
-                or len(sig.signature) > 0
-            ):
-                continue
-            if len(sig.msg) != 32:
-                continue
-            key = resolve_key(sig)
-            if key is not None:
-                sig.signed_over(bytes(sig.msg), key)
-
+        # Explicit-digest entries are already signed, as they are built.
         # The canonical signature hash commits to the length of each
         # empty-msg entry's raw bytes, so reserve the signature's length
         # before hashing.
         empty_msg_entries = []
         for sig in self.signatures:
-            if (
-                sig.scheme != FrameSignatureScheme.SECP256K1
-                or len(sig.signature) > 0
-            ):
+            if len(sig.msg) != 0 or len(sig.signature) != 0:
                 continue
-            if len(sig.msg) != 0:
-                continue
-            key = resolve_key(sig)
-            if key is not None:
-                sig.signature = Bytes(bytes(SECP256K1_SIGNATURE_LENGTH))
-                empty_msg_entries.append((sig, key))
+            signer = sig.signed_by
+            if signer is not None:
+                sig.signature = Bytes(bytes(signer.signature_length))
+                empty_msg_entries.append((sig, signer))
 
         sig_hash = self.rlp_signing_bytes().keccak256()
-        for sig, key in empty_msg_entries:
-            sig.signed_over(sig_hash, key)
+        for sig, signer in empty_msg_entries:
+            sig.signed_over(sig_hash, signer)
 
     def sign(self: "Transaction") -> None:
-        """Signs the authorization tuple with a private key."""
+        """
+        Sign the transaction.
+
+        Set `v`, `r` and `s` from `secret_key` or the sender's key. For a
+        frame transaction, fill in the raw bytes of its unsigned signature
+        entries instead.
+        """
         if self.frames is not None:
             self._sign_frame_signatures()
             return
