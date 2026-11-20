@@ -237,17 +237,21 @@ class ClientModel:
 
     def _unknown_ancestors(self, label: str, where: str) -> List[Outcome]:
         """
-        SYNCING, for a block with an unknown ancestor; refused when the peer
-        serves the ancestors, which a client may download within the call
-        (payload validation 1).
+        SYNCING, for a block the client cannot connect: ``label`` is the
+        parent of a new payload or a forkchoice head. Refused when the peer
+        serves the newest block the client lacks there, which it may then
+        download within the call (payload validation 1).
         """
-        if self.served is not None and label in self.dag.ancestors(
+        lacking = label
+        while lacking in self.syncing:
+            lacking = self.dag.parent(lacking)
+        if self.served is not None and lacking in self.dag.ancestors(
             self.served
         ):
             raise ValueError(
-                f"{where}: the peer serves the unknown ancestors of "
-                f"{label!r}, which a client may download within the call; "
-                "announce it before servePeer"
+                f"{where}: the peer serves {lacking!r}, which a client may "
+                "download within the call; announce the block before "
+                "servePeer"
             )
         return [Outcome(id="syncing", status=PayloadStatusEnum.SYNCING)]
 
@@ -316,7 +320,7 @@ class ClientModel:
             ]
         parent_state = self._known(parent)
         if parent_state is None:
-            return self._unknown_ancestors(block, f"newPayload({block!r})")
+            return self._unknown_ancestors(parent, f"newPayload({block!r})")
         # ACCEPTED: the payload does not extend the canonical chain, was not
         # fully validated, and its ancestors are known (paris.md
         # newPayload 6); off the canonical chain the client may skip
