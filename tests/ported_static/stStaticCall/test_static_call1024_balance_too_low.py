@@ -1,8 +1,9 @@
 """
-Test_static_call1024_balance_too_low.
+STATICCALL self recursively below a CALL with value.
 
 Ported from:
 state_tests/stStaticCall/static_Call1024BalanceTooLowFiller.json
+state_tests/stStaticCall/static_Call1024BalanceTooLow2Filler.json
 """
 
 import pytest
@@ -27,7 +28,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stStaticCall/static_Call1024BalanceTooLowFiller.json"],
+    [
+        "state_tests/stStaticCall/static_Call1024BalanceTooLowFiller.json",
+        "state_tests/stStaticCall/static_Call1024BalanceTooLow2Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
@@ -57,14 +61,18 @@ def test_static_call1024_balance_too_low(
     g: int,
     v: int,
 ) -> None:
-    """Test_static_call1024_balance_too_low."""
+    """
+    Verify a contract, called with value, that STATICCALLs itself
+    recursively.
+
+    The storing variant fails at its first store in a static frame, the
+    memory-only variant recurses until it runs out of depth or gas.
+    """
     env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     addr = pre.fund_eoa(amount=7000)  # noqa: F841
-    # Source: lll
-    # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
     target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
@@ -81,8 +89,6 @@ def test_static_call1024_balance_too_low(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
     )
-    # Source: lll
-    # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (STATICCALL 0xfffffffffff <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> @@0 0 0 0) }  # noqa: E501
     addr_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
         + Op.SSTORE(
@@ -99,8 +105,6 @@ def test_static_call1024_balance_too_low(
         + Op.STOP,
         balance=1024,
     )
-    # Source: lll
-    # { (MSTORE 0 (ADD (MLOAD 0) 1)) (MSTORE 32 (STATICCALL 0xfffffffffff <contract:0xcbbf5374fce5edbc8e2a8697c15331677e6ebf0b> (MLOAD 0) 0 0 0)) }  # noqa: E501
     addr_3 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
         + Op.MSTORE(
