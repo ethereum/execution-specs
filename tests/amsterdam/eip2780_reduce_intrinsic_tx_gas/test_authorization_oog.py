@@ -30,9 +30,12 @@ frame (e.g. an ``SSTORE`` inside the dispatched call) is refilled.
 
 """
 
+from typing import List, Tuple
+
 import pytest
 from execution_testing import (
     EOA,
+    AccessList,
     Account,
     Address,
     Alloc,
@@ -744,14 +747,42 @@ def test_self_sponsored_authorization_rolled_back(
         )
     authorization_list = [authorization]
 
-    gas_limit = authorization_transaction_cost(
-        fork,
-        authorization_list,
-        recipient_type=recipient_type,
-        sends_value=bool(value),
-    )
-    if not succeeds:
-        gas_limit -= 1
+    # Starving the recipient charge needs a gas limit below the charges
+    # but at or above the floor, which a self-sponsored authorization can
+    # otherwise lift past the charges. Each access list address for an
+    # untouched account raises the charges more than the floor.
+    access_list: List[AccessList] = []
+
+    def charges_and_floor() -> Tuple[int, int]:
+        charges = authorization_transaction_cost(
+            fork,
+            authorization_list,
+            access_list=access_list,
+            recipient_type=recipient_type,
+            sends_value=bool(value),
+            include_floor=False,
+        )
+        floor = fork.transaction_data_floor_cost_calculator()(
+            data=b"",
+            access_list=access_list,
+            recipient_type=recipient_type,
+            sends_value=bool(value),
+            authorization_list_or_count=authorization_list,
+        )
+        return charges, floor
+
+    charges, floor = charges_and_floor()
+    while charges - 1 < floor:
+        access_list.append(
+            AccessList(address=pre.fund_eoa(amount=0), storage_keys=[])
+        )
+        previous_gap = charges - floor
+        charges, floor = charges_and_floor()
+        assert charges - floor > previous_gap, (
+            "an access list address must narrow the floor's lead"
+        )
+
+    gas_limit = charges if succeeds else charges - 1
 
     tx = Transaction(
         sender=sender,
@@ -759,6 +790,7 @@ def test_self_sponsored_authorization_rolled_back(
         to=recipient,
         value=value,
         authorization_list=authorization_list,
+        access_list=access_list,
         gas_limit=gas_limit,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=gas_limit,

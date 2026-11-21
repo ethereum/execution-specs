@@ -854,8 +854,11 @@ class Frontier(BaseFork):
             contract_creation: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            authorization_list_or_count: Sized | int | None = None,
+            blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
-            del data, access_list
+            del data, access_list, authorization_list_or_count
+            del blob_versioned_hashes_or_count
             del contract_creation, sends_value, recipient_type
             return 0
 
@@ -881,10 +884,11 @@ class Frontier(BaseFork):
             return_cost_deducted_prior_execution: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
             del return_cost_deducted_prior_execution
             del sends_value, recipient_type
-            del contract_creation
+            del contract_creation, blob_versioned_hashes_or_count
 
             assert access_list is None, (
                 f"Access list is not supported in {cls.name()}"
@@ -959,6 +963,22 @@ class Frontier(BaseFork):
     @classmethod
     def empty_block_bal_item_count(cls) -> int:
         """Pre-Amsterdam forks have no block access list."""
+        return 0
+
+    @classmethod
+    def block_access_list_floor_cost(
+        cls,
+        *,
+        addresses: int = 0,
+        storage_keys: int = 0,
+        storage_values: int = 0,
+        balances: int = 0,
+        nonces: int = 0,
+        code_bytes: int = 0,
+    ) -> int:
+        """Pre-EIP-8279 forks do not meter block access list bytes."""
+        del addresses, storage_keys, storage_values, balances, nonces
+        del code_bytes
         return 0
 
     @classmethod

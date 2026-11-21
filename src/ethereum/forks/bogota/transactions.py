@@ -23,6 +23,7 @@ from ethereum.exceptions import (
 )
 from ethereum.state import Address
 
+from .block_access_lists import BAL_BYTES_PER_ADDRESS, BAL_BYTES_PER_NONCE
 from .exceptions import (
     BlobCountExceededError,
     EmptyAuthorizationListError,
@@ -46,13 +47,15 @@ class IntrinsicGasCost:
     execution: ExecutionGas
     """Execution gas (calldata, base cost, access list, etc.)."""
 
-    calldata_floor: ExecutionGas
+    static_floor: ExecutionGas
     """
-    Minimum gas cost based on calldata size per [EIP-7623], including the
-    access list data surcharge per [EIP-7981].
+    Minimum gas cost fixed by the transaction itself: its content bytes
+    per [EIP-8131], and the block access list bytes its authorizations
+    contribute per [EIP-8279]. Execution extends it with the block
+    access list bytes it meters.
 
-    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
-    [EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+    [EIP-8131]: https://eips.ethereum.org/EIPS/eip-8131
+    [EIP-8279]: https://eips.ethereum.org/EIPS/eip-8279
     """
 
 
@@ -66,20 +69,31 @@ VERSIONED_HASH_VERSION_KZG = b"\x01"
 Version byte that every blob versioned hash must start with.
 """
 
-ACCESS_LIST_ADDRESS_FLOOR_TOKENS = Uint(80)
+ACCESS_LIST_ADDRESS_BYTES = Uint(20)
 """
-Floor data tokens contributed by a single access list address per
-[EIP-7981].
-
-[EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+Content bytes contributed by a single access list address.
 """
 
-ACCESS_LIST_STORAGE_KEY_FLOOR_TOKENS = Uint(128)
+ACCESS_LIST_STORAGE_KEY_BYTES = Uint(32)
 """
-Floor data tokens contributed by a single access list storage key per
-[EIP-7981].
+Content bytes contributed by a single access list storage key.
+"""
 
-[EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+AUTHORIZATION_BYTES = Uint(133)
+"""
+Content bytes contributed by a single [EIP-7702] authorization, taken
+as the largest it can encode to: a 2-byte list header, a 33-byte
+`chain_id`, a 21-byte address, a 9-byte nonce, a 2-byte `y_parity`, and
+33 bytes each for `r` and `s`. A transaction stays valid when one of its
+authorizations is skipped, so the bound must cover tuples that no
+processing would accept.
+
+[EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
+"""
+
+BLOB_VERSIONED_HASH_BYTES = Uint(32)
+"""
+Content bytes contributed by a single blob versioned hash.
 """
 
 
@@ -606,14 +620,15 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     The gas limit of a transaction may not exceed [`TX_MAX_TOTAL_GAS_LIMIT`]
     ([EIP-8037]). [`TX_MAX_GAS_LIMIT`] ([EIP-7825]) bounds only the
     execution-gas a transaction can spend, so it is checked against the larger
-    of the intrinsic execution cost and the [EIP-7623] calldata floor rather
+    of the intrinsic execution cost and the [EIP-8131] content floor rather
     than against the gas limit.
 
     This function takes a transaction and gas_limit as parameters and
     returns the intrinsic gas costs for the transaction after validation.
     It throws an `InsufficientTransactionGasError` exception if the
-    transaction does not provide enough gas to cover the intrinsic cost,
-    and a `NonceOverflowError` exception if the nonce overflows.
+    transaction does not provide enough gas to cover the intrinsic cost
+    or the static floor ([EIP-8131], [EIP-8279]), and a
+    `NonceOverflowError` exception if the nonce overflows.
     It also raises an `InitCodeTooLargeError` if the code
     size of a contract creation transaction exceeds the maximum allowed
     size, a `TransactionGasLimitExceededError` if the gas limit exceeds
@@ -624,9 +639,10 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.bogota.vm.gas.GasCosts.TX_MAX_GAS_LIMIT
     [`TX_MAX_TOTAL_GAS_LIMIT`]: ref:ethereum.forks.bogota.vm.gas.GasCosts.TX_MAX_TOTAL_GAS_LIMIT
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
-    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
     [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    [EIP-8131]: https://eips.ethereum.org/EIPS/eip-8131
+    [EIP-8279]: https://eips.ethereum.org/EIPS/eip-8279
     """  # noqa: E501
     from .vm.gas import GasCosts
     from .vm.interpreter import MAX_INIT_CODE_SIZE
@@ -672,15 +688,15 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     intrinsic_gas = Uint(intrinsic.execution)
     if intrinsic_gas > tx.gas:
         raise InsufficientTransactionGasError("Insufficient intrinsic gas")
-    if intrinsic.calldata_floor > tx.gas:
-        raise InsufficientTransactionGasError("Insufficient calldata floor")
+    if intrinsic.static_floor > tx.gas:
+        raise InsufficientTransactionGasError("Insufficient static floor")
     if intrinsic.execution > GasCosts.TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
             "Intrinsic execution gas exceeds TX_MAX_GAS_LIMIT"
         )
-    if intrinsic.calldata_floor > GasCosts.TX_MAX_GAS_LIMIT:
+    if intrinsic.static_floor > GasCosts.TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
-            "Intrinsic calldata floor exceeds TX_MAX_GAS_LIMIT"
+            "Intrinsic static floor exceeds TX_MAX_GAS_LIMIT"
         )
 
     return intrinsic
@@ -690,7 +706,7 @@ def calculate_intrinsic_cost(
     tx: Transaction, sender: Address
 ) -> IntrinsicGasCost:
     """
-    Calculate the gas charged before execution starts and the data floor.
+    Calculate the gas charged before execution starts and the static floor.
 
     The intrinsic cost of the transaction is charged before execution has
     begun. Functions/operations in the EVM cost money to execute so this
@@ -710,7 +726,8 @@ def calculate_intrinsic_cost(
     3. Value cost (`TX_VALUE_COST` for a non-self-transfer call) when
        ``tx.value > 0``.
     4. Calldata cost (zero and non-zero bytes).
-    5. Access list entry charges and the data surcharge (if applicable).
+    5. Access list entry charges and the [EIP-7981] data surcharge (if
+       applicable).
     6. Authorizations (if applicable): only the state-independent base
        cost (`EXECUTION_PER_AUTH_BASE_COST`) per tuple. The
        state-dependent account-creation and delegation-write costs are
@@ -721,12 +738,16 @@ def calculate_intrinsic_cost(
 
     This function takes a transaction and its sender as parameters and
     returns the intrinsic execution gas cost and the minimum (floor)
-    gas cost based on the calldata size and access list data surcharge.
-    The surcharge is added to both costs, so it is charged regardless of
-    which side determines the gas used. The floor is anchored on the
-    execution-gas portion of items 1 to 3 above rather than `TX_BASE`
-    alone, so it never undercuts the transaction's own intrinsic base.
-    """
+    gas cost, which charges every [content byte][cb] and every block
+    access list byte the [authorizations][ab] contribute, at
+    `FLOOR_PER_BYTE`. The floor is anchored on the execution-gas
+    portion of items 1 to 3 above rather than `TX_BASE` alone, so it
+    never undercuts the transaction's own intrinsic base.
+
+    [cb]: ref:ethereum.forks.bogota.transactions.count_content_bytes
+    [ab]: ref:ethereum.forks.bogota.transactions.count_authorization_bal_bytes
+    [EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+    """  # noqa: E501
     from .vm.gas import GasCosts, init_code_cost
 
     tokens_in_calldata = count_tokens_in_data(tx.data)
@@ -747,23 +768,22 @@ def calculate_intrinsic_cost(
             recipient_execution_gas += GasCosts.TX_VALUE_COST
 
     access_list_cost = Uint(0)
-    tokens_in_access_list = Uint(0)
+    access_list_bytes = Uint(0)
     if has_access_list(tx):
         for access in tx.access_list:
             access_list_cost += GasCosts.TX_ACCESS_LIST_ADDRESS
             access_list_cost += (
                 ulen(access.slots) * GasCosts.TX_ACCESS_LIST_STORAGE_KEY
             )
-            tokens_in_access_list += ACCESS_LIST_ADDRESS_FLOOR_TOKENS
-            tokens_in_access_list += (
-                ulen(access.slots) * ACCESS_LIST_STORAGE_KEY_FLOOR_TOKENS
+            access_list_bytes += ACCESS_LIST_ADDRESS_BYTES
+            access_list_bytes += (
+                ulen(access.slots) * ACCESS_LIST_STORAGE_KEY_BYTES
             )
 
-    # Charge the access list data surcharge on both sides of the gas-used
-    # maximum, independently of the existing per-entry access charges.
-    access_list_data_cost = (
-        tokens_in_access_list * GasCosts.TX_DATA_TOKEN_FLOOR
-    )
+    # EIP-7981 data surcharge on the access list bytes, kept in intrinsic
+    # gas so that access list entries cannot add block access list bytes
+    # below the floor rate.
+    access_list_data_cost = access_list_bytes * GasCosts.FLOOR_PER_BYTE
 
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
@@ -771,18 +791,16 @@ def calculate_intrinsic_cost(
             tx.authorizations
         )
 
-    # EIP-7976 floor tokens: all calldata bytes count uniformly.
-    floor_tokens_in_calldata = ulen(tx.data) * Uint(4)
-
     # Decomposed execution-gas intrinsic base (EIP-2780), which also
-    # anchors the calldata floor.
+    # anchors the static floor.
     base_execution_gas = GasCosts.TX_BASE + recipient_execution_gas
 
-    # Floor gas cost (EIP-7623: minimum gas for data-heavy transactions).
-    data_floor_gas_cost = (
-        base_execution_gas
-        + floor_tokens_in_calldata * GasCosts.TX_DATA_TOKEN_FLOOR
-        + access_list_data_cost
+    # Floor gas cost: every content byte (EIP-8131) and every block
+    # access list byte the authorizations contribute (EIP-8279), at
+    # `FLOOR_PER_BYTE`.
+    floor_bytes = count_content_bytes(tx) + count_authorization_bal_bytes(tx)
+    static_floor_gas_cost = (
+        floor_bytes * GasCosts.FLOOR_PER_BYTE + base_execution_gas
     )
 
     return IntrinsicGasCost(
@@ -794,8 +812,58 @@ def calculate_intrinsic_cost(
             + access_list_data_cost
             + auth_cost
         ),
-        calldata_floor=ExecutionGas(data_floor_gas_cost),
+        static_floor=ExecutionGas(static_floor_gas_cost),
     )
+
+
+def count_authorization_bal_bytes(tx: Transaction) -> Uint:
+    """
+    Count the block access list bytes the transaction's authorizations
+    contribute: each authority's address, delegation indicator, and
+    nonce.
+
+    Counted up front, so that applying the authorizations in
+    [`set_delegation`][sd] never meters at runtime.
+
+    [sd]: ref:ethereum.forks.bogota.vm.eoa_delegation.set_delegation
+    """
+    from .vm.eoa_delegation import EOA_DELEGATED_CODE_LENGTH
+
+    if not isinstance(tx, SetCodeTransaction):
+        return Uint(0)
+
+    bytes_per_authorization = (
+        BAL_BYTES_PER_ADDRESS
+        + Uint(EOA_DELEGATED_CODE_LENGTH)
+        + BAL_BYTES_PER_NONCE
+    )
+    return ulen(tx.authorizations) * bytes_per_authorization
+
+
+def count_content_bytes(tx: Transaction) -> Uint:
+    """
+    Count the user-controlled content bytes of a transaction.
+
+    Calldata, access list entries, authorizations, and blob versioned
+    hashes each contribute their size. A field the transaction type does
+    not carry contributes nothing.
+    """
+    content_bytes = ulen(tx.data)
+
+    if has_access_list(tx):
+        for access in tx.access_list:
+            content_bytes += ACCESS_LIST_ADDRESS_BYTES
+            content_bytes += ulen(access.slots) * ACCESS_LIST_STORAGE_KEY_BYTES
+
+    if isinstance(tx, SetCodeTransaction):
+        content_bytes += ulen(tx.authorizations) * AUTHORIZATION_BYTES
+
+    if isinstance(tx, BlobTransaction):
+        content_bytes += (
+            ulen(tx.blob_versioned_hashes) * BLOB_VERSIONED_HASH_BYTES
+        )
+
+    return content_bytes
 
 
 def count_tokens_in_data(data: bytes) -> Uint:

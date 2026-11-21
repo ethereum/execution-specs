@@ -30,6 +30,8 @@ from ..gas import (
     charge_state_gas,
     check_gas,
     credit_state_gas_refund,
+    meter_bal_storage_key,
+    meter_bal_storage_value,
 )
 from ..stack import pop, push
 
@@ -54,6 +56,9 @@ def sload(evm: Evm) -> None:
     else:
         evm.accessed_storage_keys.add((evm.current_target, key))
         charge_gas(evm, GasCosts.COLD_STORAGE_ACCESS)
+
+    # BLOCK ACCESS LIST DATA
+    meter_bal_storage_key(evm.tx_env, evm.current_target, key)
 
     # OPERATION
     tx_state = evm.tx_env.state
@@ -111,6 +116,9 @@ def sstore(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_storage_keys.add((evm.current_target, key))
 
+    # BLOCK ACCESS LIST DATA
+    meter_bal_storage_key(evm.tx_env, evm.current_target, key)
+
     tx_state = evm.tx_env.state
     original_value = get_storage_original(tx_state, evm.current_target, key)
     current_value = get_storage(tx_state, evm.current_target, key)
@@ -155,6 +163,12 @@ def sstore(evm: Evm) -> None:
     # reservoir on frame failure.
     charge_gas(evm, gas_cost)
     charge_state_gas(evm, state_gas)
+
+    # BLOCK ACCESS LIST DATA
+    # A write that takes the slot off its transaction-start value may
+    # put a post value in the block access list; metered once per slot.
+    if original_value == current_value and current_value != new_value:
+        meter_bal_storage_value(evm.tx_env, evm.current_target, key)
     set_storage(tx_state, evm.current_target, key, new_value)
 
     # PROGRAM COUNTER

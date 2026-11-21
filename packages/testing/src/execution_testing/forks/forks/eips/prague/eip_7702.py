@@ -77,6 +77,7 @@ class EIP7702(BaseFork):
             return_cost_deducted_prior_execution: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            blob_versioned_hashes_or_count: Sized | int | None = None,
         ) -> int:
             del sends_value, recipient_type
 
@@ -84,6 +85,7 @@ class EIP7702(BaseFork):
                 calldata=calldata,
                 contract_creation=contract_creation,
                 access_list=access_list,
+                blob_versioned_hashes_or_count=blob_versioned_hashes_or_count,
                 return_cost_deducted_prior_execution=(
                     return_cost_deducted_prior_execution
                 ),

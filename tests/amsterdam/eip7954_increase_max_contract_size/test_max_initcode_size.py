@@ -208,12 +208,21 @@ def test_max_initcode_size_calldata_floor(
     # cost, so the floor is the threshold the transaction is held to and the
     # shortfall case is rejected for missing the floor, not the intrinsic.
     assert floor_gas > intrinsic_gas
+    # The deployed code enters the block access list, extending the floor
+    # the deployment pays (EIP-8279); validation sees the static floor.
+    paid_floor = floor_gas + fork.block_access_list_floor_cost(
+        code_bytes=len(initcode.deploy_code)
+    )
+    if gas_limit_delta < 0:
+        gas_limit = floor_gas + gas_limit_delta
+    else:
+        gas_limit = paid_floor + gas_limit_delta
 
     tx = Transaction(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=floor_gas + gas_limit_delta,
+        gas_limit=gas_limit,
     )
 
     create_address = compute_create_address(address=alice, nonce=0)
@@ -224,7 +233,9 @@ def test_max_initcode_size_calldata_floor(
     else:
         # The deployment spends a fraction of the floor, so the floor is
         # what the sender is charged, spare gas or not.
-        tx.expected_receipt = TransactionReceipt(cumulative_gas_used=floor_gas)
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=paid_floor
+        )
         post[create_address] = Account(code=Op.STOP)
 
     state_test(pre=pre, tx=tx, post=post)
