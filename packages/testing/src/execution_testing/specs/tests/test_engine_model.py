@@ -871,3 +871,12 @@ def test_annotate_defaults_version_of_a_zero_head() -> None:
     annotate_steps([step], model, Cancun)
     assert step.version == 3
     assert ids(step.expect) == ["syncing"]
+
+
+def test_invalid_payload_on_genesis_is_refused() -> None:
+    """Its latestValidHash may be genesis or zero, so filling rejects it."""
+    dag = make_dag({"s1": "genesis"}, invalid={"s1"})
+    with pytest.raises(ValueError, match="block after genesis"):
+        annotate_steps(
+            [NewPayloadStep(block="s1")], ClientModel(dag=dag), Cancun
+        )
