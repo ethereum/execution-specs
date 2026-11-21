@@ -566,7 +566,8 @@ def test_out_of_order_payload_delivery(
 ) -> None:
     """
     A payload whose parent is unknown is SYNCING and FCU to it is SYNCING;
-    once the gap is filled the payload and the FCU are VALID.
+    once the gap is filled the payload is VALID or ACCEPTED and the FCU is
+    VALID.
     """
     blocks, steps = chain(pre, "a", 4)
     steps = steps[:4]  # a1, a2 delivered and canonical.
@@ -583,10 +584,14 @@ def test_out_of_order_payload_delivery(
                 Outcome(id="valid", status="VALID", latest_valid_hash="a3")
             ],
         ),
+        # The head is still a2, so a4 does not extend the canonical chain.
         NewPayloadStep(
             block="a4",
             expect=[
-                Outcome(id="valid", status="VALID", latest_valid_hash="a4")
+                Outcome(id="valid", status="VALID", latest_valid_hash="a4"),
+                Outcome(
+                    id="accepted", status="ACCEPTED", latest_valid_hash="null"
+                ),
             ],
         ),
         ForkchoiceUpdatedStep(head="a4", expect=applied("a4")),
