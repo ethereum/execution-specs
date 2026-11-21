@@ -273,7 +273,11 @@ def test_tx_gas_limit_after_refunded_floor_bound_tx(
             gas_before_refund // fork.max_refund_quotient(),
             code.refund(fork),
         )
-        return gas_before_refund, refund, floor_cost_calculator(data=data)
+        # EIP-8279: the storage clear meters its key and value bytes.
+        floor_cost = floor_cost_calculator(
+            data=data
+        ) + fork.block_access_list_floor_cost(storage_keys=1, storage_values=1)
+        return gas_before_refund, refund, floor_cost
 
     # Pick the calldata size in the middle of the range whose floor lies
     # strictly between the gas used after and before the refund.

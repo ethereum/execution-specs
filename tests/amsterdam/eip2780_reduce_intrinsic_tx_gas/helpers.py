@@ -243,6 +243,7 @@ def authorization_transaction_cost(
     access_list: list[AccessList] | None = None,
     recipient_type: RecipientType = RecipientType.CONTRACT,
     sends_value: bool = False,
+    include_floor: bool = True,
 ) -> int:
     """
     Return the exact gas a type-4 transaction consumes for the given
@@ -256,7 +257,8 @@ def authorization_transaction_cost(
     annotations; another ``recipient_type`` adds that recipient's own
     top-frame charge. The total is lifted to the transaction's floor,
     which prices each authorization's bytes and so binds when an
-    authorization is skipped.
+    authorization is skipped; ``include_floor=False`` returns the
+    charges alone.
     """
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         access_list=access_list,
@@ -270,6 +272,8 @@ def authorization_transaction_cost(
         sends_value=sends_value,
         authorizations=authorization_list,
     )
+    if not include_floor:
+        return intrinsic_gas + top_frame_gas
     floor_gas = fork.transaction_data_floor_cost_calculator()(
         data=b"",
         access_list=access_list,

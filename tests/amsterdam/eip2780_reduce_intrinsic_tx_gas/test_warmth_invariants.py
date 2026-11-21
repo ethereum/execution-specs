@@ -20,6 +20,8 @@ differently:
   delegation prefix that itself decodes as the ``INVALID`` opcode.
 """
 
+from typing import List, Tuple
+
 import pytest
 from execution_testing import (
     AccessList,
@@ -789,12 +791,6 @@ def test_top_frame_charges_delegation_is_authority(
     target = pre.fund_eoa(amount=0, delegation=authority)
     target_code = Spec7702.delegation_designation(authority)
 
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
-        sends_value=bool(value),
-        recipient_type=RecipientType.DELEGATION_7702,
-        authorization_list_or_count=authorization_list,
-        return_cost_deducted_prior_execution=True,
-    )
     top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
@@ -809,30 +805,50 @@ def test_top_frame_charges_delegation_is_authority(
     assert top_frame_state_gas == 0, (
         "a skipped authorization must not carry a state-gas charge"
     )
-    # The skipped authorization's bytes lift the floor above the
-    # transaction's charges, so the receipt pins the floor and the gas
-    # limit sits one above the total. The charge still discriminates: a
-    # cold charge where warm is expected overruns that limit, and a warm
-    # charge where cold is expected settles at the floor instead of the
-    # cold total.
-    floor_gas = fork.transaction_data_floor_cost_calculator()(
-        data=b"",
+    cold_top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
-        authorization_list_or_count=authorization_list,
+        delegation_warm=False,
+        authorizations=authorization_list,
     )
-    cold_total_gas_cost = (
-        intrinsic_gas
-        + fork.transaction_top_frame_execution_gas(
+
+    # The skipped authorization's bytes lift the floor above the
+    # transaction's charges, so the receipt pins the floor and the gas
+    # limit sits one above the total. The charge still discriminates
+    # while the floor stays below the cold total: a cold charge where
+    # warm is expected overruns that limit, and a warm charge where cold
+    # is expected settles at the floor instead of the cold total. Each
+    # access list address for an otherwise untouched account raises the
+    # intrinsic cost more than the floor, so pad with as many as needed
+    # to keep the floor below the cold total.
+    def costs(access_list: List[AccessList]) -> Tuple[int, int, int]:
+        intrinsic = fork.transaction_intrinsic_cost_calculator()(
+            access_list=access_list,
             sends_value=bool(value),
             recipient_type=RecipientType.DELEGATION_7702,
-            delegation_warm=False,
-            authorizations=authorization_list,
+            authorization_list_or_count=authorization_list,
+            return_cost_deducted_prior_execution=True,
         )
-    )
-    assert floor_gas + 1 < cold_total_gas_cost, (
-        "the floor must leave the cold delegation charge out of reach"
-    )
+        floor = fork.transaction_data_floor_cost_calculator()(
+            data=b"",
+            access_list=access_list,
+            sends_value=bool(value),
+            recipient_type=RecipientType.DELEGATION_7702,
+            authorization_list_or_count=authorization_list,
+        )
+        return intrinsic, floor, intrinsic + cold_top_frame_gas
+
+    access_list: List[AccessList] = []
+    intrinsic_gas, floor_gas, cold_total_gas_cost = costs(access_list)
+    while floor_gas + 1 >= cold_total_gas_cost:
+        access_list.append(
+            AccessList(address=pre.fund_eoa(amount=0), storage_keys=[])
+        )
+        previous_gap = cold_total_gas_cost - floor_gas
+        intrinsic_gas, floor_gas, cold_total_gas_cost = costs(access_list)
+        assert cold_total_gas_cost - floor_gas > previous_gap, (
+            "an access list address must narrow the floor's lead"
+        )
     total_gas_cost = max(intrinsic_gas + top_frame_gas, floor_gas)
 
     tx = Transaction(
@@ -840,6 +856,7 @@ def test_top_frame_charges_delegation_is_authority(
         to=target,
         value=value,
         authorization_list=authorization_list,
+        access_list=access_list,
         gas_limit=total_gas_cost + 1,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=total_gas_cost,

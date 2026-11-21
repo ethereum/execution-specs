@@ -1153,8 +1153,17 @@ def test_mixed_valid_and_invalid_auths(
     intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
+    # The skipped tuples pay no top-frame charge, so with enough of them
+    # the floor, which prices every tuple's bytes, binds the execution
+    # dimension.
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=b"", authorization_list_or_count=authorization_list
+    )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_execution, top_frame_execution, top_frame_state
+        intrinsic_execution,
+        top_frame_execution,
+        top_frame_state,
+        floor_gas=floor_gas,
     )
 
     tx = Transaction(
