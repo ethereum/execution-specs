@@ -350,21 +350,18 @@ def test_inconsistent_forkchoice_state(
 ) -> None:
     """
     With canonical a1..a3 (safe a2, finalized a1) and a validated sibling
-    chain b1..b3, an FCU whose ``field`` points into the other chain is
+    chain b2..b4 on a1, an FCU whose ``field`` points into the other chain is
     ``-38002`` and leaves head, safe and finalized as they were; the
-    canonical FCU afterwards is VALID. The ``safe`` variant finalizes
-    genesis instead, an ancestor of both chains, so safe being off the
-    head's chain is the only reason for ``-38002``.
+    canonical FCU afterwards is VALID. The sibling chain descends from the
+    finalized a1, so ``field`` is the only reason for ``-38002``.
     """
     blocks, steps = chain(pre, "a", 3)
-    side, _ = chain(pre, "b", 3, value=2)
+    side, _ = chain(pre, "b", 3, parent="a1", start=2, value=2)
     blocks += side
     steps += [NewPayloadStep(block=b.label) for b in side]
     canonical = {"head": "a3", "safe": "a2", "finalized": "a1"}
-    if field == "safe":
-        canonical["finalized"] = "genesis"
     state = dict(canonical)
-    state[field] = {"head": "b3", "safe": "b2", "finalized": "b1"}[field]
+    state[field] = {"head": "b4", "safe": "b3", "finalized": "b2"}[field]
     steps += [
         ForkchoiceUpdatedStep(**canonical, expect=applied("a3")),
         ForkchoiceUpdatedStep(
@@ -409,6 +406,13 @@ def test_safe_finalized_labels_follow_fcu(
                     Outcome(
                         id="refused",
                         error_code=EngineAPIError.TooDeepReorg,
+                        disputed=DISPUTED_FINALITY_REVERSION,
+                    ),
+                    # A client may have discarded a2..a3 when b3 was
+                    # finalized.
+                    Outcome(
+                        id="syncing",
+                        status="SYNCING",
                         disputed=DISPUTED_FINALITY_REVERSION,
                     ),
                 ],
@@ -733,24 +737,24 @@ def test_forkchoice_state_unchanged_on_invalid_state(
     leave the forkchoice state untouched.
 
     Canonical a1..a3 (head a3, safe a2, finalized a1) plus a validated
-    sibling pair b1, b2. The call names b2 as head while safe and finalized
-    stay on the ``a`` chain, so it must be answered with ``-38002``; every
+    sibling pair b2, b3 on a1. The call names b3 as head while safe stays
+    on the ``a`` chain, so it must be answered with ``-38002``; every
     update resulting from the call is then required to have been applied
     atomically, i.e. not at all.
     """
     blocks, steps = chain(pre, "a", 3)
-    side, _ = chain(pre, "b", 2, value=2)
+    side, _ = chain(pre, "b", 2, parent="a1", start=2, value=2)
     blocks += side
     steps += [
-        NewPayloadStep(block="b1"),
         NewPayloadStep(block="b2"),
+        NewPayloadStep(block="b3"),
         ForkchoiceUpdatedStep(
             head="a3", safe="a2", finalized="a1", expect=applied("a3")
         ),
     ]
     steps.append(
         ForkchoiceUpdatedStep(
-            head="b2",
+            head="b3",
             safe="a2",
             finalized="a1",
             expect=[
