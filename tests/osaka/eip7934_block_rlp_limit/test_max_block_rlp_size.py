@@ -90,6 +90,7 @@ def _max_zero_calldata_bytes_for_gas(
     max_len_hint: int,
     access_list: Any | None = None,
     authorization_list_or_count: Sized | int | None = None,
+    blob_versioned_hashes_or_count: Sized | int | None = None,
 ) -> int:
     """Return the largest zero-calldata length whose intrinsic gas fits."""
     if gas_limit <= 0:
@@ -100,6 +101,10 @@ def _max_zero_calldata_bytes_for_gas(
         kwargs["access_list"] = access_list
     if authorization_list_or_count is not None:
         kwargs["authorization_list_or_count"] = authorization_list_or_count
+    if blob_versioned_hashes_or_count is not None:
+        kwargs["blob_versioned_hashes_or_count"] = (
+            blob_versioned_hashes_or_count
+        )
 
     if calculator(calldata=b"", **kwargs) > gas_limit:
         return 0
@@ -455,12 +460,16 @@ def _exact_size_transactions_impl(
             authorization_count = len(
                 special_tx_dict.get("authorization_list", [])
             )
+            blob_hash_count = len(
+                special_tx_dict.get("blob_versioned_hashes", [])
+            )
             max_special_data_len = _max_zero_calldata_bytes_for_gas(
                 calculator,
                 per_tx_gas_budget,
                 max_len_hint=200_000,
                 access_list=specific_transaction_to_include.access_list,
                 authorization_list_or_count=authorization_count,
+                blob_versioned_hashes_or_count=blob_hash_count,
             )
             special_tx_data = Bytes(b"\x00" * max_special_data_len)
             special_tx_gas_limit = int(
@@ -468,6 +477,7 @@ def _exact_size_transactions_impl(
                     calldata=special_tx_data,
                     access_list=specific_transaction_to_include.access_list,
                     authorization_list_or_count=authorization_count,
+                    blob_versioned_hashes_or_count=blob_hash_count,
                 )
             )
             sample_special_tx = Transaction(

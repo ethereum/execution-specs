@@ -238,6 +238,7 @@ def test_intrinsic_decomposition_across_tx_types(
         sends_value=True,
         recipient_type=RecipientType.EOA,
         authorization_list_or_count=authorizations,
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
         return_cost_deducted_prior_execution=True,
     )
     top_frame_gas = fork.transaction_top_frame_execution_gas(
@@ -251,6 +252,16 @@ def test_intrinsic_decomposition_across_tx_types(
         authorizations=authorizations,
     )
     total_gas_cost = intrinsic_gas + top_frame_gas + top_frame_state_gas
+    # Forks that price blob hashes and authorizations into the floor
+    # (EIP-8131) can make the floor bind.
+    data_floor = fork.transaction_data_floor_cost_calculator()(
+        data=b"",
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+        authorization_list_or_count=authorizations,
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
+    )
+    gas_used = max(total_gas_cost, data_floor)
 
     tx = Transaction(
         ty=tx_type,
@@ -259,9 +270,9 @@ def test_intrinsic_decomposition_across_tx_types(
         value=value,
         authorization_list=authorizations or None,
         blob_versioned_hashes=blob_versioned_hashes,
-        gas_limit=total_gas_cost,
+        gas_limit=gas_used,
         expected_receipt=TransactionReceipt(
-            cumulative_gas_used=total_gas_cost,
+            cumulative_gas_used=gas_used,
             logs=[transfer_log(sender, recipient, value)],
         ),
     )

@@ -42,9 +42,24 @@ def tx_value() -> int:
 
 
 @pytest.fixture
-def tx_gas() -> int:
-    """Gas allocated to transactions sent during test."""
-    return 21_000
+def tx_gas(
+    fork: Fork,
+    tx_calldata: bytes,
+    tx_value: int,
+    txs_versioned_hashes: List[List[Hash]],
+) -> int:
+    """
+    Gas allocated to transactions sent during test.
+
+    Forks that price blob hashes into the floor (EIP-8131) need more than
+    the base cost for the transaction with the most blobs.
+    """
+    floor = fork.transaction_data_floor_cost_calculator()(
+        data=tx_calldata,
+        sends_value=tx_value > 0,
+        blob_versioned_hashes_or_count=max(map(len, txs_versioned_hashes)),
+    )
+    return max(21_000, floor)
 
 
 @pytest.fixture

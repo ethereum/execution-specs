@@ -55,14 +55,14 @@ def blob_gas_price(fork: Fork | TransitionFork) -> int:
 
 
 @pytest.fixture
-def tx_gas(fork: Fork | TransitionFork) -> int:
+def tx_gas(fork: Fork | TransitionFork, blob_count: int) -> int:
     """Intrinsic gas for the value-carrying blob transactions."""
     return max(
         fork.transitions_from().transaction_intrinsic_cost_calculator()(
-            sends_value=True
+            sends_value=True, blob_versioned_hashes_or_count=blob_count
         ),
         fork.transitions_to().transaction_intrinsic_cost_calculator()(
-            sends_value=True
+            sends_value=True, blob_versioned_hashes_or_count=blob_count
         ),
     )
 
