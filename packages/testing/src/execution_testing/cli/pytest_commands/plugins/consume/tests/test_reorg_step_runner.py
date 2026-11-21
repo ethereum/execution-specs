@@ -342,6 +342,43 @@ def test_assert_receipt_waits_for_the_transaction_index(
                 step_runner.assert_receipt("receipt", step)
 
 
+@pytest.mark.parametrize(
+    "replies,timeout,passes",
+    [
+        ([INDEXING, MagicMock(block_hash=None)], 5.0, True),
+        ([INDEXING], 0.0, False),
+    ],
+    ids=["retries_while_indexing", "fails_at_deadline"],
+)
+def test_assert_tx_status_waits_for_the_transaction_index(
+    make_runner: MakeRunner,
+    replies: List[JSONRPCError | MagicMock],
+    timeout: float,
+    passes: bool,
+) -> None:
+    """
+    A lookup the client cannot answer while indexing is retried until the
+    deadline, and is never read as a status.
+    """
+    eth = MagicMock()
+    eth.get_transaction_by_hash.side_effect = replies
+    step_runner = make_runner(eth=eth)
+    step_runner.tx_hash = MagicMock(return_value=Hash(1))  # type: ignore[method-assign]
+    step = AssertTxStatusStep(
+        tx=TxRef(block="a1"), expect=["pending", "dropped"]
+    )
+    with (
+        patch.object(reorg_logic, "TX_STATUS_TIMEOUT", timeout),
+        patch.object(reorg_logic, "TX_STATUS_POLL_INTERVAL", 0),
+    ):
+        if passes:
+            step_runner.assert_tx_status("status", step)
+            assert step_runner.matched[-1] == "status:pending"
+        else:
+            with pytest.raises(JSONRPCError):
+                step_runner.assert_tx_status("status", step)
+
+
 def test_assert_state_rejects_noncanonical_block(
     make_runner: MakeRunner,
 ) -> None:
