@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -76,17 +75,7 @@ def test_modexp_random_input(
     v: int,
 ) -> None:
     """Fuzzed input discovered by Guido."""
-    coinbase = Address(0x3535353535353535353535353535353535353535)
     sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
 
     tx_data = [
         Bytes(
@@ -108,4 +97,4 @@ def test_modexp_random_input(
 
     post = {sender: Account(nonce=1)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

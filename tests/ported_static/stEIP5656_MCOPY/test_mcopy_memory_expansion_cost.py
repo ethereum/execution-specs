@@ -8,9 +8,7 @@ state_tests/Cancun/stEIP5656_MCOPY/MCOPY_memory_expansion_costFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -178,17 +176,7 @@ def test_mcopy_memory_expansion_cost(
     v: int,
 ) -> None:
     """Test cases for the memory expansion cost in the MCOPY instruction."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x3B9ACA00)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1687174231,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     # Source: yul
     # cancun {
@@ -211,7 +199,6 @@ def test_mcopy_memory_expansion_cost(
         + Op.SSTORE(key=Op.PUSH0, value=Op.MSIZE)
         + Op.STOP,
         storage={0: 0xFA11ED},
-        nonce=1,
     )
 
     expect_entries_: list[dict] = [
@@ -307,4 +294,4 @@ def test_mcopy_memory_expansion_cost(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

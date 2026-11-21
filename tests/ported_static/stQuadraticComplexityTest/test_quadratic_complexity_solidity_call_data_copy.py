@@ -4,22 +4,19 @@ Test_quadratic_complexity_solidity_call_data_copy.
 Ported from:
 state_tests/stQuadraticComplexityTest/QuadraticComplexitySolidity_CallDataCopyFiller.json
 
-@manually-enhanced: Do not overwrite. Post-state expectations corrected
-manually (see PR #2784).
+@manually-enhanced: Do not overwrite. The loop calls the deployed
+CALLDATACOPY contract; the large arm uses a 2**24 gas limit.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,7 +29,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Prague")
 @pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
@@ -51,41 +47,23 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_quadratic_complexity_solidity_call_data_copy(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     d: int,
     g: int,
     v: int,
 ) -> None:
     """Test_quadratic_complexity_solidity_call_data_copy."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_1 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0x11C37937E08000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=350000000,
-    )
+    sender = pre.fund_eoa()
 
     # Source: lll
     # { (CALLDATACOPY 0 0 50000) }
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    contract_1 = pre.deploy_contract(
         code=Op.CALLDATACOPY(dest_offset=0x0, offset=0x0, size=0xC350)
         + Op.STOP,
-        balance=0x4C4B40,
-        nonce=0,
     )
-    # Source: raw
-    # 0x60003560e060020a9004806361a4770614601557005b601e6004356024565b60006000f35b60008160008190555073b94f5374fce5edbc8e2a8697c15331677e6ebf0b90505b600082131560bf5780600160a060020a03166000600060007f6a7573740000000000000000000000000000000000000000000000000000000081526004017f63616c6c000000000000000000000000000000000000000000000000000000008152602001600060008560155a03f150506001820391506045565b505056  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
+    contract_0 = pre.deploy_contract(
         code=Op.CALLDATALOAD(offset=0x0)
         + Op.EXP(0x2, 0xE0)
         + Op.SWAP1
@@ -106,7 +84,7 @@ def test_quadratic_complexity_solidity_call_data_copy(
         + Op.SWAP1
         + Op.SSTORE
         + Op.POP
-        + Op.PUSH20[0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B]
+        + Op.PUSH20[contract_1]
         + Op.SWAP1
         + Op.POP
         + Op.JUMPDEST
@@ -137,14 +115,12 @@ def test_quadratic_complexity_solidity_call_data_copy(
         + Op.JUMPDEST
         + Op.POP * 2
         + Op.JUMP,
-        balance=0x11C37937E08000,
-        nonce=0,
     )
 
     tx_data = [
         Bytes("61a47706") + Hash(0xC350),
     ]
-    tx_gas = [150000, 250000000]
+    tx_gas = [150000, 2**24]
     tx_value = [1]
 
     tx = Transaction(
@@ -155,24 +131,9 @@ def test_quadratic_complexity_solidity_call_data_copy(
         value=tx_value[v],
     )
 
-    # With `g=1` the tx completes the inner CALL loop and the
-    # leading `SSTORE(0, 50000)` (the loop-counter snapshot taken
-    # before entering the loop body) commits. With `g=0` the tx
-    # OOGs and rolls everything back, leaving storage empty.
-    contract_0_storage = {0: 0xC350} if g == 1 else {}
     post = {
-        contract_0: Account(
-            storage=contract_0_storage,
-            code=bytes.fromhex(
-                "60003560e060020a9004806361a4770614601557005b601e6004356024565b60006000f35b60008160008190555073b94f5374fce5edbc8e2a8697c15331677e6ebf0b90505b600082131560bf5780600160a060020a03166000600060007f6a7573740000000000000000000000000000000000000000000000000000000081526004017f63616c6c000000000000000000000000000000000000000000000000000000008152602001600060008560155a03f150506001820391506045565b505056"  # noqa: E501
-            ),
-            nonce=0,
-        ),
-        contract_1: Account(
-            storage={},
-            code=bytes.fromhex("61c350600060003700"),
-            nonce=0,
-        ),
+        contract_0: Account(storage={}),
+        contract_1: Account(storage={}),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

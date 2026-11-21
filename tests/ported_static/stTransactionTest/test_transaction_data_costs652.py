@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -51,17 +50,7 @@ def test_transaction_data_costs652(
     v: int,
 ) -> None:
     """Test_transaction_data_costs652."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x989680)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
 
     tx_data = [
         Bytes("00000000000000000000112233445566778f32"),
@@ -89,4 +78,4 @@ def test_transaction_data_costs652(
 
     post = {sender: Account(nonce=1)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

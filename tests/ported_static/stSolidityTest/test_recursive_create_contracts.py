@@ -1,14 +1,12 @@
 """
-Verify recursively self-creating Solidity contracts stop when the
-transaction budget runs dry, leaving exactly one child.
+Verify recursively self-creating Solidity contracts down to a depth.
 
 Ported from:
 state_tests/stSolidityTest/RecursiveCreateContractsFiller.json
+state_tests/stSolidityTest/RecursiveCreateContractsCreate4ContractsFiller.json
 
-@manually-enhanced: Do not overwrite. The EIP-8037 state gas of the
-in-test creations is added to the ported budget as a fork-derived
-surcharge (exactly 0 before EIP-8037), preserving the ported
-behavior on every fork.
+@manually-enhanced: Do not overwrite. Rebuilt from the Solidity source;
+the whole creation chain is asserted.
 """
 
 import pytest
@@ -28,13 +26,27 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stSolidityTest/RecursiveCreateContractsFiller.json"],
+    [
+        "state_tests/stSolidityTest/RecursiveCreateContractsFiller.json",
+        "state_tests/stSolidityTest/RecursiveCreateContractsCreate4ContractsFiller.json",  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("SpuriousDragon")
+@pytest.mark.parametrize(
+    "max_depth, runs_dry",
+    [
+        pytest.param(4, False, id="create4_contracts"),
+        pytest.param(772, True, id="772"),
+    ],
+)
 def test_recursive_create_contracts(
-    state_test: StateTestFiller, pre: Alloc, fork: Fork
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    max_depth: int,
+    runs_dry: bool,
 ) -> None:
-    """Recursive contract creation runs dry at the expected depth."""
+    """Create the alternating contract chain down to `max_depth`."""
     sender = pre.fund_eoa()
 
     # Source: solidity
@@ -154,25 +166,6 @@ def test_recursive_create_contracts(
         calldata_offset=len(initcode_2) + len(initcode_1),
     )
 
-    # Source: solidity
-    # contract main
-    # {
-    #     address maincontract;
-    #     uint depp;
-    #     function run(uint depth)
-    #     {
-    #         maincontract = 0x095e7baea6a6c7c4c2dfeb977efac326af552d87;
-    #         depp = depth;
-    #         recursiveCreate1 rec1 = new recursiveCreate1(maincontract,depth);
-    #     }
-    #
-    #     function create2(uint depth)
-    #     {
-    #         recursiveCreate2 rec2 = new recursiveCreate2(maincontract,depth);
-    #         address(rec2).send(2);
-    #     }
-    # }
-
     dispatcher = Op.JUMPI(
         pc=Op.PUSH2(data_placeholder="tx_entry_func_offset"),
         condition=Op.EQ(1, Op.CALLVALUE),
@@ -208,7 +201,7 @@ def test_recursive_create_contracts(
                     offset=0,
                     size=len(initcode_2) + len(initcode_1) + 0x40,
                 ),
-                value=1,
+                value=2,
             ),
         )
         + Op.INVALID  # Send fails
@@ -266,7 +259,6 @@ def test_recursive_create_contracts(
 
     factory = pre.deploy_contract(code=factory_code, balance=0x20000000)
 
-    max_depth = 772
     tx = Transaction(
         sender=sender,
         to=factory,
@@ -275,14 +267,34 @@ def test_recursive_create_contracts(
     )
 
     post = {
-        factory: Account(
-            storage={0: factory, 1: max_depth},
-        ),
+        factory: Account(storage={0: factory, 1: max_depth}),
         sender: Account(nonce=1),
-        # Check only first created contract
-        compute_create_address(address=factory, nonce=1): Account(
-            storage={0: max_depth - 1}, nonce=1
-        ),
     }
+    if not runs_dry:
+        # recursiveCreate1 (odd steps) and recursiveCreate2 (even steps,
+        # sent 2 wei) alternate; the factory creates every
+        # recursiveCreate2, each recursiveCreate2 its recursiveCreate1.
+        post[factory] = Account(
+            storage={0: factory, 1: max_depth}, nonce=2 + max_depth // 2
+        )
+        creator, creator_nonce, factory_nonce = factory, 1, 1
+        for remaining in range(max_depth, 0, -1):
+            created = compute_create_address(
+                address=creator, nonce=creator_nonce
+            )
+            if (max_depth - remaining) % 2 == 0:
+                post[created] = Account(storage={0: remaining - 1}, nonce=1)
+                factory_nonce += 1
+                creator, creator_nonce = factory, factory_nonce
+            else:
+                post[created] = Account(
+                    storage={0: remaining - 1},
+                    balance=2,
+                    nonce=2 if remaining > 1 else 1,
+                )
+                creator, creator_nonce = created, 1
+    else:
+        first_child = compute_create_address(address=factory, nonce=1)
+        post[first_child] = Account(storage={0: max_depth - 1}, nonce=1)
 
     state_test(pre=pre, post=post, tx=tx)

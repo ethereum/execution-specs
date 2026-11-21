@@ -8,10 +8,8 @@ state_tests/stSpecialTest/deploymentErrorFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Fork,
     StateTestFiller,
     Transaction,
@@ -33,16 +31,7 @@ def test_deployment_error(
     pre: Alloc,
 ) -> None:
     """Test_deployment_error."""
-    coinbase = Address(0x68795C4AA09D6F4ED3E5DEDDF8C2AD3049A601DA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     tx = Transaction(
         sender=sender,
@@ -61,4 +50,4 @@ def test_deployment_error(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
