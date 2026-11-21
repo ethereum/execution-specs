@@ -33,14 +33,17 @@ def test_sync_head_from_peer(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
     """
     Reach a head whose ancestors only the peer has.
 
-    Only a5 is sent, and it is SYNCING; the peer then serves a1..a5, and the
-    client syncs a1..a4 and makes a5 its head.
+    With genesis finalized, only a5 is sent, and it is SYNCING; the peer then
+    serves a1..a5, and the client syncs a1..a4 and makes a5 its head.
     """
     recipient = pre.fund_eoa(amount=0)
     blocks, _ = chain(pre, "a", 5, recipient=recipient)
     steps: List[Step] = [
+        ForkchoiceUpdatedStep(
+            head="genesis", safe="genesis", finalized="genesis"
+        ),
         NewPayloadStep(block="a5"),
-        ForkchoiceUpdatedStep(head="a5"),
+        ForkchoiceUpdatedStep(head="a5", safe="genesis", finalized="genesis"),
         AssertHeadStep(latest="genesis"),
         ServePeerStep(head="a5"),
         AwaitHeadStep(latest="a5"),
@@ -59,23 +62,30 @@ def test_reorg_to_branch_from_peer(
     """
     Reorg from a delivered branch to one only the peer has.
 
-    b4 on a1..a2 is the head and a5 is SYNCING; the peer then serves
-    a1..a5, and the client syncs a3..a4, reorgs to a5 and returns to b4.
+    With genesis finalized, b4 on a1..a2 is the head and a5 is SYNCING; the
+    peer then serves a1..a5, and the client syncs a3..a4, reorgs to a5 and
+    returns to b4.
     """
     a_recipient = pre.fund_eoa(amount=0)
     b_recipient = pre.fund_eoa(amount=0)
-    blocks, steps = chain(pre, "a", 2)
+    blocks, steps = chain(pre, "a", 2, finalized="genesis")
     a_branch, _ = chain(
         pre, "a", 3, parent="a2", start=3, recipient=a_recipient
     )
     b_branch, b_steps = chain(
-        pre, "b", 2, parent="a2", start=3, recipient=b_recipient
+        pre,
+        "b",
+        2,
+        parent="a2",
+        start=3,
+        recipient=b_recipient,
+        finalized="genesis",
     )
     blocks += a_branch + b_branch
     steps += b_steps
     steps += [
         NewPayloadStep(block="a5"),
-        ForkchoiceUpdatedStep(head="a5"),
+        ForkchoiceUpdatedStep(head="a5", safe="genesis", finalized="genesis"),
         ServePeerStep(head="a5"),
         AwaitHeadStep(latest="a5"),
         AssertCanonicalStep(blocks={3: "a3", 4: "a4", 5: "a5"}),
@@ -88,6 +98,8 @@ def test_reorg_to_branch_from_peer(
         ),
         ForkchoiceUpdatedStep(
             head="b4",
+            safe="genesis",
+            finalized="genesis",
             expect=reorg_outcomes("b4", depth=3),
             branches={
                 "applied": [
