@@ -156,21 +156,27 @@ def test_tx_gas_limit_after_floor_priced_txs(
     """
     access_list = typed_transaction.access_list
     authorization_list = typed_transaction.authorization_list
+    blob_versioned_hashes = typed_transaction.blob_versioned_hashes
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
     floor_cost_calculator = fork.transaction_data_floor_cost_calculator()
     floor_cost = floor_cost_calculator(
-        data=FLOOR_TX_DATA, access_list=access_list
+        data=FLOOR_TX_DATA,
+        access_list=access_list,
+        authorization_list_or_count=authorization_list,
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
     )
     execution_cost = intrinsic_cost(
         calldata=FLOOR_TX_DATA,
         access_list=access_list,
         authorization_list_or_count=authorization_list,
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
         return_cost_deducted_prior_execution=True,
     )
     floor_tx_gas_limit = intrinsic_cost(
         calldata=FLOOR_TX_DATA,
         access_list=access_list,
         authorization_list_or_count=authorization_list,
+        blob_versioned_hashes_or_count=blob_versioned_hashes,
     )
     # The floor, not the standard intrinsic cost, sets the gas used.
     assert floor_tx_gas_limit == floor_cost > execution_cost

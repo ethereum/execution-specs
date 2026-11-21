@@ -495,20 +495,24 @@ def test_tx_intrinsic_gas_functions(  # noqa: D103
 
 
 @pytest.mark.parametrize(
-    "calldata,access_list,authorization_count,blob_hash_count,floor",
+    "calldata,access_list,authorization_count,blob_hash_count,sends_value,"
+    "floor",
     [
-        pytest.param(b"", None, 0, 0, 21_000, id="bare_transfer"),
-        pytest.param(b"\1" * 10_000, None, 0, 0, 661_000, id="calldata"),
+        pytest.param(b"", None, 0, 0, True, 21_000, id="bare_transfer"),
+        pytest.param(
+            b"\1" * 10_000, None, 0, 0, False, 655_000, id="calldata"
+        ),
         pytest.param(
             b"",
             [AccessList(address=1, storage_keys=[0])],
             0,
             0,
-            24_328,
+            False,
+            18_328,
             id="access_list_entry",
         ),
-        pytest.param(b"", None, 1, 0, 27_912, id="one_authorization"),
-        pytest.param(b"", None, 0, 6, 33_288, id="six_blob_hashes"),
+        pytest.param(b"", None, 1, 0, False, 23_512, id="one_authorization"),
+        pytest.param(b"", None, 0, 6, False, 27_288, id="six_blob_hashes"),
     ],
 )
 def test_content_floor_matches_eip_test_cases(
@@ -516,17 +520,19 @@ def test_content_floor_matches_eip_test_cases(
     access_list: List[AccessList] | None,
     authorization_count: int,
     blob_hash_count: int,
+    sends_value: bool,
     floor: int,
 ) -> None:
     """
-    Match the floors listed in the EIP-8131 test cases, which assume a
-    value transfer, where the EIP-2780 intrinsic base equals `TX_BASE`.
+    Match the floors listed in the EIP-8131 test cases: a value transfer
+    has an EIP-2780 intrinsic base of 21,000, a call without value one of
+    15,000.
     """
     assert (
         Bogota.transaction_data_floor_cost_calculator()(
             data=calldata,
             access_list=access_list,
-            sends_value=True,
+            sends_value=sends_value,
             authorization_list_or_count=authorization_count,
             blob_versioned_hashes_or_count=blob_hash_count,
         )
@@ -534,13 +540,12 @@ def test_content_floor_matches_eip_test_cases(
     )
 
 
-def test_content_floor_drops_access_list_surcharge() -> None:
+def test_content_floor_keeps_access_list_surcharge() -> None:
     """
-    Charge access list bytes only at the floor from EIP-8131 on, so the
-    intrinsic cost loses the EIP-7981 surcharge.
+    Keep the EIP-7981 access list surcharge in intrinsic gas under
+    EIP-8131, which only moves access list bytes into the content floor.
     """
     access_list = [AccessList(address=1, storage_keys=[0])]
-    surcharge = 64 * (20 + 32)
     intrinsic_costs = [
         fork.transaction_intrinsic_cost_calculator()(
             access_list=access_list,
@@ -548,7 +553,7 @@ def test_content_floor_drops_access_list_surcharge() -> None:
         )
         for fork in (Amsterdam, Bogota)
     ]
-    assert intrinsic_costs[0] - intrinsic_costs[1] == surcharge
+    assert intrinsic_costs[0] == intrinsic_costs[1]
 
 
 class FutureFork(Osaka):

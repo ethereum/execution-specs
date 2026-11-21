@@ -75,10 +75,14 @@ ACCESS_LIST_STORAGE_KEY_BYTES = Uint(32)
 Content bytes contributed by a single access list storage key.
 """
 
-AUTHORIZATION_BYTES = Uint(108)
+AUTHORIZATION_BYTES = Uint(133)
 """
 Content bytes contributed by a single [EIP-7702] authorization, taken
-as the largest it can encode to.
+as the largest it can encode to: a 2-byte list header, a 33-byte
+`chain_id`, a 21-byte address, a 9-byte nonce, a 2-byte `y_parity`, and
+33 bytes each for `r` and `s`. A transaction stays valid when one of its
+authorizations is skipped, so the bound must cover tuples that no
+processing would accept.
 
 [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
 """
@@ -717,7 +721,8 @@ def calculate_intrinsic_cost(
     3. Value cost (`TX_VALUE_COST` for a non-self-transfer call) when
        ``tx.value > 0``.
     4. Calldata cost (zero and non-zero bytes).
-    5. Access list entry charges (if applicable).
+    5. Access list entry charges and the [EIP-7981] data surcharge (if
+       applicable).
     6. Authorizations (if applicable): only the state-independent base
        cost (`EXECUTION_PER_AUTH_BASE_COST`) per tuple. The
        state-dependent account-creation and delegation-write costs are
@@ -734,6 +739,7 @@ def calculate_intrinsic_cost(
     never undercuts the transaction's own intrinsic base.
 
     [cb]: ref:ethereum.forks.bogota.transactions.count_content_bytes
+    [EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
     """
     from .vm.gas import GasCosts, init_code_cost
 
@@ -755,12 +761,22 @@ def calculate_intrinsic_cost(
             recipient_execution_gas += GasCosts.TX_VALUE_COST
 
     access_list_cost = Uint(0)
+    access_list_bytes = Uint(0)
     if has_access_list(tx):
         for access in tx.access_list:
             access_list_cost += GasCosts.TX_ACCESS_LIST_ADDRESS
             access_list_cost += (
                 ulen(access.slots) * GasCosts.TX_ACCESS_LIST_STORAGE_KEY
             )
+            access_list_bytes += ACCESS_LIST_ADDRESS_BYTES
+            access_list_bytes += (
+                ulen(access.slots) * ACCESS_LIST_STORAGE_KEY_BYTES
+            )
+
+    # EIP-7981 data surcharge on the access list bytes, kept in intrinsic
+    # gas so that access list entries cannot add block access list bytes
+    # below the floor rate.
+    access_list_data_cost = access_list_bytes * GasCosts.FLOOR_PER_BYTE
 
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
@@ -783,6 +799,7 @@ def calculate_intrinsic_cost(
             + init_code_gas
             + data_cost
             + access_list_cost
+            + access_list_data_cost
             + auth_cost
         ),
         content_floor=ExecutionGas(content_floor_gas_cost),

@@ -219,6 +219,12 @@ def tx_data(
             data_test_type
             == DataTestType.FLOOR_GAS_COST_LESS_THAN_OR_EQUAL_TO_INTRINSIC_GAS
         ):
+            if transaction_data_floor_cost_calculator(
+                0
+            ) > transaction_intrinsic_cost_calculator(0):
+                # Floor terms outside the calldata (e.g. blob hashes from
+                # EIP-8131) already exceed the intrinsic cost.
+                pytest.skip("floor exceeds intrinsic cost without calldata")
             return Bytes(b"")
         else:
             return Bytes(b"\0")

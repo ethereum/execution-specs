@@ -4,7 +4,7 @@ EIP-8131: Unified Transaction Content Floor.
 Price every user-controlled transaction byte (calldata, access list
 entries, EIP-7702 authorizations and blob versioned hashes) at one rate
 at the floor, replacing the EIP-7976 calldata floor and the EIP-7981
-access list surcharge.
+access list floor term. The EIP-7981 surcharge stays in intrinsic gas.
 
 https://eips.ethereum.org/EIPS/eip-8131
 """
@@ -24,7 +24,7 @@ from ....base_fork import (
 from ....gas_costs import GasCosts
 from ...helpers import count_or_len
 
-AUTHORIZATION_BYTES = 108
+AUTHORIZATION_BYTES = 133
 BLOB_VERSIONED_HASH_BYTES = 32
 
 
@@ -92,13 +92,11 @@ class EIP8131(BaseFork):
         cls,
     ) -> TransactionIntrinsicCostCalculator:
         """
-        Drop the EIP-7981 access list surcharge from intrinsic gas, since
-        access list bytes are now priced at the floor only, and enforce
-        the content floor.
+        Enforce the content floor. Intrinsic gas, including the EIP-7981
+        access list surcharge, is inherited unchanged.
         """
         super_fn = super(EIP8131, cls).transaction_intrinsic_cost_calculator()
         floor_cost_calculator = cls.transaction_data_floor_cost_calculator()
-        gas_costs = cls.gas_costs()
 
         def fn(
             *,
@@ -120,12 +118,6 @@ class EIP8131(BaseFork):
                 sends_value=sends_value,
                 recipient_type=recipient_type,
             )
-            intrinsic_cost -= (
-                _access_list_bytes(access_list)
-                * 4
-                * gas_costs.TX_DATA_TOKEN_FLOOR
-            )
-
             if return_cost_deducted_prior_execution:
                 return intrinsic_cost
 
