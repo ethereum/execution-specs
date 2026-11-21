@@ -1,22 +1,20 @@
 """
-Test_create_name_registrator_per_txs_before.
+Create a name registrator contract from a creation transaction.
 
 Ported from:
 state_tests/stTransitionTest/createNameRegistratorPerTxsBeforeFiller.json
+state_tests/stTransitionTest/createNameRegistratorPerTxsAtFiller.json
+state_tests/stTransitionTest/createNameRegistratorPerTxsAfterFiller.json
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
-    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -25,26 +23,19 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 @pytest.mark.ported_from(
     [
-        "state_tests/stTransitionTest/createNameRegistratorPerTxsBeforeFiller.json"  # noqa: E501
+        "state_tests/stTransitionTest/createNameRegistratorPerTxsBeforeFiller.json",  # noqa: E501
+        "state_tests/stTransitionTest/createNameRegistratorPerTxsAtFiller.json",  # noqa: E501
+        "state_tests/stTransitionTest/createNameRegistratorPerTxsAfterFiller.json",  # noqa: E501
     ],
 )
 @pytest.mark.valid_from("Cancun")
-def test_create_name_registrator_per_txs_before(
+def test_create_name_registrator_per_txs(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
 ) -> None:
-    """Test_create_name_registrator_per_txs_before."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
+    """Create a name registrator contract from a creation transaction."""
+    sender = pre.fund_eoa()
+    tx_value = 0x186A0
 
     tx = Transaction(
         sender=sender,
@@ -64,17 +55,16 @@ def test_create_name_registrator_per_txs_before(
         + Op.SSTORE(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
         ),
-        gas_limit=2200000 if fork >= Amsterdam else 200000,
-        value=0x186A0,
+        value=tx_value,
     )
 
     post = {
         compute_create_address(address=sender, nonce=0): Account(
             storage={1: 1},
             code=bytes.fromhex("396000f3006000355415600957005b60"),
-            balance=0x186A0,
+            balance=tx_value,
             nonce=1,
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -118,7 +117,6 @@ def test_create_collision_to_empty2(
     v: int,
 ) -> None:
     """Data0 - create collision to empty, data1 - to empty but nonce,..."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x1A00000000000000000000000000000000000000)
     contract_1 = Address(0x1000000000000000000000000000000000000000)
     contract_2 = Address(0x2000000000000000000000000000000000000000)
@@ -128,14 +126,6 @@ def test_create_collision_to_empty2(
     contract_6 = Address(0x4B86C4ED99B87F0F396BC0C76885453C343916ED)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
@@ -274,4 +264,4 @@ def test_create_collision_to_empty2(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -12,14 +12,11 @@ intentionally left alone.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
@@ -53,7 +50,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create_message_reverted(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -63,33 +59,23 @@ def test_create_message_reverted(
     v: int,
 ) -> None:
     """CreateMessageReverted for CREATE2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000000000,
-    )
-
-    sender_balance = 3000000
-    if fork.is_eip_enabled(8037):
-        sender_balance = 10000000
-    pre[sender] = Account(balance=sender_balance)
-    # Source: lll
-    # {(MSTORE 0 0x600c600055600d600155) (CREATE2 0 22 10 0)}
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x600C600055600D600155)
-        + Op.CREATE2(value=0x0, offset=0x16, size=0xA, salt=0x0)
+    sender = pre.fund_eoa()
+    initcode = Op.SSTORE(key=0, value=0xC) + Op.SSTORE(key=1, value=0xD)
+    contract_0 = pre.deploy_contract(
+        code=Op.MSTORE(
+            offset=0x0, value=int.from_bytes(bytes(initcode), "big")
+        )
+        + Op.CREATE2(
+            value=0x0,
+            offset=32 - len(initcode),
+            size=len(initcode),
+            salt=0x0,
+        )
         + Op.STOP,
-        nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+    )
+
+    created = compute_create_address(
+        address=contract_0, salt=0, initcode=initcode, opcode=Op.CREATE2
     )
 
     expect_entries_: list[dict] = [
@@ -98,9 +84,7 @@ def test_create_message_reverted(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address(
-                    0x244FE9A7867EDCC140245E775071FBFE6EBEDBAE
-                ): Account.NONEXISTENT,
+                created: Account.NONEXISTENT,
             },
         },
         {
@@ -108,18 +92,13 @@ def test_create_message_reverted(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address(0x244FE9A7867EDCC140245E775071FBFE6EBEDBAE): Account(
-                    storage={0: 12, 1: 13}, balance=0, nonce=1
-                ),
+                created: Account(storage={0: 12, 1: 13}, balance=0, nonce=1),
             },
         },
     ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
-    tx_data = [
-        Bytes(""),
-    ]
     tx_gas = [80000, 150000]
     if fork.is_eip_enabled(8037):
         tx_gas = [80000, 500_000]
@@ -128,10 +107,9 @@ def test_create_message_reverted(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=tx_data[d],
         gas_limit=tx_gas[g],
         value=tx_value[v],
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -10,12 +10,10 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
-    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,11 +28,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 def test_call_contract_to_create_contract_and_call_it_oog(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_call_contract_to_create_contract_and_call_it_oog."""
-    sender = pre.fund_eoa(amount=0x5F5E100)
+    sender = pre.fund_eoa()
 
     # Source: lll
     # {(MSTORE 0 0x600c60005566602060406000f060205260076039f3)[[0]](CREATE 1 11 21)(CALL 1000 (SLOAD 0) 0 0 0 0 0)}  # noqa: E501
@@ -60,20 +57,19 @@ def test_call_contract_to_create_contract_and_call_it_oog(
         sender=sender,
         to=contract_0,
         data=Bytes("00"),
-        gas_limit=2203000 if fork >= Amsterdam else 203000,
     )
 
+    created = compute_create_address(address=contract_0, nonce=1)
     post = {
         contract_0: Account(
             storage={
-                0: compute_create_address(address=contract_0, nonce=1),
+                0: created,
             },
             nonce=2,
         ),
         sender: Account(nonce=1),
-        compute_create_address(address=contract_0, nonce=1): Account(
-            storage={0: 12}, balance=1, nonce=1
-        ),
+        created: Account(storage={0: 12}, balance=1, nonce=1),
+        compute_create_address(address=created, nonce=1): Account.NONEXISTENT,
     }
 
     state_test(pre=pre, post=post, tx=tx)

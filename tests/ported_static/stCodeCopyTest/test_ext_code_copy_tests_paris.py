@@ -8,9 +8,8 @@ state_tests/stCodeCopyTest/ExtCodeCopyTestsParisFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
+    Bytecode,
     StateTestFiller,
     Transaction,
 )
@@ -24,78 +23,51 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCodeCopyTest/ExtCodeCopyTestsParisFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_ext_code_copy_tests_paris(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test_ext_code_copy_tests_paris."""
-    contract_1 = Address(0xCCCF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_2 = Address(0xDDDF5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    """EXTCODECOPY from absent, balance-only, empty and code accounts."""
+    sender = pre.fund_eoa()
+    absent = pre.nonexistent_account()
+    balance_only = pre.fund_eoa(amount=10)
+    empty_with_nonce = pre.deploy_contract(code=b"")
+    source_code = bytes.fromhex(
+        "1122334455667788991011121314151617181920212223242526272829303132"
+    )
+    with_code = pre.deploy_contract(code=source_code)
+    memory_fill = 2**256 - 1
 
-    pre[contract_1] = Account(balance=10)
-    pre[contract_2] = Account(balance=0, nonce=1)
-    # Source: raw
-    # 0x1122334455667788991011121314151617181920212223242526272829303132
-    contract_3 = pre.deploy_contract(
-        code=bytes.fromhex(
-            "1122334455667788991011121314151617181920212223242526272829303132"
-        ),
-        nonce=1,
-    )
-    # Source: lll
-    # { (EXTCODECOPY 0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b 1 10 2) [[2]] (MLOAD 0) (EXTCODECOPY 0xcccf5374fce5edbc8e2a8697c15331677e6ebf0b 1 10 2) [[3]] (MLOAD 0) (EXTCODECOPY 0xdddf5374fce5edbc8e2a8697c15331677e6ebf0b 1 10 2) [[4]] (MLOAD 0) (EXTCODECOPY 0xeeef5374fce5edbc8e2a8697c15331677e6ebf0b 1 10 2) [[5]] (MLOAD 0) (EXTCODECOPY 0xeeef5374fce5edbc8e2a8697c15331677e6ebf0b 1 10 200) [[6]] (MLOAD 0)}  # noqa: E501
-    contract_0 = pre.deploy_contract(
-        code=Op.EXTCODECOPY(
-            address=0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-            dest_offset=0x1,
-            offset=0xA,
-            size=0x2,
+    copies = [
+        (2, absent, 2, b""),
+        (3, balance_only, 2, b""),
+        (4, empty_with_nonce, 2, b""),
+        (5, with_code, 2, source_code),
+        (6, with_code, 200, source_code),
+    ]
+    code = Bytecode()
+    storage = {}
+    for slot, address, size, account_code in copies:
+        code += (
+            Op.MSTORE(offset=0, value=memory_fill)
+            + Op.EXTCODECOPY(
+                address=address, dest_offset=0x1, offset=0xA, size=size
+            )
+            + Op.SSTORE(key=slot, value=Op.MLOAD(offset=0x0))
         )
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x0))
-        + Op.EXTCODECOPY(
-            address=contract_1, dest_offset=0x1, offset=0xA, size=0x2
-        )
-        + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x0))
-        + Op.EXTCODECOPY(
-            address=contract_2, dest_offset=0x1, offset=0xA, size=0x2
-        )
-        + Op.SSTORE(key=0x4, value=Op.MLOAD(offset=0x0))
-        + Op.EXTCODECOPY(
-            address=contract_3, dest_offset=0x1, offset=0xA, size=0x2
-        )
-        + Op.SSTORE(key=0x5, value=Op.MLOAD(offset=0x0))
-        + Op.EXTCODECOPY(
-            address=contract_3, dest_offset=0x1, offset=0xA, size=0xC8
-        )
-        + Op.SSTORE(key=0x6, value=Op.MLOAD(offset=0x0))
-        + Op.STOP,
-        balance=7000,
-    )
+        copied = account_code[0xA : 0xA + size].ljust(size, b"\0")
+        word = bytearray(memory_fill.to_bytes(32, "big"))
+        word[1 : 1 + size] = copied[:31]
+        storage[slot] = int.from_bytes(word[:32], "big")
+    contract = pre.deploy_contract(code=code + Op.STOP)
 
-    tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=Bytes(""),
-        gas_limit=400000,
-    )
+    tx = Transaction(sender=sender, to=contract)
 
     post = {
-        contract_0: Account(
-            storage={
-                2: 0,
-                3: 0,
-                4: 0,
-                5: 0x11120000000000000000000000000000000000000000000000000000000000,  # noqa: E501
-                6: 0x11121314151617181920212223242526272829303132000000000000000000,  # noqa: E501
-            },
-        ),
-        Address(
-            0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B
-        ): Account.NONEXISTENT,
-        contract_1: Account(balance=10),
-        contract_2: Account(nonce=1),
+        contract: Account(storage=storage),
+        absent: Account.NONEXISTENT,
+        balance_only: Account(balance=10),
+        empty_with_nonce: Account(nonce=1, code=b""),
     }
 
     state_test(pre=pre, post=post, tx=tx)

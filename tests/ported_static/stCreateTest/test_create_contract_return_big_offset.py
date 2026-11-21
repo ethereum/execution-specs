@@ -8,9 +8,7 @@ state_tests/stCreateTest/CREATE_ContractRETURNBigOffsetFiller.yml
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -64,17 +62,7 @@ def test_create_contract_return_big_offset(
     v: int,
 ) -> None:
     """Test_create_contract_return_big_offset."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0x9184E72A000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=89128960,
-    )
+    sender = pre.fund_eoa()
 
     tx_data = [
         Op.RETURN(offset=0x74AC2, size=0x10000),
@@ -96,4 +84,4 @@ def test_create_contract_return_big_offset(
         compute_create_address(address=sender, nonce=0): Account.NONEXISTENT,
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

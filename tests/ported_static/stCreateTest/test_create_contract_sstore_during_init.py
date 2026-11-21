@@ -8,15 +8,11 @@ state_tests/stCreateTest/CREATE_ContractSSTOREDuringInitFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
-    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,27 +25,15 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 def test_create_contract_sstore_during_init(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_create_contract_sstore_during_init."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0x174876E800)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
+    sender = pre.fund_eoa()
 
     tx = Transaction(
         sender=sender,
         to=None,
         data=Op.SSTORE(key=0x0, value=0xFF),
-        gas_limit=2150000 if fork >= Amsterdam else 150000,
     )
 
     post = {
@@ -58,4 +42,4 @@ def test_create_contract_sstore_during_init(
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

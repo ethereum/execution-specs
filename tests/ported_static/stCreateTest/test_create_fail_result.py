@@ -12,7 +12,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -108,7 +107,6 @@ def test_create_fail_result(
     v: int,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x000000000000000000000000000000000000DA7A)
     contract_1 = Address(0x0000000000000000000000000000000000000BAD)
     contract_2 = Address(0x000000000000000000000000000000000000600D)
@@ -122,15 +120,6 @@ def test_create_fail_result(
     contract_10 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
     sender = EOA(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
     )
 
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
@@ -148,7 +137,6 @@ def test_create_fail_result(
         + Op.MSTORE(offset=0x20, value=0x60A7)
         + Op.RETURN(offset=0x0, size=0x40),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
         address=Address(0x000000000000000000000000000000000000DA7A),  # noqa: E501
     )
     # Source: yul
@@ -161,7 +149,6 @@ def test_create_fail_result(
         code=Op.MSTORE(offset=0x0, value=0xBAD0BAD0BAD)
         + Op.REVERT(offset=0x0, size=0x20),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
         address=Address(0x0000000000000000000000000000000000000BAD),  # noqa: E501
     )
     # Source: raw
@@ -169,7 +156,6 @@ def test_create_fail_result(
     contract_6 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x1] + Op.STOP,
         balance=24589,
-        nonce=1,
         address=Address(0xBB0237AB04970E3CF3E813C02064662ADC89336B),  # noqa: E501
     )
     # Source: raw
@@ -177,7 +163,6 @@ def test_create_fail_result(
     contract_7 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x1] + Op.STOP,
         balance=24589,
-        nonce=1,
         address=Address(0x13C950F8740FFAEA1869A88D70B029E8B0C9A8DA),  # noqa: E501
     )
     # Source: raw
@@ -185,7 +170,6 @@ def test_create_fail_result(
     contract_9 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x1] + Op.STOP,
         balance=24589,
-        nonce=1,
         address=Address(0xF9D1EA8EAB6963659EE85B3E0B4D8A57E7EDBA2B),  # noqa: E501
     )
     # Source: yul
@@ -248,7 +232,6 @@ def test_create_fail_result(
         + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x220))
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
         address=Address(0x0000000000000000000000000000000000C0DEF5),  # noqa: E501
     )
     # Source: yul
@@ -310,7 +293,6 @@ def test_create_fail_result(
         + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x220))
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
         address=Address(0x0000000000000000000000000000000000C0DEEE),  # noqa: E501
     )
     # Source: yul
@@ -384,7 +366,6 @@ def test_create_fail_result(
         + Op.POP
         + Op.JUMP(pc=0x3F),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
     # Source: yul
@@ -447,7 +428,6 @@ def test_create_fail_result(
         + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x220))
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
         address=Address(0x0000000000000000000000000000000000C0DEF0),  # noqa: E501
     )
     # Source: yul
@@ -510,7 +490,6 @@ def test_create_fail_result(
         + Op.SSTORE(key=0x3, value=Op.MLOAD(offset=0x220))
         + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
         address=Address(0x0000000000000000000000000000000000C0DEFF),  # noqa: E501
     )
     # Source: yul
@@ -523,7 +502,6 @@ def test_create_fail_result(
         code=Op.MSTORE(offset=0x0, value=0x600D)
         + Op.RETURN(offset=0x0, size=0x20),
         balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
         address=Address(0x000000000000000000000000000000000000600D),  # noqa: E501
     )
 
@@ -706,4 +684,4 @@ def test_create_fail_result(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

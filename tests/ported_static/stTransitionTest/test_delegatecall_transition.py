@@ -1,15 +1,16 @@
 """
-Test_delegatecall_before_transition.
+DELEGATECALL keeps the caller and value of the enclosing frame.
 
 Ported from:
 state_tests/stTransitionTest/delegatecallBeforeTransitionFiller.json
+state_tests/stTransitionTest/delegatecallAtTransitionFiller.json
+state_tests/stTransitionTest/delegatecallAfterTransitionFiller.json
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
 )
@@ -20,32 +21,32 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stTransitionTest/delegatecallBeforeTransitionFiller.json"],
+    [
+        "state_tests/stTransitionTest/delegatecallBeforeTransitionFiller.json",
+        "state_tests/stTransitionTest/delegatecallAtTransitionFiller.json",
+        "state_tests/stTransitionTest/delegatecallAfterTransitionFiller.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
-def test_delegatecall_before_transition(
+def test_delegatecall_transition(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test_delegatecall_before_transition."""
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    """DELEGATECALL keeps the caller and value of the enclosing frame."""
+    sender = pre.fund_eoa()
+    tx_value = 17
 
-    # Source: lll
-    # {[[ 1 ]] (CALLER) [[ 2 ]] (CALLVALUE) }
-    addr = pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=Op.CALLER)
         + Op.SSTORE(key=0x2, value=Op.CALLVALUE)
         + Op.STOP,
         balance=23,
     )
-    # Source: lll
-    # {  [[ 0 ]] (DELEGATECALL 500000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 64 0 2 ) }  # noqa: E501
     target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
-                gas=0x7A120,
-                address=addr,
+                address=callee,
                 args_offset=0x0,
                 args_size=0x40,
                 ret_offset=0x0,
@@ -53,16 +54,13 @@ def test_delegatecall_before_transition(
             ),
         )
         + Op.STOP,
-        balance=0xDE0B6B3A7640000,
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=3000000,
-    )
+    tx = Transaction(sender=sender, to=target, value=tx_value)
 
-    post = {target: Account(storage={0: 1, 1: sender})}
+    post = {
+        target: Account(storage={0: 1, 1: sender, 2: tx_value}),
+        callee: Account(storage={}, balance=23),
+    }
 
     state_test(pre=pre, post=post, tx=tx)
