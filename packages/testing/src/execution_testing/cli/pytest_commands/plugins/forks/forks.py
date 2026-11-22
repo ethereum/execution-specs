@@ -38,6 +38,7 @@ from execution_testing.forks import (
     get_deployed_forks,
     get_selected_fork_set,
     get_transition_forks,
+    get_unscheduled_forks,
     transition_fork_to,
 )
 from execution_testing.logging import (
@@ -594,6 +595,23 @@ def pytest_configure(config: pytest.Config) -> None:
         print(
             "Error: --fork cannot be used in combination "
             "with --from or --until",
+            file=sys.stderr,
+        )
+        pytest.exit(
+            "Invalid command-line options.",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )
+
+    unscheduled = set(get_unscheduled_forks())
+    in_range = sorted(
+        fork.name()
+        for fork in forks_from | forks_until
+        if fork.transitions_to() in unscheduled
+    )
+    if in_range:
+        print(
+            f"Error: unscheduled feature forks ({', '.join(in_range)}) can "
+            "only be selected with --fork",
             file=sys.stderr,
         )
         pytest.exit(

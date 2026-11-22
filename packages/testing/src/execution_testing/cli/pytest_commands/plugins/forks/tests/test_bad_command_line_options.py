@@ -44,6 +44,22 @@ invalid_cli_option_test_cases = (
         ),
     ),
     (
+        "until_unscheduled_fork",
+        (
+            ("--until", "EvmifiedIdentity"),
+            "unscheduled feature forks (EvmifiedIdentity) can only be "
+            "selected with --fork",
+        ),
+    ),
+    (
+        "from_unscheduled_transition_fork",
+        (
+            ("--from", "BogotaToEvmifiedIdentityAtTime15k"),
+            "unscheduled feature forks (BogotaToEvmifiedIdentityAtTime15k) "
+            "can only be selected with --fork",
+        ),
+    ),
+    (
         "invalid_fork_range",
         (
             ("--from", "Paris", "--until", "Frontier"),
