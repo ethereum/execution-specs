@@ -401,14 +401,13 @@ def test_frameparam_gas_used(
     )
     probe = pre.deploy_contract(code=probe_code)
 
-    worker_frame = Frame.default(target=worker, code=worker_code)
     tx = Transaction(
         sender=sender,
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
         frames=[
             Frame.verify(),
-            worker_frame,
+            Frame.default(target=worker, code=worker_code),
             Frame.default(
                 target=probe,
                 code=probe_code,
@@ -418,7 +417,9 @@ def test_frameparam_gas_used(
         ],
     ).expect_frame_receipts(fork)
 
-    worker_receipt = worker_frame.receipt(fork)
+    assert tx.expected_receipt is not None
+    assert tx.expected_receipt.frame_receipts is not None
+    worker_receipt = tx.expected_receipt.frame_receipts[1]
 
     state_test(
         pre=pre,

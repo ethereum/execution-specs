@@ -8,10 +8,11 @@ from spec256k1 import PublicKey
 
 from execution_testing.base_types import AccessList, Address, Hash
 from execution_testing.forks import Bogota
+from execution_testing.vm import Op
 
 from .. import transaction_types
 from ..account_types import EOA
-from ..transaction_types import Frame, Transaction
+from ..transaction_types import Frame, FrameOutcome, Transaction
 from ..utils import keccak256
 
 SIGNING_KEY = Hash(bytes(range(1, 33)))
@@ -488,3 +489,127 @@ def test_frame_tx_reused_frames_match_fresh_frames(
         sender=second_sender, frames=build_frames()
     ).expect_frame_receipts(Bogota)
     assert reused.expected_receipt == fresh.expected_receipt
+
+
+EXPECTATION_FIELDS = [
+    pytest.param({"outcome": FrameOutcome.REVERT}, id="outcome"),
+    pytest.param({"code": Op.STOP}, id="code"),
+    pytest.param({"execution_gas": 0}, id="execution_gas"),
+    pytest.param({"gas_limit_delta": 0}, id="gas_limit_delta"),
+    pytest.param({"state_gas_limit_delta": 0}, id="state_gas_limit_delta"),
+    pytest.param({"warm": True}, id="warm"),
+    pytest.param({"delegated": False}, id="delegated_default_value"),
+    pytest.param({"delegation_warm": True}, id="delegation_warm"),
+    pytest.param({"pin_gas": False}, id="pin_gas"),
+    pytest.param({"gas_used": 0}, id="gas_used"),
+    pytest.param({"state_gas_used": 0}, id="state_gas_used"),
+    pytest.param({"logs": []}, id="logs"),
+]
+"""
+One value per expectation field. A value equal to the field's default
+still counts, since the caller set it.
+"""
+
+
+@pytest.mark.parametrize("expectation", EXPECTATION_FIELDS)
+def test_frame_expectation_requires_settlement(
+    expectation: Dict[str, Any],
+) -> None:
+    """Setting any expectation field requires the frame to be settled."""
+    assert Frame.default(**expectation).requires_settlement
+
+
+@pytest.mark.parametrize(
+    "frame",
+    [
+        pytest.param(Frame(), id="frame"),
+        pytest.param(Frame.default(), id="default"),
+        pytest.param(Frame.sender(), id="sender"),
+        pytest.param(Frame.verify(), id="verify"),
+        pytest.param(Frame.expiry(), id="expiry"),
+    ],
+)
+def test_frame_without_expectations_requires_no_settlement(
+    frame: Frame,
+) -> None:
+    """
+    A frame setting no expectation field requires no settlement, and its
+    transaction encodes without `expect_frame_receipts`.
+    """
+    assert not frame.requires_settlement
+    assert not frame.settled
+    Transaction(
+        sender=EOA(key=SIGNING_KEY), frames=[Frame.verify(), frame]
+    ).rlp()
+
+
+@pytest.mark.parametrize("expectation", EXPECTATION_FIELDS)
+def test_frame_tx_encoding_requires_settlement(
+    expectation: Dict[str, Any],
+) -> None:
+    """
+    A frame transaction whose frames set expectation fields encodes only
+    once `expect_frame_receipts` settled them, so its signature never
+    covers a budget that settlement changes afterwards.
+    """
+    tx = Transaction(
+        sender=EOA(key=SIGNING_KEY),
+        frames=[Frame.verify(), Frame.default(**expectation)],
+    )
+    with pytest.raises(AssertionError, match="expect_frame_receipts"):
+        tx.rlp()
+    tx.expect_frame_receipts(Bogota)
+    assert tx.frames is not None
+    assert all(frame.settled for frame in tx.frames)
+    tx.rlp()
+
+
+def test_frame_tx_settled_budget_is_signed() -> None:
+    """
+    A frame transaction encodes and signs its frames' settled budgets, not
+    the placeholder a frame declaring a budget delta starts with.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    target = Address(0x1234)
+    settled = Transaction(
+        sender=sender,
+        frames=[
+            Frame.verify(),
+            Frame.default(target=target, gas_limit_delta=0),
+        ],
+    ).expect_frame_receipts(Bogota)
+    placeholder = Transaction(
+        sender=sender,
+        frames=[
+            Frame.verify(),
+            Frame.default(target=target, gas_limit=Frame().gas_limit),
+        ],
+    )
+    assert settled.frames is not None
+    assert settled.frames[1].gas_limit != Frame().gas_limit
+    assert settled.rlp() != placeholder.rlp()
+    assert settled.signatures is not None
+    assert placeholder.signatures is not None
+    assert (
+        settled.signatures[0].signature != placeholder.signatures[0].signature
+    )
+
+
+def test_frame_receipt_requires_settlement() -> None:
+    """
+    The receipt of a frame setting expectation fields is only available
+    from its settled copy in the transaction, not from the frame passed in.
+    """
+    frame = Frame.default(outcome=FrameOutcome.REVERT)
+    with pytest.raises(AssertionError, match="expect_frame_receipts"):
+        frame.receipt(Bogota)
+    tx = Transaction(
+        sender=EOA(key=SIGNING_KEY), frames=[Frame.verify(), frame]
+    ).expect_frame_receipts(Bogota)
+    assert tx.frames is not None
+    assert tx.frames[1].settled
+    assert not frame.settled
+    receipt = tx.frames[1].receipt(Bogota)
+    assert tx.expected_receipt is not None
+    assert tx.expected_receipt.frame_receipts is not None
+    assert receipt == tx.expected_receipt.frame_receipts[1]

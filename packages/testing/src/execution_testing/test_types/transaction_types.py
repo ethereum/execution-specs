@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import Enum, IntEnum, IntFlag, auto, unique
 from functools import cached_property
 from typing import (
+    Annotated,
     Any,
     ClassVar,
     Dict,
@@ -23,6 +24,7 @@ from pydantic import (
     ConfigDict,
     Field,
     InstanceOf,
+    PrivateAttr,
     computed_field,
     field_validator,
     model_serializer,
@@ -330,6 +332,21 @@ class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
         return [self.gas_limit, self.state_gas_limit]
 
 
+class _RequiresSettlement:
+    """
+    Marker of a `Frame` field that only takes effect through
+    `Transaction.expect_frame_receipts`.
+    """
+
+
+REQUIRES_SETTLEMENT = _RequiresSettlement()
+"""
+Annotate a `Frame` expectation field with this marker, so that setting it
+requires the frame to be settled before its transaction is encoded or its
+receipt is requested.
+"""
+
+
 class Frame(FrameGeneric[HexNumber]):
     """
     Frame within an EIP-8141 frame transaction (test authoring).
@@ -342,48 +359,90 @@ class Frame(FrameGeneric[HexNumber]):
     """
 
     # What the frame runs
-    outcome: FrameOutcome = Field(FrameOutcome.SUCCESS, exclude=True)
+    outcome: Annotated[FrameOutcome, REQUIRES_SETTLEMENT] = Field(
+        FrameOutcome.SUCCESS, exclude=True
+    )
     """How the frame ends."""
 
-    code: Optional[Bytecode] = Field(None, exclude=True)
+    code: Annotated[Optional[Bytecode], REQUIRES_SETTLEMENT] = Field(
+        None, exclude=True
+    )
     """Code the frame's target runs, which prices it."""
 
-    execution_gas: Optional[int] = Field(None, exclude=True)
+    execution_gas: Annotated[Optional[int], REQUIRES_SETTLEMENT] = Field(
+        None, exclude=True
+    )
     """Execution gas after entry, where `code` cannot price it."""
 
     # What it is budgeted
-    gas_limit_delta: Optional[int] = Field(None, exclude=True)
+    gas_limit_delta: Annotated[Optional[int], REQUIRES_SETTLEMENT] = Field(
+        None, exclude=True
+    )
     """Execution budget, relative to the gas the frame spends."""
 
-    state_gas_limit_delta: Optional[int] = Field(None, exclude=True)
+    state_gas_limit_delta: Annotated[Optional[int], REQUIRES_SETTLEMENT] = (
+        Field(None, exclude=True)
+    )
     """State budget, relative to the state gas the frame writes."""
 
     # What its target's entry access costs
-    warm: bool = Field(False, exclude=True)
+    warm: Annotated[bool, REQUIRES_SETTLEMENT] = Field(False, exclude=True)
     """
     Whether the resolved target is warm. Unless set explicitly,
     `Transaction.expect_frame_receipts` sets it for a resolved target in
     the warm set the transaction starts with: the sender or a precompile.
     """
 
-    delegated: bool = Field(False, exclude=True)
+    delegated: Annotated[bool, REQUIRES_SETTLEMENT] = Field(
+        False, exclude=True
+    )
     """Whether the target carries an EIP-7702 designation."""
 
-    delegation_warm: bool = Field(False, exclude=True)
+    delegation_warm: Annotated[bool, REQUIRES_SETTLEMENT] = Field(
+        False, exclude=True
+    )
     """Whether the designated address is warm."""
 
     # What its receipt reports
-    pin_gas: bool = Field(True, exclude=True)
+    pin_gas: Annotated[bool, REQUIRES_SETTLEMENT] = Field(True, exclude=True)
     """Whether the receipt's execution gas is pinned."""
 
-    gas_used: Optional[int] = Field(None, exclude=True)
+    gas_used: Annotated[Optional[int], REQUIRES_SETTLEMENT] = Field(
+        None, exclude=True
+    )
     """Execution gas the receipt reports."""
 
-    state_gas_used: Optional[int] = Field(None, exclude=True)
+    state_gas_used: Annotated[Optional[int], REQUIRES_SETTLEMENT] = Field(
+        None, exclude=True
+    )
     """State gas the receipt reports."""
 
-    logs: Optional[List[TransactionLog]] = Field(None, exclude=True)
+    logs: Annotated[Optional[List[TransactionLog]], REQUIRES_SETTLEMENT] = (
+        Field(None, exclude=True)
+    )
     """Logs the receipt reports."""
+
+    _settled: bool = PrivateAttr(False)
+
+    @property
+    def requires_settlement(self) -> bool:
+        """
+        Check whether any field set on the frame only takes effect through
+        `Transaction.expect_frame_receipts`.
+        """
+        return any(
+            REQUIRES_SETTLEMENT in field.metadata
+            for name, field in type(self).model_fields.items()
+            if name in self.model_fields_set
+        )
+
+    @property
+    def settled(self) -> bool:
+        """
+        Check whether `Transaction.expect_frame_receipts` has settled the
+        frame.
+        """
+        return self._settled
 
     @classmethod
     def default(cls, **overrides: Any) -> Self:
@@ -462,9 +521,15 @@ class Frame(FrameGeneric[HexNumber]):
             self.state_gas_limit = HexNumber(
                 self.code_state_gas(fork) + self.state_gas_limit_delta
             )
+        self._settled = True
 
     def receipt(self, fork: Fork) -> FrameReceipt:
         """Return the receipt the frame should report."""
+        assert self.settled or not self.requires_settlement, (
+            "the frame's expectations only take effect once settled: call "
+            "`expect_frame_receipts` on its transaction and read the frame "
+            "from the transaction's `frames`"
+        )
         gas_used: Optional[int]
         match self.pin_gas, self.gas_used, self.outcome:
             case False, None, _:
@@ -1266,6 +1331,13 @@ class Transaction(
         """
         assert self.frames is not None
         assert self.signatures is not None
+        assert all(
+            frame.settled or not frame.requires_settlement
+            for frame in self.frames
+        ), (
+            "the frames' expectations only take effect once settled: call "
+            "`expect_frame_receipts` before encoding the transaction"
+        )
 
         # Explicit-digest entries are already signed, as they are built.
         # The canonical signature hash commits to the length of each
