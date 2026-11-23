@@ -262,7 +262,7 @@ def test_storage_refund_settlement(
             worker: Account(storage={SLOT_CREATED: 0}),
         },
         blockchain_test_header_verify=Header(
-            gas_used=settlement.block_gas_used()
+            gas_used=settlement.block_header_gas_used()
         ),
     )
 

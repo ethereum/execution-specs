@@ -747,8 +747,28 @@ class FrameSettlement:
         return execution + self.state_gas
 
     def block_gas_used(self) -> int:
-        """Return the gas the block accounts for, before refunds."""
+        """
+        Return the gas the block accounts for across both dimensions,
+        before refunds.
+
+        This is the sum of the two dimensions, not the header's `gas_used`,
+        which `block_header_gas_used` returns.
+        """
         return max(self.execution_gas, self.calldata_floor) + self.state_gas
+
+    def block_header_gas_used(self) -> int:
+        """
+        Return the header's `gas_used` of a block holding only this
+        transaction: the larger of its execution and state dimensions.
+
+        Care should be taken with a block of several transactions: the
+        header takes the larger of the block's execution and state totals,
+        each summed across every transaction, which is not the sum of this
+        value over the transactions.
+        """
+        return max(
+            max(self.execution_gas, self.calldata_floor), self.state_gas
+        )
 
 
 class Transaction(
