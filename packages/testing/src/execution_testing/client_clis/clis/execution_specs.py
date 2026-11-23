@@ -271,7 +271,10 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
             "Block access list exceeds gas limit"
         ),
         BlockException.INVALID_BLOCK_DEPS_HASH: "block deps hash mismatch",
-        BlockException.INVALID_RECURSIVE_STARK: "recursive STARK proof",
+        BlockException.INVALID_DEPENDENCY_PROOF_HASH: (
+            "dependency proof hash mismatch"
+        ),
+        BlockException.INVALID_DEPENDENCY_PROOF: "dependency proof",
         TransactionException.LOG_MISMATCH: "LogMismatchError",
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
             "InvalidFrameError"

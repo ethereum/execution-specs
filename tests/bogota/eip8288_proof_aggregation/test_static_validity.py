@@ -29,7 +29,7 @@ from execution_testing import (
     TransactionTestFiller,
 )
 
-from tests.bogota.eip7906_transaction_assertions.helpers import post_tx_frame
+from tests.bogota.eip7906_transaction_assertions.helpers import assert_frame
 from tests.bogota.eip8141_frame_transactions.helpers import (
     sender_frame,
     verify_frame,
@@ -41,6 +41,7 @@ from .helpers import (
     dependency_frame,
     dependency_receipt,
     encode_dependencies,
+    stark_claim,
     verification_gas,
 )
 from .spec import Spec, ref_spec_8288
@@ -108,11 +109,24 @@ INVALID_FRAME_LISTS = [
     pytest.param(
         lambda fork, _sender, _noop: [
             dependency_frame(
-                fork, [claim(1), claim(2, scheme=Spec.LEANSTARK_SCHEME)]
+                fork,
+                [stark_claim(1)],
+                gas_limit=verification_gas(fork, 1),
             ),
             verify_frame(),
         ],
-        id="reserved_leanstark_scheme",
+        id="leanstark_claim_with_leansphincs_budget",
+    ),
+    pytest.param(
+        lambda fork, _sender, _noop: [
+            dependency_frame(
+                fork,
+                [claim(1)],
+                gas_limit=verification_gas(fork, 0, stark_count=1),
+            ),
+            verify_frame(),
+        ],
+        id="leansphincs_claim_with_leanstark_budget",
     ),
     pytest.param(
         lambda fork, _sender, _noop: [
@@ -215,10 +229,10 @@ INVALID_FRAME_LISTS = [
     pytest.param(
         lambda fork, _sender, noop: [
             verify_frame(),
-            post_tx_frame(fork, target=noop),
+            assert_frame(fork, target=noop),
             dependency_frame(fork, [claim(1)]),
         ],
-        id="after_post_tx",
+        id="after_assert",
     ),
 ]
 """
@@ -226,7 +240,7 @@ Frame lists breaking one dependency frame rule each. The explicit
 sender target names the account an absent target resolves to, so only
 the absent-target rule rejects it. A batch flag on the frame before a
 dependency frame makes it the batch's terminator. A dependency frame
-cannot follow a `POST_TX` frame, which only `POST_TX` frames may
+cannot follow an `ASSERT` frame, which only `ASSERT` frames may
 follow.
 """
 

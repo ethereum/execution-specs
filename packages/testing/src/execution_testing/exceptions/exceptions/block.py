@@ -187,8 +187,14 @@ class BlockException(ExceptionBase):
     Block header's `block_deps_hash` does not commit to the dependencies its
     transactions declare.
     """
-    INVALID_RECURSIVE_STARK = auto()
+    INVALID_DEPENDENCY_PROOF_HASH = auto()
     """
-    Block header's recursive STARK proof does not verify, or is not empty
-    when the block declares no dependencies.
+    Block header's `dependency_proof_hash` is not the Keccak-256 hash of the
+    dependency proof received with the block.
+    """
+    INVALID_DEPENDENCY_PROOF = auto()
+    """
+    The dependency proof received with the block does not verify, exceeds
+    `MAX_DEPENDENCY_PROOF_BYTES`, or is not empty when the block declares no
+    dependencies.
     """

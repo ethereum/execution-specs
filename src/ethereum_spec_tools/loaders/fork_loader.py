@@ -247,15 +247,10 @@ class ForkLoad:
         return self._module("blocks").Header
 
     @property
-    def RecursiveStark(self) -> Any:
-        """RecursiveStark class of the fork."""
-        return self._module("blocks").RecursiveStark
-
-    @property
-    def has_recursive_stark(self) -> bool:
-        """Check if the fork carries a recursive STARK (EIP-8288)."""
+    def has_dependency_proof(self) -> bool:
+        """Check if the fork carries a dependency proof (EIP-8288)."""
         try:
-            self._module("recursive_stark")
+            self._module("dependency_proof")
         except ModuleNotFoundError:
             return False
         return True
@@ -263,12 +258,17 @@ class ForkLoad:
     @property
     def block_dependencies(self) -> Any:
         """block_dependencies function of the fork."""
-        return self._module("recursive_stark").block_dependencies
+        return self._module("dependency_proof").block_dependencies
+
+    @property
+    def encode_dependencies(self) -> Any:
+        """encode_dependencies function of the fork."""
+        return self._module("dependency_proof").encode_dependencies
 
     @property
     def compute_dependencies_hash(self) -> Any:
         """compute_dependencies_hash function of the fork."""
-        return self._module("recursive_stark").compute_dependencies_hash
+        return self._module("dependency_proof").compute_dependencies_hash
 
     @property
     def Account(self) -> Any:

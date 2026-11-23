@@ -787,9 +787,9 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_recursive_stark_required(cls) -> bool:
+    def header_dependency_proof_required(cls) -> bool:
         """
-        Return true if the header must contain the recursive STARK
+        Return true if the header must commit to a dependency proof
         (EIP-8288).
         """
         pass

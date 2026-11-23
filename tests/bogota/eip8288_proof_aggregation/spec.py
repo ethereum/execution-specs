@@ -12,7 +12,7 @@ class ReferenceSpec:
 
 
 ref_spec_8288 = ReferenceSpec(
-    "EIPS/eip-8288.md", "6e055031bf086a618840bd234348be3f0f6ba283"
+    "EIPS/eip-8288.md", "81b896b4584f2360d5ca038ea2b29d295898945e"
 )
 
 
@@ -33,4 +33,10 @@ class Spec:
 
     LEANSPHINCS_SCHEME = 0x10
     LEANSTARK_SCHEME = 0x11
-    """Reserved: invalid until the EIP defines its `get_deps_hash`."""
+
+    MAX_DEPENDENCY_PROOF_BYTES = 1048576
+
+    EMPTY_PROOF_HASH = bytes.fromhex(
+        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+    )
+    """`keccak256(b"")`, both commitments of a block without claims."""

@@ -1,6 +1,5 @@
 """Block-related types for Ethereum tests."""
 
-import hashlib
 import json
 from dataclasses import dataclass
 from functools import cached_property
@@ -51,23 +50,15 @@ carry, keyed by the fork predicate that admits each one.
 """
 
 
-EMPTY_DEPENDENCIES_HASH = Hash(hashlib.blake2s(b"", digest_size=32).digest())
-"""EIP-8288 `get_deps_hash` of a block declaring no dependencies."""
-
-
-class RecursiveStark(CamelModel):
-    """
-    EIP-8288 header entry `recursive_stark = [stark_proof, block_deps_hash]`.
-
-    Defaults to the entry of a block declaring no dependencies.
-    """
-
-    stark_proof: Bytes = Field(Bytes(b""))
-    block_deps_hash: Hash = Field(EMPTY_DEPENDENCIES_HASH)
-
-    def to_list(self) -> List[Bytes | Hash]:
-        """Return the entry's nested RLP list."""
-        return [self.stark_proof, self.block_deps_hash]
+EMPTY_DEPENDENCY_PROOF_HASH = Hash(
+    bytes.fromhex(
+        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+    )
+)
+"""
+EIP-8288 `dependency_proof_hash` and `block_deps_hash` of a block
+declaring no dependencies: both are `keccak256(b"")`.
+"""
 
 
 @dataclass

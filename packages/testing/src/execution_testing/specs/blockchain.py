@@ -93,7 +93,6 @@ from execution_testing.test_types import (
     Alloc,
     Environment,
     PostStateContext,
-    RecursiveStark,
     Removable,
     TestPhase,
     Transaction,
@@ -339,7 +338,8 @@ class Header(CamelModel):
     requests_hash: Removable | Hash | None = None
     block_access_list_hash: Removable | Hash | None = None
     slot_number: Removable | HexNumber | None = None
-    recursive_stark: Removable | RecursiveStark | None = None
+    dependency_proof_hash: Removable | Hash | None = None
+    block_deps_hash: Removable | Hash | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -482,6 +482,10 @@ class Block(Header):
     """EIP-7928: override only the engine newPayload blockAccessList field."""
     engine_new_payload_slot_number: HexNumber | None = None
     """EIP-7843: override only the engine payload slotNumber field."""
+    engine_new_payload_dependency_proof: Bytes | None = None
+    """EIP-8288: override only the engine payload dependencyProof field."""
+    engine_new_payload_without_dependency_proof: bool = False
+    """EIP-8288: omit the engine payload dependencyProof field."""
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
 
@@ -519,6 +523,10 @@ class Block(Header):
             overrides.append("engine_new_payload_block_access_list")
         if self.engine_new_payload_slot_number is not None:
             overrides.append("engine_new_payload_slot_number")
+        if self.engine_new_payload_dependency_proof is not None:
+            overrides.append("engine_new_payload_dependency_proof")
+        if self.engine_new_payload_without_dependency_proof:
+            overrides.append("engine_new_payload_without_dependency_proof")
         if (
             self.expected_block_access_list is not None
             and self.expected_block_access_list.has_rlp_modifier
@@ -636,6 +644,8 @@ class BuiltBlock(CamelModel):
     block_access_list: BlockAccessList | None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
+    engine_new_payload_dependency_proof: Bytes | None = None
+    engine_new_payload_without_dependency_proof: bool = False
 
     def record_landings(self, context: RecordedPostStateContext) -> None:
         """Record in `context` that this block's transactions landed."""
@@ -695,6 +705,11 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list
             if self.block_access_list
             else None,
+            dependency_proof=(
+                self.header.dependency_proof
+                if self.header.dependency_proof_hash is not None
+                else None
+            ),
             fork=self.fork,
         ).with_rlp(txs=self.txs)
 
@@ -731,6 +746,14 @@ class BuiltBlock(CamelModel):
         if self.engine_new_payload_slot_number is not None:
             return FixtureExecutionPayloadModifier(
                 slot_number=self.engine_new_payload_slot_number,
+            )
+        if self.engine_new_payload_without_dependency_proof:
+            return FixtureExecutionPayloadModifier(
+                dependency_proof=FixtureExecutionPayloadModifier.REMOVE_FIELD,
+            )
+        if self.engine_new_payload_dependency_proof is not None:
+            return FixtureExecutionPayloadModifier(
+                dependency_proof=self.engine_new_payload_dependency_proof,
             )
         if self.engine_new_payload_block_access_list is not None:
             return FixtureExecutionPayloadModifier(
@@ -1443,6 +1466,12 @@ class BlockchainTest(BaseTest):
             engine_new_payload_slot_number=(
                 block.engine_new_payload_slot_number
             ),
+            engine_new_payload_dependency_proof=(
+                block.engine_new_payload_dependency_proof
+            ),
+            engine_new_payload_without_dependency_proof=(
+                block.engine_new_payload_without_dependency_proof
+            ),
         )
         built_block: BuiltBlock
         if transition_tool_output.engine_payload is not None:
@@ -1464,6 +1493,8 @@ class BlockchainTest(BaseTest):
                 and not block.skip_exception_verification
                 and block.engine_new_payload_slot_number is None
                 and not block.sets_block_access_list()
+                and block.engine_new_payload_dependency_proof is None
+                and not block.engine_new_payload_without_dependency_proof
             ):
                 # Only verify block level exception if: - No transaction
                 # exception was raised, because these are not reported as block

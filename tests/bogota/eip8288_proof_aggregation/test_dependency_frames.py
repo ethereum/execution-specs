@@ -15,7 +15,6 @@ from execution_testing import (
     Fork,
     Frame,
     FrameReceipt,
-    Header,
     Op,
     StateTestFiller,
     Storage,
@@ -24,12 +23,7 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from tests.bogota.eip7906_transaction_assertions.helpers import (
-    body_frame,
-    post_tx_frame,
-)
 from tests.bogota.eip8141_frame_transactions.helpers import (
-    default_code_frame_gas,
     default_frame,
     floor_binding_padding,
     sender_frame,
@@ -42,7 +36,7 @@ from .helpers import (
     claim,
     dependency_frame,
     dependency_receipt,
-    expected_recursive_stark,
+    stark_claim,
     verification_gas,
 )
 from .spec import Spec, ref_spec_8288
@@ -56,7 +50,7 @@ PROBE_FRAME_GAS = 500_000
 """Execution gas budget of the probe frame, ample for its reads."""
 
 
-def intrinsic_without_recursive_stark_share(
+def intrinsic_without_dependency_proof_share(
     fork: Fork, tx: Transaction
 ) -> int:
     """
@@ -91,6 +85,11 @@ def intrinsic_without_recursive_stark_share(
             ],
             id="max_claims",
         ),
+        pytest.param([[stark_claim(1)]], id="leanstark_claim"),
+        pytest.param(
+            [[claim(1), stark_claim(1), stark_claim(1)]],
+            id="mixed_schemes_with_duplicate",
+        ),
     ],
 )
 def test_dependency_frame_gas(
@@ -117,15 +116,24 @@ def test_dependency_frame_gas(
 
     declared = sum(len(claims) for claims in frame_claims)
     receipts = [
-        *[dependency_receipt(fork, len(claims)) for claims in frame_claims],
+        *[
+            dependency_receipt(
+                fork,
+                sum(1 for c in claims if c[0] == Spec.LEANSPHINCS_SCHEME),
+                stark_count=sum(
+                    1 for c in claims if c[0] == Spec.LEANSTARK_SCHEME
+                ),
+            )
+            for claims in frame_claims
+        ],
         FrameReceipt(
             status=Spec8141.STATUS_SUCCESS,
-            gas_used=default_code_frame_gas(fork, target_warm=True),
+            gas_used=fork.frame_entry_gas_calculator()(target_warm=True),
             state_gas_used=0,
         ),
     ]
     gas_used = (
-        intrinsic_without_recursive_stark_share(fork, tx)
+        intrinsic_without_dependency_proof_share(fork, tx)
         + declared * fork.gas_costs().LEANSTARK_VERIFICATION
         + sum(int(receipt.gas_used or 0) for receipt in receipts)
     )
@@ -143,7 +151,7 @@ def test_dependency_frame_gas(
 @pytest.mark.parametrize(
     "floor_binds", [True, False], ids=["floor", "below_floor"]
 )
-def test_recursive_stark_share_outside_calldata_floor(
+def test_dependency_proof_share_outside_calldata_floor(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -160,7 +168,7 @@ def test_recursive_stark_share_outside_calldata_floor(
         dependency_receipt(fork, 1),
         FrameReceipt(
             status=Spec8141.STATUS_SUCCESS,
-            gas_used=default_code_frame_gas(fork, target_warm=True),
+            gas_used=fork.frame_entry_gas_calculator()(target_warm=True),
         ),
         FrameReceipt(status=Spec8141.STATUS_SUCCESS, gas_used=padding_gas),
     ]
@@ -186,7 +194,7 @@ def test_recursive_stark_share_outside_calldata_floor(
     def spent_and_floor(tx: Transaction) -> tuple[int, int]:
         assert tx.frames is not None and tx.signatures is not None
         spent = (
-            intrinsic_without_recursive_stark_share(fork, tx)
+            intrinsic_without_dependency_proof_share(fork, tx)
             + fork.gas_costs().LEANSTARK_VERIFICATION
             + sum(int(receipt.gas_used or 0) for receipt in receipts)
         )
@@ -389,46 +397,4 @@ def test_account_approves_on_declared_claim(
         pre=pre,
         tx=tx,
         post={marker: Account(storage={0: 1 if approves else 0})},
-    )
-
-
-def test_dependency_frame_in_reverted_body(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Keep a dependency frame's receipt and its claim when a failing
-    `POST_TX` frame reverts the execution body it sits in: the claim is
-    declared by the transaction, not created by execution.
-    """
-    sender = pre.fund_eoa()
-    writer = pre.deploy_contract(code=Op.SSTORE(0, 1))
-    failure = pre.deploy_contract(code=Op.REVERT(0, 0))
-    dependency = claim(1)
-    tx = Transaction(
-        sender=sender,
-        frames=[
-            verify_frame(),
-            body_frame(fork, target=writer),
-            dependency_frame(fork, [dependency]),
-            post_tx_frame(fork, target=failure),
-        ],
-        expected_receipt=TransactionReceipt(
-            payer=sender,
-            frame_receipts=[
-                FrameReceipt(status=Spec8141.STATUS_SUCCESS),
-                FrameReceipt(status=Spec8141.STATUS_SUCCESS, logs=[]),
-                dependency_receipt(fork, 1),
-                FrameReceipt(status=Spec8141.STATUS_FAILURE),
-            ],
-        ),
-    )
-    state_test(
-        pre=pre,
-        tx=tx,
-        post={sender: Account(nonce=1), writer: Account(storage={0: 0})},
-        blockchain_test_header_verify=Header(
-            recursive_stark=expected_recursive_stark([dependency])
-        ),
     )

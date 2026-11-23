@@ -69,34 +69,6 @@ class Withdrawal:
 @final
 @slotted_freezable
 @dataclass
-class RecursiveStark:
-    """
-    The block's aggregated proof of every claim its transactions
-    declare, introduced in [EIP-8288]. See
-    [`validate_recursive_stark`][vrs].
-
-    [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
-    [vrs]: ref:ethereum.forks.bogota.recursive_stark.validate_recursive_stark
-    """
-
-    stark_proof: Bytes
-    """
-    The serialized recursive STARK, empty when the block declares no
-    claims.
-    """
-
-    block_deps_hash: Hash32
-    """
-    Digest of the block's claims that the proof is verified against (see
-    [`compute_dependencies_hash`][cdh]).
-
-    [cdh]: ref:ethereum.forks.bogota.recursive_stark.compute_dependencies_hash
-    """
-
-
-@final
-@slotted_freezable
-@dataclass
 class Header:
     """
     Header portion of a block on the chain, containing metadata and
@@ -297,11 +269,22 @@ class Header:
     [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
     """
 
-    recursive_stark: RecursiveStark
+    dependency_proof_hash: Hash32
     """
-    Proof that every claim declared by this block's transactions holds.
-    Introduced in [EIP-8288].
+    [`keccak256`] of the block's dependency proof, which travels in the
+    execution payload rather than the block. Introduced in [EIP-8288].
 
+    [`keccak256`]: ref:ethereum.crypto.hash.keccak256
+    [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
+    """
+
+    block_deps_hash: Hash32
+    """
+    Digest of the claims the block's transactions declare, the public
+    statement of the dependency proof (see
+    [`compute_dependencies_hash`][cdh]). Introduced in [EIP-8288].
+
+    [cdh]: ref:ethereum.forks.bogota.dependency_proof.compute_dependencies_hash
     [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
     """
 

@@ -245,7 +245,8 @@ class GasCosts:
     LEANSTARK_VERIFICATION: Final[ExecutionGas] = ExecutionGas(Uint(30000))
     """
     Intrinsic cost of each claim a [`FrameTransaction`][ftx] declares,
-    its share of the block's recursive STARK. [EIP-8288] names it
+    its `dependency_proof_gas` share of the block's dependency proof.
+    [EIP-8288] names it
     `LEANSTARK_VERIFICATION_GAS`.
 
     [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288

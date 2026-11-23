@@ -1,6 +1,5 @@
 """Helpers for EIP-8288 proof aggregation tests."""
 
-import hashlib
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 from execution_testing import (
@@ -9,12 +8,13 @@ from execution_testing import (
     Frame,
     FrameReceipt,
     Hash,
-    RecursiveStark,
+    Header,
     keccak256,
 )
 from execution_testing.forks.forks.eips.bogota.eip_8288 import (
+    dependency_proof,
     leansphincs_test_keys,
-    recursive_stark_proof,
+    leanstark_test_key,
 )
 
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
@@ -39,6 +39,18 @@ def claim(
     )
 
 
+def stark_claim(message: int) -> Dependency:
+    """
+    Return a claim that the accept-all test leanSTARK program has a proof
+    with public inputs hash derived from `message`.
+    """
+    return (
+        Spec.LEANSTARK_SCHEME,
+        bytes(keccak256(b"stark" + message.to_bytes(32, "big"))),
+        leanstark_test_key(),
+    )
+
+
 def encode_dependencies(dependencies: Sequence[Dependency]) -> Bytes:
     """Return the `96 * k` byte frame data declaring `dependencies`."""
     return Bytes(
@@ -49,9 +61,16 @@ def encode_dependencies(dependencies: Sequence[Dependency]) -> Bytes:
     )
 
 
-def verification_gas(fork: Fork, count: int) -> int:
-    """Return the execution budget a frame declaring `count` claims sets."""
-    return count * fork.gas_costs().LEANSPHINCS_VERIFICATION
+def verification_gas(fork: Fork, count: int, *, stark_count: int = 0) -> int:
+    """
+    Return the execution budget a frame declaring `count` leanSPHINCS
+    and `stark_count` leanSTARK claims sets.
+    """
+    costs = fork.gas_costs()
+    return (
+        count * costs.LEANSPHINCS_VERIFICATION
+        + stark_count * costs.LEANSTARK_VERIFICATION
+    )
 
 
 def dependency_frame(
@@ -67,21 +86,29 @@ def dependency_frame(
     kwargs: Dict[str, Any] = dict(
         mode=Spec.MODE_DEP_VERIFY,
         data=encode_dependencies(dependencies),
-        gas_limit=verification_gas(fork, len(dependencies)),
+        gas_limit=verification_gas(
+            fork,
+            sum(1 for d in dependencies if d[0] == Spec.LEANSPHINCS_SCHEME),
+            stark_count=sum(
+                1 for d in dependencies if d[0] == Spec.LEANSTARK_SCHEME
+            ),
+        ),
         state_gas_limit=0,
     )
     kwargs.update(overrides)
     return Frame(**kwargs)
 
 
-def dependency_receipt(fork: Fork, count: int) -> FrameReceipt:
+def dependency_receipt(
+    fork: Fork, count: int, *, stark_count: int = 0
+) -> FrameReceipt:
     """
     Return the receipt of a dependency frame declaring `count` claims:
     success, its whole execution budget used, no state gas, no logs.
     """
     return FrameReceipt(
         status=Spec8141.STATUS_SUCCESS,
-        gas_used=verification_gas(fork, count),
+        gas_used=verification_gas(fork, count, stark_count=stark_count),
         state_gas_used=0,
         logs=[],
     )
@@ -89,18 +116,10 @@ def dependency_receipt(fork: Fork, count: int) -> FrameReceipt:
 
 def ordered_dependencies_hash(dependencies: Sequence[Dependency]) -> Hash:
     """
-    Return `get_deps_hash` of `dependencies` in the given order: BLAKE2s
-    over each claim's data hash and verification key hash.
+    Return `get_deps_hash` of `dependencies` in the given order:
+    Keccak-256 over each claim's canonical 96-byte encoding.
     """
-    return Hash(
-        hashlib.blake2s(
-            b"".join(
-                data_hash + verification_key_hash
-                for _, data_hash, verification_key_hash in dependencies
-            ),
-            digest_size=32,
-        ).digest()
-    )
+    return keccak256(encode_dependencies(dependencies))
 
 
 def dependencies_hash(dependencies: Iterable[Dependency]) -> Hash:
@@ -109,24 +128,23 @@ def dependencies_hash(dependencies: Iterable[Dependency]) -> Hash:
 
 
 def stored_proof(dependencies: Iterable[Dependency]) -> Bytes:
-    """Return the stored recursive STARK of a non-empty set of claims."""
+    """Return the stored dependency proof of a non-empty set of claims."""
     claims = sorted(set(dependencies))
     return Bytes(
-        recursive_stark_proof(
+        dependency_proof(
             encode_dependencies(claims), dependencies_hash(claims)
         )
     )
 
 
-def expected_recursive_stark(
-    dependencies: Iterable[Dependency],
-) -> RecursiveStark:
+def expected_commitment(dependencies: Iterable[Dependency]) -> Header:
     """
-    Return the header entry of a block whose transactions declare
-    `dependencies`: an empty proof when there are none.
+    Return the header commitments of a block whose transactions declare
+    `dependencies`: the hash of the empty proof when there are none.
     """
     claims: List[Dependency] = list(dependencies)
-    return RecursiveStark(
-        stark_proof=stored_proof(claims) if claims else b"",
+    proof = stored_proof(claims) if claims else Bytes(b"")
+    return Header(
+        dependency_proof_hash=keccak256(proof),
         block_deps_hash=dependencies_hash(claims),
     )

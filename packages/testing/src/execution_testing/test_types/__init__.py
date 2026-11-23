@@ -23,10 +23,9 @@ from .block_access_list import (
     BlockAccessListExpectation,
 )
 from .block_types import (
-    EMPTY_DEPENDENCIES_HASH,
+    EMPTY_DEPENDENCY_PROOF_HASH,
     Environment,
     EnvironmentDefaults,
-    RecursiveStark,
     Withdrawal,
 )
 from .chain_config_types import ChainConfig, ChainConfigDefaults
@@ -105,7 +104,6 @@ __all__ = (
     "ChainConfigDefaults",
     "DEFAULT_FRAME_GAS_LIMIT",
     "DEFAULT_FRAME_STATE_GAS_LIMIT",
-    "EMPTY_DEPENDENCIES_HASH",
     "Environment",
     "EnvironmentDefaults",
     "EmptyPostStateContext",
@@ -122,7 +120,7 @@ __all__ = (
     "LogMismatchError",
     "NetworkWrappedTransaction",
     "PostStateContext",
-    "RecursiveStark",
+    "EMPTY_DEPENDENCY_PROOF_HASH",
     "Removable",
     "SECP256K1_SIGNATURE_LENGTH",
     "SystemContractInteractionBase",

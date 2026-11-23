@@ -970,8 +970,8 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
-    def header_recursive_stark_required(cls) -> bool:
-        """At genesis, header must not contain a recursive STARK."""
+    def header_dependency_proof_required(cls) -> bool:
+        """At genesis, header must not commit to a dependency proof."""
         return False
 
     @classmethod

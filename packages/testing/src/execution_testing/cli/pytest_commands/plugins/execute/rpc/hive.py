@@ -25,13 +25,13 @@ from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
+    EMPTY_DEPENDENCY_PROOF_HASH,
     EOA,
     Account,
     Alloc,
     BlockAccessList,
     ChainConfig,
     Environment,
-    RecursiveStark,
     Withdrawal,
 )
 
@@ -187,8 +187,11 @@ def build_genesis_header(
         if genesis_fork.header_bal_hash_required()
         else None,
         slot_number=0 if genesis_fork.header_slot_number_required() else None,
-        recursive_stark=RecursiveStark()
-        if genesis_fork.header_recursive_stark_required()
+        dependency_proof_hash=EMPTY_DEPENDENCY_PROOF_HASH
+        if genesis_fork.header_dependency_proof_required()
+        else None,
+        block_deps_hash=EMPTY_DEPENDENCY_PROOF_HASH
+        if genesis_fork.header_dependency_proof_required()
         else None,
     )
 

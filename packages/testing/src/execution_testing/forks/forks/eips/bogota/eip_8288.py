@@ -3,14 +3,18 @@ EIP-8288: In-mempool signature and proof aggregation.
 
 Add the `DEP_VERIFY` frame mode to EIP-8141 frame transactions. A
 dependency verification frame executes no code and declares claims
-that the block's recursive STARK, a new header field, must prove. Each
-declared claim adds its share of the recursive STARK to the
-transaction's intrinsic gas.
+that the block's dependency proof must prove. The proof travels in the
+execution payload and the header commits to it. Each declared claim adds
+its share of the proof to the transaction's intrinsic gas.
 
 https://eips.ethereum.org/EIPS/eip-8288
 """
 
+import ctypes
 import os
+import struct
+import subprocess
+import tempfile
 from dataclasses import replace
 from functools import cache
 from pathlib import Path
@@ -29,16 +33,20 @@ DEPENDENCY_LENGTH = 96
 
 PROOF_STORE = Path(__file__).parent / "eip8288_proofs"
 """
-Genuine recursive STARKs for the dependency sets the tests declare, one
-`<deps_hash>.bin` each, and the test leanSPHINCS keys (`keys.bin`). Both
-come from the leanVM fork's `export_eip8288_test_proofs`.
+Genuine dependency proofs for the dependency sets the tests declare, one
+`<deps_hash>.bin` each, the sixteen test leanSPHINCS keys (`keys.bin`),
+and the key of the accept-all leanSTARK test program
+(`leanstark-key.bin`). See the store's README.
 """
 
-PROOF_REQUESTS_ENV = "EIP8288_PROOF_REQUESTS"
+PROVER_ENV = "EIP8288_PROVER"
 """
-Directory a fill records missing dependency sets into, instead of failing,
-for the exporter to prove.
+Directory holding a `lean-bindings` release build (`libnethermind_lean`
+and its `eels_sign` and `fixtures` examples). When set, a fill proves the
+dependency sets missing from the store and adds them to it.
 """
+
+LEAN_ABI_VERSION = 24
 
 
 @cache
@@ -48,24 +56,98 @@ def leansphincs_test_keys() -> List[bytes]:
     return [data[i : i + 32] for i in range(0, len(data), 32)]
 
 
-def recursive_stark_proof(dependencies: bytes, deps_hash: bytes) -> bytes:
+@cache
+def leanstark_test_key() -> bytes:
+    """Return the verification key hash of the accept-all test program."""
+    return (PROOF_STORE / "leanstark-key.bin").read_bytes()
+
+
+def _prove(prover: Path, dependencies: bytes, deps_hash: bytes) -> bytes:
+    """Prove `dependencies` with the native `lean-bindings` prover."""
+    library = ctypes.CDLL(
+        str(
+            next(
+                path
+                for name in ("dylib", "so")
+                if (path := prover / f"libnethermind_lean.{name}").exists()
+            )
+        )
+    )
+    library.nlean_abi_version.restype = ctypes.c_uint32
+    assert library.nlean_abi_version() == LEAN_ABI_VERSION
+    keys = leansphincs_test_keys()
+    raw = b""
+    count = len(dependencies) // DEPENDENCY_LENGTH
+    for i in range(count):
+        dep = dependencies[i * DEPENDENCY_LENGTH : (i + 1) * DEPENDENCY_LENGTH]
+        scheme, data_hash, key = dep[31], dep[32:64], dep[64:96]
+        if scheme == 0x11:
+            assert key == leanstark_test_key(), "unknown leanSTARK key"
+            with tempfile.TemporaryDirectory() as directory:
+                out = Path(directory) / "witness"
+                subprocess.check_call(
+                    [
+                        str(prover / "examples" / "fixtures"),
+                        "--prove-stark",
+                        data_hash.hex(),
+                        str(out),
+                    ]
+                )
+                key_and_proof = out.read_bytes()
+            assert key_and_proof[:32] == key
+            witness = key_and_proof[32:]
+        else:
+            seed = keys.index(key)
+            witness = bytes.fromhex(
+                subprocess.check_output(
+                    [
+                        str(prover / "examples" / "eels_sign"),
+                        "sign",
+                        str(seed),
+                        data_hash.hex(),
+                    ]
+                )
+                .decode()
+                .strip()
+            )
+        raw += dep + struct.pack("<I", len(witness)) + witness
+    request = struct.pack("<I", count) + raw + struct.pack("<II", 0, 0)
+    vk = ctypes.create_string_buffer(32)
+    assert library.nlean_aggregated_vk(vk) == 1
+    output = ctypes.POINTER(ctypes.c_ubyte)()
+    length = ctypes.c_size_t()
+    verdict = library.nlean_prove_recursive(
+        deps_hash,
+        vk.raw,
+        ctypes.c_size_t(32),
+        request,
+        ctypes.c_size_t(len(request)),
+        ctypes.byref(output),
+        ctypes.byref(length),
+    )
+    assert verdict == 1, "native prover rejected the dependency set"
+    proof = ctypes.string_at(output, length.value)
+    library.nlean_free(output, length)
+    return proof
+
+
+def dependency_proof(dependencies: bytes, deps_hash: bytes) -> bytes:
     """
-    Return the stored recursive STARK of a block's sorted, deduplicated
+    Return the stored dependency proof of a block's sorted, deduplicated
     dependencies, encoded as concatenated 96-byte triples.
     """
     name = bytes(deps_hash).hex()
     path = PROOF_STORE / f"{name}.bin"
     if path.exists():
         return path.read_bytes()
-    requests = os.environ.get(PROOF_REQUESTS_ENV)
-    if requests:
-        request = Path(requests) / f"{name}.hex"
-        request.write_text(bytes(dependencies).hex() + "\n")
-        return b""
+    prover = os.environ.get(PROVER_ENV)
+    if prover:
+        proof = _prove(Path(prover), bytes(dependencies), bytes(deps_hash))
+        path.write_bytes(proof)
+        return proof
     raise FileNotFoundError(
-        f"no EIP-8288 test proof for deps hash 0x{name}: fill "
-        f"with {PROOF_REQUESTS_ENV}=<dir> and prove the recorded sets with "
-        "export_eip8288_test_proofs"
+        f"no EIP-8288 test proof for deps hash 0x{name}: fill with "
+        f"{PROVER_ENV}=<lean-bindings target/release> to prove it"
     )
 
 
@@ -78,8 +160,8 @@ class EIP8288(BaseFork):
         return max(super(EIP8288, cls).frame_mode_count(), DEP_VERIFY_MODE + 1)
 
     @classmethod
-    def header_recursive_stark_required(cls) -> bool:
-        """The header carries the block's recursive STARK."""
+    def header_dependency_proof_required(cls) -> bool:
+        """The header commits to the block's dependency proof."""
         return True
 
     @classmethod

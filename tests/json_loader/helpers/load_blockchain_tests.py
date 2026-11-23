@@ -140,7 +140,11 @@ def add_block_to_chain(
     assert keccak256(rlp.encode(block.header)) == block_header_hash
     assert rlp.encode(block) == block_rlp
 
-    if not mock_pow:
+    # EIP-8288: the dependency proof travels outside the block RLP.
+    if "dependencyProof" in json_block:
+        proof = hex_to_bytes(json_block["dependencyProof"])
+        load.fork.state_transition(chain, block, proof)
+    elif not mock_pow:
         load.fork.state_transition(chain, block)
     else:
         fork_module = load.fork.hardfork.module("fork")
