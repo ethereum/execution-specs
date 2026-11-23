@@ -49,7 +49,6 @@ def test_frontier_block_hash() -> None:
         root=root,
         hex_to_address=hex_to_address,
         store_code=store_code,
-        RecursiveStark=None,
     )
 
     chain = BlockChain([], State(), U64(1))
@@ -109,16 +108,13 @@ def test_genesis(fork: Hardfork) -> None:
         root=_root,
         hex_to_address=fork.module("utils.hexadecimal").hex_to_address,
         store_code=_store_code,
-        RecursiveStark=getattr(fork.module("blocks"), "RecursiveStark", None),
     )
 
     chain = fork.module("fork").BlockChain([], state, U64(1))
     add_genesis_block(description, chain, MAINNET_GENESIS_CONFIGURATION)
 
     assert len(chain.blocks) == 1
-    if description.RecursiveStark is not None:
-        entry = chain.blocks[0].header.recursive_stark
-        assert entry.stark_proof == b""
-        assert entry.block_deps_hash == bytes.fromhex(
-            "69217a3079908094e11121d042354a7c1f55b6482ca1a51e1b250dfd1ed0eef9"
-        )
+    header = chain.blocks[0].header
+    if hasattr(header, "dependency_proof_hash"):
+        assert header.dependency_proof_hash == keccak256(b"")
+        assert header.block_deps_hash == keccak256(b"")

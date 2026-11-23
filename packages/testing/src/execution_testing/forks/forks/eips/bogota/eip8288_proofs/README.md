@@ -28,23 +28,21 @@ cargo build --release --lib --example fixtures --example eels_sign
 `src/ffi/examples/eels_sign.rs` first:
 
 ```rust
-// Local helper for EELS EIP-8288 fixture generation (not committed).
 // eels_sign key <seed-byte>           -> prints the 32-byte leanSPHINCS key (hex)
 // eels_sign sign <seed-byte> <msghex> -> prints key || signature (hex)
 use lean_sphincs::{key_gen, sign};
 use nethermind_lean::verification_key;
 fn main() {
     let a: Vec<String> = std::env::args().collect();
-    let mut sk = [42u8; 32];
-    sk[0] = a[2].parse().unwrap();
+    let seed: u8 = a[2].parse().unwrap();
+    let sk: [u8; 32] = std::array::from_fn(|i| if i == 0 { seed } else { 42 });
     let pk = key_gen(&sk);
     let hex = |b: &[u8]| b.iter().map(|x| format!("{x:02x}")).collect::<String>();
     match a[1].as_str() {
         "key" => println!("{}", hex(&verification_key(&pk))),
         "sign" => {
             let m = &a[3];
-            let mut msg = [0u8; 32];
-            for i in 0..32 { msg[i] = u8::from_str_radix(&m[i*2..i*2+2], 16).unwrap(); }
+            let msg: [u8; 32] = std::array::from_fn(|i| u8::from_str_radix(&m[i * 2..i * 2 + 2], 16).unwrap());
             let s = sign(&sk, &msg);
             println!("{}{}", hex(&verification_key(&pk)), hex(&s.to_bytes()));
         }

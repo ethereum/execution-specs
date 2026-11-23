@@ -23,6 +23,7 @@ from execution_testing import (
     BlockException,
     Bytes,
     Fork,
+    Frame,
     Hash,
     Header,
     Op,
@@ -63,7 +64,7 @@ def block_transactions(
     noop = pre.deploy_contract(code=Op.STOP)
     txs = []
     for claims in transaction_claims:
-        frames = [verify_frame(), sender_frame(target=noop)]
+        frames: List[Frame] = [verify_frame(), sender_frame(target=noop)]
         if claims:
             frames.insert(0, dependency_frame(fork, claims))
         txs.append(Transaction(sender=pre.fund_eoa(), frames=frames))
