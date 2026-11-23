@@ -20,6 +20,7 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 
 - `pre.fund_eoa()` — create funded EOA, returns Address. Accepts `amount=`, `nonce=`. With `amount=0` nothing is added to the pre-alloc; you get a fresh, nonexistent address.
 - `pre.deploy_contract(code=..., storage={...})` — deploy contract, returns Address
+- `pre.empty_account()` — add an EIP-161 empty account (exists, all fields zero) to the pre-state, returns Address. Forks before Paris only (EIP-7523); mark the case `valid_until("London")`. Use `pre.nonexistent_account()` for an address with no account.
 - `pre` starts out holding the accounts the fork allocates at genesis, such as the system contracts, and the spec uses it as the genesis allocation unchanged.
 - Do not assign into `pre` directly. The one exception is changing one of those genesis accounts under `@pytest.mark.pre_alloc_mutable`. `pre[addr] = Account(...)` replaces the whole account, and every field you leave out takes the `Account` default (nonce 0, zero balance, empty storage), so pass the ones the scenario needs. `del pre[addr]` removes it, for example so a deployment transaction can create it; an all-zero `Account` does not, because the empty account reaches genesis and is rejected. The marker skips the test in execute mode, so reserve it for scenarios a live chain cannot host.
 

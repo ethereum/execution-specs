@@ -26,6 +26,21 @@ def alloc(request: pytest.FixtureRequest) -> Alloc:
 @pytest.mark.parametrize(
     ["post", "alloc", "expected_exception_type"],
     [
+        # Account should not exist but an empty account is in alloc
+        (
+            {
+                "0x0000000000000000000000000000000000000000": (  # noqa: E501
+                    Account.NONEXISTENT
+                )
+            },
+            {
+                "0x0000000000000000000000000000000000000000": {
+                    "nonce": "0",
+                    "balance": "0",
+                },
+            },
+            Alloc.UnexpectedAccountError,
+        ),
         # Account should not exist but contained in alloc
         (
             {
