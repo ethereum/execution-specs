@@ -52,8 +52,6 @@ from .serialization import (
     encoded_size,
 )
 from .signer_types import (
-    P256_SIGNATURE_LENGTH,
-    SECP256K1_SIGNATURE_LENGTH,
     FrameSignatureScheme,
     Signer,
 )
@@ -87,12 +85,10 @@ __all__ = (
     "HeaderNonce",
     "HexNumber",
     "Number",
-    "P256_SIGNATURE_LENGTH",
     "NumberBoundTypeVar",
     "ReferenceSpec",
     "KnownEncodedSize",
     "RLPSerializable",
-    "SECP256K1_SIGNATURE_LENGTH",
     "SignableRLPSerializable",
     "Signer",
     "encoded_prefixed_size",

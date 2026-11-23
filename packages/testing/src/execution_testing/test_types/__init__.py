@@ -1,7 +1,5 @@
 """Common definitions and types."""
 
-from execution_testing.base_types import SECP256K1_SIGNATURE_LENGTH
-
 from .account_types import EOA, Account, Alloc, AllocGroupHash, P256Signer
 from .balance_expectations import (
     BalanceExpression,
@@ -126,7 +124,6 @@ __all__ = (
     "NetworkWrappedTransaction",
     "PostStateContext",
     "Removable",
-    "SECP256K1_SIGNATURE_LENGTH",
     "SystemContractInteractionBase",
     "SystemContractInteractionContract",
     "SystemContractInteractionMeasuredOutOfGasContract",

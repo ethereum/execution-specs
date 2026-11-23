@@ -781,13 +781,28 @@ class Transaction(
         """
         if signatures is None:
             return None
+        entries = []
+        for sig in signatures:
+            if isinstance(sig, Signer):
+                entries.append(FrameSignature(signer=sig))
+            elif isinstance(sig, FrameSignature):
+                entries.append(sig.model_copy())
+            else:
+                entries.append(sig)
+        return entries
+
+    @field_validator("frames", mode="before")
+    @classmethod
+    def copy_frames(cls, frames: Any) -> Any:
+        """
+        Copy each frame on instantiation in order to protect the original frame
+        instance from modifications.
+        """
+        if frames is None:
+            return None
         return [
-            FrameSignature(signer=sig)
-            if isinstance(sig, Signer)
-            else sig.model_copy()
-            if isinstance(sig, FrameSignature)
-            else sig
-            for sig in signatures
+            frame.model_copy() if isinstance(frame, Frame) else frame
+            for frame in frames
         ]
 
     def copy(self, **kwargs: Any) -> Self:

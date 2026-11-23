@@ -1,12 +1,13 @@
 """Test suite for transaction signing and serialization."""
 
-from typing import Any, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
 import pytest
 from pydantic import ValidationError
 from spec256k1 import PublicKey
 
 from execution_testing.base_types import AccessList, Address, Hash
+from execution_testing.forks import Bogota
 
 from .. import transaction_types
 from ..account_types import EOA
@@ -431,3 +432,59 @@ def test_mismatched_sender_address_is_trusted() -> None:
     ).with_signature_and_sender()
     assert signed.sender == inconsistent
     assert signed.sender != recover_sender(signed)
+
+
+@pytest.mark.parametrize(
+    "copy_transaction",
+    [
+        pytest.param(lambda tx: tx.copy(), id="copy"),
+        pytest.param(lambda tx: tx.with_nonce(1), id="with_nonce"),
+        pytest.param(lambda tx: tx.with_error([]), id="with_error"),
+    ],
+)
+def test_frame_tx_copy_unsupported(
+    copy_transaction: Callable[[Transaction], Transaction],
+) -> None:
+    """
+    Copying a frame transaction raises instead of returning a copy whose
+    signature entries have lost their signers.
+    """
+    tx = Transaction(sender=EOA(key=SIGNING_KEY), frames=[Frame()])
+    with pytest.raises(NotImplementedError, match="frame transaction"):
+        copy_transaction(tx)
+
+
+@pytest.mark.parametrize(
+    "budget",
+    [
+        pytest.param({}, id="default_budget"),
+        pytest.param({"gas_limit_delta": 0}, id="budget_delta"),
+    ],
+)
+def test_frame_tx_reused_frames_match_fresh_frames(
+    budget: Dict[str, int],
+) -> None:
+    """
+    Frames reused by a second frame transaction expect the receipts fresh
+    frames would, whatever the first transaction deduced for them.
+    """
+    first_sender = EOA(key=SIGNING_KEY)
+    second_sender = EOA(key=OTHER_KEY)
+
+    def build_frames() -> List[Frame]:
+        return [
+            Frame.verify(),
+            Frame.default(target=first_sender, **budget),
+        ]
+
+    shared_frames = build_frames()
+    Transaction(
+        sender=first_sender, frames=shared_frames
+    ).expect_frame_receipts(Bogota)
+    reused = Transaction(
+        sender=second_sender, frames=shared_frames
+    ).expect_frame_receipts(Bogota)
+    fresh = Transaction(
+        sender=second_sender, frames=build_frames()
+    ).expect_frame_receipts(Bogota)
+    assert reused.expected_receipt == fresh.expected_receipt

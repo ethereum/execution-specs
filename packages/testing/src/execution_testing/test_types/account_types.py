@@ -34,8 +34,9 @@ from pydantic import Field, PrivateAttr, model_validator
 from spec256k1 import PrivateKey
 
 from execution_testing.base_types import (
-    P256_SIGNATURE_LENGTH,
-    SECP256K1_SIGNATURE_LENGTH,
+    Account as BaseAccount,
+)
+from execution_testing.base_types import (
     Address,
     Bytes,
     CamelModel,
@@ -49,9 +50,6 @@ from execution_testing.base_types import (
     Storage,
     StorageRootType,
     ZeroPaddedHexNumber,
-)
-from execution_testing.base_types import (
-    Account as BaseAccount,
 )
 from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.base_types.conversions import (
@@ -95,7 +93,8 @@ class EOA(Address, Signer):
     signature_schemes: ClassVar[Tuple[FrameSignatureScheme, ...]] = (
         FrameSignatureScheme.SECP256K1,
     )
-    signature_length: ClassVar[int] = SECP256K1_SIGNATURE_LENGTH
+    signature_length: ClassVar[int] = 65
+    """Length of a secp256k1 signature: `v || r || s`."""
 
     key: Hash | None
     nonce: Number
@@ -165,7 +164,8 @@ class P256Signer(Address, Signer):
     signature_schemes: ClassVar[Tuple[FrameSignatureScheme, ...]] = (
         FrameSignatureScheme.P256,
     )
-    signature_length: ClassVar[int] = P256_SIGNATURE_LENGTH
+    signature_length: ClassVar[int] = 128
+    """Length of a P256 signature: `r || s || qx || qy`."""
 
     key: Hash
 
