@@ -181,3 +181,20 @@ class BlockException(ExceptionBase):
     """
     Block access list exceeds the gas limit constraint (EIP-7928).
     """
+    # --- In-mempool signature and proof aggregation (EIP-8288) --- #
+    INVALID_BLOCK_DEPS_HASH = auto()
+    """
+    Block header's `block_deps_hash` does not commit to the dependencies its
+    transactions declare.
+    """
+    INVALID_DEPENDENCY_PROOF_HASH = auto()
+    """
+    Block header's `dependency_proof_hash` is not the Keccak-256 hash of the
+    dependency proof received with the block.
+    """
+    INVALID_DEPENDENCY_PROOF = auto()
+    """
+    The dependency proof received with the block does not verify, exceeds
+    `MAX_DEPENDENCY_PROOF_BYTES`, or is not empty when the block declares no
+    dependencies.
+    """

@@ -469,7 +469,10 @@ def execute_frame(
     """
     Run a single frame as a top-level call and reduce its outcome.
 
-    Every frame is charged its resolved target's warm or cold access
+    A dependency verification frame runs nothing: it succeeds, using
+    its whole execution budget and no state gas, touching no account.
+
+    Every other frame is charged its resolved target's warm or cold access
     at frame entry, from its own execution gas budget, before
     anything else: resolving the target's code is how the protocol
     dispatches the frame. A `VERIFY` frame whose resolved target has
@@ -496,6 +499,20 @@ def execute_frame(
     tx = frame_context.tx
     tx_state = tx_env.state
     resolved_target = resolve_frame_target(tx, frame)
+
+    if frame.mode == FrameMode.DEP_VERIFY:
+        return FrameOutcome(
+            receipt=FrameReceipt(
+                status=FrameStatus.SUCCESS,
+                gas_used=GasUsed(
+                    execution=Uint(frame.gas_limits.execution),
+                    state=Uint(0),
+                ),
+                logs=(),
+            ),
+            refund_counter=0,
+            accounts_to_delete=set(),
+        )
 
     # Checkpoint at frame entry, before any charge: a failing frame's
     # state gas restores to here, and any edits it made to earlier

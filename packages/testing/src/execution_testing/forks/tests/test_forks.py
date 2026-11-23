@@ -446,11 +446,12 @@ def test_system_contract_call_phases(fork: Fork) -> None:
 def test_frame_mode_count() -> None:
     """
     Count no frame modes before frame transactions, the three EIP-8141
-    modes, and EIP-7906's `ASSERT` on top of them.
+    modes, and EIP-7906's `ASSERT` and EIP-8288's `DEP_VERIFY` on top of
+    them.
     """
     assert Osaka.frame_mode_count() == 0
     assert Amsterdam.frame_mode_count() == 0
-    assert Bogota.frame_mode_count() == 4
+    assert Bogota.frame_mode_count() == 5
 
 
 def test_tx_types() -> None:  # noqa: D103

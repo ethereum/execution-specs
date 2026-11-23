@@ -90,6 +90,12 @@ class GasCosts:
     # EIP-7906 transaction diff instructions, 0 before the EIP.
     OPCODE_TXTRACE: int = 0
 
+    # EIP-8288 dependency costs, 0 before the EIP: the execution budget of
+    # each leanSPHINCS claim and the intrinsic recursive STARK share of
+    # every declared claim.
+    LEANSPHINCS_VERIFICATION: int = 0
+    LEANSTARK_VERIFICATION: int = 0
+
     # Refunds
     REFUND_STORAGE_CLEAR: int
     REFUND_SELF_DESTRUCT: int

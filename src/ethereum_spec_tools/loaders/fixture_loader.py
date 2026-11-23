@@ -201,4 +201,8 @@ class Load(BaseLoad):
             slot_number = hex_to_u64(raw.get("slotNumber"))
             parameters.append(slot_number)
 
+        if "dependencyProofHash" in raw:
+            parameters.append(hex_to_bytes32(raw.get("dependencyProofHash")))
+            parameters.append(hex_to_bytes32(raw.get("blockDepsHash")))
+
         return self.fork.Header(*parameters)

@@ -208,6 +208,11 @@ class FrameGasInfo(Protocol):
         """Return the frame's target, deciding the value transfer cost."""
         ...
 
+    @property
+    def mode(self) -> int:
+        """Return the frame's mode, deciding the dependency cost."""
+        ...
+
 
 class FrameSignatureGasInfo(Protocol):
     """
@@ -778,6 +783,15 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @abstractmethod
     def header_slot_number_required(cls) -> bool:
         """Return true if the header must contain slot number (EIP-7843)."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def header_dependency_proof_required(cls) -> bool:
+        """
+        Return true if the header must commit to a dependency proof
+        (EIP-8288).
+        """
         pass
 
     # Gas related abstract methods
@@ -1451,6 +1465,17 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         nonce key set.
         """
         del nonce_keys
+        return 0
+
+    @classmethod
+    def _frame_transaction_dependency_cost(
+        cls, frames: Sequence[FrameGasInfo]
+    ) -> int:
+        """
+        Return the intrinsic cost of the dependencies a frame
+        transaction declares, outside its calldata floor.
+        """
+        del frames
         return 0
 
     # Engine API information abstract methods

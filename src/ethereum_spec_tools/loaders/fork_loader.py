@@ -247,6 +247,30 @@ class ForkLoad:
         return self._module("blocks").Header
 
     @property
+    def has_dependency_proof(self) -> bool:
+        """Check if the fork carries a dependency proof (EIP-8288)."""
+        try:
+            self._module("dependency_proof")
+        except ModuleNotFoundError:
+            return False
+        return True
+
+    @property
+    def block_dependencies(self) -> Any:
+        """block_dependencies function of the fork."""
+        return self._module("dependency_proof").block_dependencies
+
+    @property
+    def encode_dependencies(self) -> Any:
+        """encode_dependencies function of the fork."""
+        return self._module("dependency_proof").encode_dependencies
+
+    @property
+    def compute_dependencies_hash(self) -> Any:
+        """compute_dependencies_hash function of the fork."""
+        return self._module("dependency_proof").compute_dependencies_hash
+
+    @property
     def Account(self) -> Any:
         """Account class of the fork."""
         return self._module("fork_types").Account

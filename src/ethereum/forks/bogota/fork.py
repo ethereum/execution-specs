@@ -40,6 +40,7 @@ from .block_access_lists import (
 )
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
+from .dependency_proof import validate_dependency_proof
 from .exceptions import WrongChainIdError
 from .fork_types import Authorization, BlockAccessIndex, ExecutionGas, StateGas
 from .frame_processing import process_frame_transaction
@@ -227,7 +228,11 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def state_transition(chain: BlockChain, block: Block) -> None:
+def state_transition(
+    chain: BlockChain,
+    block: Block,
+    dependency_proof: Optional[Bytes] = None,
+) -> None:
     """
     Attempts to apply a block to an existing block chain.
 
@@ -248,6 +253,11 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         History and current state.
     block :
         Block to apply to `chain`.
+    dependency_proof :
+        The [EIP-8288] dependency proof received with the block in its
+        execution payload, or `None` if none was received.
+
+    [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
 
     """
     chain_context = ChainContext(
@@ -256,7 +266,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_header=chain.blocks[-1].header,
     )
 
-    block_diff = execute_block(block, chain.state, chain_context)
+    block_diff = execute_block(
+        block, chain.state, chain_context, dependency_proof
+    )
 
     apply_changes_to_state(chain.state, block_diff)
     chain.blocks.append(block)
@@ -270,6 +282,7 @@ def execute_block(
     block: Block,
     pre_state: State,
     chain_context: ChainContext,
+    dependency_proof: Optional[Bytes] = None,
 ) -> BlockDiff:
     """
     Execute a block and validate the resulting roots against the header.
@@ -284,6 +297,9 @@ def execute_block(
         Pre-execution state provider.
     chain_context :
         Chain context that the block may need during execution.
+    dependency_proof :
+        The [EIP-8288] dependency proof received with the block, or
+        `None` if none was received.
 
     Returns
     -------
@@ -356,6 +372,9 @@ def execute_block(
         raise InvalidBlock
     if computed_block_access_list_hash != block.header.block_access_list_hash:
         raise InvalidBlock("Invalid block access list hash")
+    validate_dependency_proof(
+        block.header, block_output.dependencies, dependency_proof
+    )
 
     return block_diff
 

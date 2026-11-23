@@ -23,6 +23,7 @@ from .block_access_list import (
     BlockAccessListExpectation,
 )
 from .block_types import (
+    EMPTY_DEPENDENCY_PROOF_HASH,
     Environment,
     EnvironmentDefaults,
     Withdrawal,
@@ -119,6 +120,7 @@ __all__ = (
     "LogMismatchError",
     "NetworkWrappedTransaction",
     "PostStateContext",
+    "EMPTY_DEPENDENCY_PROOF_HASH",
     "Removable",
     "SECP256K1_SIGNATURE_LENGTH",
     "SystemContractInteractionBase",

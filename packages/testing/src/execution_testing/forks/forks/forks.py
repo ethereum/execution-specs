@@ -970,6 +970,11 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
+    def header_dependency_proof_required(cls) -> bool:
+        """At genesis, header must not commit to a dependency proof."""
+        return False
+
+    @classmethod
     def engine_new_payload_blob_hashes(cls) -> bool:
         """At genesis, payloads do not have blob hashes."""
         return False

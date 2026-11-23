@@ -269,6 +269,25 @@ class Header:
     [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
     """
 
+    dependency_proof_hash: Hash32
+    """
+    [`keccak256`] of the block's dependency proof, which travels in the
+    execution payload rather than the block. Introduced in [EIP-8288].
+
+    [`keccak256`]: ref:ethereum.crypto.hash.keccak256
+    [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
+    """
+
+    block_deps_hash: Hash32
+    """
+    Digest of the claims the block's transactions declare, the public
+    statement of the dependency proof (see
+    [`compute_dependencies_hash`][cdh]). Introduced in [EIP-8288].
+
+    [cdh]: ref:ethereum.forks.bogota.dependency_proof.compute_dependencies_hash
+    [EIP-8288]: https://eips.ethereum.org/EIPS/eip-8288
+    """
+
 
 @final
 @slotted_freezable

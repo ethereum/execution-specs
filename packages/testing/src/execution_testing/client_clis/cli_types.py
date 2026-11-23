@@ -546,6 +546,9 @@ class Result(CamelModel):
     requests: List[Bytes] | None = None
     block_access_list: Bytes | None = None
     block_access_list_hash: Hash | None = None
+    dependency_proof_hash: Hash | None = None
+    block_deps_hash: Hash | None = None
+    dependency_proof: Bytes | None = None
     block_exception: Annotated[
         BlockExceptionWithMessage | UndefinedException | None,
         ExceptionMapperValidator,

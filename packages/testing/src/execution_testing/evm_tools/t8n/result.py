@@ -174,6 +174,23 @@ def build_result(
         arguments["block_access_list_hash"] = t8n.fork.hash_block_access_list(
             block_output.block_access_list
         )
+    if t8n.fork.has_dependency_proof:
+        dependencies = t8n.fork.block_dependencies(block_output.dependencies)
+        block_deps_hash = t8n.fork.compute_dependencies_hash(dependencies)
+        proof = b""
+        if dependencies:
+            # Function-scoped: see import-cycle note in
+            # ``get_receipts_from_output``.
+            from execution_testing.forks.forks.eips.bogota.eip_8288 import (
+                dependency_proof,
+            )
+
+            proof = dependency_proof(
+                t8n.fork.encode_dependencies(dependencies), block_deps_hash
+            )
+        arguments["dependency_proof"] = proof
+        arguments["dependency_proof_hash"] = keccak256(proof)
+        arguments["block_deps_hash"] = block_deps_hash
 
     context: Optional[Dict[str, Any]] = None
     if t8n.exception_mapper is not None:

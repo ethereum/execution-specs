@@ -41,6 +41,7 @@ from ..transactions.frame_transaction import (
     APPROVE_SCOPE_MASK,
     LEGACY_NONCE_KEYS,
     MAX_NONCE_SEQ,
+    Dependency,
     FrameFlag,
     FrameTransaction,
     resolve_frame_target,
@@ -118,6 +119,9 @@ class BlockOutput:
         Hash of all the requests in the block.
     block_access_list: `BlockAccessList`
         The block access list for the block.
+    dependencies : `Dependency`
+        Claims declared by the block's frame transactions, deduplicated
+        per transaction.
     """
 
     block_gas_used: ExecutionGas = ExecutionGas(Uint(0))
@@ -137,6 +141,7 @@ class BlockOutput:
     blob_gas_used: U64 = U64(0)
     requests: List[Bytes] = field(default_factory=list)
     block_access_list: BlockAccessList = field(default_factory=list)
+    dependencies: List[Dependency] = field(default_factory=list)
 
 
 @final

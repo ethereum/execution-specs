@@ -28,10 +28,14 @@ class EIP7906(BaseFork):
 
     @classmethod
     def frame_mode_count(cls) -> int:
-        """The `ASSERT` frame mode is introduced after the existing ones."""
+        """
+        The `ASSERT` frame mode is introduced after the EIP-8141 ones. A
+        later EIP's mode, such as EIP-8288's `DEP_VERIFY`, may already
+        have raised the count past it.
+        """
         count = super(EIP7906, cls).frame_mode_count()
-        assert count == ASSERT_MODE, "ASSERT must be the next frame mode"
-        return count + 1
+        assert count >= ASSERT_MODE, "ASSERT must follow the EIP-8141 modes"
+        return max(count, ASSERT_MODE + 1)
 
     @classmethod
     def valid_opcodes(cls) -> List[Opcodes]:

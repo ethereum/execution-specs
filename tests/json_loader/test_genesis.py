@@ -114,3 +114,7 @@ def test_genesis(fork: Hardfork) -> None:
     add_genesis_block(description, chain, MAINNET_GENESIS_CONFIGURATION)
 
     assert len(chain.blocks) == 1
+    header = chain.blocks[0].header
+    if hasattr(header, "dependency_proof_hash"):
+        assert header.dependency_proof_hash == keccak256(b"")
+        assert header.block_deps_hash == keccak256(b"")
