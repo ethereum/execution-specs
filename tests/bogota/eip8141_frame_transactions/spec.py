@@ -97,4 +97,4 @@ class Spec:
     SIGPARAM_SIGNATURE_LENGTH = 0x03
 
     # Public mempool
-    MAX_VERIFY_GAS = 100_000
+    MAX_VERIFY_GAS = 300_000
