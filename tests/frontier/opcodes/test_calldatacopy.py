@@ -114,6 +114,19 @@ from execution_testing import (
             Account(storage={0x00: 0x00}),
         ),
         (
+            # The copy runs one byte past the 16-byte calldata: it writes one
+            # byte, zeroes one, and leaves the rest of the word as it was.
+            (
+                Op.MSTORE(offset=0, value=2**256 - 1)
+                + Op.CALLDATACOPY(dest_offset=0, offset=15, size=2)
+                + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0))
+                + Op.RETURN(offset=0, size=Op.MSIZE)
+            ),
+            b"\x06",
+            Account(storage={0x00: (0xDE00 << 240) | (2**240 - 1)}),
+            Account(storage={0x00: (0xDE00 << 240) | (2**240 - 1)}),
+        ),
+        (
             (
                 Op.SSTORE(key=0x1, value=0x1)
                 + Op.PUSH1[0x1]
@@ -150,6 +163,7 @@ from execution_testing import (
         "cdc 0 0 0",
         "cdc 0 neg6 ff",
         "cdc 0 neg6 9",
+        "cdc 0 15 2 keeps tail",
         "underflow",
         "sec",
     ],
