@@ -28,6 +28,7 @@ from execution_testing import (
 )
 
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
+from tests.benchmark.helper.transactions import build_frame_benchmark_txs
 from tests.bogota.eip8141_frame_transactions.helpers import (
     APPROVE_ALL,
     FrameCase,
@@ -225,31 +226,33 @@ def test_block_full_frame_data(
     well the block body compresses.
     """
     sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**24)
-    nonces = count(1)
     target = pre.deploy_contract(code=Op.STOP)
     byte = b"\x00" if zero_byte else b"\xff"
 
-    def transaction(data_length: int, **overrides: Any) -> FrameTransaction:
+    def frames(data_length: int) -> List[FrameCase]:
+        return [
+            verify_frame(
+                code=APPROVE_ALL,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            ),
+            default_frame(
+                target=target,
+                code=Op.STOP,
+                data=byte * data_length,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            ),
+        ]
+
+    def block_gas(data_length: int) -> int:
         return FrameTransaction.build(
             fork=fork,
             sender=sender,
+            nonce=0,
             settle=False,
-            frames=[
-                verify_frame(
-                    code=APPROVE_ALL,
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                ),
-                default_frame(
-                    target=target,
-                    code=Op.STOP,
-                    data=byte * data_length,
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                ),
-            ],
-            **overrides,
-        )
+            frames=frames(data_length),
+        ).block_gas_used()
 
     payload_gas = gas_benchmark_value // math.ceil(
         gas_benchmark_value / min(tx_gas_limit, gas_benchmark_value)
@@ -258,26 +261,24 @@ def test_block_full_frame_data(
     # until the estimate lands on the piece holding the target.
     data_length = 0
     for _ in range(4):
-        base = transaction(data_length, nonce=0).block_gas_used()
-        byte_gas = (
-            transaction(data_length + 1, nonce=0).block_gas_used() - base
-        )
+        base = block_gas(data_length)
+        byte_gas = block_gas(data_length + 1) - base
         data_length += (payload_gas - base) // byte_gas
-    assert transaction(data_length, nonce=0).block_gas_used() <= payload_gas, (
+    assert block_gas(data_length) <= payload_gas, (
         "the data length did not settle on the gas the payload is meant "
         "to occupy"
     )
 
-    first = transaction(data_length, nonce=next(nonces))
-    iteration_count = gas_benchmark_value // first.block_gas_used()
-    txs = [first] + [
-        transaction(data_length, nonce=next(nonces))
-        for _ in range(iteration_count - 1)
-    ]
+    txs = build_frame_benchmark_txs(
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        sender=sender,
+        frames=lambda: frames(data_length),
+    )
 
     block_rlp_limit = fork.block_rlp_size_limit()
     if block_rlp_limit is not None:
-        assert iteration_count * data_length < block_rlp_limit, (
+        assert len(txs) * data_length < block_rlp_limit, (
             "the block's frame data outgrew the EIP-7934 block RLP size "
             "limit: the floor no longer prices data above the limit's "
             "share of the benchmark gas"
@@ -305,12 +306,11 @@ def test_value_transfer_frames(
 ) -> None:
     """Fill a block with `SENDER` frames transferring value."""
     sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**24)
-    nonces = count(1)
     transfer_value = 10**9
     account_creation = fork.gas_costs().NEW_ACCOUNT if new_recipients else 0
 
-    def transaction(transfers: int, **overrides: Any) -> FrameTransaction:
-        frames: List[FrameCase] = [
+    def frames(transfers: int) -> List[FrameCase]:
+        cases: List[FrameCase] = [
             verify_frame(
                 code=APPROVE_ALL,
                 logs=[],
@@ -320,7 +320,7 @@ def test_value_transfer_frames(
         ]
         for _ in range(transfers):
             recipient = pre.fund_eoa(amount=0 if new_recipients else 1)
-            frames.append(
+            cases.append(
                 sender_frame(
                     target=recipient,
                     value=transfer_value,
@@ -330,30 +330,29 @@ def test_value_transfer_frames(
                     state_gas_used=account_creation,
                 )
             )
+        return cases
+
+    def block_gas(transfers: int) -> int:
         return FrameTransaction.build(
             fork=fork,
             sender=sender,
+            nonce=0,
             settle=False,
-            frames=frames,
-            **overrides,
-        )
+            frames=frames(transfers),
+        ).block_gas_used()
 
-    first = transaction(transfers_per_transaction, nonce=next(nonces))
-    iteration_count = gas_benchmark_value // first.block_gas_used()
-    if iteration_count < 1:
-        pytest.skip("a frame transaction exceeds the benchmark gas value")
-    txs = [first] + [
-        transaction(transfers_per_transaction, nonce=next(nonces))
-        for _ in range(iteration_count - 1)
-    ]
+    txs = build_frame_benchmark_txs(
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        sender=sender,
+        frames=lambda: frames(transfers_per_transaction),
+    )
     # Fill the leftover gas with one shorter transaction of this shape.
     leftover = gas_benchmark_value - sum(tx.block_gas_used() for tx in txs)
     tail_transfers = 1
     for _ in range(4):
-        base = transaction(tail_transfers, nonce=0).block_gas_used()
-        transfer_gas = (
-            transaction(tail_transfers + 1, nonce=0).block_gas_used() - base
-        )
+        base = block_gas(tail_transfers)
+        transfer_gas = block_gas(tail_transfers + 1) - base
         if transfer_gas == 0:
             # The state dimension binds, so extra frames cost no block gas.
             tail_transfers = transfers_per_transaction
@@ -365,8 +364,16 @@ def test_value_transfer_frames(
                 tail_transfers + (leftover - base) // transfer_gas,
             ),
         )
-    if transaction(tail_transfers, nonce=0).block_gas_used() <= leftover:
-        txs.append(transaction(tail_transfers, nonce=next(nonces)))
+    if block_gas(tail_transfers) <= leftover:
+        txs.append(
+            FrameTransaction.build(
+                fork=fork,
+                sender=sender,
+                nonce=len(txs) + 1,
+                settle=False,
+                frames=frames(tail_transfers),
+            )
+        )
 
     post = {
         Address(frame.target): Account(
@@ -398,42 +405,35 @@ def test_sponsored_frame_transactions(
     payer = pre.deploy_contract(
         code=Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT), balance=10**24
     )
-    nonces = count(1)
     target = pre.deploy_contract(code=Op.STOP)
 
-    def transaction() -> FrameTransaction:
-        return FrameTransaction.build(
-            fork=fork,
-            sender=sender,
-            payer=payer,
-            nonce=next(nonces),
-            settle=False,
-            frames=[
-                verify_frame(
-                    flags=Spec.APPROVE_EXECUTION,
-                    code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION),
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                ),
-                verify_frame(
-                    flags=Spec.APPROVE_PAYMENT,
-                    target=payer,
-                    code=Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT),
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                ),
-                sender_frame(
-                    target=target,
-                    code=Op.STOP,
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                ),
-            ],
-        )
-
-    first = transaction()
-    iteration_count = gas_benchmark_value // first.block_gas_used()
-    txs = [first] + [transaction() for _ in range(iteration_count - 1)]
+    txs = build_frame_benchmark_txs(
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        sender=sender,
+        payer=payer,
+        frames=lambda: [
+            verify_frame(
+                flags=Spec.APPROVE_EXECUTION,
+                code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION),
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            ),
+            verify_frame(
+                flags=Spec.APPROVE_PAYMENT,
+                target=payer,
+                code=Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT),
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            ),
+            sender_frame(
+                target=target,
+                code=Op.STOP,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            ),
+        ],
+    )
 
     benchmark_test(
         pre=pre,
@@ -450,38 +450,31 @@ def test_expiry_verifier_frames(
 ) -> None:
     """Fill a block with expiry verifier frames, one per transaction."""
     sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**24)
-    nonces = count(1)
     target = pre.deploy_contract(code=Op.STOP)
 
-    def transaction() -> FrameTransaction:
-        return FrameTransaction.build(
-            fork=fork,
-            sender=sender,
-            nonce=next(nonces),
-            settle=False,
-            frames=[
-                verify_frame(
-                    code=APPROVE_ALL,
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                ),
-                # The verifier's state budget must stay zero.
-                expiry_frame(
-                    execution_gas=expiry_verifier_gas(fork),
-                    gas_limit_delta=0,
-                ),
-                sender_frame(
-                    target=target,
-                    code=Op.STOP,
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                ),
-            ],
-        )
-
-    first = transaction()
-    iteration_count = gas_benchmark_value // first.block_gas_used()
-    txs = [first] + [transaction() for _ in range(iteration_count - 1)]
+    txs = build_frame_benchmark_txs(
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        sender=sender,
+        frames=lambda: [
+            verify_frame(
+                code=APPROVE_ALL,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            ),
+            # The verifier's state budget must stay zero.
+            expiry_frame(
+                execution_gas=expiry_verifier_gas(fork),
+                gas_limit_delta=0,
+            ),
+            sender_frame(
+                target=target,
+                code=Op.STOP,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            ),
+        ],
+    )
 
     benchmark_test(
         pre=pre,
@@ -500,24 +493,18 @@ def test_gas_cost_transaction_intrinsic(
     """Fill a block with the cheapest frame transaction there is."""
     sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**24)
 
-    def transaction(nonce: int) -> FrameTransaction:
-        return FrameTransaction.build(
-            fork=fork,
-            sender=sender,
-            nonce=nonce,
-            settle=False,
-            frames=[
-                verify_frame(
-                    code=APPROVE_ALL,
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                )
-            ],
-        )
-
-    first = transaction(1)
-    iteration_count = gas_benchmark_value // first.block_gas_used()
-    txs = [transaction(1 + index) for index in range(iteration_count)]
+    txs = build_frame_benchmark_txs(
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        sender=sender,
+        frames=lambda: [
+            verify_frame(
+                code=APPROVE_ALL,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            )
+        ],
+    )
 
     benchmark_test(
         pre=pre,
@@ -535,38 +522,30 @@ def test_gas_cost_per_frame(
 ) -> None:
     """Fill a block with the cheapest frames a transaction can carry."""
     sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**24)
-    nonces = count(1)
-
-    def transaction() -> FrameTransaction:
-        return FrameTransaction.build(
-            fork=fork,
-            sender=sender,
-            nonce=next(nonces),
-            settle=False,
-            frames=[
-                verify_frame(
-                    code=APPROVE_ALL,
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                )
-            ]
-            + [
-                # The coinbase is warm and codeless; an empty target would
-                # resolve to the sender and rerun its approval.
-                sender_frame(
-                    target=Environment().fee_recipient,
-                    code=Bytecode(),
-                    warm=True,
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                )
-                for _ in range(Spec.MAX_FRAMES - 1)
-            ],
-        )
-
-    first = transaction()
-    iteration_count = gas_benchmark_value // first.block_gas_used()
-    txs = [first] + [transaction() for _ in range(iteration_count - 1)]
+    txs = build_frame_benchmark_txs(
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        sender=sender,
+        frames=lambda: [
+            verify_frame(
+                code=APPROVE_ALL,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            )
+        ]
+        + [
+            # The coinbase is warm and codeless; an empty target would
+            # resolve to the sender and rerun its approval.
+            sender_frame(
+                target=Environment().fee_recipient,
+                code=Bytecode(),
+                warm=True,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            )
+            for _ in range(Spec.MAX_FRAMES - 1)
+        ],
+    )
 
     benchmark_test(
         pre=pre,
@@ -586,7 +565,6 @@ def test_gas_cost_frame_entry(
 ) -> None:
     """Fill a block with frames entering accounts cold to each transaction."""
     sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**24)
-    nonces = count(1)
     delegate = pre.deploy_contract(code=Op.STOP)
     targets = [
         pre.fund_eoa(amount=0, delegation=delegate)
@@ -595,35 +573,29 @@ def test_gas_cost_frame_entry(
         for _ in range(Spec.MAX_FRAMES - 1)
     ]
 
-    def transaction() -> FrameTransaction:
-        return FrameTransaction.build(
-            fork=fork,
-            sender=sender,
-            nonce=next(nonces),
-            settle=False,
-            frames=[
-                verify_frame(
-                    code=APPROVE_ALL,
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                )
-            ]
-            + [
-                sender_frame(
-                    target=target,
-                    code=Op.STOP,
-                    delegated=delegated,
-                    delegation_warm=delegated and index > 0,
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                )
-                for index, target in enumerate(targets)
-            ],
-        )
-
-    first = transaction()
-    iteration_count = gas_benchmark_value // first.block_gas_used()
-    txs = [first] + [transaction() for _ in range(iteration_count - 1)]
+    txs = build_frame_benchmark_txs(
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        sender=sender,
+        frames=lambda: [
+            verify_frame(
+                code=APPROVE_ALL,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            )
+        ]
+        + [
+            sender_frame(
+                target=target,
+                code=Op.STOP,
+                delegated=delegated,
+                delegation_warm=delegated and index > 0,
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            )
+            for index, target in enumerate(targets)
+        ],
+    )
 
     benchmark_test(
         pre=pre,
@@ -641,38 +613,31 @@ def test_gas_cost_value_transfer(
 ) -> None:
     """Fill a block with frames paying accounts that already exist."""
     sender = pre.deploy_contract(code=APPROVE_ALL, balance=10**24)
-    nonces = count(1)
     recipients = [pre.fund_eoa(amount=1) for _ in range(Spec.MAX_FRAMES - 1)]
 
-    def transaction() -> FrameTransaction:
-        return FrameTransaction.build(
-            fork=fork,
-            sender=sender,
-            nonce=next(nonces),
-            settle=False,
-            frames=[
-                verify_frame(
-                    code=APPROVE_ALL,
-                    logs=[],
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                )
-            ]
-            + [
-                sender_frame(
-                    target=recipient,
-                    value=1,
-                    logs=[transfer_log(sender, recipient, 1)],
-                    gas_limit_delta=0,
-                    state_gas_limit_delta=0,
-                )
-                for recipient in recipients
-            ],
-        )
-
-    first = transaction()
-    iteration_count = gas_benchmark_value // first.block_gas_used()
-    txs = [first] + [transaction() for _ in range(iteration_count - 1)]
+    txs = build_frame_benchmark_txs(
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        sender=sender,
+        frames=lambda: [
+            verify_frame(
+                code=APPROVE_ALL,
+                logs=[],
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            )
+        ]
+        + [
+            sender_frame(
+                target=recipient,
+                value=1,
+                logs=[transfer_log(sender, recipient, 1)],
+                gas_limit_delta=0,
+                state_gas_limit_delta=0,
+            )
+            for recipient in recipients
+        ],
+    )
 
     benchmark_test(
         pre=pre,
