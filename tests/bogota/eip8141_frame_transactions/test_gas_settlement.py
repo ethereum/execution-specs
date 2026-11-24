@@ -22,17 +22,16 @@ from execution_testing import (
     Bytecode,
     Conditional,
     Fork,
+    Frame,
+    FrameOutcome,
     Header,
     Op,
     StateTestFiller,
+    Transaction,
 )
 
 from .helpers import (
-    FrameTransaction,
-    Outcome,
-    default_frame,
     floor_binding_padding,
-    verify_frame,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -115,21 +114,20 @@ def test_calldata_floor_with_state_gas(
     )
     worker = pre.deploy_contract(code=worker_code)
 
-    def build(data_length: int) -> FrameTransaction:
+    def build(data_length: int) -> Transaction:
         """Return the transaction carrying `data_length` padding bytes."""
-        return FrameTransaction.build(
-            fork=fork,
+        return Transaction(
             sender=sender,
             nonce=nonce,
             # Each frame is budgeted exactly what it spends, so the
             # execution dimension is known to the byte.
             frames=[
-                verify_frame(
+                Frame.verify(
                     code=verify_code,
                     gas_limit_delta=0,
                     state_gas_limit_delta=0,
                 ),
-                default_frame(
+                Frame.default(
                     target=worker,
                     code=worker_code,
                     gas_limit_delta=0,
@@ -137,10 +135,10 @@ def test_calldata_floor_with_state_gas(
                     data=bytes(data_length),
                 ),
             ],
-        )
+        ).resolve_frames(fork)
 
     def floor_binds(data_length: int) -> bool:
-        return build(data_length).floor_binds()
+        return build(data_length).frame_settlement(fork).floor_binds()
 
     data_length = floor_binding_padding(floor_binds)
     if not floor_bound:
@@ -148,7 +146,7 @@ def test_calldata_floor_with_state_gas(
     tx = build(data_length)
     # The premise of the test: the floor binds, or in `below_floor`
     # falls short by the last byte.
-    assert tx.floor_binds() == floor_bound
+    assert tx.frame_settlement(fork).floor_binds() == floor_bound
 
     state_test(
         pre=pre,
@@ -210,46 +208,51 @@ def test_storage_refund_settlement(
     worker = pre.deploy_contract(code=worker_code, storage={SLOT_CREATED: 1})
     refund = worker_code.refund(fork)
 
-    def build(data_length: int) -> FrameTransaction:
+    def build(data_length: int) -> Transaction:
         """Return the transaction carrying `data_length` padding bytes."""
-        return FrameTransaction.build(
-            fork=fork,
+        return Transaction(
             sender=sender,
             nonce=0,
-            refund=refund,
             frames=[
-                verify_frame(),
+                Frame.verify(),
                 # The receipt reports pre-refund execution gas; the
                 # refund applies only at transaction settlement.
-                default_frame(
+                Frame.default(
                     target=worker,
                     code=worker_code,
                     state_gas_limit=0,
                     data=bytes(data_length),
                 ),
             ],
-        )
+        ).resolve_frames(fork, refund=refund)
 
     def floor_binds(data_length: int) -> bool:
-        return build(data_length).floor_binds(
-            after_refund=boundary == "post_refund"
+        return (
+            build(data_length)
+            .frame_settlement(fork, refund=refund)
+            .floor_binds(after_refund=boundary == "post_refund")
         )
 
     data_length = floor_binding_padding(floor_binds)
     if floor_side == "below":
         data_length -= 1
     tx = build(data_length)
+    settlement = tx.frame_settlement(fork, refund=refund)
     # The premise of the test: the refund applies uncapped.
-    assert 0 < tx.effective_refund == refund
-    gas_used_after_refund = tx.gas_before_refund - refund
+    assert 0 < settlement.effective_refund == refund
+    gas_used_after_refund = settlement.gas_before_refund - refund
     # The premise of each case: the floor sits below the post-refund
     # gas, above the pre-refund gas, or between the two.
     if (boundary, floor_side) == ("post_refund", "below"):
-        assert tx.calldata_floor < gas_used_after_refund
+        assert settlement.calldata_floor < gas_used_after_refund
     elif (boundary, floor_side) == ("pre_refund", "above"):
-        assert tx.gas_before_refund < tx.calldata_floor
+        assert settlement.gas_before_refund < settlement.calldata_floor
     else:
-        assert gas_used_after_refund < tx.calldata_floor < tx.gas_before_refund
+        assert (
+            gas_used_after_refund
+            < settlement.calldata_floor
+            < settlement.gas_before_refund
+        )
 
     state_test(
         pre=pre,
@@ -258,7 +261,9 @@ def test_storage_refund_settlement(
             sender: Account(nonce=1),
             worker: Account(storage={SLOT_CREATED: 0}),
         },
-        blockchain_test_header_verify=Header(gas_used=tx.block_gas_used()),
+        blockchain_test_header_verify=Header(
+            gas_used=settlement.block_header_gas_used()
+        ),
     )
 
 
@@ -326,16 +331,15 @@ def test_batch_unroll_refill_restores_spent_gas(
 
     # No refund survives to settlement: the only slot returned to its
     # start value is undone by the rollback under test.
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
-            verify_frame(),
+            Frame.verify(),
             # Frame 1: create the slot (0 -> 1), keeping its full
             # attribution once the unroll undoes the refill applied to
             # this receipt.
-            default_frame(
+            Frame.default(
                 target=worker,
                 code=create_body,
                 data=(1).to_bytes(32, "big"),
@@ -344,24 +348,24 @@ def test_batch_unroll_refill_restores_spent_gas(
             # value (1 -> 0), refilling frame 1's receipt. The unroll
             # re-appends this receipt with its state gas zeroed.
             # Frame 1's success left the worker warm.
-            default_frame(
+            Frame.default(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=worker,
                 code=refill_body,
                 warm=True,
-                outcome=Outcome.UNROLLED,
+                outcome=FrameOutcome.UNROLLED,
             ),
             # Frame 3: terminate the batch with a revert, unrolling it.
-            default_frame(
+            Frame.default(
                 target=reverter,
                 code=reverter_code,
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
             ),
             # Frame 4: read frame 1's restored attribution and frame 3's
             # status after the unroll.
-            default_frame(target=probe, code=probe_code),
+            Frame.default(target=probe, code=probe_code),
         ],
-    )
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -450,16 +454,15 @@ def test_frame_revert_refill_restores_spent_gas(
 
     # No refund survives to settlement: the only slot returned to its
     # start value is undone by the rollback under test.
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
             # Frame 0: approve execution and payment.
-            verify_frame(),
+            Frame.verify(),
             # Frame 1: create the slot (0 -> 1), storing, evaluating the
             # branch and falling through to the trailing stop. The
             # revert restores the refill applied to this receipt.
-            default_frame(
+            Frame.default(
                 target=worker,
                 code=create_store,
                 execution_gas=create_store.execution_cost(fork)
@@ -469,20 +472,20 @@ def test_frame_revert_refill_restores_spent_gas(
             # Frame 2: return the slot to its start value (1 -> 0),
             # refilling frame 1's receipt, then take the branch into the
             # revert. Frame 1's success left the worker warm.
-            default_frame(
+            Frame.default(
                 target=worker,
                 code=refill_store,
                 execution_gas=refill_store.execution_cost(fork)
                 + branch_control
                 + revert_tail,
                 warm=True,
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
             ),
             # Frame 3: read frame 1's restored attribution and frame 2's
             # status after the revert.
-            default_frame(target=probe, code=probe_code),
+            Frame.default(target=probe, code=probe_code),
         ],
-    )
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,

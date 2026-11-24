@@ -17,13 +17,13 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Fork,
+    Frame,
     Header,
     Transaction,
     TransactionException,
     add_kzg_version,
 )
 
-from .helpers import sender_frame, verify_frame
 from .spec import ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -68,7 +68,10 @@ def blob_txs(
             txs.append(
                 Transaction(
                     sender=pre.fund_eoa(),
-                    frames=[verify_frame(), sender_frame(target=DESTINATION)],
+                    frames=[
+                        Frame.verify(),
+                        Frame.sender(target=DESTINATION),
+                    ],
                     blob_versioned_hashes=blob_versioned_hashes,
                     error=error,
                 )

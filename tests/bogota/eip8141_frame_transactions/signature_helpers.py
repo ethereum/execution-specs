@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from execution_testing import EOA, Bytes, FrameSignature, Hash, keccak256
+from execution_testing import EOA, Bytes, FrameSignature, Hash, P256Signer
 
 from .spec import Spec
 
@@ -15,17 +15,14 @@ SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 SECP256R1N = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
 """Order of the NIST P-256 (secp256r1) curve."""
 
-P256_SIGNATURE = bytes.fromhex(
-    "344372728b2e7d992e76fc836b134606b3ed88ad8934c020aa8946b90fc09a4f"
-    "1695256f5464dda72bfbd6cb0d3fd89ca7380da0e476cbb5d94dc1507b77a88d"
-    "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"
-    "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"
-)
+P256_SIGNER = P256Signer(1)
+"""The NIST P-256 key `1`, signing the P256 entries of the tests."""
+
+P256_SIGNATURE = bytes(P256_SIGNER.sign_message(DIGEST))
 """
-A valid P256 signature payload over `DIGEST`: `r || s || qx || qy`
-with low `s`, produced with the NIST P-256 private key `1`. Embedded
-as a constant because P256 signing is randomized and fixtures must be
-deterministic.
+A valid P256 signature payload over `DIGEST` by `P256_SIGNER`:
+`r || s || qx || qy` with low `s`. Malformed entries tamper with its
+words.
 """
 
 P256_R, P256_S, P256_QX, P256_QY = (
@@ -33,9 +30,6 @@ P256_R, P256_S, P256_QX, P256_QY = (
     for start in range(0, 128, 32)
 )
 """The words of `P256_SIGNATURE`."""
-
-P256_SIGNER = Bytes(keccak256(P256_SIGNATURE[64:128])[12:])
-"""The signer `P256_SIGNATURE`'s public key words hash to."""
 
 
 def signed_digest_entry(key: Hash, **overrides: Any) -> FrameSignature:
@@ -47,7 +41,7 @@ def signed_digest_entry(key: Hash, **overrides: Any) -> FrameSignature:
     field.
     """
     entry = FrameSignature(scheme=Spec.SCHEME_SECP256K1, msg=Bytes(DIGEST))
-    entry.signed_over(bytes(DIGEST), key)
+    entry.signed_over(DIGEST, EOA(key=key))
     for field, value in overrides.items():
         setattr(entry, field, value)
     return entry
@@ -96,7 +90,7 @@ def valid_p256_entry(**components: int) -> FrameSignature:
     """
     words = dict(r=P256_R, s=P256_S, qx=P256_QX, qy=P256_QY)
     words.update(components)
-    return p256_entry(**words, signer=P256_SIGNER)
+    return p256_entry(**words, signer=Bytes(P256_SIGNER))
 
 
 def p256_entry(
@@ -126,9 +120,7 @@ def canonical_entry(account: EOA, **overrides: Any) -> FrameSignature:
     signer, sender or not; keyword arguments override single fields.
     """
     fields: Dict[str, Any] = dict(
-        scheme=Spec.SCHEME_SECP256K1,
-        signer=Bytes(account),
-        secret_key=account.key,
+        signer=account,
     )
     fields.update(overrides)
     return FrameSignature(**fields)
