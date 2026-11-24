@@ -126,13 +126,13 @@ class EIP8141(BaseFork):
 
         The canonical signature hash commits only to the length of an
         empty-`msg` entry's `signature` bytes, so they stand in as that
-        many non-zero bytes.
+        many non-zero bytes, and the entry need not be signed yet.
         """
         charged_bytes = [Bytes(frame.data) for frame in frames]
         for signature in signatures:
             raw_signature = Bytes(signature.signature)
             if len(Bytes(signature.msg)) == 0:
-                raw_signature = Bytes(b"\xff" * len(raw_signature))
+                raw_signature = Bytes(b"\xff" * signature.signature_length)
             charged_bytes += [
                 Bytes(signature.signer),
                 Bytes(signature.msg),

@@ -1,16 +1,31 @@
 """Test suite for transaction signing and serialization."""
 
-from typing import Any, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
 import pytest
 from pydantic import ValidationError
 from spec256k1 import PublicKey
 
-from execution_testing.base_types import AccessList, Address, Hash
+from execution_testing.base_types import (
+    AccessList,
+    Address,
+    Bytes,
+    FrameSignatureScheme,
+    Hash,
+    Signer,
+)
+from execution_testing.forks import Bogota
+from execution_testing.vm import Op
 
 from .. import transaction_types
-from ..account_types import EOA
-from ..transaction_types import Frame, Transaction
+from ..account_types import EOA, P256Signer
+from ..transaction_types import (
+    Frame,
+    FrameOutcome,
+    FrameSettlement,
+    FrameSignature,
+    Transaction,
+)
 from ..utils import keccak256
 
 SIGNING_KEY = Hash(bytes(range(1, 33)))
@@ -431,3 +446,521 @@ def test_mismatched_sender_address_is_trusted() -> None:
     ).with_signature_and_sender()
     assert signed.sender == inconsistent
     assert signed.sender != recover_sender(signed)
+
+
+@pytest.mark.parametrize(
+    "copy_transaction",
+    [
+        pytest.param(lambda tx: tx.copy(), id="copy"),
+        pytest.param(lambda tx: tx.with_nonce(1), id="with_nonce"),
+        pytest.param(lambda tx: tx.with_error([]), id="with_error"),
+    ],
+)
+def test_frame_tx_copy_unsupported(
+    copy_transaction: Callable[[Transaction], Transaction],
+) -> None:
+    """
+    Copying a frame transaction raises instead of returning a copy whose
+    signature entries have lost their signers.
+    """
+    tx = Transaction(sender=EOA(key=SIGNING_KEY), frames=[Frame()])
+    with pytest.raises(NotImplementedError, match="frame transaction"):
+        copy_transaction(tx)
+
+
+@pytest.mark.parametrize(
+    "budget",
+    [
+        pytest.param({}, id="default_budget"),
+        pytest.param({"gas_limit_delta": 0}, id="budget_delta"),
+    ],
+)
+def test_frame_tx_reused_frames_match_fresh_frames(
+    budget: Dict[str, int],
+) -> None:
+    """
+    Frames reused by a second frame transaction expect the receipts fresh
+    frames would, whatever the first transaction deduced for them.
+    """
+    first_sender = EOA(key=SIGNING_KEY)
+    second_sender = EOA(key=OTHER_KEY)
+
+    def build_frames() -> List[Frame]:
+        return [
+            Frame.verify(),
+            Frame.default(target=first_sender, **budget),
+        ]
+
+    shared_frames = build_frames()
+    Transaction(sender=first_sender, frames=shared_frames).resolve_frames(
+        Bogota
+    )
+    reused = Transaction(
+        sender=second_sender, frames=shared_frames
+    ).resolve_frames(Bogota)
+    fresh = Transaction(
+        sender=second_sender, frames=build_frames()
+    ).resolve_frames(Bogota)
+    assert reused.expected_receipt == fresh.expected_receipt
+
+
+EXPECTATION_FIELDS = [
+    pytest.param({"outcome": FrameOutcome.REVERT}, id="outcome"),
+    pytest.param({"code": Op.STOP}, id="code"),
+    pytest.param({"execution_gas": 0}, id="execution_gas"),
+    pytest.param({"gas_limit_delta": 0}, id="gas_limit_delta"),
+    pytest.param({"state_gas_limit_delta": 0}, id="state_gas_limit_delta"),
+    pytest.param({"warm": True}, id="warm"),
+    pytest.param({"delegated": False}, id="delegated_default_value"),
+    pytest.param({"delegation_warm": True}, id="delegation_warm"),
+    pytest.param({"pin_gas": False}, id="pin_gas"),
+    pytest.param({"gas_used": 0}, id="gas_used"),
+    pytest.param({"state_gas_used": 0}, id="state_gas_used"),
+    pytest.param({"logs": []}, id="logs"),
+]
+"""
+One value per expectation field. A value equal to the field's default
+still counts, since the caller set it.
+"""
+
+
+@pytest.mark.parametrize("expectation", EXPECTATION_FIELDS)
+def test_frame_expectation_requires_resolution(
+    expectation: Dict[str, Any],
+) -> None:
+    """Setting any expectation field requires the frame to be resolved."""
+    assert Frame.default(**expectation).requires_resolution
+
+
+@pytest.mark.parametrize(
+    "frame",
+    [
+        pytest.param(Frame(), id="frame"),
+        pytest.param(Frame.default(), id="default"),
+        pytest.param(Frame.sender(), id="sender"),
+        pytest.param(Frame.verify(), id="verify"),
+        pytest.param(Frame.expiry(), id="expiry"),
+    ],
+)
+def test_frame_without_expectations_requires_no_resolution(
+    frame: Frame,
+) -> None:
+    """
+    A frame setting no expectation field requires no resolution, and its
+    transaction encodes without `resolve_frames`.
+    """
+    assert not frame.requires_resolution
+    assert not frame.resolved
+    Transaction(
+        sender=EOA(key=SIGNING_KEY), frames=[Frame.verify(), frame]
+    ).rlp()
+
+
+@pytest.mark.parametrize("expectation", EXPECTATION_FIELDS)
+def test_frame_tx_encoding_requires_resolution(
+    expectation: Dict[str, Any],
+) -> None:
+    """
+    A frame transaction whose frames set expectation fields encodes only
+    once `resolve_frames` resolved them, so its signature never
+    covers a budget that resolution changes afterwards.
+    """
+    tx = Transaction(
+        sender=EOA(key=SIGNING_KEY),
+        frames=[Frame.verify(), Frame.default(**expectation)],
+    )
+    with pytest.raises(AssertionError, match="resolve_frames"):
+        tx.rlp()
+    tx.resolve_frames(Bogota)
+    assert tx.frames is not None
+    assert all(frame.resolved for frame in tx.frames)
+    tx.rlp()
+
+
+def test_frame_tx_resolved_budget_is_signed() -> None:
+    """
+    A frame transaction encodes and signs its frames' resolved budgets, not
+    the placeholder a frame declaring a budget delta starts with.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    target = Address(0x1234)
+    resolved = Transaction(
+        sender=sender,
+        frames=[
+            Frame.verify(),
+            Frame.default(target=target, gas_limit_delta=0),
+        ],
+    ).resolve_frames(Bogota)
+    placeholder = Transaction(
+        sender=sender,
+        frames=[
+            Frame.verify(),
+            Frame.default(target=target, gas_limit=Frame().gas_limit),
+        ],
+    )
+    assert resolved.frames is not None
+    assert resolved.frames[1].gas_limit != Frame().gas_limit
+    assert resolved.rlp() != placeholder.rlp()
+    assert resolved.signatures is not None
+    assert placeholder.signatures is not None
+    assert (
+        resolved.signatures[0].signature != placeholder.signatures[0].signature
+    )
+
+
+def test_frame_receipt_requires_resolution() -> None:
+    """
+    The receipt of a frame setting expectation fields is only available
+    from its resolved copy in the transaction, not from the frame passed in.
+    """
+    frame = Frame.default(outcome=FrameOutcome.REVERT)
+    with pytest.raises(AssertionError, match="resolve_frames"):
+        frame.receipt(Bogota)
+    tx = Transaction(
+        sender=EOA(key=SIGNING_KEY), frames=[Frame.verify(), frame]
+    ).resolve_frames(Bogota)
+    assert tx.frames is not None
+    assert tx.frames[1].resolved
+    assert not frame.resolved
+    receipt = tx.frames[1].receipt(Bogota)
+    assert tx.expected_receipt is not None
+    assert tx.expected_receipt.frame_receipts is not None
+    assert receipt == tx.expected_receipt.frame_receipts[1]
+
+
+SIGNERS = [
+    pytest.param(EOA(key=SIGNING_KEY), id="eoa"),
+    pytest.param(P256Signer(1), id="p256"),
+]
+
+
+@pytest.mark.parametrize("signer", SIGNERS)
+def test_frame_signature_defaults_to_signer_scheme(signer: Any) -> None:
+    """
+    An entry built from a signer defaults to the scheme that verifies the
+    signer natively, and identifies the signer by its bytes.
+    """
+    entry = FrameSignature(signer=signer)
+    assert entry.scheme == signer.signature_scheme
+    assert entry.signer == Bytes(bytes(signer))
+    assert entry.signed_by is signer
+
+
+@pytest.mark.parametrize("signer", SIGNERS)
+def test_frame_signature_arbitrary_scheme_accepted(signer: Any) -> None:
+    """
+    Any signer can sign an `ARBITRARY` entry, which leaves the signer
+    bytes empty for the account's code to verify.
+    """
+    entry = FrameSignature(
+        signer=signer, scheme=FrameSignatureScheme.ARBITRARY
+    )
+    assert entry.scheme == FrameSignatureScheme.ARBITRARY
+    assert entry.signer == Bytes(b"")
+    assert entry.signed_by is signer
+
+
+@pytest.mark.parametrize(
+    "signer,scheme",
+    [
+        pytest.param(
+            EOA(key=SIGNING_KEY), FrameSignatureScheme.P256, id="eoa_as_p256"
+        ),
+        pytest.param(
+            P256Signer(1), FrameSignatureScheme.SECP256K1, id="p256_as_k1"
+        ),
+    ],
+)
+def test_frame_signature_foreign_scheme_rejected(
+    signer: Any, scheme: FrameSignatureScheme
+) -> None:
+    """A signer cannot sign an entry of another native scheme."""
+    with pytest.raises(ValidationError, match="cannot sign scheme"):
+        FrameSignature(signer=signer, scheme=scheme)
+
+
+def test_frame_signature_without_native_scheme_defaults_to_arbitrary() -> None:
+    """
+    A signer no scheme verifies natively signs `ARBITRARY` entries by
+    default, and no other scheme.
+    """
+
+    class CodeVerifiedSigner(Address):
+        """A signer whose signatures only account code can verify."""
+
+        signature_scheme = None
+        signature_length = 32
+
+        def sign_message(self, message: Hash) -> Bytes:
+            return Bytes(bytes(message))
+
+    signer = CodeVerifiedSigner(0x1234)
+    entry = FrameSignature(signer=signer)
+    assert entry.scheme == FrameSignatureScheme.ARBITRARY
+    assert entry.signer == Bytes(b"")
+    with pytest.raises(ValidationError, match="cannot sign scheme"):
+        FrameSignature(signer=signer, scheme=FrameSignatureScheme.SECP256K1)
+
+
+def test_expiry_frame_target_fixed() -> None:
+    """An expiry frame always targets the expiry verifier."""
+    assert Frame.expiry().target is not None
+    with pytest.raises(AssertionError, match="not an expiry frame"):
+        Frame.expiry(target=Address(0x1234))
+
+
+# Warmth deduction
+
+STRANGER = Address(0x1234)
+"""An address outside the warm set a transaction starts with."""
+
+
+@pytest.mark.parametrize(
+    "target,warm",
+    [
+        pytest.param(None, True, id="no_target_resolves_to_sender"),
+        pytest.param("sender", True, id="sender"),
+        pytest.param(Address(0x01), True, id="precompile"),
+        pytest.param(STRANGER, False, id="stranger"),
+    ],
+)
+def test_frame_tx_deduces_target_warmth(target: Any, warm: bool) -> None:
+    """
+    A frame whose resolved target is in the warm set a transaction starts
+    with, the sender or a precompile, is warm unless it says otherwise.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    if isinstance(target, str):
+        target = sender
+    tx = Transaction(
+        sender=sender, frames=[Frame.verify(), Frame.default(target=target)]
+    ).resolve_frames(Bogota)
+    assert tx.frames is not None
+    assert tx.frames[1].warm is warm
+
+
+@pytest.mark.parametrize(
+    "target,warm",
+    [
+        pytest.param(None, False, id="sender_declared_cold"),
+        pytest.param(STRANGER, True, id="stranger_declared_warm"),
+    ],
+)
+def test_frame_tx_keeps_declared_warmth(target: Any, warm: bool) -> None:
+    """
+    A frame that declares its warmth keeps it, such as a target an earlier
+    frame touched, whatever the deduction would give.
+    """
+    tx = Transaction(
+        sender=EOA(key=SIGNING_KEY),
+        frames=[Frame.verify(), Frame.default(target=target, warm=warm)],
+    ).resolve_frames(Bogota)
+    assert tx.frames is not None
+    assert tx.frames[1].warm is warm
+
+
+def test_frame_tx_warmth_prices_entry() -> None:
+    """A warm target is charged less at entry than a cold one."""
+    frames = [
+        Transaction(
+            sender=EOA(key=SIGNING_KEY),
+            frames=[Frame.verify(), Frame.default(target=target)],
+        ).resolve_frames(Bogota)
+        for target in (None, STRANGER)
+    ]
+    warm_frame, cold_frame = (tx.frames[1] for tx in frames if tx.frames)
+    assert warm_frame.entry_gas(Bogota) < cold_frame.entry_gas(Bogota)
+
+
+# Settlement
+
+
+def test_frame_settlement_arithmetic() -> None:
+    """
+    The settled amounts follow from the execution gas, state gas, calldata
+    floor and refund: the floor holds the refunded execution gas up, state
+    gas is never refunded or floored, and the header takes the larger
+    dimension.
+    """
+    settlement = FrameSettlement(
+        execution_gas=100,
+        state_gas=30,
+        calldata_floor=80,
+        effective_refund=40,
+    )
+    assert settlement.gas_before_refund == 130
+    assert settlement.floor_binds()
+    assert not settlement.floor_binds(after_refund=False)
+    assert settlement.payer_gas_used() == 80 + 30
+    assert settlement.block_gas_used() == 100 + 30
+    assert settlement.block_header_gas_used() == 100
+
+    state_heavy = FrameSettlement(
+        execution_gas=100, state_gas=300, calldata_floor=0, effective_refund=0
+    )
+    assert not state_heavy.floor_binds()
+    assert state_heavy.payer_gas_used() == 400
+    assert state_heavy.block_header_gas_used() == 300
+
+
+def resolved_frame_tx(**frame_fields: Any) -> Transaction:
+    """Return a resolved frame transaction with one `DEFAULT` frame."""
+    return Transaction(
+        sender=EOA(key=SIGNING_KEY),
+        frames=[Frame.verify(), Frame.default(**frame_fields)],
+    ).resolve_frames(Bogota)
+
+
+def test_frame_settlement_sums_receipts() -> None:
+    """
+    The settled execution and state gas grow by exactly what a frame's
+    receipt reports.
+    """
+    base = resolved_frame_tx(gas_used=0, state_gas_used=0).frame_settlement(
+        Bogota
+    )
+    more = resolved_frame_tx(
+        gas_used=1_000, state_gas_used=500
+    ).frame_settlement(Bogota)
+    assert more.execution_gas - base.execution_gas == 1_000
+    assert more.state_gas - base.state_gas == 500
+    assert more.calldata_floor == base.calldata_floor
+
+
+@pytest.mark.parametrize(
+    "refund,capped",
+    [
+        pytest.param(1, False, id="below_cap"),
+        pytest.param(10**9, True, id="above_cap"),
+    ],
+)
+def test_frame_settlement_caps_refund(refund: int, capped: bool) -> None:
+    """The refund survives up to the fork's share of the spent gas."""
+    tx = resolved_frame_tx(gas_used=50_000)
+    settlement = tx.frame_settlement(Bogota, refund=refund)
+    cap = settlement.gas_before_refund // Bogota.max_refund_quotient()
+    assert settlement.effective_refund == (cap if capped else refund)
+
+
+def test_frame_settlement_matches_expected_receipt() -> None:
+    """
+    The expected receipt charges the payer what the settlement gives, for
+    the refund the frames were resolved with.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    tx = Transaction(
+        sender=sender,
+        frames=[Frame.verify(), Frame.default(gas_used=50_000)],
+    ).resolve_frames(Bogota, refund=1_000)
+    assert tx.expected_receipt is not None
+    assert tx.expected_receipt.payer == sender
+    assert (
+        tx.expected_receipt.cumulative_gas_used
+        == tx.frame_settlement(Bogota, refund=1_000).payer_gas_used()
+    )
+
+
+def test_frame_settlement_unpinned_without_total() -> None:
+    """
+    A frame whose execution gas is unpinned leaves the receipt's total
+    unpinned too, since the total follows from every frame's gas.
+    """
+    tx = resolved_frame_tx(pin_gas=False)
+    assert tx.expected_receipt is not None
+    assert tx.expected_receipt.cumulative_gas_used is None
+
+
+# Signers in the signature list
+
+
+def test_frame_tx_default_signature_from_sender() -> None:
+    """
+    A frame transaction without signatures gets one canonical-hash entry
+    signed by its sender, or none for a sender without a key.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    tx = Transaction(sender=sender, frames=[Frame.verify()])
+    assert tx.signatures is not None
+    assert len(tx.signatures) == 1
+    assert tx.signatures[0].signed_by is sender
+    assert tx.signatures[0].msg == Bytes(b"")
+
+    keyless = Transaction(sender=EOA(Address(0x1234)), frames=[Frame.verify()])
+    assert keyless.signatures == []
+
+
+def test_frame_tx_signers_become_signed_entries() -> None:
+    """
+    Signers in the signature list become canonical-hash entries of their
+    own scheme, signed with their own key when the transaction is.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    payer = EOA(key=OTHER_KEY)
+    signers: List[Signer] = [sender, payer, P256Signer(1)]
+    tx = Transaction(
+        sender=sender, frames=[Frame.verify()], signatures=signers
+    )
+    assert tx.signatures is not None
+    assert [entry.signed_by for entry in tx.signatures] == signers
+    assert all(len(entry.signature) == 0 for entry in tx.signatures)
+    tx.rlp()
+    for entry, signer in zip(tx.signatures, signers, strict=True):
+        assert entry.scheme == signer.signature_scheme
+        assert entry.signer == Bytes(bytes(signer))
+        assert entry.msg == Bytes(b"")
+        assert len(entry.signature) == signer.signature_length
+
+
+def test_frame_tx_signature_entries_copied() -> None:
+    """
+    Entries passed in are copied, so signing a transaction never modifies
+    an entry shared with the caller or another transaction.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    entry = FrameSignature(signer=sender)
+    first = Transaction(
+        sender=sender, frames=[Frame.verify()], signatures=[entry]
+    )
+    second = Transaction(
+        sender=sender,
+        frames=[Frame.verify(), Frame.default()],
+        signatures=[entry, EOA(key=OTHER_KEY)],
+    )
+    first.rlp()
+    second.rlp()
+    assert first.signatures is not None and second.signatures is not None
+    assert first.signatures[0] is not entry
+    assert len(entry.signature) == 0
+    assert first.signatures[0].signature != second.signatures[0].signature
+
+
+@pytest.mark.parametrize(
+    "frame",
+    [
+        pytest.param(Frame.sender(), id="no_expectation_fields"),
+        pytest.param(Frame.default(gas_used=0), id="expectation_fields"),
+    ],
+)
+def test_frame_settlement_requires_resolved_frames(frame: Frame) -> None:
+    """
+    Settling a frame transaction's gas requires `resolve_frames`
+    first, which deduces the frames' warmth: settled any earlier, a frame
+    targeting the sender would be priced as cold.
+    """
+    tx = Transaction(
+        sender=EOA(key=SIGNING_KEY), frames=[Frame.verify(), frame]
+    )
+    with pytest.raises(AssertionError, match="resolve_frames"):
+        tx.frame_settlement(Bogota)
+    tx.resolve_frames(Bogota)
+    tx.frame_settlement(Bogota)
+
+
+def test_frame_settlement_requires_pinned_gas() -> None:
+    """
+    A frame whose execution gas is unpinned leaves nothing to settle the
+    transaction's gas from, rather than counting as no gas.
+    """
+    tx = resolved_frame_tx(pin_gas=False)
+    with pytest.raises(AssertionError, match="unpinned"):
+        tx.frame_settlement(Bogota)

@@ -1,6 +1,6 @@
 """Common definitions and types."""
 
-from .account_types import EOA, Account, Alloc, AllocGroupHash
+from .account_types import EOA, Account, Alloc, AllocGroupHash, P256Signer
 from .balance_expectations import (
     BalanceExpression,
     BlobFee,
@@ -63,11 +63,12 @@ from .system_contract_interactions import (
 from .transaction_types import (
     DEFAULT_FRAME_GAS_LIMIT,
     DEFAULT_FRAME_STATE_GAS_LIMIT,
-    SECP256K1_SIGNATURE_LENGTH,
     AuthorizationTuple,
     Frame,
     FrameFlag,
     FrameMode,
+    FrameOutcome,
+    FrameSettlement,
     FrameSignature,
     FrameSignatureScheme,
     FrameStatus,
@@ -107,11 +108,14 @@ __all__ = (
     "EnvironmentDefaults",
     "EmptyPostStateContext",
     "EOA",
+    "P256Signer",
     "fee_increment_blocks",
     "GasFee",
     "Frame",
     "FrameFlag",
     "FrameMode",
+    "FrameOutcome",
+    "FrameSettlement",
     "FrameReceipt",
     "FrameSignature",
     "FrameSignatureScheme",
@@ -120,7 +124,6 @@ __all__ = (
     "NetworkWrappedTransaction",
     "PostStateContext",
     "Removable",
-    "SECP256K1_SIGNATURE_LENGTH",
     "SystemContractInteractionBase",
     "SystemContractInteractionContract",
     "SystemContractInteractionMeasuredOutOfGasContract",

@@ -23,9 +23,12 @@ from typing import (
 
 import ethereum.state as spec_state
 import ethereum.state_mpt as spec_state_mpt
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec, utils
 from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
-from ethereum_types.bytes import Bytes, Bytes20
+from ethereum_types.bytes import Bytes as SpecBytes
+from ethereum_types.bytes import Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
 from pydantic import Field, PrivateAttr, model_validator
 from spec256k1 import PrivateKey
@@ -35,11 +38,14 @@ from execution_testing.base_types import (
 )
 from execution_testing.base_types import (
     Address,
+    Bytes,
     CamelModel,
     FixedSizeBytes,
+    FrameSignatureScheme,
     Hash,
     HashInt,
     Number,
+    Signer,
     StateCommitment,
     Storage,
     StorageRootType,
@@ -75,7 +81,7 @@ class _Phase(Enum):
     """No mutations are allowed."""
 
 
-class EOA(Address):
+class EOA(Address, Signer):
     """
     An Externally Owned Account (EOA) is an account controlled by a private
     key.
@@ -83,6 +89,12 @@ class EOA(Address):
     The EOA is defined by its address and (optionally) by its corresponding
     private key.
     """
+
+    signature_scheme: ClassVar[FrameSignatureScheme] = (
+        FrameSignatureScheme.SECP256K1
+    )
+    signature_length: ClassVar[int] = 65
+    """Length of a secp256k1 signature: `v || r || s`."""
 
     key: Hash | None
     nonce: Number
@@ -112,6 +124,16 @@ class EOA(Address):
         instance.nonce = Number(nonce)
         return instance
 
+    def sign_message(self, message: Hash) -> Bytes:
+        """
+        Sign `message` with secp256k1 and return `v || r || s`, with `v` in
+        `{0, 1}`.
+        """
+        if self.key is None:
+            raise ValueError(f"EOA {Address(self)} has no key to sign with")
+        signature = PrivateKey(self.key).sign_recoverable(bytes(message))
+        return Bytes(bytes([signature[64]]) + signature[0:64])
+
     def get_nonce(self) -> Number:
         """Return current nonce of the EOA and increments it by one."""
         nonce = self.nonce
@@ -121,6 +143,83 @@ class EOA(Address):
     def copy(self) -> Self:
         """Return copy of the EOA."""
         return self.__class__(Address(self), key=self.key, nonce=self.nonce)
+
+
+SECP256R1_ORDER = (
+    0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
+)
+"""Order of the NIST P-256 (secp256r1) curve."""
+
+
+class P256Signer(Address, Signer):
+    """
+    A NIST P-256 (secp256r1) private key, identified by the address its
+    public key hashes to: `keccak256(qx || qy)[12:]`.
+
+    Signs EIP-8141 `P256` signature entries. A P256 key cannot authorize a
+    transaction through the default code, so an account using it needs
+    code of its own.
+    """
+
+    signature_scheme: ClassVar[FrameSignatureScheme] = (
+        FrameSignatureScheme.P256
+    )
+    signature_length: ClassVar[int] = 128
+    """Length of a P256 signature: `r || s || qx || qy`."""
+
+    key: Hash
+    public_key: Bytes
+    """The uncompressed public key `qx || qy`."""
+
+    def __new__(
+        cls,
+        key: FixedSizeBytesConvertible,
+        *,
+        label: str | None = None,
+    ) -> "P256Signer":
+        """Derive the signer's address from `key`."""
+        private_key = Hash(key)
+        public_key = _p256_public_key(private_key)
+        instance = super(P256Signer, cls).__new__(
+            cls, keccak256(public_key)[12:], label=label
+        )
+        instance.key = private_key
+        instance.public_key = public_key
+        return instance
+
+    def __getnewargs_ex__(self) -> Tuple[Tuple[Hash], Dict[str, Any]]:
+        """
+        Rebuild the signer from its key when copied or pickled, since its
+        bytes are the derived address, not the key `__new__` expects.
+        """
+        return (self.key,), {"label": self.label}
+
+    def sign_message(self, message: Hash) -> Bytes:
+        """
+        Sign `message` with deterministic (RFC 6979) ECDSA and return
+        `r || s || qx || qy`, with `s` normalized to the lower half of the
+        curve order.
+        """
+        der_signature = _p256_private_key(self.key).sign(
+            bytes(message),
+            ec.ECDSA(
+                utils.Prehashed(hashes.SHA256()), deterministic_signing=True
+            ),
+        )
+        r, s = utils.decode_dss_signature(der_signature)
+        s = min(s, SECP256R1_ORDER - s)
+        return Bytes(
+            r.to_bytes(32, "big") + s.to_bytes(32, "big") + self.public_key
+        )
+
+
+def _p256_private_key(key: Hash) -> ec.EllipticCurvePrivateKey:
+    return ec.derive_private_key(int.from_bytes(key, "big"), ec.SECP256R1())
+
+
+def _p256_public_key(key: Hash) -> Bytes:
+    numbers = _p256_private_key(key).public_key().public_numbers()
+    return Bytes(numbers.x.to_bytes(32, "big") + numbers.y.to_bytes(32, "big"))
 
 
 class AllocGroupHash(FixedSizeBytes[8]):  # type: ignore
@@ -474,7 +573,7 @@ class Alloc(BaseAlloc):
     )
 
     _phase: _Phase = PrivateAttr(default=_Phase.CONSTRUCTION)
-    _code_store: Dict[Hash32, Bytes] = PrivateAttr(default_factory=dict)
+    _code_store: Dict[Hash32, SpecBytes] = PrivateAttr(default_factory=dict)
     _state_commitment: StateCommitment | None = PrivateAttr(default=None)
     """
     Commitment scheme this allocation's state root is computed under.
@@ -846,7 +945,7 @@ class Alloc(BaseAlloc):
         """
         if self._derived_from is not None and self._derived_from == self.root:
             return
-        self._code_store = {spec_state.EMPTY_CODE_HASH: Bytes(b"")}
+        self._code_store = {spec_state.EMPTY_CODE_HASH: SpecBytes(b"")}
         self._zero_storage_addresses = []
         for address, account in self.root.items():
             if account is None:
@@ -856,7 +955,7 @@ class Alloc(BaseAlloc):
             code = bytes(account.code) if account.code else b""
             if not code:
                 continue
-            self._code_store[spec_keccak256(code)] = Bytes(code)
+            self._code_store[spec_keccak256(code)] = SpecBytes(code)
         self._state_trie = None
         self._pending_state_trie = None
         self._derived_from = dict(self.root)
@@ -1005,7 +1104,7 @@ class Alloc(BaseAlloc):
             return U256(0)
         return U256(int(value_hi))
 
-    def get_code(self, code_hash: Hash32) -> Bytes:
+    def get_code(self, code_hash: Hash32) -> SpecBytes:
         """
         Return the bytecode for `code_hash`.
 
@@ -1013,7 +1112,7 @@ class Alloc(BaseAlloc):
         """
         self._ensure_live()
         if code_hash == spec_state.EMPTY_CODE_HASH:
-            return Bytes(b"")
+            return SpecBytes(b"")
         return self._code_store[code_hash]
 
     def compute_state_root(self, block_diff: spec_state.BlockDiff) -> Hash32:
@@ -1064,7 +1163,7 @@ class Alloc(BaseAlloc):
                 state_trie = self._state_trie.with_diff(diff)
 
         for code_hash, code in diff.code_changes.items():
-            self._code_store[Hash32(code_hash)] = Bytes(code)
+            self._code_store[Hash32(code_hash)] = SpecBytes(code)
 
         # `model_copy` skips the validator that freezes an `Account`'s
         # storage, so each storage swapped in below is frozen explicitly.
@@ -1083,7 +1182,7 @@ class Alloc(BaseAlloc):
                 continue
             code_hash = Hash32(spec_account.code_hash)
             if code_hash == spec_state.EMPTY_CODE_HASH:
-                code = Bytes(b"")
+                code = SpecBytes(b"")
             else:
                 code = self._code_store[code_hash]
             existing = self.root.get(addr)

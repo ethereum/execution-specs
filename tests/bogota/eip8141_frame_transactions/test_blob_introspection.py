@@ -26,7 +26,10 @@ from execution_testing import (
     add_kzg_version,
 )
 
-from .helpers import BASE_FEE, fee_budget, verify_frame
+from .helpers import (
+    BASE_FEE,
+    fee_budget,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -109,7 +112,7 @@ def test_blob_introspection(
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         blob_versioned_hashes=hashes,
         frames=[
-            verify_frame(),
+            Frame.verify(),
             Frame(
                 mode=mode,
                 target=probe,
@@ -180,7 +183,7 @@ def test_blob_introspection_in_verify_frame(
         nonce=1,
         max_fee=MAX_FEE,
         blob_versioned_hashes=hashes,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
     )
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=2)})

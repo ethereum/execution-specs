@@ -233,7 +233,18 @@ class FrameSignatureGasInfo(Protocol):
 
     @property
     def signature(self) -> BytesConvertible:
-        """Return the raw signature bytes, priced as calldata."""
+        """
+        Return the raw signature bytes, priced as calldata when `msg` is
+        not empty.
+        """
+        ...
+
+    @property
+    def signature_length(self) -> int:
+        """
+        Return the length of the raw signature bytes, which prices an
+        empty-`msg` entry and is known before the entry is signed.
+        """
         ...
 
 
