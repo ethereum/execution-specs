@@ -30,6 +30,7 @@ from execution_testing import (
     Op,
     ParameterSet,
     Requests,
+    Storage,
     SystemContractInteractionContract,
     SystemContractInteractionTransaction,
     SystemContractRequest,
@@ -39,6 +40,7 @@ from execution_testing import (
     WithdrawalRequest,
 )
 
+from ..eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_7685
 
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_7685.git_path
@@ -599,5 +601,96 @@ def test_withdrawals_credited_before_request_system_call(
         post={
             predeploy: Account(balance=withdrawal_amount_wei - forwarded_wei),
             sink: Account(balance=1 + forwarded_wei),
+        },
+    )
+
+
+@pytest.mark.with_all_system_contract_request_types(
+    selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
+)
+@pytest.mark.pre_alloc_mutable
+def test_system_contract_delegated_to_canonical_code(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    request_class: type[FeeSystemContractRequest],
+) -> None:
+    """
+    Test a request contract whose designator points at its canonical code.
+
+    The system call follows the designator, per EIP-7702, and runs the
+    delegate's code in the request contract's storage.
+    """
+    system_contract = request_class.system_contract_address
+    genesis_contract = pre[system_contract]
+    assert genesis_contract is not None
+    delegate = pre.deploy_contract(genesis_contract.code)
+    designator = Spec7702.delegation_designation(delegate)
+    pre.update_account(system_contract, code=designator)
+
+    sender = pre.fund_eoa()
+    request = (
+        request_class.from_index(0)
+        .copy(fee=request_class.get_fee(0))
+        .with_source_address(sender)
+    )
+
+    # The dequeue empties the queue, which resets the head and tail, and
+    # leaves the record slots in place.
+    post_storage = Storage()
+    for slot in request_class.record_slots(0, 1):
+        post_storage.set_expect_any(slot)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(
+                        to=system_contract,
+                        data=request.calldata,
+                        value=request.value,
+                        sender=sender,
+                    )
+                ],
+                header_verify=Header(requests_hash=Requests(request)),
+            )
+        ],
+        post={
+            system_contract: Account(code=designator, storage=post_storage),
+            delegate: Account(code=genesis_contract.code, storage={}),
+        },
+    )
+
+
+@pytest.mark.with_all_system_contract_request_types(
+    selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
+)
+@pytest.mark.pre_alloc_mutable
+def test_system_contract_delegated_to_empty_account(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    request_class: type[FeeSystemContractRequest],
+) -> None:
+    """
+    Test a request contract whose designator points at an empty account.
+
+    The empty-code check reads the designator itself, so the block stays
+    valid and the system call returns no requests.
+    """
+    system_contract = request_class.system_contract_address
+    delegate = pre.fund_eoa(amount=0)
+    designator = Spec7702.delegation_designation(delegate)
+    # Any code that dequeues would reset the tail and return a request.
+    queued_storage = {request_class.queue_tail_slot: 1}
+    pre.update_account(
+        system_contract, code=designator, storage=queued_storage
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(header_verify=Header(requests_hash=Requests()))],
+        post={
+            system_contract: Account(code=designator, storage=queued_storage),
+            delegate: Account.NONEXISTENT,
         },
     )
