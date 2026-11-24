@@ -20,9 +20,9 @@ from execution_testing import (
     Alloc,
     BalAccountExpectation,
     BlockAccessListExpectation,
-    Bytes,
     Fork,
-    FrameSignature,
+    Frame,
+    FrameOutcome,
     Op,
     StateTestFiller,
     Transaction,
@@ -30,12 +30,6 @@ from execution_testing import (
 
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
-from .helpers import (
-    FrameTransaction,
-    Outcome,
-    sender_frame,
-    verify_frame,
-)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -75,7 +69,7 @@ def test_value_transfer(
     recipient = pre.fund_eoa(amount=1)
 
     if target_kind == "other":
-        value_frame = sender_frame(
+        value_frame = Frame.sender(
             target=recipient,
             value=TRANSFER_VALUE,
             logs=[transfer_log(sender, recipient, TRANSFER_VALUE)],
@@ -83,20 +77,19 @@ def test_value_transfer(
     elif target_kind == "self_explicit":
         # The sender seeds the warm set, so its own entry access is
         # warm.
-        value_frame = sender_frame(
+        value_frame = Frame.sender(
             target=sender, value=TRANSFER_VALUE, warm=True, logs=[]
         )
     else:
-        value_frame = sender_frame(value=TRANSFER_VALUE, logs=[])
+        value_frame = Frame.sender(value=TRANSFER_VALUE, logs=[])
 
     # Neither frame runs code beyond its target's entry access, so the
     # floor may bind; both anchors carry the value transfer cost, so
     # the pin exercises it either way.
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        frames=[verify_frame(logs=[]), value_frame],
-    )
+        frames=[Frame.verify(logs=[]), value_frame],
+    ).resolve_frames(fork)
 
     post = {sender: Account(nonce=1)}
     if target_kind == "other":
@@ -114,28 +107,19 @@ def transfer_exceeding_balance(
     """
     sender = pre.fund_eoa(amount=TRANSFER_VALUE)
     payer = pre.fund_eoa()
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
-            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
-            sender_frame(
+            Frame.verify(flags=Spec.APPROVE_EXECUTION),
+            Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
+            Frame.sender(
                 target=recipient,
                 value=TRANSFER_VALUE + 1,
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
             ),
         ],
-        signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
-    )
+        signatures=[sender, payer],
+    ).resolve_frames(fork, payer=payer)
     post = {
         sender: Account(nonce=1, balance_change=0),
         recipient: Account(balance_change=0),

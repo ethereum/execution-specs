@@ -23,24 +23,18 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    Bytes,
     Fork,
-    FrameSignature,
+    Frame,
+    FrameOutcome,
     GasFee,
     Op,
-    keccak256,
+    P256Signer,
+    Transaction,
 )
 
 from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
 from tests.osaka.eip7951_p256verify_precompiles.spec import Spec as Spec7951
 
-from .helpers import (
-    FrameTransaction,
-    Outcome,
-    sender_frame,
-    verify_frame,
-)
-from .signature_helpers import P256_SIGNATURE, p256_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -90,26 +84,29 @@ def test_bal_atomic_batch_write(
     terminator_code = Op.STOP if committed else Op.REVERT(0, 0)
     terminator = pre.deploy_contract(code=terminator_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
+            Frame.verify(),
             # Succeeds either way; an unrolled batch keeps the status.
-            sender_frame(
+            Frame.sender(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=target,
                 code=target_code,
                 gas_limit=WRITE_FRAME_GAS,
-                outcome=Outcome.SUCCESS if committed else Outcome.UNROLLED,
+                outcome=FrameOutcome.SUCCESS
+                if committed
+                else FrameOutcome.UNROLLED,
             ),
-            sender_frame(
+            Frame.sender(
                 target=terminator,
                 code=terminator_code,
-                outcome=Outcome.SUCCESS if committed else Outcome.REVERT,
+                outcome=FrameOutcome.SUCCESS
+                if committed
+                else FrameOutcome.REVERT,
             ),
         ],
-    )
+    ).resolve_frames(fork)
 
     if committed:
         target_expectation = BalAccountExpectation(
@@ -176,24 +173,23 @@ def test_bal_atomic_batch_skipped_frame_absent(
         code=Op.SSTORE(SLOT, WRITTEN_VALUE) + Op.STOP
     )
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            sender_frame(
+            Frame.verify(),
+            Frame.sender(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=reverter,
                 code=reverter_code,
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
             ),
-            sender_frame(
+            Frame.sender(
                 target=skipped_target,
                 gas_limit=WRITE_FRAME_GAS,
-                outcome=Outcome.SKIPPED,
+                outcome=FrameOutcome.SKIPPED,
             ),
         ],
-    )
+    ).resolve_frames(fork)
 
     block = Block(
         txs=[tx],
@@ -225,19 +221,18 @@ def test_bal_frame_revert_write_dropped(
     target_code = Op.SSTORE(SLOT, WRITTEN_VALUE) + Op.REVERT(0, 0)
     target = pre.deploy_contract(code=target_code)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            sender_frame(
+            Frame.verify(),
+            Frame.sender(
                 target=target,
                 code=target_code,
                 gas_limit=WRITE_FRAME_GAS,
-                outcome=Outcome.REVERT,
+                outcome=FrameOutcome.REVERT,
             ),
         ],
-    )
+    ).resolve_frames(fork)
 
     block = Block(
         txs=[tx],
@@ -280,21 +275,20 @@ def test_bal_unaffordable_designation_absent(
     delegate = pre.deploy_contract(code=Op.SSTORE(SLOT, WRITTEN_VALUE))
     authority = pre.fund_eoa(delegation=delegate)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
+            Frame.verify(),
             # The most gas that still cannot afford the designation's
             # access.
-            sender_frame(
+            Frame.sender(
                 target=authority,
                 delegated=True,
                 gas_limit_delta=-1,
-                outcome=Outcome.HALT,
+                outcome=FrameOutcome.HALT,
             ),
         ],
-    )
+    ).resolve_frames(fork)
 
     block = Block(
         txs=[tx],
@@ -348,33 +342,24 @@ def test_bal_sponsored_payer_and_sender(
 
     # The gas is pinned so a gas change fails on the receipt rather than
     # as an opaque payer balance mismatch.
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
-        payer=payer,
         max_priority_fee_per_gas=0,
         frames=[
-            verify_frame(flags=Spec.APPROVE_EXECUTION),
-            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
-            sender_frame(
+            Frame.verify(flags=Spec.APPROVE_EXECUTION),
+            Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
+            Frame.sender(
                 target=target,
                 code=target_code,
                 gas_limit=WRITE_FRAME_GAS,
             ),
         ],
-        signatures=[
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(sender),
-            ),
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
+        signatures=[sender, payer],
+    ).resolve_frames(fork, payer=payer)
+    payer_post_balance = (
+        start_balance
+        - tx.frame_settlement(fork).payer_gas_used() * fee_per_gas
     )
-    payer_post_balance = start_balance - tx.payer_gas_used() * fee_per_gas
 
     block = Block(
         txs=[tx],
@@ -421,7 +406,9 @@ def test_bal_sponsored_payer_and_sender(
             sender: Account(nonce=1, balance_change=0),
             payer: Account(
                 nonce_change=0,
-                balance_change=-GasFee(tx, gas=tx.payer_gas_used()),
+                balance_change=-GasFee(
+                    tx, gas=tx.frame_settlement(fork).payer_gas_used()
+                ),
             ),
             target: Account(storage={SLOT: WRITTEN_VALUE}),
         },
@@ -456,31 +443,20 @@ def test_bal_omits_signature_validation_precompiles(
     sender = pre.fund_eoa()
     target = pre.deploy_contract(code=Op.STOP)
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            sender_frame(target=target),
+            Frame.verify(),
+            Frame.sender(target=target),
         ],
         signatures=[
             # Index 0 authorizes the default code, and is validated with
             # `ecrecover`.
-            FrameSignature(
-                scheme=Spec.SCHEME_SECP256K1,
-                signer=Bytes(sender),
-            ),
+            sender,
             # Carried only to exercise `P256VERIFY`; no frame references it.
-            # A P256 entry's signer is `keccak256(qx || qy)[12:]`.
-            p256_entry(
-                r=int.from_bytes(P256_SIGNATURE[0:32], "big"),
-                s=int.from_bytes(P256_SIGNATURE[32:64], "big"),
-                qx=int.from_bytes(P256_SIGNATURE[64:96], "big"),
-                qy=int.from_bytes(P256_SIGNATURE[96:128], "big"),
-                signer=Bytes(keccak256(P256_SIGNATURE[64:128])[12:]),
-            ),
+            P256Signer(1),
         ],
-    )
+    ).resolve_frames(fork)
 
     block = Block(
         txs=[tx],

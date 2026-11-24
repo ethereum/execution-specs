@@ -20,13 +20,14 @@ from execution_testing import (
     Bytecode,
     Bytes,
     Fork,
+    Frame,
     FrameSignature,
     Op,
+    Signer,
     StateTestFiller,
     Transaction,
 )
 
-from .helpers import FrameTransaction, default_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -58,7 +59,7 @@ ARBITRARY_WITNESS = Bytes(b"\xab" * 5)
 def probe_transaction(
     sender: EOA,
     probe: Address,
-    signatures: List[FrameSignature] | None = None,
+    signatures: List[FrameSignature | Signer] | None = None,
 ) -> Transaction:
     """
     Return a two frame transaction: a `VERIFY` frame approving through
@@ -70,8 +71,8 @@ def probe_transaction(
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
         frames=[
-            verify_frame(),
-            default_frame(
+            Frame.verify(),
+            Frame.default(
                 target=probe,
                 gas_limit=PROBE_FRAME_GAS,
                 state_gas_limit=PROBE_FRAME_STATE_GAS,
@@ -149,12 +150,9 @@ def test_txparam_sender_and_sig_hash(
             sender,
             probe,
             signatures=[
+                sender,
                 FrameSignature(
-                    scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)
-                ),
-                FrameSignature(
-                    scheme=Spec.SCHEME_SECP256K1,
-                    signer=Bytes(sender),
+                    signer=sender,
                     msg=explicit_msg,
                 ),
             ],
@@ -349,13 +347,13 @@ def test_frameparam_atomic_batch_set(
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
         frames=[
-            verify_frame(),
-            default_frame(
+            Frame.verify(),
+            Frame.default(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=probe,
                 gas_limit=PROBE_FRAME_GAS,
             ),
-            default_frame(),
+            Frame.default(),
         ],
     )
 
@@ -403,25 +401,25 @@ def test_frameparam_gas_used(
     )
     probe = pre.deploy_contract(code=probe_code)
 
-    worker_frame = default_frame(target=worker, code=worker_code)
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
         frames=[
-            verify_frame(),
-            worker_frame,
-            default_frame(
+            Frame.verify(),
+            Frame.default(target=worker, code=worker_code),
+            Frame.default(
                 target=probe,
                 code=probe_code,
                 gas_limit=PROBE_FRAME_GAS,
                 state_gas_limit=PROBE_FRAME_STATE_GAS,
             ),
         ],
-    )
+    ).resolve_frames(fork)
 
-    worker_receipt = worker_frame.receipt(fork)
+    assert tx.expected_receipt is not None
+    assert tx.expected_receipt.frame_receipts is not None
+    worker_receipt = tx.expected_receipt.frame_receipts[1]
 
     state_test(
         pre=pre,
@@ -687,9 +685,7 @@ def test_sigparam(
             sender,
             probe,
             signatures=[
-                FrameSignature(
-                    scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)
-                ),
+                sender,
                 FrameSignature(
                     scheme=Spec.SCHEME_ARBITRARY, signature=ARBITRARY_WITNESS
                 ),
@@ -731,18 +727,18 @@ def test_sigparam_resolved_signer(
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
         frames=[
-            verify_frame(),
-            default_frame(
+            Frame.verify(),
+            Frame.default(
                 target=resolved,
                 gas_limit=PROBE_FRAME_GAS,
             ),
-            default_frame(
+            Frame.default(
                 target=refused,
                 gas_limit=PROBE_FRAME_GAS,
             ),
         ],
         signatures=[
-            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            sender,
             FrameSignature(
                 scheme=Spec.SCHEME_ARBITRARY, signature=ARBITRARY_WITNESS
             ),
@@ -780,7 +776,7 @@ def test_sigdatacopy(
     )
 
     signatures = [
-        FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+        sender,
         FrameSignature(
             scheme=Spec.SCHEME_ARBITRARY, signature=ARBITRARY_WITNESS
         ),
@@ -791,12 +787,12 @@ def test_sigdatacopy(
         max_priority_fee_per_gas=MAX_PRIORITY_FEE,
         max_fee=MAX_FEE,
         frames=[
-            verify_frame(),
-            default_frame(
+            Frame.verify(),
+            Frame.default(
                 target=copied,
                 gas_limit=PROBE_FRAME_GAS,
             ),
-            default_frame(
+            Frame.default(
                 target=refused,
                 gas_limit=PROBE_FRAME_GAS,
             ),

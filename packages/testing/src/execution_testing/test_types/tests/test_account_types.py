@@ -1,15 +1,27 @@
 """Test account test types."""
 
-from typing import Callable
+import copy
+import pickle
+from typing import Any, Callable
 
 import ethereum.state as spec_state
 import pytest
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec, utils
 from ethereum_types.bytes import Bytes20, Bytes32
 from ethereum_types.numeric import U256, Uint
 
-from execution_testing.base_types import Address, StateCommitment, Storage
+from execution_testing.base_types import (
+    Address,
+    FrameSignatureScheme,
+    Hash,
+    StateCommitment,
+    Storage,
+)
 
-from ..account_types import Account, Alloc
+from ..account_types import SECP256R1_ORDER, Account, Alloc, P256Signer
+from ..transaction_types import FrameSignature
+from ..utils import keccak256
 
 STORAGE_WRITES: dict[str, Callable[[Storage], object]] = {
     "setitem": lambda storage: storage.__setitem__(1, 2),
@@ -173,3 +185,81 @@ def test_apply_diff_storages_are_frozen() -> None:
     assert alloc[changed] == Account(storage={0: 1, 1: 2})
     assert alloc[cleared] == Account()
     assert alloc[zeroed] == Account(storage={1: 1})
+
+
+P256_GENERATOR = bytes.fromhex(
+    "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"
+    "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"
+)
+"""Public key `qx || qy` of the P256 private key `1`: the curve generator."""
+
+
+def test_p256_signer_address() -> None:
+    """The signer's address is the last 20 bytes of its public key's hash."""
+    signer = P256Signer(1)
+    assert signer.public_key == P256_GENERATOR
+    assert signer == Address(keccak256(P256_GENERATOR)[12:])
+    assert bytes(signer) == keccak256(P256_GENERATOR)[12:]
+
+
+@pytest.mark.parametrize("message_byte", range(16))
+def test_p256_signer_sign_message(message_byte: int) -> None:
+    """
+    Signatures are deterministic, low-`s`, carry the public key and verify
+    against it.
+    """
+    signer = P256Signer(0xC0FFEE)
+    message = Hash(bytes([message_byte]) * 32)
+    signature = signer.sign_message(message)
+    assert signature == signer.sign_message(message)
+    assert len(signature) == P256Signer.signature_length
+    r = int.from_bytes(signature[0:32], "big")
+    s = int.from_bytes(signature[32:64], "big")
+    assert 0 < r < SECP256R1_ORDER
+    assert 0 < s <= SECP256R1_ORDER // 2
+    assert signature[64:] == signer.public_key
+    public_key = ec.EllipticCurvePublicNumbers(
+        int.from_bytes(signature[64:96], "big"),
+        int.from_bytes(signature[96:128], "big"),
+        ec.SECP256R1(),
+    ).public_key()
+    public_key.verify(
+        utils.encode_dss_signature(r, s),
+        bytes(message),
+        ec.ECDSA(utils.Prehashed(hashes.SHA256())),
+    )
+
+
+def test_p256_signer_frame_signature_entry() -> None:
+    """A P256 signer builds a `P256` entry naming its address."""
+    signer = P256Signer(1)
+    entry = FrameSignature(signer=signer)
+    assert entry.scheme == FrameSignatureScheme.P256
+    assert entry.signer == bytes(signer)
+    assert entry.signed_by is signer
+
+
+@pytest.mark.parametrize(
+    "duplicate",
+    [
+        pytest.param(copy.copy, id="copy"),
+        pytest.param(copy.deepcopy, id="deepcopy"),
+        pytest.param(
+            lambda signer: pickle.loads(pickle.dumps(signer)), id="pickle"
+        ),
+    ],
+)
+def test_p256_signer_duplicates(duplicate: Callable[[Any], Any]) -> None:
+    """
+    A copied or unpickled P256 signer keeps its address, key, public key
+    and label, and signs like the original.
+    """
+    signer = P256Signer(0xC0FFEE, label="p256_signer")
+    duplicated = duplicate(signer)
+    assert isinstance(duplicated, P256Signer)
+    assert bytes(duplicated) == bytes(signer)
+    assert duplicated.key == signer.key
+    assert duplicated.public_key == signer.public_key
+    assert duplicated.label == signer.label
+    message = Hash(b"\x42" * 32)
+    assert duplicated.sign_message(message) == signer.sign_message(message)
