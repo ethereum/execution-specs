@@ -4,7 +4,8 @@ Test_codesize_valid.
 Ported from:
 state_tests/stCodeSizeLimit/codesizeValidFiller.json
 
-@manually-enhanced: Do not overwrite. Explicit gas values removed.
+@manually-enhanced: Do not overwrite. Explicit gas values removed. Runs
+from Frontier.
 """
 
 import pytest
@@ -17,16 +18,25 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+LEGACY_URL = (
+    "https://github.com/ethereum/legacytests/blob/master/src/LegacyTests"
+    "/Constantinople/GeneralStateTestsFiller/stCodeSizeLimit"
+)
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stCodeSizeLimit/codesizeValidFiller.json"],
+    [
+        "state_tests/stCodeSizeLimit/codesizeValidFiller.json",
+        f"{LEGACY_URL}/codesizeValidFiller.json",
+    ],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -47,6 +57,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_codesize_valid(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     d: int,
     g: int,
     v: int,
@@ -55,7 +66,8 @@ def test_codesize_valid(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
-    env = Environment(
+    env = Environment.for_fork(
+        fork,
         fee_recipient=coinbase,
         number=1,
         timestamp=1000,
@@ -73,7 +85,11 @@ def test_codesize_valid(
     tx_value = [1]
 
     tx = Transaction(
-        sender=sender, to=None, data=tx_data[d], value=tx_value[v]
+        sender=sender,
+        to=None,
+        data=tx_data[d],
+        value=tx_value[v],
+        protected=fork.supports_protected_txs(),
     )
 
     post = {
