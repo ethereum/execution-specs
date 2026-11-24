@@ -150,7 +150,7 @@ def test_transient_storage_discarded_between_frames(
             # The first frame's success leaves the recorder warm.
             recorder_frame(second_mode, recorder, warm=True),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -199,7 +199,7 @@ def test_transient_storage_discarded_between_atomic_batch_frames(
             ),
             recorder_frame(mode, recorder, warm=True),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -286,7 +286,7 @@ def test_transient_storage_discarded_after_failed_frame(
     )
 
     frames = [Frame.verify(), record(), *batch, record()]
-    tx = Transaction(sender=sender, frames=frames).expect_frame_receipts(fork)
+    tx = Transaction(sender=sender, frames=frames).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -337,7 +337,7 @@ def test_transient_storage_discarded_before_verify_frame(
             Frame.default(target=sender, data=Bytes(b"\x01"), pin_gas=False),
             Frame.verify(pin_gas=False),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=2)})
 
@@ -408,7 +408,7 @@ def test_transient_storage_discarded_for_called_account(
                 state_gas_used=slot_gas,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,

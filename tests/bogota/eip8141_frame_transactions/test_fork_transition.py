@@ -79,7 +79,7 @@ def test_expiry_frame_in_first_post_fork_block(
             Frame.expiry(execution_gas=expiry_verifier_gas(post_fork)),
             Frame.sender(target=target, code=target_code),
         ],
-    ).expect_frame_receipts(post_fork)
+    ).resolve_frames(post_fork)
     blocks = [
         Block(timestamp=FORK_TIMESTAMP - 1),
         Block(

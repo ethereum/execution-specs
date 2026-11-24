@@ -145,7 +145,7 @@ def test_sender_is_warm(
             Frame.verify(),
             probe_frame(probe_address, probe),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -179,7 +179,7 @@ def test_coinbase_is_warm(
             Frame.verify(),
             probe_frame(probe_address, probe),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         env=env,
@@ -259,7 +259,7 @@ def test_frame_target_entry_charge(
     tx = Transaction(
         sender=sender,
         frames=[Frame.verify(), *touches],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -307,7 +307,7 @@ def test_warmth_carry_to_next_frame(
             ),
             probe_frame(probe_address, probe),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -347,7 +347,7 @@ def test_payer_warm_after_default_code_payment_approval(
             probe_frame(probe_address, probe),
         ],
         signatures=[sender, payer],
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
 
     state_test(
         pre=pre,
@@ -400,7 +400,7 @@ def test_origin_warmth_by_frame_mode(
                 gas_limit=TOUCH_FRAME_GAS,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -482,7 +482,7 @@ def test_warmth_from_inner_call(
             ),
             probe_frame(probe_address, probe),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,

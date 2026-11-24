@@ -77,7 +77,7 @@ def test_expiry_verifier_deployment(
             Frame.expiry(execution_gas=expiry_verifier_gas(post_fork)),
             Frame.sender(target=target, code=target_code),
         ],
-    ).expect_frame_receipts(post_fork)
+    ).resolve_frames(post_fork)
 
     yield Block(txs=[tx])
 

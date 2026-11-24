@@ -135,7 +135,7 @@ def test_calldata_floor_with_state_gas(
                     data=bytes(data_length),
                 ),
             ],
-        ).expect_frame_receipts(fork)
+        ).resolve_frames(fork)
 
     def floor_binds(data_length: int) -> bool:
         return build(data_length).frame_settlement(fork).floor_binds()
@@ -224,7 +224,7 @@ def test_storage_refund_settlement(
                     data=bytes(data_length),
                 ),
             ],
-        ).expect_frame_receipts(fork, refund=refund)
+        ).resolve_frames(fork, refund=refund)
 
     def floor_binds(data_length: int) -> bool:
         return (
@@ -365,7 +365,7 @@ def test_batch_unroll_refill_restores_spent_gas(
             # status after the unroll.
             Frame.default(target=probe, code=probe_code),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -485,7 +485,7 @@ def test_frame_revert_refill_restores_spent_gas(
             # status after the revert.
             Frame.default(target=probe, code=probe_code),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,

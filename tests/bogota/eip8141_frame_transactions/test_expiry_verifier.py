@@ -84,7 +84,7 @@ def test_expiry_verifier_frame(
             Frame.sender(target=target, code=target_code),
         ],
         error=error,
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         env=Environment(timestamp=BLOCK_TIMESTAMP),

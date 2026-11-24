@@ -168,7 +168,7 @@ def test_verify_frame_runs_as_staticcall(
             if allowed
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -238,7 +238,7 @@ def test_verify_frame_nested_call_is_static(
                 logs=[],
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,

@@ -64,7 +64,7 @@ def test_contract_sender_approves(
             Frame.verify(code=sender_code),
             Frame.sender(target=target, code=target_code),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -102,7 +102,7 @@ def test_eoa_paymaster(
             ),
         ],
         signatures=[sender, payer],
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
 
     state_test(
         pre=pre,
@@ -177,7 +177,7 @@ def test_atomic_batch_rollback(
     tx = Transaction(
         sender=sender,
         frames=[Frame.verify(), *batch],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -336,7 +336,7 @@ def test_frame_revert_discards_the_approval_it_granted(
             if approved
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -437,7 +437,7 @@ def test_call_revert_above_approve_discards_the_approval(
             if approved
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -521,7 +521,7 @@ def test_approve_inside_staticcall(
             if static_call_writes
             else None
         ),
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -603,7 +603,7 @@ def test_approve_payment_inside_staticcall(
             if static_call_writes
             else None
         ),
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
 
     state_test(
         pre=pre,
@@ -672,7 +672,7 @@ def test_refused_approval_reverts_only_its_call_frame(
                 + inner_code.execution_cost(fork),
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -780,7 +780,7 @@ def test_refused_approval_charges_memory_expansion(
             Frame.verify(flags=Spec.APPROVE_EXECUTION, logs=[]),
             *ordered_frames,
         ],
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
 
     state_test(
         pre=pre,

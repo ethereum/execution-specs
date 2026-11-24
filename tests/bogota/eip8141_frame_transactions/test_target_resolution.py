@@ -111,7 +111,7 @@ def test_precompile_target(
                 execution_gas=identity_gas(fork, data),
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -137,7 +137,7 @@ def test_precompile_target_rejecting_its_input(
                 outcome=FrameOutcome.HALT,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -196,7 +196,7 @@ def test_verify_frame_target_above_the_precompile_gap(
                 execution_gas=fork.gas_costs().PRECOMPILE_P256VERIFY,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -264,7 +264,7 @@ def test_delegated_target_entry_charge(
                 delegation_warm=warm_delegate,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -327,7 +327,7 @@ def test_dead_target_entry_charge(
                 state_gas_used=revival_state_gas if affordable else 0,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post=post)
 
@@ -356,7 +356,7 @@ def test_delegated_to_precompile_target(
                 delegation_warm=True,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -399,7 +399,7 @@ def test_frame_entry_gas_boundary(
                 else FrameOutcome.HALT,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
 
@@ -448,7 +448,7 @@ def test_entry_charge_halt_unrolls_batch(
                 gas_limit_delta=0,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -508,7 +508,7 @@ def test_default_code_entry_gas_shortfall(
             if affordable
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
 
     state_test(
         pre=pre,
@@ -547,6 +547,6 @@ def test_verify_frame_delegated_to_precompile_target(
                 delegation_warm=True,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})

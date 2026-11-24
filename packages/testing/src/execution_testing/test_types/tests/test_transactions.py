@@ -492,15 +492,15 @@ def test_frame_tx_reused_frames_match_fresh_frames(
         ]
 
     shared_frames = build_frames()
-    Transaction(
-        sender=first_sender, frames=shared_frames
-    ).expect_frame_receipts(Bogota)
+    Transaction(sender=first_sender, frames=shared_frames).resolve_frames(
+        Bogota
+    )
     reused = Transaction(
         sender=second_sender, frames=shared_frames
-    ).expect_frame_receipts(Bogota)
+    ).resolve_frames(Bogota)
     fresh = Transaction(
         sender=second_sender, frames=build_frames()
-    ).expect_frame_receipts(Bogota)
+    ).resolve_frames(Bogota)
     assert reused.expected_receipt == fresh.expected_receipt
 
 
@@ -525,11 +525,11 @@ still counts, since the caller set it.
 
 
 @pytest.mark.parametrize("expectation", EXPECTATION_FIELDS)
-def test_frame_expectation_requires_settlement(
+def test_frame_expectation_requires_resolution(
     expectation: Dict[str, Any],
 ) -> None:
-    """Setting any expectation field requires the frame to be settled."""
-    assert Frame.default(**expectation).requires_settlement
+    """Setting any expectation field requires the frame to be resolved."""
+    assert Frame.default(**expectation).requires_resolution
 
 
 @pytest.mark.parametrize(
@@ -542,55 +542,55 @@ def test_frame_expectation_requires_settlement(
         pytest.param(Frame.expiry(), id="expiry"),
     ],
 )
-def test_frame_without_expectations_requires_no_settlement(
+def test_frame_without_expectations_requires_no_resolution(
     frame: Frame,
 ) -> None:
     """
-    A frame setting no expectation field requires no settlement, and its
-    transaction encodes without `expect_frame_receipts`.
+    A frame setting no expectation field requires no resolution, and its
+    transaction encodes without `resolve_frames`.
     """
-    assert not frame.requires_settlement
-    assert not frame.settled
+    assert not frame.requires_resolution
+    assert not frame.resolved
     Transaction(
         sender=EOA(key=SIGNING_KEY), frames=[Frame.verify(), frame]
     ).rlp()
 
 
 @pytest.mark.parametrize("expectation", EXPECTATION_FIELDS)
-def test_frame_tx_encoding_requires_settlement(
+def test_frame_tx_encoding_requires_resolution(
     expectation: Dict[str, Any],
 ) -> None:
     """
     A frame transaction whose frames set expectation fields encodes only
-    once `expect_frame_receipts` settled them, so its signature never
-    covers a budget that settlement changes afterwards.
+    once `resolve_frames` resolved them, so its signature never
+    covers a budget that resolution changes afterwards.
     """
     tx = Transaction(
         sender=EOA(key=SIGNING_KEY),
         frames=[Frame.verify(), Frame.default(**expectation)],
     )
-    with pytest.raises(AssertionError, match="expect_frame_receipts"):
+    with pytest.raises(AssertionError, match="resolve_frames"):
         tx.rlp()
-    tx.expect_frame_receipts(Bogota)
+    tx.resolve_frames(Bogota)
     assert tx.frames is not None
-    assert all(frame.settled for frame in tx.frames)
+    assert all(frame.resolved for frame in tx.frames)
     tx.rlp()
 
 
-def test_frame_tx_settled_budget_is_signed() -> None:
+def test_frame_tx_resolved_budget_is_signed() -> None:
     """
-    A frame transaction encodes and signs its frames' settled budgets, not
+    A frame transaction encodes and signs its frames' resolved budgets, not
     the placeholder a frame declaring a budget delta starts with.
     """
     sender = EOA(key=SIGNING_KEY)
     target = Address(0x1234)
-    settled = Transaction(
+    resolved = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
             Frame.default(target=target, gas_limit_delta=0),
         ],
-    ).expect_frame_receipts(Bogota)
+    ).resolve_frames(Bogota)
     placeholder = Transaction(
         sender=sender,
         frames=[
@@ -598,30 +598,30 @@ def test_frame_tx_settled_budget_is_signed() -> None:
             Frame.default(target=target, gas_limit=Frame().gas_limit),
         ],
     )
-    assert settled.frames is not None
-    assert settled.frames[1].gas_limit != Frame().gas_limit
-    assert settled.rlp() != placeholder.rlp()
-    assert settled.signatures is not None
+    assert resolved.frames is not None
+    assert resolved.frames[1].gas_limit != Frame().gas_limit
+    assert resolved.rlp() != placeholder.rlp()
+    assert resolved.signatures is not None
     assert placeholder.signatures is not None
     assert (
-        settled.signatures[0].signature != placeholder.signatures[0].signature
+        resolved.signatures[0].signature != placeholder.signatures[0].signature
     )
 
 
-def test_frame_receipt_requires_settlement() -> None:
+def test_frame_receipt_requires_resolution() -> None:
     """
     The receipt of a frame setting expectation fields is only available
-    from its settled copy in the transaction, not from the frame passed in.
+    from its resolved copy in the transaction, not from the frame passed in.
     """
     frame = Frame.default(outcome=FrameOutcome.REVERT)
-    with pytest.raises(AssertionError, match="expect_frame_receipts"):
+    with pytest.raises(AssertionError, match="resolve_frames"):
         frame.receipt(Bogota)
     tx = Transaction(
         sender=EOA(key=SIGNING_KEY), frames=[Frame.verify(), frame]
-    ).expect_frame_receipts(Bogota)
+    ).resolve_frames(Bogota)
     assert tx.frames is not None
-    assert tx.frames[1].settled
-    assert not frame.settled
+    assert tx.frames[1].resolved
+    assert not frame.resolved
     receipt = tx.frames[1].receipt(Bogota)
     assert tx.expected_receipt is not None
     assert tx.expected_receipt.frame_receipts is not None
@@ -734,7 +734,7 @@ def test_frame_tx_deduces_target_warmth(target: Any, warm: bool) -> None:
         target = sender
     tx = Transaction(
         sender=sender, frames=[Frame.verify(), Frame.default(target=target)]
-    ).expect_frame_receipts(Bogota)
+    ).resolve_frames(Bogota)
     assert tx.frames is not None
     assert tx.frames[1].warm is warm
 
@@ -754,7 +754,7 @@ def test_frame_tx_keeps_declared_warmth(target: Any, warm: bool) -> None:
     tx = Transaction(
         sender=EOA(key=SIGNING_KEY),
         frames=[Frame.verify(), Frame.default(target=target, warm=warm)],
-    ).expect_frame_receipts(Bogota)
+    ).resolve_frames(Bogota)
     assert tx.frames is not None
     assert tx.frames[1].warm is warm
 
@@ -765,7 +765,7 @@ def test_frame_tx_warmth_prices_entry() -> None:
         Transaction(
             sender=EOA(key=SIGNING_KEY),
             frames=[Frame.verify(), Frame.default(target=target)],
-        ).expect_frame_receipts(Bogota)
+        ).resolve_frames(Bogota)
         for target in (None, STRANGER)
     ]
     warm_frame, cold_frame = (tx.frames[1] for tx in frames if tx.frames)
@@ -803,12 +803,12 @@ def test_frame_settlement_arithmetic() -> None:
     assert state_heavy.block_header_gas_used() == 300
 
 
-def settled_frame_tx(**frame_fields: Any) -> Transaction:
-    """Return a settled frame transaction with one `DEFAULT` frame."""
+def resolved_frame_tx(**frame_fields: Any) -> Transaction:
+    """Return a resolved frame transaction with one `DEFAULT` frame."""
     return Transaction(
         sender=EOA(key=SIGNING_KEY),
         frames=[Frame.verify(), Frame.default(**frame_fields)],
-    ).expect_frame_receipts(Bogota)
+    ).resolve_frames(Bogota)
 
 
 def test_frame_settlement_sums_receipts() -> None:
@@ -816,10 +816,10 @@ def test_frame_settlement_sums_receipts() -> None:
     The settled execution and state gas grow by exactly what a frame's
     receipt reports.
     """
-    base = settled_frame_tx(gas_used=0, state_gas_used=0).frame_settlement(
+    base = resolved_frame_tx(gas_used=0, state_gas_used=0).frame_settlement(
         Bogota
     )
-    more = settled_frame_tx(
+    more = resolved_frame_tx(
         gas_used=1_000, state_gas_used=500
     ).frame_settlement(Bogota)
     assert more.execution_gas - base.execution_gas == 1_000
@@ -836,7 +836,7 @@ def test_frame_settlement_sums_receipts() -> None:
 )
 def test_frame_settlement_caps_refund(refund: int, capped: bool) -> None:
     """The refund survives up to the fork's share of the spent gas."""
-    tx = settled_frame_tx(gas_used=50_000)
+    tx = resolved_frame_tx(gas_used=50_000)
     settlement = tx.frame_settlement(Bogota, refund=refund)
     cap = settlement.gas_before_refund // Bogota.max_refund_quotient()
     assert settlement.effective_refund == (cap if capped else refund)
@@ -845,13 +845,13 @@ def test_frame_settlement_caps_refund(refund: int, capped: bool) -> None:
 def test_frame_settlement_matches_expected_receipt() -> None:
     """
     The expected receipt charges the payer what the settlement gives, for
-    the refund it was settled with.
+    the refund the frames were resolved with.
     """
     sender = EOA(key=SIGNING_KEY)
     tx = Transaction(
         sender=sender,
         frames=[Frame.verify(), Frame.default(gas_used=50_000)],
-    ).expect_frame_receipts(Bogota, refund=1_000)
+    ).resolve_frames(Bogota, refund=1_000)
     assert tx.expected_receipt is not None
     assert tx.expected_receipt.payer == sender
     assert (
@@ -865,7 +865,7 @@ def test_frame_settlement_unpinned_without_total() -> None:
     A frame whose execution gas is unpinned leaves the receipt's total
     unpinned too, since the total follows from every frame's gas.
     """
-    tx = settled_frame_tx(pin_gas=False)
+    tx = resolved_frame_tx(pin_gas=False)
     assert tx.expected_receipt is not None
     assert tx.expected_receipt.cumulative_gas_used is None
 
@@ -941,18 +941,18 @@ def test_frame_tx_signature_entries_copied() -> None:
         pytest.param(Frame.default(gas_used=0), id="expectation_fields"),
     ],
 )
-def test_frame_settlement_requires_expected_receipts(frame: Frame) -> None:
+def test_frame_settlement_requires_resolved_frames(frame: Frame) -> None:
     """
-    Settling a frame transaction's gas requires `expect_frame_receipts`
+    Settling a frame transaction's gas requires `resolve_frames`
     first, which deduces the frames' warmth: settled any earlier, a frame
     targeting the sender would be priced as cold.
     """
     tx = Transaction(
         sender=EOA(key=SIGNING_KEY), frames=[Frame.verify(), frame]
     )
-    with pytest.raises(AssertionError, match="expect_frame_receipts"):
+    with pytest.raises(AssertionError, match="resolve_frames"):
         tx.frame_settlement(Bogota)
-    tx.expect_frame_receipts(Bogota)
+    tx.resolve_frames(Bogota)
     tx.frame_settlement(Bogota)
 
 
@@ -961,6 +961,6 @@ def test_frame_settlement_requires_pinned_gas() -> None:
     A frame whose execution gas is unpinned leaves nothing to settle the
     transaction's gas from, rather than counting as no gas.
     """
-    tx = settled_frame_tx(pin_gas=False)
+    tx = resolved_frame_tx(pin_gas=False)
     with pytest.raises(AssertionError, match="unpinned"):
         tx.frame_settlement(Bogota)

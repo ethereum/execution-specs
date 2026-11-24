@@ -415,7 +415,7 @@ def test_frameparam_gas_used(
                 state_gas_limit=PROBE_FRAME_STATE_GAS,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     assert tx.expected_receipt is not None
     assert tx.expected_receipt.frame_receipts is not None

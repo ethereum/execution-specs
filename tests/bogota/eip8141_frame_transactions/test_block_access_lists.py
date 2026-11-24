@@ -106,7 +106,7 @@ def test_bal_atomic_batch_write(
                 else FrameOutcome.REVERT,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     if committed:
         target_expectation = BalAccountExpectation(
@@ -189,7 +189,7 @@ def test_bal_atomic_batch_skipped_frame_absent(
                 outcome=FrameOutcome.SKIPPED,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     block = Block(
         txs=[tx],
@@ -232,7 +232,7 @@ def test_bal_frame_revert_write_dropped(
                 outcome=FrameOutcome.REVERT,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     block = Block(
         txs=[tx],
@@ -288,7 +288,7 @@ def test_bal_unaffordable_designation_absent(
                 outcome=FrameOutcome.HALT,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     block = Block(
         txs=[tx],
@@ -355,7 +355,7 @@ def test_bal_sponsored_payer_and_sender(
             ),
         ],
         signatures=[sender, payer],
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
     payer_post_balance = (
         start_balance
         - tx.frame_settlement(fork).payer_gas_used() * fee_per_gas
@@ -456,7 +456,7 @@ def test_bal_omits_signature_validation_precompiles(
             # Carried only to exercise `P256VERIFY`; no frame references it.
             P256Signer(1),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     block = Block(
         txs=[tx],

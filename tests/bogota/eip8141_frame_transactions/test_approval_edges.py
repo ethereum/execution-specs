@@ -110,7 +110,7 @@ def test_approve_reached_through_another_contract(
                 state_gas_used=record.state_cost(fork),
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -168,7 +168,7 @@ def test_approve_in_library_code(
             if approves
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -239,7 +239,7 @@ def test_split_approval_order(
         # differs; `execution_then_payment` has no sponsor frame and
         # never reads entry 1.
         signatures=[PLACEHOLDER_ENTRY, canonical_entry(payer)],
-    ).expect_frame_receipts(fork, payer=sender if execution_first else payer)
+    ).resolve_frames(fork, payer=sender if execution_first else payer)
 
     state_test(
         pre=pre,
@@ -308,7 +308,7 @@ def test_second_payment_approval_refused(
         sender=sender,
         frames=frames,
         signatures=signatures,
-    ).expect_frame_receipts(fork, payer=first_payer)
+    ).resolve_frames(fork, payer=first_payer)
 
     state_test(
         pre=pre,
@@ -374,7 +374,7 @@ def test_execution_approval_refused_once_granted(
             Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
         ],
         signatures=[PLACEHOLDER_ENTRY, canonical_entry(payer)],
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
 
     state_test(
         pre=pre,
@@ -486,7 +486,7 @@ def test_scope_beyond_frame_flags_refused(
         nonce=1,
         frames=frames,
         signatures=[PLACEHOLDER_ENTRY, canonical_entry(payer)],
-    ).expect_frame_receipts(fork, payer=payer if execution_first else sender)
+    ).resolve_frames(fork, payer=payer if execution_first else sender)
 
     state_test(
         pre=pre,
@@ -579,7 +579,7 @@ def test_default_code_approval_refusals(
             if refused
             else None
         ),
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
 
     post = {
         sender: Account(nonce=0 if refused else 1),
@@ -651,9 +651,7 @@ def test_default_code_refuses_explicit_digest_entry(
         frames=frames,
         signatures=signatures,
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
-    ).expect_frame_receipts(
-        fork, payer=payer if frames is sponsored else sender
-    )
+    ).resolve_frames(fork, payer=payer if frames is sponsored else sender)
 
     state_test(
         pre=pre,
@@ -717,7 +715,7 @@ def test_approve_return_data(
                 state_gas_used=record.state_cost(fork),
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     storage: Dict[int, int] = {0: 2, 1: 32, 2: 0xBEEF} if granted else {0: 1}
     state_test(
@@ -753,7 +751,7 @@ def test_code_after_approve_does_not_run(
                 code=APPROVE_ALL,
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -807,7 +805,7 @@ def test_approve_memory_expansion_gas(
             if budget_delta
             else None
         ),
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -861,7 +859,7 @@ def test_default_code_approves_only_in_verify_frame(
             if approves
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
 
     state_test(
         pre=pre,
@@ -898,7 +896,7 @@ def test_max_cost_collected_at_payment_approval(
             ),
         ],
         signatures=[canonical_entry(sender), canonical_entry(payer)],
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
     assert tx.frames is not None and tx.signatures is not None
     assert tx.max_fee is not None
     max_cost = fee_budget(
@@ -958,7 +956,7 @@ def test_max_cost_collected_within_approving_frame(
                 state_gas_used=record.state_cost(fork),
             ),
         ],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
     assert tx.frames is not None and tx.signatures is not None
     assert tx.max_fee is not None
     max_cost = fee_budget(
@@ -1040,7 +1038,7 @@ def test_sender_creation_shortfall_halts_payment_approval(
             ),
         ],
         signatures=[canonical_entry(sender), canonical_entry(second_payer)],
-    ).expect_frame_receipts(fork, payer=second_payer)
+    ).resolve_frames(fork, payer=second_payer)
 
     state_test(
         pre=pre,

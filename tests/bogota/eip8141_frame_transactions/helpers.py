@@ -117,7 +117,8 @@ def fee_budget(
     `signatures` at `BASE_FEE`, pricing unsigned entries at their signer's
     signature length. `signatures` defaults to the sender's canonical
     entry (none for a contract sender), `max_fee` to room for the full
-    tip. Pass settled frames, such as `tx.frames` after building.
+    tip. Pass resolved frames, such as `tx.frames` after
+    `resolve_frames`.
     """
     if signatures is None:
         signatures = (

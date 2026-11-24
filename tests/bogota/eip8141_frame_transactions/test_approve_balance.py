@@ -109,7 +109,7 @@ def test_sender_balance_covers_max_cost(
             if balance_delta
             else None
         ),
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     if balance_delta:
         post = Account(nonce_change=0, balance_change=0)
@@ -168,7 +168,7 @@ def test_payer_balance_covers_max_cost(
             if balance_delta
             else None
         ),
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
 
     if balance_delta:
         payer_post = Account(nonce_change=0, balance_change=0)
@@ -235,7 +235,7 @@ def test_payment_approval_reads_balance_after_transfer(
             if balance_delta
             else None
         ),
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     if balance_delta:
         post = {
@@ -312,7 +312,7 @@ def test_payment_approval_reads_balance_after_top_up(
             if top_up
             else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
         ),
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
 
     if top_up:
         # The top-up comes in and the fee goes out.

@@ -89,7 +89,7 @@ def test_value_transfer(
     tx = Transaction(
         sender=sender,
         frames=[Frame.verify(logs=[]), value_frame],
-    ).expect_frame_receipts(fork)
+    ).resolve_frames(fork)
 
     post = {sender: Account(nonce=1)}
     if target_kind == "other":
@@ -119,7 +119,7 @@ def transfer_exceeding_balance(
             ),
         ],
         signatures=[sender, payer],
-    ).expect_frame_receipts(fork, payer=payer)
+    ).resolve_frames(fork, payer=payer)
     post = {
         sender: Account(nonce=1, balance_change=0),
         recipient: Account(balance_change=0),

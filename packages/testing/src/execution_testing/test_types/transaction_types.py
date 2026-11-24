@@ -332,17 +332,17 @@ class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
         return [self.gas_limit, self.state_gas_limit]
 
 
-class _RequiresSettlement:
+class _RequiresResolution:
     """
     Marker of a `Frame` field that only takes effect through
-    `Transaction.expect_frame_receipts`.
+    `Transaction.resolve_frames`.
     """
 
 
-REQUIRES_SETTLEMENT = _RequiresSettlement()
+REQUIRES_RESOLUTION = _RequiresResolution()
 """
 Annotate a `Frame` expectation field with this marker, so that setting it
-requires the frame to be settled before its transaction is encoded or its
+requires the frame to be resolved before its transaction is encoded or its
 receipt is requested.
 """
 
@@ -354,95 +354,95 @@ class Frame(FrameGeneric[HexNumber]):
     Besides its own fields, a frame can carry the facts its budget and its
     expected receipt follow from: how it ends, the code its target runs,
     and whether its target is warm or delegated. These are excluded from
-    serialization, and only take effect when the frame's budgets are
-    settled or its receipt is requested.
+    serialization, and only take effect when `Transaction.resolve_frames`
+    resolves the frame against a fork.
     """
 
     # What the frame runs
-    outcome: Annotated[FrameOutcome, REQUIRES_SETTLEMENT] = Field(
+    outcome: Annotated[FrameOutcome, REQUIRES_RESOLUTION] = Field(
         FrameOutcome.SUCCESS, exclude=True
     )
     """How the frame ends."""
 
-    code: Annotated[Optional[Bytecode], REQUIRES_SETTLEMENT] = Field(
+    code: Annotated[Optional[Bytecode], REQUIRES_RESOLUTION] = Field(
         None, exclude=True
     )
     """Code the frame's target runs, which prices it."""
 
-    execution_gas: Annotated[Optional[int], REQUIRES_SETTLEMENT] = Field(
+    execution_gas: Annotated[Optional[int], REQUIRES_RESOLUTION] = Field(
         None, exclude=True
     )
     """Execution gas after entry, where `code` cannot price it."""
 
     # What it is budgeted
-    gas_limit_delta: Annotated[Optional[int], REQUIRES_SETTLEMENT] = Field(
+    gas_limit_delta: Annotated[Optional[int], REQUIRES_RESOLUTION] = Field(
         None, exclude=True
     )
     """Execution budget, relative to the gas the frame spends."""
 
-    state_gas_limit_delta: Annotated[Optional[int], REQUIRES_SETTLEMENT] = (
+    state_gas_limit_delta: Annotated[Optional[int], REQUIRES_RESOLUTION] = (
         Field(None, exclude=True)
     )
     """State budget, relative to the state gas the frame writes."""
 
     # What its target's entry access costs
-    warm: Annotated[bool, REQUIRES_SETTLEMENT] = Field(False, exclude=True)
+    warm: Annotated[bool, REQUIRES_RESOLUTION] = Field(False, exclude=True)
     """
     Whether the resolved target is warm. Unless set explicitly,
-    `Transaction.expect_frame_receipts` sets it for a resolved target in
+    `Transaction.resolve_frames` sets it for a resolved target in
     the warm set the transaction starts with: the sender or a precompile.
     """
 
-    delegated: Annotated[bool, REQUIRES_SETTLEMENT] = Field(
+    delegated: Annotated[bool, REQUIRES_RESOLUTION] = Field(
         False, exclude=True
     )
     """Whether the target carries an EIP-7702 designation."""
 
-    delegation_warm: Annotated[bool, REQUIRES_SETTLEMENT] = Field(
+    delegation_warm: Annotated[bool, REQUIRES_RESOLUTION] = Field(
         False, exclude=True
     )
     """Whether the designated address is warm."""
 
     # What its receipt reports
-    pin_gas: Annotated[bool, REQUIRES_SETTLEMENT] = Field(True, exclude=True)
+    pin_gas: Annotated[bool, REQUIRES_RESOLUTION] = Field(True, exclude=True)
     """Whether the receipt's execution gas is pinned."""
 
-    gas_used: Annotated[Optional[int], REQUIRES_SETTLEMENT] = Field(
+    gas_used: Annotated[Optional[int], REQUIRES_RESOLUTION] = Field(
         None, exclude=True
     )
     """Execution gas the receipt reports."""
 
-    state_gas_used: Annotated[Optional[int], REQUIRES_SETTLEMENT] = Field(
+    state_gas_used: Annotated[Optional[int], REQUIRES_RESOLUTION] = Field(
         None, exclude=True
     )
     """State gas the receipt reports."""
 
-    logs: Annotated[Optional[List[TransactionLog]], REQUIRES_SETTLEMENT] = (
+    logs: Annotated[Optional[List[TransactionLog]], REQUIRES_RESOLUTION] = (
         Field(None, exclude=True)
     )
     """Logs the receipt reports."""
 
-    _settled: bool = PrivateAttr(False)
+    _resolved: bool = PrivateAttr(False)
 
     @property
-    def requires_settlement(self) -> bool:
+    def requires_resolution(self) -> bool:
         """
         Check whether any field set on the frame only takes effect through
-        `Transaction.expect_frame_receipts`.
+        `Transaction.resolve_frames`.
         """
         return any(
-            REQUIRES_SETTLEMENT in field.metadata
+            REQUIRES_RESOLUTION in field.metadata
             for name, field in type(self).model_fields.items()
             if name in self.model_fields_set
         )
 
     @property
-    def settled(self) -> bool:
+    def resolved(self) -> bool:
         """
-        Check whether `Transaction.expect_frame_receipts` has settled the
-        frame.
+        Check whether `Transaction.resolve_frames` has resolved the frame
+        against a fork.
         """
-        return self._settled
+        return self._resolved
 
     @classmethod
     def default(cls, **overrides: Any) -> Self:
@@ -508,8 +508,11 @@ class Frame(FrameGeneric[HexNumber]):
             return 0
         return self.code.state_cost(fork)
 
-    def settle_budgets(self, fork: Fork) -> None:
-        """Settle the budgets the frame declares as deltas on its cost."""
+    def resolve_budgets(self, fork: Fork) -> None:
+        """
+        Resolve the budgets the frame declares as deltas on its cost, and
+        mark the frame resolved.
+        """
         if self.gas_limit_delta is not None:
             assert "gas_limit" not in self.model_fields_set, (
                 "a frame declares its execution budget once"
@@ -526,14 +529,14 @@ class Frame(FrameGeneric[HexNumber]):
             self.state_gas_limit = HexNumber(
                 self.code_state_gas(fork) + self.state_gas_limit_delta
             )
-        self._settled = True
+        self._resolved = True
 
     def receipt(self, fork: Fork) -> FrameReceipt:
         """Return the receipt the frame should report."""
-        assert self.settled or not self.requires_settlement, (
-            "the frame's expectations only take effect once settled: call "
-            "`expect_frame_receipts` on its transaction and read the frame "
-            "from the transaction's `frames`"
+        assert self.resolved or not self.requires_resolution, (
+            "the frame's expectations only take effect once resolved: call "
+            "`resolve_frames` on its transaction and read the frame from "
+            "the transaction's `frames`"
         )
         gas_used: Optional[int]
         match self.pin_gas, self.gas_used, self.outcome:
@@ -1239,15 +1242,14 @@ class Transaction(
         its frames' expected receipts and the `refund` its execution
         earns before the cap.
 
-        The frames must already be settled by `expect_frame_receipts`,
-        which deduces their warmth and settles their budgets, and every
-        frame's execution gas must be pinned.
+        The frames must already be resolved by `resolve_frames`, which
+        deduces their warmth and resolves their budgets, and every frame's
+        execution gas must be pinned.
         """
         assert self.frames is not None, "not a frame transaction"
         assert self.signatures is not None
-        assert all(frame.settled for frame in self.frames), (
-            "call `expect_frame_receipts` before settling the transaction's "
-            "gas"
+        assert all(frame.resolved for frame in self.frames), (
+            "call `resolve_frames` before settling the transaction's gas"
         )
         receipts = [frame.receipt(fork) for frame in self.frames]
         assert all(receipt.gas_used is not None for receipt in receipts), (
@@ -1280,26 +1282,30 @@ class Transaction(
             ),
         )
 
-    def expect_frame_receipts(
+    def resolve_frames(
         self,
         fork: Fork,
         *,
         payer: Address | None = None,
         refund: int = 0,
-        settle: bool = True,
+        pin_total_gas: bool = True,
     ) -> Self:
         """
-        Settle the budgets the frames declare as deltas on their cost, and
-        expect the receipt the frames' outcomes follow from. A frame whose
-        `warm` is unset is warm when its resolved target is the sender or a
-        precompile.
+        Resolve the frames against `fork`: deduce their warmth, resolve the
+        budgets they declare as deltas on their cost, and expect the
+        receipt their outcomes follow from. A frame whose `warm` is unset
+        is warm when its resolved target is the sender or a precompile.
+
+        Encoding the transaction, a frame's receipt and the transaction's
+        gas settlement all require the frames to be resolved first.
 
         The receipt names `payer`, the sender by default, and pins the
-        gas the payer is charged, after `refund`. `settle=False` leaves
-        that total unpinned for a test that prices neither the refund nor
-        the floor; so does any frame whose execution gas is unpinned,
-        since the total follows from every receipt. A transaction expected
-        to be rejected carries no receipt expectation at all.
+        gas the payer is charged, after `refund`. `pin_total_gas=False`
+        leaves that total unpinned for a test that prices neither the
+        refund nor the floor; so does any frame whose execution gas is
+        unpinned, since the total follows from every receipt. A
+        transaction expected to be rejected carries no receipt expectation
+        at all.
         """
         assert self.frames is not None, "not a frame transaction"
         assert self.expected_receipt is None, (
@@ -1324,20 +1330,20 @@ class Transaction(
             ):
                 frame.warm = True
         for frame in self.frames:
-            frame.settle_budgets(fork)
+            frame.resolve_budgets(fork)
         self._drop_cached_properties()
         if self.error is not None:
             return self
 
         receipts = [frame.receipt(fork) for frame in self.frames]
-        settled = settle and all(
+        pinned = pin_total_gas and all(
             receipt.gas_used is not None for receipt in receipts
         )
         self.expected_receipt = TransactionReceipt(
             payer=payer if payer is not None else self.sender,
             cumulative_gas_used=(
                 self.frame_settlement(fork, refund=refund).payer_gas_used()
-                if settled
+                if pinned
                 else None
             ),
             frame_receipts=receipts,
@@ -1366,11 +1372,11 @@ class Transaction(
         assert self.frames is not None
         assert self.signatures is not None
         assert all(
-            frame.settled or not frame.requires_settlement
+            frame.resolved or not frame.requires_resolution
             for frame in self.frames
         ), (
-            "the frames' expectations only take effect once settled: call "
-            "`expect_frame_receipts` before encoding the transaction"
+            "the frames' expectations only take effect once resolved: call "
+            "`resolve_frames` before encoding the transaction"
         )
 
         # Explicit-digest entries are already signed, as they are built.
