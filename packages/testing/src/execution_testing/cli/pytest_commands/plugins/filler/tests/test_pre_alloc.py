@@ -170,6 +170,17 @@ def test_alloc_empty_account(flags: AllocFlags) -> None:
     assert pre.undeclared_empty_accounts() == []
 
 
+def test_alloc_empty_account_at_address() -> None:
+    """Test `Alloc.empty_account` places the account at a given address."""
+    pre = create_test_alloc(fork=London)
+    addr = Address(0x1234)
+    assert pre.empty_account(addr) == addr
+    assert pre.root[addr] == Account()
+    assert pre.undeclared_empty_accounts() == []
+    with pytest.raises(ValueError, match="already in the pre-state"):
+        pre.empty_account(addr)
+
+
 def test_alloc_empty_account_rejected_from_paris() -> None:
     """Test `Alloc.empty_account` refuses forks without empty accounts."""
     pre = create_test_alloc(fork=Paris)

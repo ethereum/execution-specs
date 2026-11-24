@@ -19,6 +19,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    compute_create_address,
 )
 
 from .spec import ref_spec_161
@@ -188,4 +189,77 @@ def test_selfdestruct_touch_then_reverted_selfdestruct_touch(
             target: expected_target(target_kind, deleted=persisted_touch),
         },
         tx=Transaction(sender=pre.fund_eoa(), to=entry),
+    )
+
+
+@pytest.mark.valid_until("London")
+# Listed by hand: with `with_all_create_opcodes`, the param-level
+# `valid_from` below would also drop SpuriousDragon from the other params.
+@pytest.mark.parametrize(
+    "create_opcode",
+    [
+        pytest.param(Op.CREATE, id="CREATE"),
+        pytest.param(
+            Op.CREATE2,
+            id="CREATE2",
+            marks=pytest.mark.valid_from("Constantinople"),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "initcode",
+    [
+        pytest.param(
+            Op.REVERT(0, 0),
+            id="revert",
+            marks=pytest.mark.valid_from("Byzantium"),
+        ),
+        pytest.param(Macros.OOG, id="out_of_gas"),
+    ],
+)
+@pytest.mark.parametrize("touched", [True, False])
+def test_touch_after_failed_create_over_empty_account(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    create_opcode: Op,
+    initcode: Bytecode,
+    touched: bool,
+) -> None:
+    """
+    Test that a failed create over an empty account leaves it empty: a
+    later zero-value CALL touch in the same transaction deletes it, and
+    without the touch it stays.
+    """
+    storage = Storage()
+    code = Macros.MSTORE(initcode, 0) + Op.SSTORE(
+        storage.store_next(0, "create_result"),
+        create_opcode(value=0, offset=0, size=len(initcode)),
+    )
+    if touched:
+        # The created address comes in the calldata: it depends on the
+        # address of this contract, so the code cannot hold it.
+        code += Op.SSTORE(
+            storage.store_next(1, "touch_result"),
+            Op.CALL(gas=Op.GAS, address=Op.CALLDATALOAD(0)),
+        )
+    creator = pre.deploy_contract(code, storage=storage.canary())
+    created = pre.empty_account(
+        compute_create_address(
+            address=creator, nonce=1, initcode=initcode, opcode=create_opcode
+        )
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            creator: Account(storage=storage),
+            created: (
+                Account.NONEXISTENT if touched else Account(nonce=0, balance=0)
+            ),
+        },
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=creator,
+            data=bytes(created).rjust(32, b"\0"),
+        ),
     )

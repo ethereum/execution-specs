@@ -347,7 +347,7 @@ class Alloc(BaseAlloc):
             "_nonexistent_account is not implemented in the base class"
         )
 
-    def empty_account(self) -> Address:
+    def empty_account(self, address: Address | None = None) -> Address:
         """
         Add an empty account to the pre-state and return its address.
 
@@ -355,17 +355,25 @@ class Alloc(BaseAlloc):
         storage, which is what EIP-161 calls empty. From the Merge on, EIP-7523
         rules out empty accounts in the state, so the method only works on
         earlier forks.
+
+        Args:
+            address: Where to place the account, e.g. a computed CREATE
+                address. A fresh address is used when omitted. It must not
+                already be in the pre-allocation.
+
         """
         if self._fork.transitions_to().is_eip_enabled(3675):
             raise ValueError(
                 "Empty accounts cannot exist in the state from the Merge on "
                 "(EIP-7523); limit the test to forks before Paris."
             )
-        address = self._empty_account()
+        if address is not None and address in self:
+            raise ValueError(f"Account {address} is already in the pre-state.")
+        address = self._empty_account(address)
         self._declared_empty_accounts.add(address)
         return address
 
-    def _empty_account(self) -> Address:
+    def _empty_account(self, address: Address | None) -> Address:
         """
         Sub-class implementation of empty_account.
         """

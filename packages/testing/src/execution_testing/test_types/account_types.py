@@ -1287,12 +1287,13 @@ class Alloc(BaseAlloc):
             "nonexistent_account is not implemented in the base class"
         )
 
-    def empty_account(self) -> Address:
+    def empty_account(self, address: Address | None = None) -> Address:
         """
         Add an empty account to the pre-state and return its address.
 
         The account exists but has zero nonce, zero balance, no code and no
-        storage, which is what EIP-161 calls empty.
+        storage, which is what EIP-161 calls empty. Only forks before Paris
+        allow it (EIP-7523). `address` places it at a given address.
         """
         raise NotImplementedError(
             "empty_account is not implemented in the base class"
