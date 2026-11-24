@@ -8,6 +8,7 @@ import pytest
 from execution_testing import (
     AccessList,
     Account,
+    Address,
     Alloc,
     AuthorizationTuple,
     Block,
@@ -2172,6 +2173,69 @@ def test_set_code_type_tx_pre_fork(
             ),
         },
     )
+
+
+@pytest.mark.parametrize(
+    "expected_error",
+    [
+        pytest.param(
+            TransactionException.SENDER_NOT_EOA,
+            id="before_prague",
+            marks=[
+                pytest.mark.valid_until("Cancun"),
+                pytest.mark.exception_test,
+            ],
+        ),
+        pytest.param(
+            None,
+            id="from_prague",
+            marks=pytest.mark.valid_from("Prague"),
+        ),
+    ],
+)
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.inclusion_test
+@pytest.mark.pre_alloc_mutable
+def test_sender_with_delegation_designator(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    expected_error: TransactionException | None,
+) -> None:
+    """
+    Test a value transfer from a sender whose code is a delegation
+    designator.
+
+    EIP-7702 exempts the designator from the EIP-3607 sender check, so
+    before it the sender has code and the transaction is invalid.
+    """
+    assert (expected_error is None) == fork.is_eip_enabled(7702)
+
+    delegate = pre.deploy_contract(Op.STOP)
+    designator = Spec.delegation_designation(delegate)
+    sender = pre.fund_eoa(code=designator, nonce=1)
+    recipient = pre.fund_eoa(amount=0)
+
+    tx = Transaction(
+        sender=sender,
+        to=recipient,
+        value=1,
+        protected=fork.supports_protected_txs(),
+        error=expected_error,
+    )
+
+    if expected_error is None:
+        post: dict[Address, Account | None] = {
+            sender: Account(nonce=2, code=designator),
+            recipient: Account(balance=1),
+        }
+    else:
+        post = {
+            sender: Account(nonce=1, code=designator),
+            recipient: Account.NONEXISTENT,
+        }
+
+    state_test(pre=pre, tx=tx, post=post)
 
 
 @pytest.mark.valid_from("Prague")
