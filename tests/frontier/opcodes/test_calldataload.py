@@ -38,11 +38,19 @@ from execution_testing import Macros as Om
             0x5,
             0xBCDEF00000000000000000000000000000000000000000000000000024000000,
         ),
+        # Offsets of 2^64 and above are past the calldata, whatever their
+        # low bits.
+        (b"\xff" * 32, 1 << 64, 0),
+        (b"\xff" * 32, 1 << 128, 0),
+        (b"\xff" * 32, 1 << 192, 0),
     ],
     ids=[
         "two_bytes",
         "word_n_byte",
         "34_bytes",
+        "offset_2_64",
+        "offset_2_128",
+        "offset_2_192",
     ],
 )
 @pytest.mark.parametrize("calldata_source", ["contract", "tx"])
@@ -52,7 +60,7 @@ def test_calldataload(
     calldata_offset: int,
     fork: Fork,
     pre: Alloc,
-    expected_storage: Account,
+    expected_storage: int,
     calldata_source: str,
 ) -> None:
     """
@@ -72,7 +80,8 @@ def test_calldataload(
     contract_code = (
         Op.SSTORE(0, Op.CALLDATALOAD(offset=calldata_offset)) + Op.STOP
     )
-    contract_address = pre.deploy_contract(contract_code)
+    # Pre-set, so an expected zero shows the load was stored.
+    contract_address = pre.deploy_contract(contract_code, storage={0: 0xBA5E})
 
     outer_call_reserve = 256
     if calldata_source == "contract":
