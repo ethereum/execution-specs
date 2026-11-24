@@ -168,6 +168,8 @@ class P256Signer(Address, Signer):
     """Length of a P256 signature: `r || s || qx || qy`."""
 
     key: Hash
+    public_key: Bytes
+    """The uncompressed public key `qx || qy`."""
 
     def __new__(
         cls,
@@ -182,12 +184,8 @@ class P256Signer(Address, Signer):
             cls, keccak256(public_key)[12:], label=label
         )
         instance.key = private_key
+        instance.public_key = public_key
         return instance
-
-    @property
-    def public_key(self) -> Bytes:
-        """Return the uncompressed public key `qx || qy`."""
-        return _p256_public_key(self.key)
 
     def sign_message(self, message: Hash) -> Bytes:
         """
