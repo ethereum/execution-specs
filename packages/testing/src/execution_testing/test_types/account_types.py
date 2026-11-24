@@ -187,6 +187,13 @@ class P256Signer(Address, Signer):
         instance.public_key = public_key
         return instance
 
+    def __getnewargs_ex__(self) -> Tuple[Tuple[Hash], Dict[str, Any]]:
+        """
+        Rebuild the signer from its key when copied or pickled, since its
+        bytes are the derived address, not the key `__new__` expects.
+        """
+        return (self.key,), {"label": self.label}
+
     def sign_message(self, message: Hash) -> Bytes:
         """
         Sign `message` with deterministic (RFC 6979) ECDSA and return

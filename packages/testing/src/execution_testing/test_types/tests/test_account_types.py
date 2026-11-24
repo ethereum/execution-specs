@@ -1,6 +1,8 @@
 """Test account test types."""
 
-from typing import Callable
+import copy
+import pickle
+from typing import Any, Callable
 
 import ethereum.state as spec_state
 import pytest
@@ -235,3 +237,29 @@ def test_p256_signer_frame_signature_entry() -> None:
     assert entry.scheme == FrameSignatureScheme.P256
     assert entry.signer == bytes(signer)
     assert entry.signed_by is signer
+
+
+@pytest.mark.parametrize(
+    "duplicate",
+    [
+        pytest.param(copy.copy, id="copy"),
+        pytest.param(copy.deepcopy, id="deepcopy"),
+        pytest.param(
+            lambda signer: pickle.loads(pickle.dumps(signer)), id="pickle"
+        ),
+    ],
+)
+def test_p256_signer_duplicates(duplicate: Callable[[Any], Any]) -> None:
+    """
+    A copied or unpickled P256 signer keeps its address, key, public key
+    and label, and signs like the original.
+    """
+    signer = P256Signer(0xC0FFEE, label="p256_signer")
+    duplicated = duplicate(signer)
+    assert isinstance(duplicated, P256Signer)
+    assert bytes(duplicated) == bytes(signer)
+    assert duplicated.key == signer.key
+    assert duplicated.public_key == signer.public_key
+    assert duplicated.label == signer.label
+    message = Hash(b"\x42" * 32)
+    assert duplicated.sign_message(message) == signer.sign_message(message)
