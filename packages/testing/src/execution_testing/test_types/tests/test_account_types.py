@@ -19,7 +19,8 @@ from execution_testing.base_types import (
     Storage,
 )
 
-from ..account_types import SECP256R1_ORDER, Account, Alloc, P256Signer
+from ..account_types import Account, Alloc, P256Signer
+from ..p256 import SECP256R1N
 from ..transaction_types import FrameSignature
 from ..utils import keccak256
 
@@ -215,8 +216,8 @@ def test_p256_signer_sign_message(message_byte: int) -> None:
     assert len(signature) == P256Signer.signature_length
     r = int.from_bytes(signature[0:32], "big")
     s = int.from_bytes(signature[32:64], "big")
-    assert 0 < r < SECP256R1_ORDER
-    assert 0 < s <= SECP256R1_ORDER // 2
+    assert 0 < r < SECP256R1N
+    assert 0 < s <= SECP256R1N // 2
     assert signature[64:] == signer.public_key
     public_key = ec.EllipticCurvePublicNumbers(
         int.from_bytes(signature[64:96], "big"),
