@@ -1239,12 +1239,21 @@ class Transaction(
         its frames' expected receipts and the `refund` its execution
         earns before the cap.
 
-        The frames' budgets must already be settled, which
-        `expect_frame_receipts` does.
+        The frames must already be settled by `expect_frame_receipts`,
+        which deduces their warmth and settles their budgets, and every
+        frame's execution gas must be pinned.
         """
         assert self.frames is not None, "not a frame transaction"
         assert self.signatures is not None
+        assert all(frame.settled for frame in self.frames), (
+            "call `expect_frame_receipts` before settling the transaction's "
+            "gas"
+        )
         receipts = [frame.receipt(fork) for frame in self.frames]
+        assert all(receipt.gas_used is not None for receipt in receipts), (
+            "a frame's execution gas is unpinned, so the transaction's gas "
+            "cannot be settled"
+        )
         anchors: Dict[str, Any] = dict(
             frames=self.frames,
             signatures=self.signatures,

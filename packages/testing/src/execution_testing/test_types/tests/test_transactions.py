@@ -932,3 +932,35 @@ def test_frame_tx_signature_entries_copied() -> None:
     assert first.signatures[0] is not entry
     assert len(entry.signature) == 0
     assert first.signatures[0].signature != second.signatures[0].signature
+
+
+@pytest.mark.parametrize(
+    "frame",
+    [
+        pytest.param(Frame.sender(), id="no_expectation_fields"),
+        pytest.param(Frame.default(gas_used=0), id="expectation_fields"),
+    ],
+)
+def test_frame_settlement_requires_expected_receipts(frame: Frame) -> None:
+    """
+    Settling a frame transaction's gas requires `expect_frame_receipts`
+    first, which deduces the frames' warmth: settled any earlier, a frame
+    targeting the sender would be priced as cold.
+    """
+    tx = Transaction(
+        sender=EOA(key=SIGNING_KEY), frames=[Frame.verify(), frame]
+    )
+    with pytest.raises(AssertionError, match="expect_frame_receipts"):
+        tx.frame_settlement(Bogota)
+    tx.expect_frame_receipts(Bogota)
+    tx.frame_settlement(Bogota)
+
+
+def test_frame_settlement_requires_pinned_gas() -> None:
+    """
+    A frame whose execution gas is unpinned leaves nothing to settle the
+    transaction's gas from, rather than counting as no gas.
+    """
+    tx = settled_frame_tx(pin_gas=False)
+    with pytest.raises(AssertionError, match="unpinned"):
+        tx.frame_settlement(Bogota)
