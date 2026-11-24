@@ -12,6 +12,7 @@ from execution_testing.base_types import (
     Bytes,
     FrameSignatureScheme,
     Hash,
+    Signer,
 )
 from execution_testing.forks import Bogota
 from execution_testing.vm import Op
@@ -21,6 +22,7 @@ from ..account_types import EOA, P256Signer
 from ..transaction_types import (
     Frame,
     FrameOutcome,
+    FrameSettlement,
     FrameSignature,
     Transaction,
 )
@@ -698,3 +700,235 @@ def test_frame_signature_without_native_scheme_defaults_to_arbitrary() -> None:
     assert entry.signer == Bytes(b"")
     with pytest.raises(ValidationError, match="cannot sign scheme"):
         FrameSignature(signer=signer, scheme=FrameSignatureScheme.SECP256K1)
+
+
+def test_expiry_frame_target_fixed() -> None:
+    """An expiry frame always targets the expiry verifier."""
+    assert Frame.expiry().target is not None
+    with pytest.raises(AssertionError, match="not an expiry frame"):
+        Frame.expiry(target=Address(0x1234))
+
+
+# Warmth deduction
+
+STRANGER = Address(0x1234)
+"""An address outside the warm set a transaction starts with."""
+
+
+@pytest.mark.parametrize(
+    "target,warm",
+    [
+        pytest.param(None, True, id="no_target_resolves_to_sender"),
+        pytest.param("sender", True, id="sender"),
+        pytest.param(Address(0x01), True, id="precompile"),
+        pytest.param(STRANGER, False, id="stranger"),
+    ],
+)
+def test_frame_tx_deduces_target_warmth(target: Any, warm: bool) -> None:
+    """
+    A frame whose resolved target is in the warm set a transaction starts
+    with, the sender or a precompile, is warm unless it says otherwise.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    if isinstance(target, str):
+        target = sender
+    tx = Transaction(
+        sender=sender, frames=[Frame.verify(), Frame.default(target=target)]
+    ).expect_frame_receipts(Bogota)
+    assert tx.frames is not None
+    assert tx.frames[1].warm is warm
+
+
+@pytest.mark.parametrize(
+    "target,warm",
+    [
+        pytest.param(None, False, id="sender_declared_cold"),
+        pytest.param(STRANGER, True, id="stranger_declared_warm"),
+    ],
+)
+def test_frame_tx_keeps_declared_warmth(target: Any, warm: bool) -> None:
+    """
+    A frame that declares its warmth keeps it, such as a target an earlier
+    frame touched, whatever the deduction would give.
+    """
+    tx = Transaction(
+        sender=EOA(key=SIGNING_KEY),
+        frames=[Frame.verify(), Frame.default(target=target, warm=warm)],
+    ).expect_frame_receipts(Bogota)
+    assert tx.frames is not None
+    assert tx.frames[1].warm is warm
+
+
+def test_frame_tx_warmth_prices_entry() -> None:
+    """A warm target is charged less at entry than a cold one."""
+    frames = [
+        Transaction(
+            sender=EOA(key=SIGNING_KEY),
+            frames=[Frame.verify(), Frame.default(target=target)],
+        ).expect_frame_receipts(Bogota)
+        for target in (None, STRANGER)
+    ]
+    warm_frame, cold_frame = (tx.frames[1] for tx in frames if tx.frames)
+    assert warm_frame.entry_gas(Bogota) < cold_frame.entry_gas(Bogota)
+
+
+# Settlement
+
+
+def test_frame_settlement_arithmetic() -> None:
+    """
+    The settled amounts follow from the execution gas, state gas, calldata
+    floor and refund: the floor holds the refunded execution gas up, state
+    gas is never refunded or floored, and the header takes the larger
+    dimension.
+    """
+    settlement = FrameSettlement(
+        execution_gas=100,
+        state_gas=30,
+        calldata_floor=80,
+        effective_refund=40,
+    )
+    assert settlement.gas_before_refund == 130
+    assert settlement.floor_binds()
+    assert not settlement.floor_binds(after_refund=False)
+    assert settlement.payer_gas_used() == 80 + 30
+    assert settlement.block_gas_used() == 100 + 30
+    assert settlement.block_header_gas_used() == 100
+
+    state_heavy = FrameSettlement(
+        execution_gas=100, state_gas=300, calldata_floor=0, effective_refund=0
+    )
+    assert not state_heavy.floor_binds()
+    assert state_heavy.payer_gas_used() == 400
+    assert state_heavy.block_header_gas_used() == 300
+
+
+def settled_frame_tx(**frame_fields: Any) -> Transaction:
+    """Return a settled frame transaction with one `DEFAULT` frame."""
+    return Transaction(
+        sender=EOA(key=SIGNING_KEY),
+        frames=[Frame.verify(), Frame.default(**frame_fields)],
+    ).expect_frame_receipts(Bogota)
+
+
+def test_frame_settlement_sums_receipts() -> None:
+    """
+    The settled execution and state gas grow by exactly what a frame's
+    receipt reports.
+    """
+    base = settled_frame_tx(gas_used=0, state_gas_used=0).frame_settlement(
+        Bogota
+    )
+    more = settled_frame_tx(
+        gas_used=1_000, state_gas_used=500
+    ).frame_settlement(Bogota)
+    assert more.execution_gas - base.execution_gas == 1_000
+    assert more.state_gas - base.state_gas == 500
+    assert more.calldata_floor == base.calldata_floor
+
+
+@pytest.mark.parametrize(
+    "refund,capped",
+    [
+        pytest.param(1, False, id="below_cap"),
+        pytest.param(10**9, True, id="above_cap"),
+    ],
+)
+def test_frame_settlement_caps_refund(refund: int, capped: bool) -> None:
+    """The refund survives up to the fork's share of the spent gas."""
+    tx = settled_frame_tx(gas_used=50_000)
+    settlement = tx.frame_settlement(Bogota, refund=refund)
+    cap = settlement.gas_before_refund // Bogota.max_refund_quotient()
+    assert settlement.effective_refund == (cap if capped else refund)
+
+
+def test_frame_settlement_matches_expected_receipt() -> None:
+    """
+    The expected receipt charges the payer what the settlement gives, for
+    the refund it was settled with.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    tx = Transaction(
+        sender=sender,
+        frames=[Frame.verify(), Frame.default(gas_used=50_000)],
+    ).expect_frame_receipts(Bogota, refund=1_000)
+    assert tx.expected_receipt is not None
+    assert tx.expected_receipt.payer == sender
+    assert (
+        tx.expected_receipt.cumulative_gas_used
+        == tx.frame_settlement(Bogota, refund=1_000).payer_gas_used()
+    )
+
+
+def test_frame_settlement_unpinned_without_total() -> None:
+    """
+    A frame whose execution gas is unpinned leaves the receipt's total
+    unpinned too, since the total follows from every frame's gas.
+    """
+    tx = settled_frame_tx(pin_gas=False)
+    assert tx.expected_receipt is not None
+    assert tx.expected_receipt.cumulative_gas_used is None
+
+
+# Signers in the signature list
+
+
+def test_frame_tx_default_signature_from_sender() -> None:
+    """
+    A frame transaction without signatures gets one canonical-hash entry
+    signed by its sender, or none for a sender without a key.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    tx = Transaction(sender=sender, frames=[Frame.verify()])
+    assert tx.signatures is not None
+    assert len(tx.signatures) == 1
+    assert tx.signatures[0].signed_by is sender
+    assert tx.signatures[0].msg == Bytes(b"")
+
+    keyless = Transaction(sender=EOA(Address(0x1234)), frames=[Frame.verify()])
+    assert keyless.signatures == []
+
+
+def test_frame_tx_signers_become_signed_entries() -> None:
+    """
+    Signers in the signature list become canonical-hash entries of their
+    own scheme, signed with their own key when the transaction is.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    payer = EOA(key=OTHER_KEY)
+    signers: List[Signer] = [sender, payer, P256Signer(1)]
+    tx = Transaction(
+        sender=sender, frames=[Frame.verify()], signatures=signers
+    )
+    assert tx.signatures is not None
+    assert [entry.signed_by for entry in tx.signatures] == signers
+    assert all(len(entry.signature) == 0 for entry in tx.signatures)
+    tx.rlp()
+    for entry, signer in zip(tx.signatures, signers, strict=True):
+        assert entry.scheme == signer.signature_scheme
+        assert entry.signer == Bytes(bytes(signer))
+        assert entry.msg == Bytes(b"")
+        assert len(entry.signature) == signer.signature_length
+
+
+def test_frame_tx_signature_entries_copied() -> None:
+    """
+    Entries passed in are copied, so signing a transaction never modifies
+    an entry shared with the caller or another transaction.
+    """
+    sender = EOA(key=SIGNING_KEY)
+    entry = FrameSignature(signer=sender)
+    first = Transaction(
+        sender=sender, frames=[Frame.verify()], signatures=[entry]
+    )
+    second = Transaction(
+        sender=sender,
+        frames=[Frame.verify(), Frame.default()],
+        signatures=[entry, EOA(key=OTHER_KEY)],
+    )
+    first.rlp()
+    second.rlp()
+    assert first.signatures is not None and second.signatures is not None
+    assert first.signatures[0] is not entry
+    assert len(entry.signature) == 0
+    assert first.signatures[0].signature != second.signatures[0].signature

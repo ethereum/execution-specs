@@ -474,7 +474,12 @@ class Frame(FrameGeneric[HexNumber]):
         mode = overrides.setdefault("mode", FrameMode.VERIFY)
         assert mode == FrameMode.VERIFY, f"not a VERIFY frame: mode {mode}"
         overrides.setdefault("flags", FrameFlag(0))
-        overrides.setdefault("target", Address(EXPIRY_VERIFIER_ADDRESS))
+        target = overrides.setdefault(
+            "target", Address(EXPIRY_VERIFIER_ADDRESS)
+        )
+        assert Address(target) == Address(EXPIRY_VERIFIER_ADDRESS), (
+            f"not an expiry frame: target {target}"
+        )
         # Such a frame is only valid with a zero state gas budget, and never
         # expires at the maximum 64-bit timestamp.
         overrides.setdefault("state_gas_limit", 0)
