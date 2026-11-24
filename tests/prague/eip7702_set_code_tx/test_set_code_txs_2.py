@@ -8,6 +8,7 @@ import pytest
 from execution_testing import (
     AccessList,
     Account,
+    Address,
     Alloc,
     AuthorizationTuple,
     Block,
@@ -2224,7 +2225,7 @@ def test_sender_with_delegation_designator(
     )
 
     if expected_error is None:
-        post = {
+        post: dict[Address, Account | None] = {
             sender: Account(nonce=2, code=designator),
             recipient: Account(balance=1),
         }
