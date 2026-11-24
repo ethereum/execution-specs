@@ -23,8 +23,7 @@ from typing import (
 
 import ethereum.state as spec_state
 import ethereum.state_mpt as spec_state_mpt
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec, utils
+from cryptography.hazmat.primitives.asymmetric import ec
 from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
 from ethereum_types.bytes import Bytes as SpecBytes
@@ -60,6 +59,7 @@ from execution_testing.base_types.conversions import (
 
 from .balance_expectations import BalanceExpression, PostStateContext, Tip
 from .incremental_trie import IncrementalStateTrie
+from .p256 import p256_sign
 from .utils import keccak256
 
 
@@ -145,12 +145,6 @@ class EOA(Address, Signer):
         return self.__class__(Address(self), key=self.key, nonce=self.nonce)
 
 
-SECP256R1_ORDER = (
-    0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
-)
-"""Order of the NIST P-256 (secp256r1) curve."""
-
-
 class P256Signer(Address, Signer):
     """
     A NIST P-256 (secp256r1) private key, identified by the address its
@@ -200,25 +194,14 @@ class P256Signer(Address, Signer):
         `r || s || qx || qy`, with `s` normalized to the lower half of the
         curve order.
         """
-        der_signature = _p256_private_key(self.key).sign(
-            bytes(message),
-            ec.ECDSA(
-                utils.Prehashed(hashes.SHA256()), deterministic_signing=True
-            ),
-        )
-        r, s = utils.decode_dss_signature(der_signature)
-        s = min(s, SECP256R1_ORDER - s)
-        return Bytes(
-            r.to_bytes(32, "big") + s.to_bytes(32, "big") + self.public_key
-        )
-
-
-def _p256_private_key(key: Hash) -> ec.EllipticCurvePrivateKey:
-    return ec.derive_private_key(int.from_bytes(key, "big"), ec.SECP256R1())
+        return Bytes(bytes(p256_sign(bytes(message), self.key)))
 
 
 def _p256_public_key(key: Hash) -> Bytes:
-    numbers = _p256_private_key(key).public_key().public_numbers()
+    private_key = ec.derive_private_key(
+        int.from_bytes(key, "big"), ec.SECP256R1()
+    )
+    numbers = private_key.public_key().public_numbers()
     return Bytes(numbers.x.to_bytes(32, "big") + numbers.y.to_bytes(32, "big"))
 
 
