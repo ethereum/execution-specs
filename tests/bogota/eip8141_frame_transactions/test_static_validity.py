@@ -384,7 +384,9 @@ FRAME_CASES = [
         # Each frame's gas limit fits into 64 bits, but the total
         # frame gas must as well.
         # Execution gas this large also exceeds the EIP-7825 cap, which
-        # a client may check first.
+        # a client may check first. The budgets also exceed the block's
+        # gas capacity, but that check depends on the block, so it
+        # follows static validity.
         [
             Frame.verify(),
             Frame.default(gas_limit=2**64 - 1),
@@ -406,7 +408,9 @@ FRAME_CASES = [
     ),
     pytest.param(
         # The total sums both dimensions, so a state budget drives
-        # the same overflow.
+        # the same overflow. The budgets also exceed the block's gas
+        # capacity, but that check depends on the block, so it follows
+        # static validity.
         [
             Frame.verify(),
             Frame.default(state_gas_limit=2**64 - 1),
@@ -426,7 +430,9 @@ FRAME_CASES = [
     pytest.param(
         # Each dimension's budget fits into 64 bits on its own; only
         # their cross-dimension sum overflows. The execution total also
-        # exceeds the EIP-7825 cap, which a client may check first.
+        # exceeds the EIP-7825 cap, which a client may check first. The
+        # budgets also exceed the block's gas capacity, but that check
+        # depends on the block, so it follows static validity.
         [
             Frame.verify(),
             Frame.default(gas_limit=2**63, state_gas_limit=2**63),
@@ -449,9 +455,11 @@ FRAME_CASES = [
     pytest.param(
         # As above, but the execution total stays within the EIP-7825
         # cap, which state gas is exempt from, so the sum overflow is
-        # the only rule broken. Each frame's budgets fit into 64 bits
-        # on their own; only the running total across both frames
+        # the only static rule broken. Each frame's budgets fit into 64
+        # bits on their own; only the running total across both frames
         # reaches exactly 2**64, one past the largest 64-bit value.
+        # The budgets also exceed the block's gas capacity, but that check
+        # depends on the block, so it follows static validity.
         [
             Frame.verify(gas_limit=2**20, state_gas_limit=0),
             Frame.default(gas_limit=0, state_gas_limit=2**64 - 2**20),
