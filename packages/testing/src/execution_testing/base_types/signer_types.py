@@ -1,7 +1,7 @@
 """Signature schemes and the interface of accounts that sign messages."""
 
 from enum import IntEnum
-from typing import Protocol, Sequence, SupportsBytes, runtime_checkable
+from typing import Optional, Protocol, SupportsBytes, runtime_checkable
 
 from .base_types import Bytes, Hash
 
@@ -28,10 +28,14 @@ class Signer(SupportsBytes, Protocol):
     """
 
     @property
-    def signature_schemes(self) -> Sequence[FrameSignatureScheme]:
+    def signature_scheme(self) -> Optional[FrameSignatureScheme]:
         """
-        Return the frame transaction signature schemes this signer can sign
-        for, in order of preference.
+        Return the frame transaction signature scheme that verifies this
+        signer's signatures natively, or `None` if no scheme does.
+
+        A signature scheme the protocol does not verify natively, either
+        in any fork or only before the fork that introduces it, can still
+        sign `ARBITRARY` entries, which the account's code verifies.
         """
         ...
 

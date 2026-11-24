@@ -6,13 +6,24 @@ import pytest
 from pydantic import ValidationError
 from spec256k1 import PublicKey
 
-from execution_testing.base_types import AccessList, Address, Hash
+from execution_testing.base_types import (
+    AccessList,
+    Address,
+    Bytes,
+    FrameSignatureScheme,
+    Hash,
+)
 from execution_testing.forks import Bogota
 from execution_testing.vm import Op
 
 from .. import transaction_types
-from ..account_types import EOA
-from ..transaction_types import Frame, FrameOutcome, Transaction
+from ..account_types import EOA, P256Signer
+from ..transaction_types import (
+    Frame,
+    FrameOutcome,
+    FrameSignature,
+    Transaction,
+)
 from ..utils import keccak256
 
 SIGNING_KEY = Hash(bytes(range(1, 33)))
@@ -613,3 +624,77 @@ def test_frame_receipt_requires_settlement() -> None:
     assert tx.expected_receipt is not None
     assert tx.expected_receipt.frame_receipts is not None
     assert receipt == tx.expected_receipt.frame_receipts[1]
+
+
+SIGNERS = [
+    pytest.param(EOA(key=SIGNING_KEY), id="eoa"),
+    pytest.param(P256Signer(1), id="p256"),
+]
+
+
+@pytest.mark.parametrize("signer", SIGNERS)
+def test_frame_signature_defaults_to_signer_scheme(signer: Any) -> None:
+    """
+    An entry built from a signer defaults to the scheme that verifies the
+    signer natively, and identifies the signer by its bytes.
+    """
+    entry = FrameSignature(signer=signer)
+    assert entry.scheme == signer.signature_scheme
+    assert entry.signer == Bytes(bytes(signer))
+    assert entry.signed_by is signer
+
+
+@pytest.mark.parametrize("signer", SIGNERS)
+def test_frame_signature_arbitrary_scheme_accepted(signer: Any) -> None:
+    """
+    Any signer can sign an `ARBITRARY` entry, which leaves the signer
+    bytes empty for the account's code to verify.
+    """
+    entry = FrameSignature(
+        signer=signer, scheme=FrameSignatureScheme.ARBITRARY
+    )
+    assert entry.scheme == FrameSignatureScheme.ARBITRARY
+    assert entry.signer == Bytes(b"")
+    assert entry.signed_by is signer
+
+
+@pytest.mark.parametrize(
+    "signer,scheme",
+    [
+        pytest.param(
+            EOA(key=SIGNING_KEY), FrameSignatureScheme.P256, id="eoa_as_p256"
+        ),
+        pytest.param(
+            P256Signer(1), FrameSignatureScheme.SECP256K1, id="p256_as_k1"
+        ),
+    ],
+)
+def test_frame_signature_foreign_scheme_rejected(
+    signer: Any, scheme: FrameSignatureScheme
+) -> None:
+    """A signer cannot sign an entry of another native scheme."""
+    with pytest.raises(ValidationError, match="cannot sign scheme"):
+        FrameSignature(signer=signer, scheme=scheme)
+
+
+def test_frame_signature_without_native_scheme_defaults_to_arbitrary() -> None:
+    """
+    A signer no scheme verifies natively signs `ARBITRARY` entries by
+    default, and no other scheme.
+    """
+
+    class CodeVerifiedSigner(Address):
+        """A signer whose signatures only account code can verify."""
+
+        signature_scheme = None
+        signature_length = 32
+
+        def sign_message(self, message: Hash) -> Bytes:
+            return Bytes(bytes(message))
+
+    signer = CodeVerifiedSigner(0x1234)
+    entry = FrameSignature(signer=signer)
+    assert entry.scheme == FrameSignatureScheme.ARBITRARY
+    assert entry.signer == Bytes(b"")
+    with pytest.raises(ValidationError, match="cannot sign scheme"):
+        FrameSignature(signer=signer, scheme=FrameSignatureScheme.SECP256K1)

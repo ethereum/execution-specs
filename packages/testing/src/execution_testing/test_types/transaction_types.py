@@ -620,7 +620,13 @@ class FrameSignature(FrameSignatureGeneric[HexNumber]):
     @model_validator(mode="before")
     @classmethod
     def split_signer(cls, data: Any) -> Any:
-        """Split a `Signer` passed as `signer` into `signed_by`."""
+        """
+        Split a `Signer` passed as `signer` into `signed_by`.
+
+        The scheme defaults to the signer's own, or to `ARBITRARY` for a
+        signer no scheme verifies natively. An explicit scheme must be the
+        signer's own or `ARBITRARY`, which any signer can sign for.
+        """
         if not isinstance(data, dict):
             return data
         signer = data.get("signer")
@@ -628,8 +634,22 @@ class FrameSignature(FrameSignatureGeneric[HexNumber]):
             return data
         data = dict(data)
         data.setdefault("signed_by", signer)
+        native_scheme = signer.signature_scheme
         if data.get("scheme") is None:
-            data["scheme"] = signer.signature_schemes[0]
+            data["scheme"] = (
+                native_scheme
+                if native_scheme is not None
+                else FrameSignatureScheme.ARBITRARY
+            )
+        elif data["scheme"] not in (
+            native_scheme,
+            FrameSignatureScheme.ARBITRARY,
+        ):
+            raise ValueError(
+                f"{type(signer).__name__} cannot sign scheme "
+                f"{data['scheme']}: it signs "
+                f"{native_scheme!r} or ARBITRARY entries"
+            )
         if data["scheme"] == FrameSignatureScheme.ARBITRARY:
             data["signer"] = Bytes(b"")
         else:

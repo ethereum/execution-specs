@@ -90,8 +90,8 @@ class EOA(Address, Signer):
     private key.
     """
 
-    signature_schemes: ClassVar[Tuple[FrameSignatureScheme, ...]] = (
-        FrameSignatureScheme.SECP256K1,
+    signature_scheme: ClassVar[FrameSignatureScheme] = (
+        FrameSignatureScheme.SECP256K1
     )
     signature_length: ClassVar[int] = 65
     """Length of a secp256k1 signature: `v || r || s`."""
@@ -161,8 +161,8 @@ class P256Signer(Address, Signer):
     code of its own.
     """
 
-    signature_schemes: ClassVar[Tuple[FrameSignatureScheme, ...]] = (
-        FrameSignatureScheme.P256,
+    signature_scheme: ClassVar[FrameSignatureScheme] = (
+        FrameSignatureScheme.P256
     )
     signature_length: ClassVar[int] = 128
     """Length of a P256 signature: `r || s || qx || qy`."""
