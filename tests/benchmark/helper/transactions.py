@@ -1,8 +1,11 @@
 """Transaction and block packing helpers for benchmark gas budgets."""
 
 from collections.abc import Callable, Sequence
+from typing import Any
 
+import pytest
 from execution_testing import (
+    EOA,
     AccessList,
     Address,
     Alloc,
@@ -11,6 +14,11 @@ from execution_testing import (
     Hash,
     Transaction,
     TransactionWithCost,
+)
+
+from tests.bogota.eip8141_frame_transactions.helpers import (
+    FrameCase,
+    FrameTransaction,
 )
 
 from .enums import CacheStrategy
@@ -89,6 +97,36 @@ def build_benchmark_txs(
 
     assert txs, "Gas loop produced zero transactions"
     return txs, total_gas_consumed
+
+
+def build_frame_benchmark_txs(
+    *,
+    fork: Fork,
+    gas_benchmark_value: int,
+    sender: EOA | Address,
+    frames: Callable[[], list[FrameCase]],
+    nonce: int = 1,
+    **overrides: Any,
+) -> list[FrameTransaction]:
+    """Build frame transactions over fresh `frames()` filling the block."""
+
+    def build(tx_nonce: int) -> FrameTransaction:
+        return FrameTransaction.build(
+            fork=fork,
+            sender=sender,
+            nonce=tx_nonce,
+            settle=False,
+            frames=frames(),
+            **overrides,
+        )
+
+    txs = [build(nonce)]
+    tx_count = gas_benchmark_value // txs[0].block_gas_used()
+    if tx_count < 1:
+        pytest.skip("a frame transaction exceeds the benchmark gas value")
+    for tx_nonce in range(nonce + 1, nonce + tx_count):
+        txs.append(build(tx_nonce))
+    return txs
 
 
 def build_cache_strategy_blocks(
