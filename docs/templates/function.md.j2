@@ -1,5 +1,17 @@
 {% extends "base.md.j2" %}
 {% block front_matter %}
+title: "{{ title }}"
+social:
+  cards_layout_options:
+    title: "{{ title | replace('_', '_ ') }}"
+{#
+    The navigation entry of a function page is wrapped in <code>; without a
+    title here that markup ends up in the social card and og:title.
+
+    The social card only wraps a title at spaces and cuts off a word that
+    is longer than a line, so its copy of the name gets a space after each
+    underscore. The card ends a title of more than three lines with "...".
+#}
 search:
   exclude: true
 {#
