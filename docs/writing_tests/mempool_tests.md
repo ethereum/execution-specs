@@ -49,7 +49,7 @@ def test_sload_in_validation_prefix(
 `mempool_test` takes:
 
 - `pre`: the state at the chain head.
-- `tx`: the transaction under test. Set its `error` to the `TransactionException` the specification raises for it in the next block, if any.
+- `tx`: the transaction under test. Set its `error` to the `TransactionException` the execution specification raises for it in the next block, if any.
 - `env`: the next block's environment (optional). The framework derives the head from it.
 - `broadcast`: whether the client must broadcast the transaction. A transaction with an `error` is never broadcast.
 - `rules`: IDs of the admission rules the test exercises, from the EIP directory's `MempoolRule`. A valid transaction that is not broadcast must name the rules it breaks.
@@ -57,17 +57,17 @@ def test_sload_in_validation_prefix(
 
 ## What the fill checks
 
-When filling, the framework runs the transaction against the specification for the next block, and fails the fill unless the result matches the expectation:
+When filling, the framework runs the transaction against the execution specification for the next block, and fails the fill unless the result matches the expectation:
 
-| Expectation | The specification must |
+| Expectation | The execution specification must |
 | --- | --- |
 | `broadcast=True` | accept the transaction |
 | `broadcast=False` with `tx.error` set | raise `tx.error` |
 | `broadcast=False` without `tx.error` | accept the transaction |
 
-A test therefore cannot mistake a consensus rule for a mempool rule. Whether the transaction actually breaks the rules it names is not checked: those fixtures have `author` as their `_info.mempool.expectationSource`.
+A test therefore cannot mistake a consensus rule for a mempool rule: a refusal by admission rules (`rules` without `tx.error`) of a transaction the execution specification rejects fails the fill. For a valid transaction, the outcome under the admission rules is not checked, whether it is broadcast or refused: those fixtures have `author` as their `_info.mempool.expectationSource`. Checking it would need an executable specification of the admission rules, which the fill could run alongside the execution specification.
 
-## Expectations the specification cannot check
+## Expectations the execution specification cannot check
 
 For a refusal by a mempool rule, the fill only proves that the transaction is valid. To keep the test from refusing the transaction for an unrelated reason:
 

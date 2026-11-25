@@ -49,8 +49,8 @@ class MempoolTest(BaseTest):
     pre: Alloc
     tx: Transaction
     """
-    Transaction under test. Its `error` is the exception the specification
-    raises for it in the next block, if any.
+    Transaction under test. Its `error` is the exception the execution
+    specification raises for it in the next block, if any.
     """
     broadcast: bool
     rules: List[str] = Field(default_factory=list)
@@ -86,8 +86,8 @@ class MempoolTest(BaseTest):
 
     def expectation_source(self) -> str:
         """Return where the expected outcome comes from."""
-        if self.broadcast or self.tx.error is not None:
-            return "specification"
+        if self.tx.error is not None:
+            return "execution-specification"
         return "author"
 
     def info(self) -> Dict[str, Any]:
@@ -172,8 +172,8 @@ class MempoolTest(BaseTest):
             self.pre, fork=self.fork, fixture_format=MempoolFixture
         )
 
-        # The specification must raise the transaction's `error`, and
-        # accept it when there is none.
+        # The execution specification must raise the transaction's `error`,
+        # and accept it when there is none.
         transition_tool_output = t8n.evaluate(
             transition_tool_data=TransitionTool.TransitionToolData(
                 alloc=pre_alloc,

@@ -3,7 +3,7 @@ Transaction validity tests for the mempool admission of
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
 
 A frame transaction that is invalid for the next block must never be
-broadcast. The specification decides these cases.
+broadcast. The execution specification decides these cases.
 """
 
 import pytest

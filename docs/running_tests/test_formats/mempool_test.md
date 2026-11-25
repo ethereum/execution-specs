@@ -91,11 +91,11 @@ IDs of the admission rules the test exercises, within `mempoolRuleset`, for exam
 
 #### - `_info.mempool.exception`: [`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)
 
-Exception the specification raises for the transaction in the next block. Missing when the transaction is valid. Consumers do not check it.
+Exception the execution specification raises for the transaction in the next block. Missing when the transaction is valid. Consumers do not check it.
 
 #### - `_info.mempool.expectationSource`: `str`
 
-Where the expected outcome comes from: `specification` (checked against the specification when filling) or `author` (a refusal by an admission rule, asserted by the test author). Consumers do not use it.
+Where the expected outcome comes from: `execution-specification` (a transaction the execution specification rejects, checked when filling) or `author` (a valid transaction, whose outcome under the admission rules is asserted by the test author). Consumers do not use it.
 
 ### `FixtureHead`
 
