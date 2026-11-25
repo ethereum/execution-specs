@@ -142,6 +142,13 @@ def test_fill_sibling_and_invalid_child(
     # Stored payloads carry only the newPayload request.
     dumped_payload = fixture.json_dict_with_info()["blocks"]["i2"]["payload"]
     assert set(dumped_payload) == {"params", "newPayloadVersion"}
+    # Only the invalid block says why it is invalid.
+    dumped_blocks = fixture.json_dict_with_info()["blocks"]
+    assert dumped_blocks["i2"]["validationError"] == (
+        "BlockException.INVALID_STATE_ROOT|BlockException.INVALID_BLOCK_HASH"
+    )
+    assert "validationError" not in dumped_blocks["i3"]
+    assert "validationError" not in dumped_blocks["a1"]
 
     # Model annotations.
     steps = fixture.steps

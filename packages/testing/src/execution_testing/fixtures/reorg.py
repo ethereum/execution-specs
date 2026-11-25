@@ -47,6 +47,7 @@ from execution_testing.base_types import (
 from .blockchain import (
     EngineAPIErrorCode,
     EngineFixtureCommon,
+    ExceptionInstanceOrList,
     FixtureHeader,
     FixtureNewPayloadRequest,
     PayloadAttributes,
@@ -520,6 +521,13 @@ class FixtureReorgBlock(CamelModel):
 
     parent: BlockRef
     payload: FixtureNewPayloadRequest
+    validation_error: ExceptionInstanceOrList | None = None
+    """
+    Set for an invalid block only: the exceptions a client may report for
+    it, including ``BlockException.INVALID_BLOCK_HASH`` for a payload that
+    does not hash to its ``blockHash``. Informative: a client is judged by
+    the ``expect`` of the steps.
+    """
 
     @property
     def block_hash(self) -> Hash:
