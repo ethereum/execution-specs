@@ -57,23 +57,18 @@ def test_comparison(
 ) -> None:
     """
     Benchmark binary instructions (takes two args, pushes one value).
-    The execution starts with two initial values on the stack
-    The stack is balanced by the DUP2 instruction.
-    """
-    tx_data = b"".join(
-        arg.to_bytes(32, byteorder="big") for arg in opcode_args
-    )
 
-    setup = Op.CALLDATALOAD(0) + Op.CALLDATALOAD(32) + Op.DUP2 + Op.DUP2
-    attack_block = Op.DUP2 + opcode
-    cleanup = Op.POP + Op.POP + Op.DUP2 + Op.DUP2
+    Each comparison takes the first argument from a PUSH31 and the previous
+    result as the second. Clients copy a pushed value out of the code,
+    which is slower than duplicating a stack item, and 31 bytes is the
+    slowest push size in some of them.
+    """
+    first, second = opcode_args
     benchmark_test(
         target_opcode=opcode,
         code_generator=JumpLoopGenerator(
-            setup=setup,
-            attack_block=attack_block,
-            cleanup=cleanup,
-            tx_kwargs={"data": tx_data},
+            setup=Op.PUSH1(second),
+            attack_block=Op.PUSH31[first.to_bytes(31, "big")] + opcode,
         ),
     )
 
