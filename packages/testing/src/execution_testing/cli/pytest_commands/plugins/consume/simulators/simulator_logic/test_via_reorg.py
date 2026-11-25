@@ -181,12 +181,20 @@ class StepRunner:
             return self.bound[ref.block].payload.transactions[ref.index]
         return self.fixture.tx_rlp(ref)
 
-    def tx_lookup(self, name: str, lookup: Callable[[], T]) -> T:
+    def tx_lookup(
+        self,
+        name: str,
+        lookup: Callable[[], T],
+        deadline: float | None = None,
+    ) -> T:
         """
         Run a transaction lookup, retrying while the client answers that it
-        is still indexing, until ``TX_STATUS_TIMEOUT``. Each retry is logged.
+        is still indexing. Each retry is logged. The retries end at
+        ``deadline``, which defaults to ``TX_STATUS_TIMEOUT`` from now; a
+        caller that already polls passes its own deadline to stay within it.
         """
-        deadline = time.monotonic() + TX_STATUS_TIMEOUT
+        if deadline is None:
+            deadline = time.monotonic() + TX_STATUS_TIMEOUT
         while True:
             try:
                 return lookup()
@@ -638,7 +646,9 @@ class StepRunner:
         deadline = time.monotonic() + TX_STATUS_TIMEOUT
         while True:
             tx = self.tx_lookup(
-                name, lambda: self.eth.get_transaction_by_hash(tx_hash)
+                name,
+                lambda: self.eth.get_transaction_by_hash(tx_hash),
+                deadline,
             )
             if tx is None:
                 status = "dropped"

@@ -383,6 +383,46 @@ def test_assert_tx_status_waits_for_the_transaction_index(
                 step_runner.assert_tx_status("status", step)
 
 
+def test_assert_tx_status_retries_within_its_own_deadline(
+    make_runner: MakeRunner,
+) -> None:
+    """
+    Retries of a lookup the client cannot answer while indexing end at the
+    deadline of the status poll, and do not start a new one.
+    """
+
+    class Clock:
+        """A clock that only moves when the code under test sleeps."""
+
+        now = 0.0
+
+        def monotonic(self) -> float:
+            return self.now
+
+        def sleep(self, seconds: float) -> None:
+            self.now += seconds
+
+    # Three polls see a status that is not the preferred one, then the
+    # client answers that it is indexing for the rest of the poll.
+    eth = MagicMock()
+    eth.get_transaction_by_hash.side_effect = [None] * 3 + [INDEXING] * 20
+    step_runner = make_runner(eth=eth)
+    step_runner.tx_hash = MagicMock(return_value=Hash(1))  # type: ignore[method-assign]
+    step = AssertTxStatusStep(
+        tx=TxRef(block="a1"), expect=["pending", "dropped"]
+    )
+    timeout, interval = 5.0, 1.0
+    with (
+        patch.object(reorg_logic, "time", Clock()),
+        patch.object(reorg_logic, "TX_STATUS_TIMEOUT", timeout),
+        patch.object(reorg_logic, "TX_STATUS_POLL_INTERVAL", interval),
+        pytest.raises(JSONRPCError),
+    ):
+        step_runner.assert_tx_status("status", step)
+    # One lookup per interval from the start up to and including the deadline.
+    assert eth.get_transaction_by_hash.call_count == timeout / interval + 1
+
+
 def test_assert_state_rejects_noncanonical_block(
     make_runner: MakeRunner,
 ) -> None:
