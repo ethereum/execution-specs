@@ -81,16 +81,18 @@ def resized_signature(entry: FrameSignature, length: int) -> FrameSignature:
     return entry
 
 
-def valid_p256_entry(**components: int) -> FrameSignature:
+def valid_p256_entry(
+    signer: bytes = P256_SIGNER, **components: int
+) -> FrameSignature:
     """
     Return the P256 signature entry over `DIGEST` built from
     `P256_SIGNATURE`'s words and the signer they hash to, with the
-    given components replaced, for variants that break the rule on one
-    component and nothing else.
+    given components or signer replaced, for variants that break the
+    rule on one component and nothing else.
     """
     words = dict(r=P256_R, s=P256_S, qx=P256_QX, qy=P256_QY)
     words.update(components)
-    return p256_entry(**words, signer=Bytes(P256_SIGNER))
+    return p256_entry(**words, signer=Bytes(signer))
 
 
 def p256_entry(

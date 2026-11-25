@@ -36,6 +36,7 @@ from execution_testing import (
     FrameSignature,
     Hash,
     Op,
+    P256Signer,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -52,6 +53,7 @@ from .signature_helpers import (
     P256_SIGNER,
     SECP256K1N,
     SECP256R1N,
+    canonical_entry,
     high_s_complement,
     p256_entry,
     resized_signature,
@@ -780,6 +782,61 @@ def test_expiry_verifier_constraints_transaction(
     transaction_test(pre=pre, tx=tx)
 
 
+# secp256k1 vectors on the numeric boundaries of §Signature Validation
+# use `r = Gx`, the generator's x-coordinate, over `DIGEST`. Each signer
+# was computed with plain ECDSA public key recovery,
+# `Q = r^-1 * (s * R - z * G)`, where `R` is the curve point with
+# x-coordinate `r` and the parity given by `v`.
+SECP256K1_GX = (
+    0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
+)
+
+HALF_ORDER_SIGNER_V0 = Bytes("0xd9b25053e1790082384dae367fed99cdcd7fb6cb")
+"""
+Signer of `(v=0, r=Gx, s=SECP256K1N // 2)`, and of its high-`s`
+complement `(v=1, r=Gx, s=SECP256K1N // 2 + 1)`.
+"""
+
+HALF_ORDER_SIGNER_V1 = Bytes("0x940488cbd686a8deea38c50b77f1cbf6b4c0eca8")
+"""Signer of `(v=1, r=Gx, s=SECP256K1N // 2)`."""
+
+
+def secp256k1_vector(v: int, r: int, s: int, signer: Bytes) -> FrameSignature:
+    """Return a secp256k1 entry over `DIGEST` with fixed components."""
+    return FrameSignature(
+        scheme=Spec.SCHEME_SECP256K1,
+        signer=signer,
+        msg=Bytes(DIGEST),
+        signature=Bytes(
+            bytes([v]) + r.to_bytes(32, "big") + s.to_bytes(32, "big")
+        ),
+    )
+
+
+def p256_half_order_entry(s: int, signer_length: int = 20) -> FrameSignature:
+    """
+    Return a P-256 entry over `DIGEST` with the given `s`, from a key
+    whose valid signature has `s = SECP256R1N // 2`, and the last
+    `signer_length` bytes of the key's signer.
+
+    The key is solved for: with the nonce `k`, `r = x(k * G)` and
+    `s = k^-1 * (z + r * d)` give `d = (s * k - z) * r^-1`. `k = 286` is
+    the first nonce whose signer starts with a zero byte.
+    """
+    k = 286
+    r = int.from_bytes(P256Signer(k).public_key[:32], "big") % SECP256R1N
+    z = int.from_bytes(DIGEST, "big")
+    key = (SECP256R1N // 2 * k - z) * pow(r, -1, SECP256R1N) % SECP256R1N
+    signer = P256Signer(key)
+    qx, qy = (
+        int.from_bytes(signer.public_key[start : start + 32], "big")
+        for start in (0, 32)
+    )
+    return p256_entry(
+        r, s, qx, qy, signer=Bytes(bytes(signer)[20 - signer_length :])
+    )
+
+
 SIGNATURE_CASES = [
     # secp256k1 entries, built from a valid signature over an
     # explicit digest and tampered in a single component.
@@ -821,12 +878,27 @@ SIGNATURE_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        # The legacy transaction v encoding is not valid here.
-        lambda _pre, sender: [
-            with_tampered_components(signed_digest_entry(sender.key), v=27)
+        # The legacy transaction `v` encoding, `27` plus the recovery id
+        # of `secp256k1_s_half_order_v0`: a client that normalizes it
+        # recovers the explicit signer, so only the recovery id rule
+        # (§Signature Validation: "v > 1") rejects it.
+        [
+            secp256k1_vector(
+                27, SECP256K1_GX, SECP256K1N // 2, HALF_ORDER_SIGNER_V0
+            )
         ],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="secp256k1_v_27",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [
+            secp256k1_vector(
+                28, SECP256K1_GX, SECP256K1N // 2, HALF_ORDER_SIGNER_V1
+            )
+        ],
+        TransactionException.TYPE_6_INVALID_SIGNATURE,
+        id="secp256k1_v_28",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
@@ -868,8 +940,33 @@ SIGNATURE_CASES = [
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        lambda _pre, sender: [
-            with_tampered_components(signed_digest_entry(sender.key), s=0)
+        # `r` above the order is still the x-coordinate of a curve
+        # point, so recovery without the range check (§Signature
+        # Validation: "not (0 < r < SECP256K1N)") returns this signer,
+        # using `r mod SECP256K1N` as the scalar.
+        [
+            secp256k1_vector(
+                0,
+                SECP256K1N + 2,
+                5,
+                Bytes("0xf28a4ea5a1c5a2a33a0fb3adce8e5333b7c77c84"),
+            )
+        ],
+        TransactionException.TYPE_6_INVALID_SIGNATURE,
+        id="secp256k1_r_above_order_on_curve",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # With `s = 0` plain recovery returns `-r^-1 * z * G`, a valid
+        # public key with this signer, so only the lower bound of `s`
+        # rejects the entry.
+        [
+            secp256k1_vector(
+                0,
+                SECP256K1_GX,
+                0,
+                Bytes("0x1c20d20b1fa38c4e38aede97a3f4dd7c3f31c7b0"),
+            )
         ],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="secp256k1_s_zero",
@@ -881,6 +978,38 @@ SIGNATURE_CASES = [
         ],
         TransactionException.TYPE_6_INVALID_SIGNATURE,
         id="secp256k1_high_s",
+        marks=pytest.mark.exception_test,
+    ),
+    # The upper bound of `s` itself (§Signature Validation: "not (0 < s
+    # <= SECP256K1N // 2)"), accepted for both recovery ids.
+    pytest.param(
+        [
+            secp256k1_vector(
+                0, SECP256K1_GX, SECP256K1N // 2, HALF_ORDER_SIGNER_V0
+            )
+        ],
+        None,
+        id="secp256k1_s_half_order_v0",
+    ),
+    pytest.param(
+        [
+            secp256k1_vector(
+                1, SECP256K1_GX, SECP256K1N // 2, HALF_ORDER_SIGNER_V1
+            )
+        ],
+        None,
+        id="secp256k1_s_half_order_v1",
+    ),
+    pytest.param(
+        # The complement of `secp256k1_s_half_order_v0`: the same signer
+        # recovers from it, so only the low-`s` bound rejects it.
+        [
+            secp256k1_vector(
+                1, SECP256K1_GX, SECP256K1N // 2 + 1, HALF_ORDER_SIGNER_V0
+            )
+        ],
+        TransactionException.TYPE_6_INVALID_SIGNATURE,
+        id="secp256k1_s_half_order_plus_one",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
@@ -1045,12 +1174,57 @@ SIGNATURE_CASES = [
         id="p256_high_s",
         marks=pytest.mark.exception_test,
     ),
+    # The upper bound of `s` itself (§Signature Validation: "not (0 < s
+    # <= SECP256R1N // 2)").
     pytest.param(
-        # The empty signer resolves to the sender, which never
-        # matches the hash of the entry's public key words.
-        [p256_entry(r=1, s=1)],
+        [p256_half_order_entry(SECP256R1N // 2)],
+        None,
+        id="p256_s_half_order",
+    ),
+    pytest.param(
+        # The complement `SECP256R1N - SECP256R1N // 2` is the half order
+        # plus one; P256VERIFY accepts it, so only the low-`s` bound
+        # rejects it.
+        [p256_half_order_entry(SECP256R1N - SECP256R1N // 2)],
+        TransactionException.TYPE_6_INVALID_SIGNATURE,
+        id="p256_s_half_order_plus_one",
+        marks=pytest.mark.exception_test,
+    ),
+    # P256 signer binding (§Transaction Signatures: "For `P256`, the
+    # signer address must be `keccak256(qx || qy)[12:]`."). The
+    # signature verifies with P256VERIFY, so only the binding rejects it.
+    pytest.param(
+        # The empty signer resolves to the sender (§Transaction
+        # Signatures: "If absent, `tx.sender` is used").
+        [valid_p256_entry(signer=Bytes())],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="p256_signer_mismatch",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        lambda _pre, sender: [valid_p256_entry(signer=Bytes(sender))],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="p256_valid_signature_explicit_foreign_signer",
+        marks=pytest.mark.exception_test,
+    ),
+    # P256 signer width (§Constraints: "assert len(sig.signer) == 0 or
+    # len(sig.signer) == 20"), on a signature that verifies.
+    pytest.param(
+        # The matching signer without its leading zero byte. A client
+        # that left-pads a short signer to 20 bytes sees the matching
+        # signer, so only the width rule rejects the entry.
+        [p256_half_order_entry(SECP256R1N // 2, signer_length=19)],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="p256_signer_19_bytes",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The matching signer with a byte appended. A client that reads
+        # the first 20 bytes sees the matching signer, so only the width
+        # rule rejects the entry.
+        [valid_p256_entry(signer=Bytes(bytes(P256_SIGNER) + b"\x00"))],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="p256_signer_21_bytes",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
@@ -1125,6 +1299,12 @@ def test_signature_constraints(
     The varied entry is appended after the canonical entry consumed by
     the sender's default code, so every case differs from a valid
     transaction only in the appended entry.
+
+    The boundary cases follow EIP-8141 §Signature Validation: "if v > 1
+    or not (0 < r < SECP256K1N) or not (0 < s <= SECP256K1N // 2):
+    return False" for secp256k1, and "if not (0 < r < SECP256R1N) or
+    not (0 < s <= SECP256R1N // 2): return False" followed by "if
+    resolved_signer != keccak256(qx + qy)[12:]: return False" for P256.
     """
     sender = pre.fund_eoa()
     case_entries = entries(pre, sender) if callable(entries) else entries
@@ -1176,6 +1356,70 @@ def test_signature_constraints_transaction(
     )
 
     transaction_test(pre=pre, tx=tx)
+
+
+def entry_signed_for_next_nonce(sender: EOA) -> Transaction:
+    """
+    Return a frame transaction whose only entry is the sender's
+    canonical entry, signed over the signature hash of the same
+    transaction with the next nonce.
+
+    The canonical hash elides the entry's raw bytes and commits to
+    their length only, so the two transactions differ in their nonce
+    alone, and the signature recovers the sender only against the other
+    transaction's hash.
+    """
+
+    def with_entry(signature: bytes, nonce: int) -> Transaction:
+        return Transaction(
+            sender=sender,
+            nonce=nonce,
+            frames=[Frame.verify()],
+            signatures=[canonical_entry(sender, signature=Bytes(signature))],
+            error=TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        )
+
+    placeholder = bytes(sender.signature_length)
+    next_hash = with_entry(placeholder, 1).rlp_signing_bytes().keccak256()
+    return with_entry(bytes(sender.sign_message(next_hash)), 0)
+
+
+@pytest.mark.exception_test
+def test_canonical_entry_signed_for_other_transaction(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a transaction whose canonical sender entry carries a valid
+    signature by the sender's key over another transaction's signature
+    hash: the same transaction with the next nonce.
+
+    EIP-8141 §Transaction Signatures: "if `len(msg) == 0`, the signature
+    is signed over `compute_sig_hash(tx)`", and §Signature Validation:
+    "if len(sig.msg) == 0: msg = sig_hash" followed by "return
+    resolved_signer == ecrecover(msg, v, r, s)". Recovering against this
+    transaction's hash does not return the sender, so the entry is
+    invalid and so is the transaction.
+    """
+    sender = pre.fund_eoa()
+    state_test(
+        pre=pre,
+        tx=entry_signed_for_next_nonce(sender),
+        post={sender: Account(nonce_change=0, balance_change=0)},
+    )
+
+
+@pytest.mark.exception_test
+def test_canonical_entry_signed_for_other_transaction_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Assert the same rejection as
+    `test_canonical_entry_signed_for_other_transaction` on the
+    transaction itself.
+    """
+    transaction_test(pre=pre, tx=entry_signed_for_next_nonce(pre.fund_eoa()))
 
 
 # The gas boundary tests use a contract sender: contract senders carry

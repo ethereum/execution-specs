@@ -17,6 +17,7 @@ from execution_testing import (
     Environment,
     Fork,
     Frame,
+    GasFee,
     Op,
     StateTestFiller,
     Transaction,
@@ -96,3 +97,59 @@ def test_expiry_verifier_frame(
             ),
         },
     )
+
+
+@pytest.mark.parametrize(
+    "verifier_deployed",
+    [
+        pytest.param(True, id="verifier_deployed"),
+        pytest.param(
+            False,
+            id="verifier_absent",
+            # Removing the expiry verifier mutates the shared pre-alloc.
+            marks=[pytest.mark.exception_test, pytest.mark.pre_alloc_mutable],
+        ),
+    ],
+)
+def test_expiry_frame_without_verifier_code(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    verifier_deployed: bool,
+) -> None:
+    """
+    Run an expiry verifier frame while the expiry verifier address holds
+    no code, so the frame runs the default code with an approval scope
+    of zero and reverts.
+
+    EIP-8141 §Expiry Verifier Frame: "it is not installed by the
+    protocol at activation", and §Default code: "If `allowed_scope ==
+    APPROVE_SCOPE_NONE`, revert." An expiry verifier frame must carry
+    `frame.flags == 0`.
+    """
+    if not verifier_deployed:
+        del pre[Spec.EXPIRY_VERIFIER]
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            Frame.verify(),
+            Frame.expiry(execution_gas=expiry_verifier_gas(fork)),
+        ],
+        error=(
+            None
+            if verifier_deployed
+            else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+        ),
+    ).resolve_frames(fork)
+
+    if verifier_deployed:
+        sender_post = Account(
+            nonce_change=1,
+            balance_change=-GasFee(
+                tx, gas=tx.frame_settlement(fork).payer_gas_used()
+            ),
+        )
+    else:
+        sender_post = Account(nonce_change=0, balance_change=0)
+    state_test(pre=pre, tx=tx, post={sender: sender_post})
