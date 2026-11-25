@@ -580,6 +580,32 @@ def test_serving_what_the_client_lacks_opens_the_sync_window() -> None:
         annotate_steps(steps, ClientModel(dag=dag_linear_with_fork()), Cancun)
 
 
+@pytest.mark.parametrize(
+    "safe,finalized", [("a2", "a2"), ("a2", GENESIS_LABEL)]
+)
+def test_await_head_refuses_a_head_off_the_safe_or_finalized_chain(
+    safe: str, finalized: str
+) -> None:
+    """
+    c4 forks below a2, so with a2 safe or finalized a client must refuse
+    the update to c4 once it has synced it.
+    """
+    dag = make_dag(
+        {"a1": "genesis", "a2": "a1", "c2": "a1", "c3": "c2", "c4": "c3"}
+    )
+    steps: List[Step] = [
+        NewPayloadStep(block="a1"),
+        NewPayloadStep(block="a2"),
+        ForkchoiceUpdatedStep(head="a2", safe=safe, finalized=finalized),
+        NewPayloadStep(block="c4"),
+        ForkchoiceUpdatedStep(head="c4", safe=safe, finalized=finalized),
+        ServePeerStep(head="c4"),
+        AwaitHeadStep(latest="c4"),
+    ]
+    with pytest.raises(ValueError, match="is not on its chain"):
+        annotate_steps(steps, ClientModel(dag=dag), Cancun)
+
+
 @pytest.mark.parametrize("held_first", [True, False])
 def test_sync_window_counts_a_block_held_in_any_outcome(
     held_first: bool,

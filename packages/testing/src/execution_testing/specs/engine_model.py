@@ -280,6 +280,15 @@ class ClientModel:
                 "safe or finalized, which a client may apply with the head "
                 "or only on a later update; move them after awaitHead"
             )
+        if not self._on_chain(self.safe, head) or not self._on_chain(
+            self.finalized, head
+        ):
+            raise ValueError(
+                f"awaitHead({head!r}): safe {self.safe!r} or finalized "
+                f"{self.finalized!r} is not on its chain, so a client must "
+                "refuse the pending forkchoiceUpdated once it has synced "
+                "the head (paris.md forkchoiceUpdated point 5)"
+            )
         for label in self.dag.ancestors(head):
             self.known[label] = Validity.VALID
             self.syncing.discard(label)
