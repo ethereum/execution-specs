@@ -507,6 +507,151 @@ def test_np_hash_invalid_precedes_parent_lookup(
     assert ids(model.new_payload_outcomes("b3")) == [outcome_id]
 
 
+@pytest.mark.parametrize(
+    "step",
+    [
+        AssertHeadStep(latest="genesis"),
+        AssertCanonicalStep(blocks={1: None}),
+        AssertStateStep(at="latest", accounts={}),
+        NewPayloadStep(block="a1"),
+        ForkchoiceUpdatedStep(head="genesis"),
+    ],
+    ids=lambda step: step.type,
+)
+def test_steps_that_rely_on_the_head_are_refused_during_a_sync(
+    step: Step,
+) -> None:
+    """
+    Between ``servePeer`` and ``awaitHead`` the client may make the synced
+    block its head at any moment.
+    """
+    steps: List[Step] = [
+        NewPayloadStep(block="a3"),
+        ForkchoiceUpdatedStep(head="a3"),
+        AssertHeadStep(latest="genesis"),
+        ServePeerStep(head="a3"),
+        step,
+        AwaitHeadStep(latest="a3"),
+    ]
+    with pytest.raises(ValueError, match="at any moment"):
+        annotate_steps(steps, ClientModel(dag=dag_linear_with_fork()), Cancun)
+
+
+def test_authored_outcomes_are_accepted_during_a_sync() -> None:
+    """
+    An authored ``expect`` does not rely on the model's head, and no
+    ``assertHead`` is generated for its outcomes while the sync may finish.
+    """
+    refused = ForkchoiceUpdatedStep(
+        head="genesis",
+        safe="a1",
+        expect=[Outcome(id="refused", error_code=-38002)],
+    )
+    steps: List[Step] = [
+        NewPayloadStep(block="a3"),
+        ForkchoiceUpdatedStep(head="a3"),
+        ServePeerStep(head="a3"),
+        NewPayloadStep(
+            block="a1",
+            expect=[Outcome(id="valid", status="VALID")],
+        ),
+        refused,
+        AwaitHeadStep(latest="a3"),
+        AssertHeadStep(latest="a3"),
+    ]
+    model = ClientModel(dag=dag_linear_with_fork())
+    annotate_steps(steps, model, Cancun)
+    assert refused.branches == {"refused": []}
+    assert model.head == "a3"
+
+
+def test_serving_what_the_client_lacks_opens_the_sync_window() -> None:
+    """
+    The client holds a3 from newPayload, so a1..a2 from the peer let it make
+    a3 its head at any moment.
+    """
+    steps: List[Step] = [
+        NewPayloadStep(block="a3"),
+        ForkchoiceUpdatedStep(head="a3"),
+        ServePeerStep(head="a2"),
+        AssertHeadStep(latest="genesis"),
+    ]
+    with pytest.raises(ValueError, match="at any moment"):
+        annotate_steps(steps, ClientModel(dag=dag_linear_with_fork()), Cancun)
+
+
+def test_serve_peer_in_any_outcome_branch_reaches_later_steps() -> None:
+    """
+    The peer may serve a chain after any outcome, so a later generated
+    SYNCING for a block of that chain is refused whichever branch has the
+    ``servePeer``.
+    """
+    dag = make_dag({"a1": "genesis", "c1": "genesis", "c2": "c1"})
+    for branch in ("valid", "accepted"):
+        steps: List[Step] = [
+            NewPayloadStep(
+                block="a1",
+                expect=[
+                    Outcome(id="valid", status="VALID"),
+                    Outcome(id="accepted", status="ACCEPTED"),
+                ],
+                branches={branch: [ServePeerStep(head="c2")]},
+            ),
+            NewPayloadStep(block="c2"),
+        ]
+        with pytest.raises(ValueError, match="the peer serves 'c1'"):
+            annotate_steps(steps, ClientModel(dag=dag), Cancun)
+
+
+@pytest.mark.parametrize(
+    "outcome_ids", [["syncing", "refused"], ["refused", "syncing"]]
+)
+@pytest.mark.parametrize(
+    "step,match",
+    [
+        (AssertHeadStep(latest="genesis"), "at any moment"),
+        (AwaitHeadStep(latest="a3"), "different pending"),
+    ],
+    ids=["assert_head", "await_head"],
+)
+def test_outcomes_that_disagree_on_a_pending_sync(
+    outcome_ids: List[str], step: Step, match: str
+) -> None:
+    """
+    When only one outcome leaves a sync pending, the client may still be
+    syncing, and ``awaitHead`` cannot rely on it.
+    """
+    outcomes = {
+        "syncing": Outcome(id="syncing", status="SYNCING"),
+        "refused": Outcome(id="refused", any_error=True),
+    }
+    steps: List[Step] = [
+        NewPayloadStep(block="a3"),
+        ForkchoiceUpdatedStep(
+            head="a3", expect=[outcomes[oid] for oid in outcome_ids]
+        ),
+        ServePeerStep(head="a3"),
+        step,
+    ]
+    with pytest.raises(ValueError, match=match):
+        annotate_steps(steps, ClientModel(dag=dag_linear_with_fork()), Cancun)
+
+
+def test_serve_peer_refuses_a_payload_the_client_built() -> None:
+    """The fixture holds no payload for a ``getPayload`` label to serve."""
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known["a1"] = Validity.VALID
+    steps: List[Step] = [
+        ForkchoiceUpdatedStep(
+            head="a1", version=3, payload_attributes=attributes()
+        ),
+        GetPayloadStep(bind="p", parent="a1", version=3),
+        ServePeerStep(head="p"),
+    ]
+    with pytest.raises(ValueError, match="the client built 'p'"):
+        annotate_steps(steps, model, Cancun)
+
+
 def test_fcu_to_hash_mismatched_payload_allows_syncing() -> None:
     """No block is stored under a rejected payload's hash: SYNCING is legal."""
     dag = dag_linear_with_fork(hash_invalid={"b3"})

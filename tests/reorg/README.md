@@ -110,7 +110,7 @@ Build on reorganized heads and observe client-built payloads through
 
 ## `test_peer_sync_reorg.py`
 
-Blocks reach the client from a mock devp2p peer instead of `newPayload`.
+Blocks reach the client from a mock devp2p peer instead of `newPayload`. The Engine API never requires a client to sync, so `awaitHead` is a liveness expectation beyond `paris.md`: a failure there means the client did not reach the head while the update was repeated.
 
 | Test | Source relationship and limitations | Related upstream tests |
 |---|---|---|

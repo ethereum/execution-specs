@@ -108,6 +108,11 @@ class ModelDag:
     """label -> block, ``genesis`` included."""
     post_state: Optional[Callable[[str], Optional[Alloc]]] = None
     """label -> that block's post-state (``None`` if unknown), if checked."""
+    built: Set[str] = field(default_factory=set)
+    """
+    Labels bound by ``getPayload``: payloads the client built, which the
+    fixture does not hold.
+    """
 
     def parent(self, label: str) -> str:
         """Parent label of a block other than ``genesis``."""
@@ -210,6 +215,23 @@ class ClientModel:
     SYNCING; the client makes that head its head once it has synced the
     chain.
     """
+    announced: Set[str] = field(default_factory=set)
+    """
+    Head of the last ``forkchoiceUpdated`` answered SYNCING that no applied
+    update has replaced since, in any outcome of the steps so far. While the
+    peer serves the blocks of its chain the client lacks, the client may make
+    it its head at any moment.
+    """
+    served_diverged: Optional[str] = None
+    """
+    The step whose outcomes leave the peer serving different chains; an
+    ``awaitHead`` that depends on it is rejected.
+    """
+    pending_diverged: Optional[str] = None
+    """
+    The step whose outcomes leave different pending ``forkchoiceUpdated``
+    calls; an ``awaitHead`` that depends on it is rejected.
+    """
 
     def __post_init__(self) -> None:
         """Genesis is always known and valid."""
@@ -223,7 +245,14 @@ class ClientModel:
             raise ValueError(
                 f"servePeer({head!r}): the peer serves only valid chains"
             )
+        built = [b for b in self.dag.ancestors(head) if b in self.dag.built]
+        if built:
+            raise ValueError(
+                f"servePeer({head!r}): the client built {built[0]!r}, so "
+                "the fixture holds no payload the peer could serve for it"
+            )
         self.served = head
+        self.served_diverged = None
         self.servable.update(self.dag.ancestors(head))
 
     def await_head(self, head: str) -> None:
@@ -231,6 +260,12 @@ class ClientModel:
         Record that the client synced ``head`` from the peer and made it its
         head, as the ``forkchoiceUpdated`` it answered SYNCING asked.
         """
+        for reason in (self.served_diverged, self.pending_diverged):
+            if reason is not None:
+                raise ValueError(
+                    f"{reason}; awaitHead({head!r}) depends on which "
+                    "occurred: move it into each branch"
+                )
         if self.served is None or head not in self.dag.ancestors(self.served):
             raise ValueError(
                 f"awaitHead({head!r}): the peer does not serve it"
@@ -250,6 +285,31 @@ class ClientModel:
             self.syncing.discard(label)
         self.head = head
         self.pending = None
+        self.announced = set()
+
+    def sync_may_finish(self) -> Optional[str]:
+        """
+        A head the client may make its head at any moment, because a
+        ``forkchoiceUpdated`` to it was answered SYNCING and the peer serves
+        the blocks of its chain the client lacks; ``None`` if there is none.
+        """
+        return next(
+            (
+                head
+                for head in sorted(self.announced)
+                if self._newest_lacking(head) in self.servable
+            ),
+            None,
+        )
+
+    def _newest_lacking(self, label: str) -> str:
+        """
+        The newest block at or below ``label`` that the client lacks,
+        skipping the blocks it holds unconnected (``syncing``).
+        """
+        while label in self.syncing:
+            label = self.dag.parent(label)
+        return label
 
     def _unknown_ancestors(self, label: str, where: str) -> List[Outcome]:
         """
@@ -258,9 +318,7 @@ class ClientModel:
         serves the newest block the client lacks there, which it may then
         download within the call (payload validation 1).
         """
-        lacking = label
-        while lacking in self.syncing:
-            lacking = self.dag.parent(lacking)
+        lacking = self._newest_lacking(label)
         if lacking in self.servable:
             raise ValueError(
                 f"{where}: the peer serves {lacking!r}, which a client may "
@@ -606,11 +664,15 @@ class ClientModel:
                 self.build = (step.head, attrs)
         if outcome.status == PayloadStatusEnum.SYNCING:
             self.pending = (step.head, step.safe, step.finalized)
+            self.pending_diverged = None
+            self.announced = {step.head}
         elif applied:
             self.head = step.head
             self.safe = step.safe
             self.finalized = step.finalized
             self.pending = None
+            self.pending_diverged = None
+            self.announced = set()
 
     def head_assertion(self) -> AssertHeadStep:
         """``assertHead`` for the current model state."""
@@ -632,6 +694,7 @@ class ClientModel:
             diverged=dict(self.diverged),
             syncing=set(self.syncing),
             servable=set(self.servable),
+            announced=set(self.announced),
         )
 
 
@@ -682,6 +745,30 @@ def _reject_duplicate_outcome_ids(step: OutcomeStep, where: str) -> None:
         raise ValueError(f"{where}: repeated outcome id(s) {duplicates}")
 
 
+def _refuse_during_sync(step: Step, model: ClientModel) -> None:
+    """
+    Refuse a step whose result depends on whether the client has finished
+    a sync from the peer.
+
+    Between ``servePeer`` and ``awaitHead`` the client may make the synced
+    block its head at any moment, so only steps that do not rely on the
+    model's head are accepted: ``servePeer``, ``awaitHead``, and a
+    ``newPayload`` or ``forkchoiceUpdated`` whose ``expect`` is authored.
+    """
+    head = model.sync_may_finish()
+    if head is None or isinstance(step, (ServePeerStep, AwaitHeadStep)):
+        return
+    if isinstance(step, OutcomeStep) and step.expect:
+        return
+    raise ValueError(
+        f"{step.type}: a forkchoiceUpdated to {head!r} was answered SYNCING "
+        "and the peer serves the blocks the client lacks for it, so the "
+        "client may make it its head at any moment; before awaitHead only "
+        "servePeer, and a newPayload or forkchoiceUpdated with an authored "
+        "expect, are accepted"
+    )
+
+
 def _state_class(model: ClientModel, label: str) -> Optional[Validity]:
     """``model.known[label]``, counting a truly valid RECEIVED as VALID."""
     state = model.known.get(label)
@@ -728,6 +815,28 @@ def _continue(
     elif any(m.build != model.build for _, m in branches[1:]):
         model.build_diverged = (
             f"{where}: outcomes {ids} leave different payload builds"
+        )
+    # Whatever any outcome lets the peer serve or the client sync can make a
+    # later generated outcome wrong, so those sets are joined. An awaitHead
+    # needs every outcome to agree on the served chain and the pending
+    # update.
+    for _, other in branches[1:]:
+        model.servable |= other.servable
+        model.announced |= other.announced
+    reasons = [m.served_diverged for _, m in branches if m.served_diverged]
+    if reasons:
+        model.served_diverged = reasons[0]
+    elif any(m.served != model.served for _, m in branches[1:]):
+        model.served_diverged = (
+            f"{where}: outcomes {ids} leave the peer serving different chains"
+        )
+    reasons = [m.pending_diverged for _, m in branches if m.pending_diverged]
+    if reasons:
+        model.pending_diverged = reasons[0]
+    elif any(m.pending != model.pending for _, m in branches[1:]):
+        model.pending_diverged = (
+            f"{where}: outcomes {ids} leave different pending "
+            "forkchoiceUpdated calls"
         )
 
 
@@ -865,6 +974,7 @@ def _bind_payload(
     build_fork = fork.fork_at(block_number=0, timestamp=int(attrs.timestamp))
     fcu_version = build_fork.engine_forkchoice_updated_version()
     assert fcu_version is not None
+    model.dag.built.add(step.bind)
     model.dag.blocks[step.bind] = DagBlock(
         parent=parent,
         timestamp=int(attrs.timestamp),
@@ -905,6 +1015,7 @@ def annotate_steps(
     """
     for i, step in enumerate(steps):
         has_continuation = i + 1 < len(steps) or more_follow
+        _refuse_during_sync(step, model)
         if isinstance(step, NewPayloadStep):
             if not step.expect:
                 step.expect = model.new_payload_outcomes(step.block)
@@ -952,7 +1063,10 @@ def annotate_steps(
                 branch_model = model.copy()
                 branch_model.apply_forkchoice(step, outcome)
                 branch = step.branches.setdefault(outcome.id, [])
-                if outcome.status != PayloadStatusEnum.SYNCING:
+                if (
+                    outcome.status != PayloadStatusEnum.SYNCING
+                    and branch_model.sync_may_finish() is None
+                ):
                     branch.insert(0, branch_model.head_assertion())
                 annotate_steps(branch, branch_model, fork, has_continuation)
                 branches.append((outcome.id, branch_model))
