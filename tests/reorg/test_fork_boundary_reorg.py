@@ -52,6 +52,8 @@ def test_reorg_across_fork_boundary(
     reorg_test: ReorgTestFiller, pre: Alloc, side_activates: str
 ) -> None:
     """
+    Reorg between branches that cross the fork at different heights.
+
     Canonical a1..a5 and a side chain s4, s5 off a3 cross the fork at
     different heights. ``later``: a4 is the first post-fork block (ts
     15000) and s4 is still pre-fork (ts 14988). ``earlier`` mirrors it: a4 is
@@ -183,6 +185,8 @@ def test_sibling_first_fork_blocks(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    Switch the head between two competing first post-fork blocks.
+
     Two competing *first* post-fork blocks on the last pre-fork block:
     both VALID, head switches between them, then a child of the loser
     extends and takes the head. Each first post-fork block credits a

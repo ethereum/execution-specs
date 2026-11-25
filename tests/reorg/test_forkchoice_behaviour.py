@@ -66,6 +66,8 @@ def test_head_follows_fcu_regardless_of_length(
     fork_len: int,
 ) -> None:
     """
+    The head follows FCU onto a shorter, equal or longer fork.
+
     Post-merge fork choice: the head is whatever FCU names, whether the fork
     is shorter, equal or longer than the canonical chain. Heights beyond the
     new head must no longer be canonical.
@@ -117,6 +119,8 @@ def test_forks_going_back_and_forward_in_height(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    The head drops to a lower height and climbs back across forks.
+
     Three forks from genesis of 2, 1 and 2 blocks, each block delivered and
     then made the head, so the head drops from height 2 to 1 and climbs
     back. Every update is applied and nothing above the head stays
@@ -152,6 +156,8 @@ def test_reorg_back_and_forth_between_branches(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    The head ping-pongs between two branches off a common base.
+
     Two 6-block branches off a 3-block base; the head ping-pongs between
     branch B's blocks and branch A's tip.
     """
@@ -203,6 +209,8 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    Rewind to a canonical ancestor and return after every new block.
+
     After every new block, FCU back to a5 (a canonical ancestor above
     finalized) then forward to the tip. #786: the rewind, at most 5 deep
     and so within ``MIN_APPLIED_REORG_DEPTH``, must be applied; the forward
@@ -297,6 +305,8 @@ def test_fcu_to_unknown_block_is_syncing(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    FCU to a block the client never received is SYNCING.
+
     A 10-deep side chain exists but only its leaf is ever delivered. FCU to
     a block never delivered (s14) is SYNCING and leaves the head; the leaf
     is SYNCING (its ancestors are unknown, so ACCEPTED is not legal), and so
@@ -337,6 +347,8 @@ def test_inconsistent_forkchoice_state(
     reorg_test: ReorgTestFiller, pre: Alloc, field: str
 ) -> None:
     """
+    FCU with head, safe or finalized on another chain is ``-38002``.
+
     With canonical a1..a3 (safe a2, finalized a1) and a validated sibling
     chain b2..b4 on a1, an FCU whose ``field`` points into the other chain is
     ``-38002`` and leaves head, safe and finalized as they were; the
@@ -371,6 +383,8 @@ def test_safe_finalized_labels_follow_fcu(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    The ``latest``, ``safe`` and ``finalized`` tags follow each applied FCU.
+
     ``latest``/``safe``/``finalized`` track every FCU, including a reorg of
     head and safe onto a side chain while finalized stays pinned, zero safe
     hash, and all three equal.
@@ -448,6 +462,8 @@ def test_newpayload_does_not_move_head(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    Payloads alone never move the head; a forkchoice update does.
+
     Payloads alone never change ``latest`` or the canonical mapping; a
     single FCU to the tip does.
     """
@@ -467,6 +483,8 @@ def test_newpayload_does_not_move_head(
 @pytest.mark.valid_from("Shanghai")
 def test_reexecute_payloads(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
     """
+    A payload sent again gets the same answer as the first time.
+
     Re-sending a canonical payload stays VALID; re-sending an invalid one
     stays INVALID.
     """
@@ -516,6 +534,8 @@ def test_many_siblings_same_parent(
     reorg_test: ReorgTestFiller, pre: Alloc, canonical_first: bool
 ) -> None:
     """
+    Many sibling payloads on the current head are all VALID.
+
     Sibling payloads (differing prevRandao) on the current head are all
     VALID, and FCU to the canonical block at that height is then applied.
     ``canonical_first`` delivers that block before the siblings, so the
@@ -563,6 +583,8 @@ def test_out_of_order_payload_delivery(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    A payload with an unknown parent is SYNCING until the gap is filled.
+
     A payload whose parent is unknown is SYNCING and FCU to it is SYNCING;
     once the gap is filled the payload is VALID or ACCEPTED and the FCU is
     VALID.
@@ -602,6 +624,8 @@ def test_alternating_canonical_and_depth1_forks(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    Reorg to a sibling and back after each new canonical block.
+
     For each of 16 new canonical blocks, also apply a sibling fork of depth
     1 and back; the head must be consistent after every single FCU.
     """
@@ -634,6 +658,8 @@ def test_valid_and_invalid_forks_with_older_canonical_head(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    Reorg onto forks delivered while the head was rewound to an ancestor.
+
     Canonical to a6; head moved back to a1; two 8-block forks A/B off a6
     delivered; FCU(B tip) applied; FCU(A tip) also VALID; an invalid block
     on top of A is INVALID and the head stays.
@@ -698,6 +724,8 @@ def test_reorg_to_fork_behind_finalized(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    FCU to a fork whose chain lacks the named finalized block is ``-38002``.
+
     With finalized = a7 and head = a10, FCU to a fork tip branching at a5
     (so a7 is not on its chain) with finalized still a7 is ``-38002`` per
     paris.md step 5.
@@ -732,6 +760,8 @@ def test_forkchoice_state_unchanged_on_invalid_state(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    An FCU refused with ``-38002`` leaves the forkchoice state untouched.
+
     A forkchoice update that fails the safe/finalized consistency check must
     leave the forkchoice state untouched.
 

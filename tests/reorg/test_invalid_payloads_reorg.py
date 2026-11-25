@@ -60,6 +60,8 @@ def test_bad_block_hash_on_new_payload(
     reorg_test: ReorgTestFiller, pre: Alloc, on_side_chain: bool
 ) -> None:
     """
+    A payload whose ``blockHash`` does not match its contents is INVALID.
+
     A payload whose ``blockHash`` does not match its contents is ``INVALID``
     with a null latestValidHash (shanghai.md supplants V1's
     ``INVALID_BLOCK_HASH``); the head does not move. The same payload with
@@ -113,6 +115,8 @@ def test_parent_hash_equals_block_hash(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    A payload that names itself as its parent is INVALID.
+
     ``parentHash == blockHash`` (self parent) cannot be a valid block hash:
     ``INVALID`` with a null latestValidHash.
     """
@@ -150,6 +154,8 @@ def test_invalid_payload_field(
     reorg_test: ReorgTestFiller, pre: Alloc, field: str, on_side_chain: bool
 ) -> None:
     """
+    A payload with one corrupted header field is never answered VALID.
+
     A payload with one corrupted header field (hash recomputed, so it is a
     *well-formed* invalid block) is INVALID with ``latestValidHash`` = its
     parent; on a side chain, where the client may skip validation, ACCEPTED
@@ -281,6 +287,8 @@ def test_invalid_missing_ancestor_reorg(
     reorg_from_canonical: bool,
 ) -> None:
     """
+    The head never reaches an invalid side-chain block or its descendants.
+
     A side chain of 10 blocks with block ``invalid_index`` invalid; payloads
     are delivered in order by newPayload and each valid one is made the
     head. The invalid one then extends the head and is INVALID (lvh = its
@@ -366,6 +374,8 @@ def test_invalid_ancestor_descendants_delivered_first(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    Descendants sent before their invalid ancestor never become the head.
+
     The *descendants* of an invalid block are delivered before the invalid
     block itself (SYNCING: an ancestor is unknown); once the invalid
     ancestor arrives it is INVALID, and the buffered descendants, re-sent,

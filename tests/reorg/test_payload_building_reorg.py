@@ -156,6 +156,8 @@ def test_two_built_payloads_same_parent(
     reorg_test: ReorgTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
+    Switch the head between two payloads built on the same parent.
+
     A pending transaction stores PREVRANDAO at its block number; two
     payloads built on the same parent with different ``prevRandao`` both
     include it, and each switch of the head between them must switch

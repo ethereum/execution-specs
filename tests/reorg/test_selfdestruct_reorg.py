@@ -215,6 +215,8 @@ def test_reorg_over_selfdestruct_in_a_later_block(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    A reorg undoes a contract's destruction and its earlier storage change.
+
     A contract destroyed two blocks after its creation, which needs
     ``SELFDESTRUCT`` before EIP-6780.
 

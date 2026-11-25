@@ -185,6 +185,8 @@ def test_side_chain_reorg_depth_default(
     reorg_test: ReorgTestFiller, pre: Alloc, depth: int
 ) -> None:
     """
+    Reorg ``depth`` blocks deep onto a side chain, with client defaults.
+
     Client defaults: a reorg within ``MIN_APPLIED_REORG_DEPTH`` must be
     applied by every client; deeper reorgs may be refused with ``-38006``
     (recorded per client) but must never corrupt the canonical mapping.
@@ -200,6 +202,8 @@ def test_canonical_ancestor_reorg_depth_default(
     reorg_test: ReorgTestFiller, pre: Alloc, depth: int
 ) -> None:
     """
+    Rewind the head ``depth`` blocks to a canonical ancestor.
+
     Client defaults, rewinding instead of switching branches: FCU from
     a{depth+1} back to its canonical ancestor a1, finalizing genesis.
 
@@ -229,6 +233,8 @@ def test_side_chain_reorg_depth_tuned(
     reorg_test: ReorgTestFiller, pre: Alloc, depth: int
 ) -> None:
     """
+    Reorg onto a deep side chain with the client's depth cap raised.
+
     Tuned: the client is started with ``HIVE_ENGINE_MAX_REORG_DEPTH`` above
     the reorg depth, so the reorg must be applied. Clients without such a
     knob run their defaults here.
