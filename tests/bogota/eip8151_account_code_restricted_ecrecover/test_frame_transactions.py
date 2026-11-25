@@ -14,9 +14,9 @@ from execution_testing import (
     EOA,
     Account,
     Alloc,
-    Bytes,
     Conditional,
     Fork,
+    Frame,
     FrameSignature,
     Op,
     StateTestFiller,
@@ -25,7 +25,6 @@ from execution_testing import (
     TransactionException,
 )
 
-from ..eip8141_frame_transactions.helpers import default_frame, verify_frame
 from ..eip8141_frame_transactions.spec import Spec as Spec8141
 from .helpers import (
     INPUT_SIZE,
@@ -48,9 +47,7 @@ APPROVE_ALL = Op.APPROVE(0, 0, Spec8141.APPROVE_EXECUTION_AND_PAYMENT)
 
 def sender_entry(sender: EOA) -> FrameSignature:
     """Return the sender's secp256k1 entry over the canonical hash."""
-    return FrameSignature(
-        scheme=Spec8141.SCHEME_SECP256K1, signer=Bytes(sender)
-    )
+    return FrameSignature(scheme=Spec8141.SCHEME_SECP256K1, signer=sender)
 
 
 @pytest.mark.parametrize(
@@ -91,8 +88,8 @@ def test_signature_entry_ignores_signer_code(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            default_frame(target=probe, data=signed_input(sender)),
+            Frame.verify(),
+            Frame.default(target=probe, data=signed_input(sender)),
         ],
         signatures=[sender_entry(sender)],
     )
@@ -152,15 +149,13 @@ def test_frame_signer_warmth(
     tx = Transaction(
         sender=sender,
         frames=[
-            default_frame(target=probe, data=signed_input(signer)),
-            verify_frame(),
+            Frame.default(target=probe, data=signed_input(signer)),
+            Frame.verify(),
         ],
         signatures=[
             sender_entry(sender),
             FrameSignature(
-                scheme=Spec8141.SCHEME_SECP256K1,
-                signer=Bytes(entry_signer),
-                secret_key=entry_signer.key,
+                scheme=Spec8141.SCHEME_SECP256K1, signer=entry_signer
             ),
         ],
     )
@@ -204,7 +199,7 @@ def test_verify_frame_recovers_owner(
     tx = Transaction(
         sender=sender,
         nonce=1,
-        frames=[verify_frame(data=signed_input(owner))],
+        frames=[Frame.verify(data=signed_input(owner))],
         error=(
             TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
             if owner_has_code
