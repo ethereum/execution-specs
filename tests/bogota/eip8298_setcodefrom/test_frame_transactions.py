@@ -17,6 +17,7 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Conditional,
+    Frame,
     Initcode,
     Op,
     StateTestFiller,
@@ -25,11 +26,6 @@ from execution_testing import (
     compute_create_address,
 )
 
-from ..eip8141_frame_transactions.helpers import (
-    default_frame,
-    sender_frame,
-    verify_frame,
-)
 from ..eip8141_frame_transactions.spec import Spec as Spec8141
 from .helpers import (
     MARKER_A,
@@ -82,7 +78,7 @@ def test_verify_frame_halts(
     tx = Transaction(
         sender=sender,
         nonce=1,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
 
@@ -106,7 +102,7 @@ def test_later_frame_runs_adopted_code(
     tx = Transaction(
         sender=sender,
         nonce=1,
-        frames=[verify_frame(), sender_frame(), sender_frame()],
+        frames=[Frame.verify(), Frame.sender(), Frame.sender()],
     )
 
     state_test(
@@ -149,9 +145,9 @@ def test_atomic_batch(
         sender=sender,
         nonce=1,
         frames=[
-            verify_frame(),
-            sender_frame(flags=Spec8141.ATOMIC_BATCH_FLAG),
-            default_frame(target=batch_end),
+            Frame.verify(),
+            Frame.sender(flags=Spec8141.ATOMIC_BATCH_FLAG),
+            Frame.default(target=batch_end),
         ],
     )
 
@@ -207,9 +203,9 @@ def test_source_created_in_earlier_frame(
         sender=sender,
         nonce=1,
         frames=[
-            verify_frame(),
-            default_frame(target=factory, data=initcode),
-            sender_frame(),
+            Frame.verify(),
+            Frame.default(target=factory, data=initcode),
+            Frame.sender(),
         ],
     )
 
