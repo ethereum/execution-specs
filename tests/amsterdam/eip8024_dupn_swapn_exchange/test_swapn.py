@@ -316,11 +316,11 @@ def test_swapn_invalid_immediate_aborts(
     """
     sender = pre.fund_eoa()
 
-    # Build a stack tall enough for any valid immediate (max decoded index
-    # is 235, SWAPN needs index + 1 items) so the abort is caused by the
-    # invalid immediate, never an underflow.
+    # The immediate decoded as if it were valid is at most 255 and SWAPN
+    # needs one item more, so with 256 items the abort can only come from
+    # the invalid immediate, never an underflow.
     code = Bytecode()
-    for i in range(Spec.MAX_STACK_INDEX + 1):
+    for i in range(256):
         code += Op.PUSH1(i % 256)
 
     # Attempt SWAPN with invalid immediate - should abort.

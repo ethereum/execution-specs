@@ -260,10 +260,10 @@ def test_dupn_invalid_immediate_aborts(
     """
     sender = pre.fund_eoa()
 
-    # Build stack with enough items for any valid immediate
-    # Maximum stack index is 235, so push 235 items
+    # The immediate decoded as if it were valid is at most 255, so with 256
+    # items the abort can only come from the invalid immediate.
     code = Bytecode()
-    for i in range(235):
+    for i in range(256):
         code += Op.PUSH1(i % 256)
 
     # Attempt DUPN with invalid immediate - should abort
