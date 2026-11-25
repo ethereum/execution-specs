@@ -30,19 +30,16 @@ from execution_testing import (
             Op.GT,  # Keeps getting result 0.
             (0, 1),
         ),
+        # Operands of the same sign: with different signs the result is the
+        # sign of the first operand, which implementations take without
+        # comparing the words.
         (
             Op.SLT,  # Keeps getting result 1.
-            (
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                1,
-            ),
+            (0, 1),
         ),
         (
             Op.SGT,  # Keeps getting result 0.
-            (
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                1,
-            ),
+            (0, 1),
         ),
         (
             # The worst case is if the arguments are equal (no early return),
