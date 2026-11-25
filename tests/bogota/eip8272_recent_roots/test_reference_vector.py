@@ -9,6 +9,7 @@ from execution_testing import (
     Alloc,
     Environment,
     Fork,
+    Frame,
     FrameReceipt,
     Op,
     StateTestFiller,
@@ -18,7 +19,6 @@ from execution_testing import (
     keccak256,
 )
 
-from ..eip8141_frame_transactions.helpers import sender_frame, verify_frame
 from ..eip8141_frame_transactions.spec import Spec as FrameSpec
 from .helpers import recent_root_frame, validation_gas
 from .spec import Spec, ref_spec_8272, validation_tuple
@@ -110,7 +110,7 @@ def test_reference_vector(
         pre=pre,
         tx=Transaction(
             sender=sender,
-            frames=[verifier, verify_frame(), sender_frame(target=target)],
+            frames=[verifier, Frame.verify(), Frame.sender(target=target)],
             error=error,
             expected_receipt=expected_receipt,
         ),

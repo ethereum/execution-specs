@@ -23,6 +23,7 @@ from execution_testing import (
     Block,
     DeploymentTestType,
     Environment,
+    Frame,
     FrameReceipt,
     Op,
     StateTestFiller,
@@ -34,7 +35,6 @@ from execution_testing import (
 from execution_testing.checklists import EIPChecklist
 from execution_testing.forks import Bogota, TransitionFork
 
-from ..eip8141_frame_transactions.helpers import sender_frame, verify_frame
 from ..eip8141_frame_transactions.spec import Spec as FrameSpec
 from .helpers import recent_root_frame, write_frame
 from .spec import (
@@ -95,7 +95,7 @@ def test_recent_root_contract_deployment(
     publish = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
+            Frame.verify(),
             write_frame(fork.transitions_to(), SALT, ROOT),
         ],
         expected_receipt=TransactionReceipt(
@@ -113,8 +113,8 @@ def test_recent_root_contract_deployment(
         sender=sender,
         frames=[
             recent_root_frame(validation_tuple(source, write_slot, ROOT)),
-            verify_frame(),
-            sender_frame(target=target),
+            Frame.verify(),
+            Frame.sender(target=target),
         ],
         expected_receipt=TransactionReceipt(
             payer=sender,
@@ -166,8 +166,8 @@ def test_verifier_frame_before_deployment(
                         Spec.VECTOR_ROOT,
                     )
                 ),
-                verify_frame(),
-                sender_frame(target=target),
+                Frame.verify(),
+                Frame.sender(target=target),
             ],
             error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
         ),

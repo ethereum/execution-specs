@@ -25,13 +25,13 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Fork,
+    Frame,
     FrameReceipt,
     Op,
     Transaction,
     TransactionReceipt,
 )
 
-from ..eip8141_frame_transactions.helpers import sender_frame, verify_frame
 from ..eip8141_frame_transactions.spec import Spec as FrameSpec
 from .helpers import recent_root_frame, validation_gas
 from .spec import (
@@ -119,8 +119,8 @@ def test_root_published_before_fork_verifies_after(
             recent_root_frame(
                 validation_tuple(source_identifier, WRITE_SLOT, ROOT)
             ),
-            verify_frame(),
-            sender_frame(target=target),
+            Frame.verify(),
+            Frame.sender(target=target),
         ],
         expected_receipt=TransactionReceipt(
             payer=sender,

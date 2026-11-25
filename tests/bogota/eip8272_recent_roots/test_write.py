@@ -22,6 +22,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Environment,
     Fork,
+    Frame,
     FrameReceipt,
     Op,
     StateTestFiller,
@@ -30,11 +31,6 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from ..eip8141_frame_transactions.helpers import (
-    default_frame,
-    sender_frame,
-    verify_frame,
-)
 from ..eip8141_frame_transactions.spec import Spec as FrameSpec
 from .helpers import (
     recent_root_frame,
@@ -134,7 +130,7 @@ def test_publish_then_verify(
 
     publish = Transaction(
         sender=sender,
-        frames=[verify_frame(), write_frame(fork, SALT, ROOT_A)],
+        frames=[Frame.verify(), write_frame(fork, SALT, ROOT_A)],
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
@@ -147,8 +143,8 @@ def test_publish_then_verify(
         sender=sender,
         frames=[
             recent_root_frame(validation_tuple(source, write_slot, ROOT_A)),
-            verify_frame(),
-            sender_frame(target=target),
+            Frame.verify(),
+            Frame.sender(target=target),
         ],
         expected_receipt=TransactionReceipt(
             payer=sender,
@@ -236,19 +232,19 @@ def test_last_write_in_slot_wins(
     writes = [write_frame(fork, SALT, ROOT_A), write_frame(fork, SALT, ROOT_B)]
     if separate_transactions:
         publish = [
-            Transaction(sender=sender, frames=[verify_frame(), write])
+            Transaction(sender=sender, frames=[Frame.verify(), write])
             for write in writes
         ]
     else:
         publish = [
-            Transaction(sender=sender, frames=[verify_frame(), *writes])
+            Transaction(sender=sender, frames=[Frame.verify(), *writes])
         ]
     verify_last = Transaction(
         sender=sender,
         frames=[
             recent_root_frame(validation_tuple(source, WRITE_SLOT, ROOT_B)),
-            verify_frame(),
-            sender_frame(target=target),
+            Frame.verify(),
+            Frame.sender(target=target),
         ],
     )
 
@@ -288,18 +284,18 @@ def test_ring_overwrite(
     # assigned at construction.
     publish_first = Transaction(
         sender=sender,
-        frames=[verify_frame(), write_frame(fork, SALT, ROOT_A)],
+        frames=[Frame.verify(), write_frame(fork, SALT, ROOT_A)],
     )
     publish_again = Transaction(
         sender=sender,
-        frames=[verify_frame(), write_frame(fork, SALT, ROOT_B)],
+        frames=[Frame.verify(), write_frame(fork, SALT, ROOT_B)],
     )
     verify_new = Transaction(
         sender=sender,
         frames=[
             recent_root_frame(validation_tuple(source, later_slot, ROOT_B)),
-            verify_frame(),
-            sender_frame(target=target),
+            Frame.verify(),
+            Frame.sender(target=target),
         ],
     )
 
@@ -338,8 +334,8 @@ def test_publish_from_contract(
     publish = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            sender_frame(
+            Frame.verify(),
+            Frame.sender(
                 target=relay,
                 data=write_calldata(SALT, ROOT_A),
                 state_gas_limit=write_state_gas(fork, writes=2),
@@ -350,8 +346,8 @@ def test_publish_from_contract(
         sender=sender,
         frames=[
             recent_root_frame(validation_tuple(source, WRITE_SLOT, ROOT_A)),
-            verify_frame(),
-            sender_frame(target=target),
+            Frame.verify(),
+            Frame.sender(target=target),
         ],
     )
 
@@ -404,8 +400,8 @@ def test_delegated_write_uses_calling_storage(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(),
-                sender_frame(
+                Frame.verify(),
+                Frame.sender(
                     target=relay,
                     data=write_calldata(SALT, ROOT_A),
                     state_gas_limit=write_state_gas(fork, writes=2),
@@ -446,7 +442,7 @@ def test_write_with_value_reverts(
         pre=pre,
         tx=Transaction(
             sender=sender,
-            frames=[verify_frame(), write_frame(fork, SALT, ROOT_A, value=1)],
+            frames=[Frame.verify(), write_frame(fork, SALT, ROOT_A, value=1)],
             expected_receipt=TransactionReceipt(
                 payer=sender,
                 frame_receipts=[
@@ -495,7 +491,7 @@ def test_write_with_wrong_length_reverts(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(),
+                Frame.verify(),
                 write_frame(fork, SALT, ROOT_A, data=data),
             ],
             expected_receipt=TransactionReceipt(
@@ -538,7 +534,7 @@ def test_static_write_fails(
             sender=sender,
             frames=[
                 recent_root_frame(write_calldata(SALT, ROOT_A)),
-                verify_frame(),
+                Frame.verify(),
             ],
             error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
         ),
@@ -568,8 +564,8 @@ def test_delegated_eoa_write_uses_authority_storage(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(),
-                sender_frame(
+                Frame.verify(),
+                Frame.sender(
                     target=authority,
                     data=write_calldata(SALT, ROOT_A),
                     state_gas_limit=write_state_gas(fork),
@@ -610,7 +606,7 @@ def test_sources_by_salt(
     publish = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
+            Frame.verify(),
             write_frame(fork, SALT, ROOT_A),
             write_frame(fork, OTHER_SALT, ROOT_B),
         ],
@@ -632,8 +628,8 @@ def test_sources_by_salt(
                     for source, root in published
                 ]
             ),
-            verify_frame(),
-            sender_frame(target=target),
+            Frame.verify(),
+            Frame.sender(target=target),
         ],
         expected_receipt=TransactionReceipt(
             payer=sender,
@@ -687,8 +683,8 @@ def test_default_frame_write_uses_entry_point_source(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(),
-                default_frame(
+                Frame.verify(),
+                Frame.default(
                     target=Spec.RECENT_ROOT_ADDRESS,
                     data=write_calldata(SALT, ROOT_A),
                     state_gas_limit=write_state_gas(fork),
@@ -747,8 +743,8 @@ def test_static_call_write_fails(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(),
-                sender_frame(
+                Frame.verify(),
+                Frame.sender(
                     target=relay,
                     data=write_calldata(SALT, ROOT_A),
                     state_gas_limit=write_state_gas(fork),

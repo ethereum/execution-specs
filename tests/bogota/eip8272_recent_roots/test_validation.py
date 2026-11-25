@@ -29,11 +29,6 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from ..eip8141_frame_transactions.helpers import (
-    expiry_frame,
-    sender_frame,
-    verify_frame,
-)
 from ..eip8141_frame_transactions.spec import Spec as FrameSpec
 from .helpers import recent_root_frame, validation_gas
 from .spec import (
@@ -109,7 +104,7 @@ def run_verifier(
     """
     sender = pre.fund_eoa()
     target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
-    all_frames = frames + [verify_frame(), sender_frame(target=target)]
+    all_frames = frames + [Frame.verify(), Frame.sender(target=target)]
 
     expected_receipt = None
     if error is None:
@@ -369,8 +364,8 @@ def test_validation_call_with_value_reverts(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(),
-                sender_frame(
+                Frame.verify(),
+                Frame.sender(
                     target=Spec.RECENT_ROOT_ADDRESS,
                     data=validation_tuple(source, slot, root),
                     value=1,
@@ -543,7 +538,7 @@ def test_frame_position(
             state_test,
             pre,
             fork,
-            frames=[expiry_frame(), verifier],
+            frames=[Frame.expiry(), verifier],
             verifier_gas=verifier_gas,
             verifier_index=1,
         )
@@ -557,7 +552,7 @@ def test_frame_position(
             pre=pre,
             tx=Transaction(
                 sender=sender,
-                frames=[verify_frame(), sender_frame(target=target), verifier],
+                frames=[Frame.verify(), Frame.sender(target=target), verifier],
                 expected_receipt=TransactionReceipt(
                     payer=sender,
                     frame_receipts=[
@@ -700,8 +695,8 @@ def test_later_frame_reads_verifier_frame(
             sender=sender,
             frames=[
                 recent_root_frame(tuple_data),
-                verify_frame(),
-                sender_frame(
+                Frame.verify(),
+                Frame.sender(
                     target=reader,
                     gas_limit=fork.frame_entry_gas_calculator()()
                     + reader_code.execution_cost(fork),
@@ -798,8 +793,8 @@ def test_validation_called_from_contract(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(),
-                sender_frame(target=caller, data=reference),
+                Frame.verify(),
+                Frame.sender(target=caller, data=reference),
             ],
             expected_receipt=TransactionReceipt(
                 payer=sender,
