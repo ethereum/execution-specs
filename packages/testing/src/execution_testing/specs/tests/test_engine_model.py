@@ -565,6 +565,21 @@ def test_authored_outcomes_are_accepted_during_a_sync() -> None:
     assert model.head == "a3"
 
 
+def test_serving_what_the_client_lacks_opens_the_sync_window() -> None:
+    """
+    The client holds a3 from newPayload, so a1..a2 from the peer let it make
+    a3 its head at any moment.
+    """
+    steps: List[Step] = [
+        NewPayloadStep(block="a3"),
+        ForkchoiceUpdatedStep(head="a3"),
+        ServePeerStep(head="a2"),
+        AssertHeadStep(latest="genesis"),
+    ]
+    with pytest.raises(ValueError, match="at any moment"):
+        annotate_steps(steps, ClientModel(dag=dag_linear_with_fork()), Cancun)
+
+
 def test_serve_peer_in_any_outcome_branch_reaches_later_steps() -> None:
     """
     The peer may serve a chain after any outcome, so a later generated

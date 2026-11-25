@@ -219,7 +219,8 @@ class ClientModel:
     """
     Head of the last ``forkchoiceUpdated`` answered SYNCING that no applied
     update has replaced since, in any outcome of the steps so far. While the
-    peer serves it, the client may make it its head at any moment.
+    peer serves the blocks of its chain the client lacks, the client may make
+    it its head at any moment.
     """
     served_diverged: Optional[str] = None
     """
@@ -290,9 +291,25 @@ class ClientModel:
         """
         A head the client may make its head at any moment, because a
         ``forkchoiceUpdated`` to it was answered SYNCING and the peer serves
-        it; ``None`` if there is none.
+        the blocks of its chain the client lacks; ``None`` if there is none.
         """
-        return next(iter(sorted(self.announced & self.servable)), None)
+        return next(
+            (
+                head
+                for head in sorted(self.announced)
+                if self._newest_lacking(head) in self.servable
+            ),
+            None,
+        )
+
+    def _newest_lacking(self, label: str) -> str:
+        """
+        The newest block at or below ``label`` that the client lacks,
+        skipping the blocks it holds unconnected (``syncing``).
+        """
+        while label in self.syncing:
+            label = self.dag.parent(label)
+        return label
 
     def _unknown_ancestors(self, label: str, where: str) -> List[Outcome]:
         """
@@ -301,9 +318,7 @@ class ClientModel:
         serves the newest block the client lacks there, which it may then
         download within the call (payload validation 1).
         """
-        lacking = label
-        while lacking in self.syncing:
-            lacking = self.dag.parent(lacking)
+        lacking = self._newest_lacking(label)
         if lacking in self.servable:
             raise ValueError(
                 f"{where}: the peer serves {lacking!r}, which a client may "
@@ -746,10 +761,11 @@ def _refuse_during_sync(step: Step, model: ClientModel) -> None:
     if isinstance(step, OutcomeStep) and step.expect:
         return
     raise ValueError(
-        f"{step.type}: the peer serves {head!r} and a forkchoiceUpdated to "
-        "it was answered SYNCING, so the client may make it its head at any "
-        "moment; before awaitHead only servePeer, and a newPayload or "
-        "forkchoiceUpdated with an authored expect, are accepted"
+        f"{step.type}: a forkchoiceUpdated to {head!r} was answered SYNCING "
+        "and the peer serves the blocks the client lacks for it, so the "
+        "client may make it its head at any moment; before awaitHead only "
+        "servePeer, and a newPayload or forkchoiceUpdated with an authored "
+        "expect, are accepted"
     )
 
 
