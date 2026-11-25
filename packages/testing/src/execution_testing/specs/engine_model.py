@@ -108,6 +108,11 @@ class ModelDag:
     """label -> block, ``genesis`` included."""
     post_state: Optional[Callable[[str], Optional[Alloc]]] = None
     """label -> that block's post-state (``None`` if unknown), if checked."""
+    built: Set[str] = field(default_factory=set)
+    """
+    Labels bound by ``getPayload``: payloads the client built, which the
+    fixture does not hold.
+    """
 
     def parent(self, label: str) -> str:
         """Parent label of a block other than ``genesis``."""
@@ -222,6 +227,12 @@ class ClientModel:
         if not self.dag.fully_valid(head):
             raise ValueError(
                 f"servePeer({head!r}): the peer serves only valid chains"
+            )
+        built = [b for b in self.dag.ancestors(head) if b in self.dag.built]
+        if built:
+            raise ValueError(
+                f"servePeer({head!r}): the client built {built[0]!r}, so "
+                "the fixture holds no payload the peer could serve for it"
             )
         self.served = head
         self.servable.update(self.dag.ancestors(head))
@@ -865,6 +876,7 @@ def _bind_payload(
     build_fork = fork.fork_at(block_number=0, timestamp=int(attrs.timestamp))
     fcu_version = build_fork.engine_forkchoice_updated_version()
     assert fcu_version is not None
+    model.dag.built.add(step.bind)
     model.dag.blocks[step.bind] = DagBlock(
         parent=parent,
         timestamp=int(attrs.timestamp),

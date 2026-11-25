@@ -507,6 +507,21 @@ def test_np_hash_invalid_precedes_parent_lookup(
     assert ids(model.new_payload_outcomes("b3")) == [outcome_id]
 
 
+def test_serve_peer_refuses_a_payload_the_client_built() -> None:
+    """The fixture holds no payload for a ``getPayload`` label to serve."""
+    model = ClientModel(dag=dag_linear_with_fork())
+    model.known["a1"] = Validity.VALID
+    steps: List[Step] = [
+        ForkchoiceUpdatedStep(
+            head="a1", version=3, payload_attributes=attributes()
+        ),
+        GetPayloadStep(bind="p", parent="a1", version=3),
+        ServePeerStep(head="p"),
+    ]
+    with pytest.raises(ValueError, match="the client built 'p'"):
+        annotate_steps(steps, model, Cancun)
+
+
 def test_fcu_to_hash_mismatched_payload_allows_syncing() -> None:
     """No block is stored under a rejected payload's hash: SYNCING is legal."""
     dag = dag_linear_with_fork(hash_invalid={"b3"})
