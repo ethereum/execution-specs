@@ -580,6 +580,33 @@ def test_serving_what_the_client_lacks_opens_the_sync_window() -> None:
         annotate_steps(steps, ClientModel(dag=dag_linear_with_fork()), Cancun)
 
 
+@pytest.mark.parametrize("held_first", [True, False])
+def test_sync_window_counts_a_block_held_in_any_outcome(
+    held_first: bool,
+) -> None:
+    """
+    The client holds a3 after one outcome of its newPayload only. It may
+    still reach a3 from a1..a2, whichever outcome is listed first.
+    """
+    expect = [
+        Outcome(id="syncing", status="SYNCING"),
+        Outcome(id="error", error_code=-32000),
+    ]
+    if not held_first:
+        expect.reverse()
+    steps: List[Step] = [
+        NewPayloadStep(block="a3", expect=expect),
+        ForkchoiceUpdatedStep(
+            head="a3",
+            expect=[Outcome(id="syncing", status="SYNCING")],
+        ),
+        ServePeerStep(head="a2"),
+        AssertHeadStep(latest="genesis"),
+    ]
+    with pytest.raises(ValueError, match="at any moment"):
+        annotate_steps(steps, ClientModel(dag=dag_linear_with_fork()), Cancun)
+
+
 def test_serve_peer_in_any_outcome_branch_reaches_later_steps() -> None:
     """
     The peer may serve a chain after any outcome, so a later generated

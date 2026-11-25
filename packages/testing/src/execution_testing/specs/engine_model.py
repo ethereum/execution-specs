@@ -181,9 +181,9 @@ class ClientModel:
     """
     syncing: Set[str] = field(default_factory=set)
     """
-    Blocks answered SYNCING and not learned since. Once a block's parent is
-    known a client may have connected it, so generating an outcome that
-    depends on it is rejected.
+    Blocks answered SYNCING and not learned since, in any outcome of the
+    steps so far. Once a block's parent is known a client may have connected
+    it, so generating an outcome that depends on it is rejected.
     """
     head: str = GENESIS_LABEL
     safe: str = ZERO_LABEL
@@ -817,12 +817,14 @@ def _continue(
             f"{where}: outcomes {ids} leave different payload builds"
         )
     # Whatever any outcome lets the peer serve or the client sync can make a
-    # later generated outcome wrong, so those sets are joined. An awaitHead
-    # needs every outcome to agree on the served chain and the pending
-    # update.
+    # later generated outcome wrong, so those sets are joined, and so are
+    # the blocks an outcome leaves the client holding unconnected: they
+    # decide which block the client still lacks. An awaitHead needs every
+    # outcome to agree on the served chain and the pending update.
     for _, other in branches[1:]:
         model.servable |= other.servable
         model.announced |= other.announced
+        model.syncing |= other.syncing
     reasons = [m.served_diverged for _, m in branches if m.served_diverged]
     if reasons:
         model.served_diverged = reasons[0]
