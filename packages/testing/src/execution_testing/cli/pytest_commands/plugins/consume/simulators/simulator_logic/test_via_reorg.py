@@ -181,10 +181,10 @@ class StepRunner:
             return self.bound[ref.block].payload.transactions[ref.index]
         return self.fixture.tx_rlp(ref)
 
-    def tx_lookup(self, lookup: Callable[[], T]) -> T:
+    def tx_lookup(self, name: str, lookup: Callable[[], T]) -> T:
         """
         Run a transaction lookup, retrying while the client answers that it
-        is still indexing, until ``TX_STATUS_TIMEOUT``.
+        is still indexing, until ``TX_STATUS_TIMEOUT``. Each retry is logged.
         """
         deadline = time.monotonic() + TX_STATUS_TIMEOUT
         while True:
@@ -196,6 +196,7 @@ class StepRunner:
                     or time.monotonic() >= deadline
                 ):
                     raise
+            logger.info(f"{name}: client is still indexing, retrying")
             time.sleep(TX_STATUS_POLL_INTERVAL)
 
     def matches(self, outcome: Outcome, observed: Observed) -> bool:
@@ -540,7 +541,7 @@ class StepRunner:
         """Check ``eth_getTransactionReceipt`` block hash (or absence)."""
         tx_hash = self.tx_hash(step.tx)
         receipt = self.tx_lookup(
-            lambda: self.eth.get_transaction_receipt(tx_hash)
+            name, lambda: self.eth.get_transaction_receipt(tx_hash)
         )
         ref = f"{step.tx.block}:{step.tx.index}"
         if step.block is None:
@@ -637,7 +638,7 @@ class StepRunner:
         deadline = time.monotonic() + TX_STATUS_TIMEOUT
         while True:
             tx = self.tx_lookup(
-                lambda: self.eth.get_transaction_by_hash(tx_hash)
+                name, lambda: self.eth.get_transaction_by_hash(tx_hash)
             )
             if tx is None:
                 status = "dropped"

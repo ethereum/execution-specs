@@ -1,6 +1,7 @@
 """Tests for the `consume reorg` step runner."""
 
 import hashlib
+import logging
 from typing import Callable, List, Sequence
 from unittest.mock import MagicMock, patch
 
@@ -321,10 +322,11 @@ def test_assert_receipt_waits_for_the_transaction_index(
     replies: List[JSONRPCError | None],
     timeout: float,
     passes: bool,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """
     A lookup the client cannot answer while indexing is retried until the
-    deadline; any other error fails at once.
+    deadline, and each retry is logged; any other error fails at once.
     """
     eth = MagicMock()
     eth.get_transaction_receipt.side_effect = replies
@@ -334,9 +336,11 @@ def test_assert_receipt_waits_for_the_transaction_index(
     with (
         patch.object(reorg_logic, "TX_STATUS_TIMEOUT", timeout),
         patch.object(reorg_logic, "TX_STATUS_POLL_INTERVAL", 0),
+        caplog.at_level(logging.INFO),
     ):
         if passes:
             step_runner.assert_receipt("receipt", step)
+            assert "receipt: client is still indexing" in caplog.text
         else:
             with pytest.raises(JSONRPCError):
                 step_runner.assert_receipt("receipt", step)
