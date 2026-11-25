@@ -245,14 +245,15 @@ def test_invalid_side_chain(
     reorg_test: ReorgTestFiller, pre: Alloc, invalid_index: int
 ) -> None:
     r"""
-    Genesis <- a1 .. a5                 (canonical).
-           \\- s1 .. s5                 (side chain, s_k invalid).
+    Genesis <- a1 <- a2 .. a5           (canonical).
+                \\- s2 .. s6            (side chain, block ``invalid_index``
+                                         of it invalid).
 
-    ``newPayload(s_k)`` is INVALID with ``latestValidHash`` = s_{k-1}, or
-    ACCEPTED (the side chain does not extend the canonical one, so the
-    client may skip validation); later side blocks are INVALID, SYNCING or
-    ACCEPTED; ``forkchoiceUpdated(s5)`` must not make the side chain
-    canonical; the canonical chain keeps working.
+    The invalid side block is INVALID with ``latestValidHash`` = its parent,
+    a1 or a side block, or ACCEPTED (the side chain does not extend the
+    canonical one, so the client may skip validation); later side blocks
+    are INVALID, SYNCING or ACCEPTED; ``forkchoiceUpdated(s6)`` must not
+    make the side chain canonical; the canonical chain keeps working.
     """
     blocks, steps = chain(pre, "a", 5)
 
@@ -270,8 +271,8 @@ def test_invalid_side_chain(
             )
         blocks.append(
             ReorgBlock(
-                label=f"s{i}",
-                parent="genesis" if i == 1 else f"s{i - 1}",
+                label=f"s{i + 1}",
+                parent="a1" if i == 1 else f"s{i}",
                 txs=[
                     Transaction(
                         sender=side_sender,
@@ -284,7 +285,7 @@ def test_invalid_side_chain(
             )
         )
 
-    last_valid = "genesis" if invalid_index == 1 else f"s{invalid_index - 1}"
+    last_valid = "a1" if invalid_index == 1 else f"s{invalid_index}"
     invalid_or_syncing = [
         Outcome(id="invalid", status="INVALID", latest_valid_hash=last_valid),
         Outcome(id="syncing", status="SYNCING"),
@@ -298,13 +299,13 @@ def test_invalid_side_chain(
         # was seen as INVALID, ACCEPTED or not at all.
         steps.append(
             NewPayloadStep(
-                block=f"s{i}",
+                block=f"s{i + 1}",
                 expect=after_invalid if i > invalid_index else [],
             )
         )
     steps.append(
         ForkchoiceUpdatedStep(
-            head="s5",
+            head="s6",
             expect=invalid_or_syncing,
             branches={"syncing": [AssertHeadStep(latest="a5")]},
         )

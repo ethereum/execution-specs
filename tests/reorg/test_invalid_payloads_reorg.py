@@ -272,7 +272,7 @@ def test_invalid_payload_field(
 @pytest.mark.parametrize(
     "reorg_from_canonical",
     [False, True],
-    ids=["from_genesis", "from_canonical"],
+    ids=["from_a1", "from_canonical"],
 )
 def test_invalid_missing_ancestor_reorg(
     reorg_test: ReorgTestFiller,
@@ -288,11 +288,11 @@ def test_invalid_missing_ancestor_reorg(
     INVALID (lvh = last valid) or SYNCING/ACCEPTED if the client dropped the
     invalid block; the head stays on the last valid block and the reorg back
     to a5 is applied. ``reorg_from_canonical`` branches the side chain off a4
-    rather than genesis.
+    rather than a1.
     """
     blocks, steps = chain(pre, "a", 5, recipient=SINK)
-    parent = "a4" if reorg_from_canonical else "genesis"
-    start = 5 if reorg_from_canonical else 1
+    parent = "a4" if reorg_from_canonical else "a1"
+    start = 5 if reorg_from_canonical else 2
     sender = pre.fund_eoa()
     side = []
     for i in range(10):

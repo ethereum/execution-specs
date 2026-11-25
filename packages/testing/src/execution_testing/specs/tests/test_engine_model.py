@@ -871,3 +871,25 @@ def test_annotate_defaults_version_of_a_zero_head() -> None:
     annotate_steps([step], model, Cancun)
     assert step.version == 3
     assert ids(step.expect) == ["syncing"]
+
+
+@pytest.mark.parametrize(
+    "step",
+    [
+        NewPayloadStep(block="s1"),
+        ForkchoiceUpdatedStep(
+            head="s1",
+            expect=[
+                Outcome(
+                    id="invalid", status="INVALID", latest_valid_hash="genesis"
+                )
+            ],
+        ),
+    ],
+    ids=["new_payload", "forkchoice_updated"],
+)
+def test_invalid_payload_on_genesis_is_refused(step: Step) -> None:
+    """Its latestValidHash may be genesis or zero, so filling rejects it."""
+    dag = make_dag({"s1": "genesis"}, invalid={"s1"})
+    with pytest.raises(ValueError, match="block after genesis"):
+        annotate_steps([step], ClientModel(dag=dag), Cancun)

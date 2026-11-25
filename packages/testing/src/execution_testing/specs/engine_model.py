@@ -572,6 +572,24 @@ def _reject_unmatched_branches(step: OutcomeStep, where: str) -> None:
         )
 
 
+def _refuse_genesis_lvh(step: OutcomeStep, where: str) -> None:
+    """
+    Reject an INVALID outcome naming genesis as latestValidHash: a client
+    may also answer zero, the value payload validation 3 gives for a PoW
+    ancestor, which a post-merge genesis arguably is.
+    """
+    if any(
+        o.status == PayloadStatusEnum.INVALID
+        and o.latest_valid_hash == GENESIS_LABEL
+        for o in step.expect
+    ):
+        raise ValueError(
+            f"{where}: an INVALID outcome names genesis as latestValidHash, "
+            "which a client may also answer with zero; build the invalid "
+            "payload on a block after genesis"
+        )
+
+
 def _reject_duplicate_outcome_ids(step: OutcomeStep, where: str) -> None:
     """
     Reject two outcomes sharing an id in the same step's ``expect``, once it
@@ -812,6 +830,7 @@ def annotate_steps(
         if isinstance(step, NewPayloadStep):
             if not step.expect:
                 step.expect = model.new_payload_outcomes(step.block)
+            _refuse_genesis_lvh(step, f"newPayload({step.block!r})")
             _reject_unmatched_branches(step, f"newPayload({step.block!r})")
             _reject_duplicate_outcome_ids(step, f"newPayload({step.block!r})")
             branches: List[Tuple[str, ClientModel]] = []
@@ -843,6 +862,7 @@ def annotate_steps(
                 if step.payload_attributes is not None:
                     _refuse_attribute_errors(step, model.dag, fork)
                 step.expect = model.forkchoice_outcomes(step)
+            _refuse_genesis_lvh(step, f"forkchoiceUpdated(head={step.head!r})")
             _reject_unmatched_branches(
                 step, f"forkchoiceUpdated(head={step.head!r})"
             )
