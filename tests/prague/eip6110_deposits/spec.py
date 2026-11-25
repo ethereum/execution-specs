@@ -31,3 +31,16 @@ class Spec:
     Maximum deposit requests a consensus layer payload can carry:
     https://github.com/ethereum/consensus-specs/blob/721cc37193d0321fef6519119c9dc9d34a79dd57/presets/mainnet/electra.yaml#L36
     """
+    DEPOSIT_EVENT_LAYOUT = {
+        "pubkey_offset": 160,
+        "withdrawal_credentials_offset": 256,
+        "amount_offset": 320,
+        "signature_offset": 384,
+        "index_offset": 512,
+        "pubkey_size": 48,
+        "withdrawal_credentials_size": 32,
+        "amount_size": 8,
+        "signature_size": 96,
+        "index_size": 8,
+    }
+    """Offsets and sizes the deposit event layout check requires."""

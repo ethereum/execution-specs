@@ -3,6 +3,8 @@ Test variants of the deposit contract which adheres the log-style as described
 in EIP-6110.
 """
 
+from typing import Any, Callable
+
 import pytest
 from execution_testing import (
     Alloc,
@@ -41,7 +43,13 @@ EVENT_ARGUMENTS = [
     for name in EVENT_ARGUMENTS_NAMES
     for layout in EVENT_ARGUMENTS_LAYOUT_TYPE
 ]
-EVENT_ARGUMENT_VALUES = ["zero", "max_uint256"]
+EVENT_ARGUMENT_VALUES: dict[str, Callable[[str], int]] = {
+    "zero": lambda _: 0,
+    "max_uint256": lambda _: 2**256 - 1,
+    # Valid in the low 32 or 64 bits, invalid as a 256-bit word.
+    "valid_plus_2_32": lambda arg: Spec.DEPOSIT_EVENT_LAYOUT[arg] + 2**32,
+    "valid_plus_2_64": lambda arg: Spec.DEPOSIT_EVENT_LAYOUT[arg] + 2**64,
+}
 
 
 DEFAULT_DEPOSIT_REQUEST = DepositRequest(
@@ -189,10 +197,10 @@ def test_invalid_layout(
     """
     Test deposit contract emitting logs with invalid layouts (sizes/offsets).
     """
-    log_params = {**DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT}
-    log_params[log_argument] = 0 if value == "zero" else 2**256 - 1  # type: ignore
+    log_params: dict[str, Any] = {**DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT}
+    log_params[log_argument] = EVENT_ARGUMENT_VALUES[value](log_argument)
 
-    deposit_request_log = create_deposit_log_bytes(**log_params)  # type: ignore
+    deposit_request_log = create_deposit_log_bytes(**log_params)
 
     bytecode = Om.MSTORE(deposit_request_log) + Op.LOG1(
         0,
