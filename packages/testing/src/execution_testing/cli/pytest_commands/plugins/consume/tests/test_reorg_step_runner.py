@@ -3,7 +3,7 @@
 import hashlib
 import logging
 from typing import Callable, List, Sequence
-from unittest.mock import MagicMock, patch
+from unittest.mock import DEFAULT, MagicMock, patch
 
 import pytest
 
@@ -531,16 +531,23 @@ def test_await_head_announces_early_once_then_at_the_interval(
         def sleep(self, seconds: float) -> None:
             self.now += seconds
 
-    # Polls at 0, 1, .. 8 s see genesis: announcements at 1, 5 and 9 s.
-    step_runner, engine, _ = awaiting(make_runner, polls=10)
-    with (
-        patch.object(reorg_logic, "time", Clock()),
-        patch.object(reorg_logic, "FIRST_REANNOUNCE_DELAY", 1.0),
-        patch.object(reorg_logic, "REANNOUNCE_INTERVAL", 4.0),
-        patch.object(reorg_logic, "SYNC_POLL_INTERVAL", 1.0),
-    ):
+    clock = Clock()
+    first = reorg_logic.FIRST_REANNOUNCE_DELAY
+    interval = reorg_logic.REANNOUNCE_INTERVAL
+    due = [first + i * interval for i in range(3)]
+    # Every poll until the last announcement is due sees genesis.
+    polls = round(due[-1] / reorg_logic.SYNC_POLL_INTERVAL) + 1
+    step_runner, engine, _ = awaiting(make_runner, polls=polls)
+    announced: List[float] = []
+
+    def announce(*_args: object, **_kwargs: object) -> object:
+        announced.append(clock.now)
+        return DEFAULT
+
+    engine.new_payload.side_effect = announce
+    with patch.object(reorg_logic, "time", clock):
         step_runner.await_head("await", AwaitHeadStep(latest="a2"))
-    assert engine.new_payload.call_count == 3
+    assert announced == due
 
 
 def test_await_head_fails_at_once_when_the_client_rejects_the_head(
@@ -577,14 +584,15 @@ def test_await_head_redials_a_dropped_peer_and_reports_it_on_timeout(
     step_runner.served_chain = MagicMock()
 
     def timeout_after_two_polls() -> float:
-        return 0.0 if peer.reconnect.call_count < 2 else 1.0
+        if peer.reconnect.call_count < 2:
+            return 0.0
+        return reorg_logic.SYNC_TIMEOUT
 
     clock = MagicMock(monotonic=timeout_after_two_polls)
     with (
         patch.object(reorg_logic, "time", clock),
         patch.object(reorg_logic, "FIRST_REANNOUNCE_DELAY", 0),
         patch.object(reorg_logic, "REANNOUNCE_INTERVAL", 0),
-        patch.object(reorg_logic, "SYNC_TIMEOUT", 1.0),
         pytest.raises(
             LoggedError,
             match="dropped .Disconnect reason 4.*eth/69 negotiated",
