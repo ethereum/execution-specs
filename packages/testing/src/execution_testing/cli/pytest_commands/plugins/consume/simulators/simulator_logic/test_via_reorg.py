@@ -19,6 +19,7 @@ from execution_testing.base_types import Bytes, Hash
 from execution_testing.devp2p.chain import Chain, chain_from_payloads
 from execution_testing.devp2p.peer import MockPeer
 from execution_testing.devp2p.protocol import ETH_PROTOCOLS
+from execution_testing.devp2p.rlpx import RLPxError
 from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayload,
@@ -80,10 +81,16 @@ T = TypeVar("T")
 SYNC_TIMEOUT = 60.0
 """Seconds to wait for the client to reach a head it syncs from the peer."""
 SYNC_POLL_INTERVAL = 0.25
+FIRST_REANNOUNCE_DELAY = 0.5
+"""
+Seconds into an ``awaitHead`` step before the awaited head is announced again
+for the first time. The head was announced before the peer connected, and
+some clients start to sync only on an announcement.
+"""
 REANNOUNCE_INTERVAL = 3.0
 """
-Seconds between re-sends of the last ``newPayload`` and ``forkchoiceUpdated``
-while waiting for a head that was announced before the peer connected.
+Seconds between the later announcements of the awaited head, as a consensus
+client repeats its update each slot.
 """
 
 HEAD_TAGS: Tuple[Literal["latest", "safe", "finalized"], ...] = (
@@ -156,8 +163,9 @@ class StepRunner:
         self.bound: Dict[str, BoundPayload] = {}
         self.last_payload_id: Bytes | None = None
         self.last_payload_attributes: PayloadAttributes | None = None
-        self.last_new_payload: tuple[list, int] | None = None
-        self.last_forkchoice: tuple[ForkchoiceState, int] | None = None
+        self.served_chain: Chain | None = None
+        self.forkchoice_sent: Dict[str, tuple[ForkchoiceState, int]] = {}
+        """Head label -> the last ``forkchoiceUpdated`` sent for it."""
         self.matched: List[str] = []
         """Log of ``<step>:<outcome id>`` selections, for offline analysis."""
 
@@ -350,7 +358,6 @@ class StepRunner:
     def new_payload(self, name: str, step: NewPayloadStep, depth: int) -> None:
         """Send ``engine_newPayloadVX`` and check the outcome."""
         params, version = self._new_payload_params(step.block)
-        self.last_new_payload = (params, version)
         name = f"{name}({step.block})"
         with self.timing_data.time(
             f"engine_newPayloadV{version} {step.block}"
@@ -381,7 +388,7 @@ class StepRunner:
             finalized_block_hash=self.resolve(step.finalized),
         )
         attributes = step.payload_attributes
-        self.last_forkchoice = (state, int(step.version))
+        self.forkchoice_sent[step.head] = (state, int(step.version))
         with self.timing_data.time(f"engine_forkchoiceUpdatedV{step.version}"):
             try:
                 response = self.engine.forkchoice_updated(
@@ -700,59 +707,125 @@ class StepRunner:
         self.matched.append(f"{name}:{status}")
 
     def serve_peer(self, name: str, step: ServePeerStep) -> None:
-        """Serve genesis to ``step.head`` from the peer, dialing it first."""
+        """
+        Serve genesis to ``step.head`` from the peer: dial it on the first
+        such step, and redial it if the client has dropped it since.
+        """
         payloads = self.fixture.chain_to(step.head)
         chain = chain_from_payloads(self.fixture.genesis, payloads)
-        if self.peer is None:
-            if self.dial_peer is None:
-                raise LoggedError(f"{name}: no peer can be dialed")
-            self.peer = self.dial_peer(chain)
-        else:
-            self.peer.set_chain(chain)
+        try:
+            if self.peer is None:
+                if self.dial_peer is None:
+                    raise LoggedError(f"{name}: no peer can be dialed")
+                self.peer = self.dial_peer(chain)
+            elif self.peer.alive:
+                self.peer.set_chain(chain)
+            else:
+                self.peer.reconnect(chain)
+        except (OSError, RLPxError) as e:
+            raise LoggedError(
+                f"{name}: the mock peer could not connect to the client: {e}"
+            ) from e
+        self.served_chain = chain
         logger.info(
             f"{name}: peer serves {len(payloads)} blocks to {step.head}"
         )
 
     def await_head(self, name: str, step: AwaitHeadStep) -> None:
         """
-        Poll the latest block until it is ``step.latest``, re-sending the
-        last ``newPayload`` and ``forkchoiceUpdated`` every
+        Poll the latest block until it is ``step.latest``, announcing that
+        head again after ``FIRST_REANNOUNCE_DELAY`` and then every
         ``REANNOUNCE_INTERVAL``; fail after ``SYNC_TIMEOUT``.
         """
+        if step.latest not in self.forkchoice_sent:
+            raise LoggedError(
+                f"{name}: no forkchoiceUpdated to {step.latest} was sent"
+            )
         target = self.resolve(step.latest)
         start = time.monotonic()
-        announced = start
+        next_announcement = start + FIRST_REANNOUNCE_DELAY
         while (head := self._head_hash(name, "latest")) != target:
             now = time.monotonic()
             if now - start >= SYNC_TIMEOUT:
                 raise LoggedError(
                     f"{name}: latest is {self.label_of(head)} after "
-                    f"{SYNC_TIMEOUT:.0f} s, expected {step.latest}"
+                    f"{SYNC_TIMEOUT:.0f} s, expected {step.latest}. "
+                    f"{self.peer_report()}"
                 )
-            if now - announced >= REANNOUNCE_INTERVAL:
-                self.reannounce(name)
-                announced = now
+            if now >= next_announcement:
+                self.redial_peer(name)
+                self.reannounce(name, step.latest)
+                next_announcement = now + REANNOUNCE_INTERVAL
             time.sleep(SYNC_POLL_INTERVAL)
         logger.info(
             f"{name}: latest == {step.latest} after "
             f"{time.monotonic() - start:.1f} s"
         )
 
-    def reannounce(self, name: str) -> None:
-        """Re-send the last ``newPayload`` and ``forkchoiceUpdated``."""
+    def redial_peer(self, name: str) -> None:
+        """
+        Redial the client if it dropped the peer. A failed redial is logged
+        and tried again at the next announcement.
+        """
+        peer = self.peer
+        if peer is None or peer.alive or self.served_chain is None:
+            return
+        logger.warning(
+            f"{name}: the client dropped the peer (Disconnect reason "
+            f"{peer.disconnect_reason}); redialing"
+        )
         try:
-            if self.last_new_payload is not None:
-                params, version = self.last_new_payload
-                self.engine.new_payload(*params, version=version)
-            if self.last_forkchoice is not None:
-                state, version = self.last_forkchoice
+            peer.reconnect(self.served_chain)
+        except (OSError, RLPxError) as e:
+            logger.warning(
+                f"{name}: redial failed ({e}); retrying at the next "
+                "announcement"
+            )
+
+    def reannounce(self, name: str, label: str) -> None:
+        """
+        Send the ``newPayload`` of ``label`` and the last
+        ``forkchoiceUpdated`` to it again. The served chain is valid, so an
+        INVALID answer fails at once.
+        """
+        params, version = self._new_payload_params(label)
+        state, forkchoice_version = self.forkchoice_sent[label]
+        try:
+            statuses = [
+                self.engine.new_payload(*params, version=version),
                 self.engine.forkchoice_updated(
                     forkchoice_state=state,
                     payload_attributes=None,
-                    version=version,
-                )
+                    version=forkchoice_version,
+                ).payload_status,
+            ]
         except JSONRPCError as e:
             logger.info(f"{name}: re-announcement answered {e.code}")
+            return
+        for status in statuses:
+            if status.status in (
+                PayloadStatusEnum.INVALID,
+                PayloadStatusEnum.INVALID_BLOCK_HASH,
+            ):
+                raise LoggedError(
+                    f"{name}: the client rejected {label} while syncing it: "
+                    f"{status.status} (validationError: "
+                    f"{status.validation_error}). {self.peer_report()}"
+                )
+
+    def peer_report(self) -> str:
+        """State of the peer connection and its transcript, for messages."""
+        peer = self.peer
+        if peer is None:
+            return "No peer was dialed."
+        state = (
+            "is connected"
+            if peer.alive
+            else f"was dropped (Disconnect reason {peer.disconnect_reason})"
+        )
+        return (
+            f"The peer {state}. Peer transcript: {peer.statistics.transcript}"
+        )
 
 
 def test_reorg_via_engine(
