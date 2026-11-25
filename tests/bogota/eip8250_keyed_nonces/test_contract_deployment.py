@@ -20,13 +20,13 @@ from execution_testing import (
     Alloc,
     Block,
     DeploymentTestType,
+    Frame,
     Transaction,
     generate_system_contract_deploy_test,
 )
 from execution_testing.checklists import EIPChecklist
 from execution_testing.forks import Bogota, TransitionFork
 
-from ..eip8141_frame_transactions.helpers import verify_frame
 from .helpers import NONCE_KEY
 from .spec import Spec, keyed_nonce_slot, ref_spec_8250
 
@@ -60,7 +60,7 @@ def test_nonce_manager_deployment(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
         nonce_keys=[NONCE_KEY],
         nonce=0,
     )

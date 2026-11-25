@@ -17,12 +17,12 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Fork,
+    Frame,
     Transaction,
     TransactionException,
     TransactionReceipt,
 )
 
-from ..eip8141_frame_transactions.helpers import verify_frame
 from .helpers import (
     NONCE_KEY,
     OTHER_KEY,
@@ -49,7 +49,7 @@ def test_sequence_progression(
     txs = [
         Transaction(
             sender=sender,
-            frames=[verify_frame()],
+            frames=[Frame.verify()],
             nonce_keys=[NONCE_KEY],
             nonce=seq,
         )
@@ -107,7 +107,7 @@ def test_sequences_are_per_sender(
     txs = [
         Transaction(
             sender=sender,
-            frames=[verify_frame()],
+            frames=[Frame.verify()],
             nonce_keys=[NONCE_KEY],
             nonce=0,
         )
@@ -165,7 +165,7 @@ def test_disjoint_keys_replay_independent(
     txs = [
         Transaction(
             sender=sender,
-            frames=[verify_frame()],
+            frames=[Frame.verify()],
             nonce_keys=[key],
             nonce=0,
         )
@@ -215,13 +215,13 @@ def test_overlapping_keys_same_sequence_rejected(
     txs = [
         Transaction(
             sender=sender,
-            frames=[verify_frame()],
+            frames=[Frame.verify()],
             nonce_keys=first_keys,
             nonce=0,
         ),
         Transaction(
             sender=sender,
-            frames=[verify_frame()],
+            frames=[Frame.verify()],
             nonce_keys=second_keys,
             nonce=0,
             error=TransactionException.NONCE_MISMATCH_TOO_LOW,
@@ -253,13 +253,13 @@ def test_overlapping_keys_next_sequence(
     txs = [
         Transaction(
             sender=sender,
-            frames=[verify_frame()],
+            frames=[Frame.verify()],
             nonce_keys=[NONCE_KEY, OTHER_KEY],
             nonce=0,
         ),
         Transaction(
             sender=sender,
-            frames=[verify_frame()],
+            frames=[Frame.verify()],
             nonce_keys=[OTHER_KEY],
             nonce=1,
         ),
@@ -320,19 +320,19 @@ def test_keyed_then_legacy_from_one_sender(
     txs = [
         Transaction(
             sender=sender,
-            frames=[verify_frame()],
+            frames=[Frame.verify()],
             nonce_keys=[NONCE_KEY],
             nonce=0,
         ),
         Transaction(
             sender=sender,
-            frames=[verify_frame()],
+            frames=[Frame.verify()],
             nonce_keys=[],
             nonce=0,
         ),
         Transaction(
             sender=sender,
-            frames=[verify_frame()],
+            frames=[Frame.verify()],
             nonce_keys=[NONCE_KEY],
             nonce=1,
         ),
@@ -386,7 +386,7 @@ def test_block_access_list(
         nonce_manager_with_slots(pre, used_key_slots(sender, used_keys))
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
         nonce_keys=nonce_keys,
         nonce=nonce_seq,
     )

@@ -22,12 +22,12 @@ from execution_testing import (
     Blob,
     BlobsTestFiller,
     Fork,
+    Frame,
     NetworkWrappedTransaction,
     Op,
     Transaction,
 )
 
-from ..eip8141_frame_transactions.helpers import verify_frame
 from ..eip8141_frame_transactions.spec import Spec as Spec8141
 from .helpers import NONCE_KEY, OTHER_KEY
 from .spec import ref_spec_8250
@@ -92,7 +92,7 @@ def test_get_blobs_of_keyed_frame_tx(
         nonce=0,
         # The validation prefix leaves room for signature verification
         # within MAX_VERIFY_GAS, so a public mempool admits it.
-        frames=[verify_frame(gas_limit=Spec8141.MAX_VERIFY_GAS // 2)],
+        frames=[Frame.verify(gas_limit=Spec8141.MAX_VERIFY_GAS // 2)],
         blob_versioned_hashes=[blob.versioned_hash for blob in blobs],
     )
     blobs_test(

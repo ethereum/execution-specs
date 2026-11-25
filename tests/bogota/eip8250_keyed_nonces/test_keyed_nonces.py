@@ -23,7 +23,6 @@ from execution_testing import (
     Fork,
     Frame,
     FrameReceipt,
-    FrameSignature,
     Op,
     StateTestFiller,
     Storage,
@@ -34,11 +33,6 @@ from execution_testing import (
     compute_create_address,
 )
 
-from ..eip8141_frame_transactions.helpers import (
-    default_frame,
-    sender_frame,
-    verify_frame,
-)
 from ..eip8141_frame_transactions.spec import Spec as Spec8141
 from .helpers import (
     NONCE_KEY,
@@ -169,7 +163,7 @@ def test_keyed_nonce_consumption(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
         nonce_keys=[NONCE_KEY],
         nonce=0,
     )
@@ -214,7 +208,7 @@ def test_empty_key_set(
     nonce_fields = dict(nonce_keys=[], nonce=0) if explicit_fields else {}
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
         **nonce_fields,
     )
     tx.expected_receipt = TransactionReceipt(
@@ -259,7 +253,7 @@ def test_zero_key_is_keyed(
     sender = pre.fund_eoa(nonce=5)
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(state_gas_limit=state_gas)],
+        frames=[Frame.verify(state_gas_limit=state_gas)],
         nonce_keys=nonce_keys,
         nonce=0,
     )
@@ -306,7 +300,7 @@ def test_single_use_consumption(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(state_gas_limit=state_gas)],
+        frames=[Frame.verify(state_gas_limit=state_gas)],
         nonce_keys=nonce_keys,
         nonce=Spec.MAX_NONCE_SEQ,
     )
@@ -355,7 +349,7 @@ def test_multi_key_consumption(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(state_gas_limit=state_gas)],
+        frames=[Frame.verify(state_gas_limit=state_gas)],
         nonce_keys=nonce_keys,
         nonce=0,
     )
@@ -408,7 +402,7 @@ def test_used_key_pays_no_creation(
     )
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
         nonce_keys=[NONCE_KEY],
         nonce=current_seq,
     )
@@ -453,7 +447,7 @@ def test_used_key_set_needs_no_state_gas(
     )
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(state_gas_limit=0)],
+        frames=[Frame.verify(state_gas_limit=0)],
         nonce_keys=nonce_keys,
         nonce=current_seq,
     )
@@ -549,8 +543,8 @@ def test_nonce_fields_priced_as_calldata(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(state_gas_limit=state_gas),
-            default_frame(
+            Frame.verify(state_gas_limit=state_gas),
+            Frame.default(
                 target=burner, gas_limit=burner_gas, state_gas_limit=0
             ),
         ],
@@ -630,8 +624,8 @@ def test_nonce_fields_in_calldata_floor(
         tx = Transaction(
             sender=sender,
             frames=[
-                verify_frame(gas_limit=verify_gas, state_gas_limit=state_gas),
-                default_frame(
+                Frame.verify(gas_limit=verify_gas, state_gas_limit=state_gas),
+                Frame.default(
                     target=worker,
                     gas_limit=worker_gas,
                     state_gas_limit=0,
@@ -730,8 +724,8 @@ def test_keyed_nonce_access_cost(
         tx = Transaction(
             sender=sender,
             frames=[
-                verify_frame(gas_limit=verify_gas, state_gas_limit=state_gas),
-                default_frame(
+                Frame.verify(gas_limit=verify_gas, state_gas_limit=state_gas),
+                Frame.default(
                     target=worker,
                     gas_limit=worker_gas,
                     state_gas_limit=0,
@@ -939,7 +933,7 @@ def test_stateful_validity(
         nonce_manager_with_slots(pre, used_key_slots(sender, used_keys))
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
         nonce_keys=nonce_keys,
         nonce=nonce_seq,
         error=error,
@@ -1023,7 +1017,7 @@ def test_static_validity(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
         nonce_keys=nonce_keys,
         nonce=nonce_seq,
         error=error,
@@ -1050,7 +1044,7 @@ def test_static_validity_transaction(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
         nonce_keys=nonce_keys,
         nonce=nonce_seq,
         error=error,
@@ -1106,8 +1100,8 @@ def max_key_set_at_gas_cap(
         )
         data_length = (cap - base) // floor_per_byte + cap_excess
         frames = [
-            verify_frame(state_gas_limit=state_gas_limit),
-            default_frame(gas_limit=0, data=Bytes(bytes(data_length))),
+            Frame.verify(state_gas_limit=state_gas_limit),
+            Frame.default(gas_limit=0, data=Bytes(bytes(data_length))),
         ]
     else:
         # A contract sender carries no signature entries and the frame no
@@ -1118,7 +1112,7 @@ def max_key_set_at_gas_cap(
             return_cost_deducted_prior_execution=True,
         )
         frames = [
-            verify_frame(
+            Frame.verify(
                 gas_limit=cap - intrinsic + cap_excess,
                 state_gas_limit=state_gas_limit,
             )
@@ -1204,7 +1198,7 @@ def test_payer_max_cost_counts_keyed_nonce_access(
     exactly that cost or one wei less.
     """
     nonce_keys = list(range(1, Spec.MAX_NONCE_KEYS + 1))
-    frame = verify_frame(
+    frame = Frame.verify(
         state_gas_limit=len(nonce_keys) * keyed_nonce_first_use(fork)
     )
     max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
@@ -1252,7 +1246,7 @@ def test_max_fee_counts_keyed_nonce_access(
     budget one wei short of it before any frame executes.
     """
     nonce_keys = list(range(1, Spec.MAX_NONCE_KEYS + 1))
-    frame = verify_frame(
+    frame = Frame.verify(
         state_gas_limit=len(nonce_keys) * keyed_nonce_first_use(fork)
     )
     max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
@@ -1308,14 +1302,14 @@ def test_escrow_counts_keyed_nonce_access(
         SLOT_RESULT,
         Op.SUB(funds, Op.BALANCE(Op.TXPARAM(Spec8141.TXPARAM_SENDER))),
     )
-    probe_frame = default_frame(
+    probe_frame = Frame.default(
         target=pre.deploy_contract(code=probe_store),
         state_gas_limit=probe_store.state_cost(fork),
     )
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(
+            Frame.verify(
                 state_gas_limit=len(nonce_keys) * keyed_nonce_first_use(fork)
             ),
             probe_frame,
@@ -1395,8 +1389,8 @@ def test_txparam_nonce_fields(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            default_frame(
+            Frame.verify(),
+            Frame.default(
                 target=probe,
                 state_gas_limit=probe_code.state_cost(fork),
             ),
@@ -1429,10 +1423,10 @@ def test_txparam_first_undefined_selector_halts(
         + Op.POP(Op.TXPARAM(Spec.TXPARAM_FIRST_UNDEFINED))
         + Op.STOP
     )
-    probe_frame = default_frame(target=probe)
+    probe_frame = Frame.default(target=probe)
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(), probe_frame],
+        frames=[Frame.verify(), probe_frame],
         nonce_keys=[NONCE_KEY],
         nonce=0,
         expected_receipt=TransactionReceipt(
@@ -1475,7 +1469,7 @@ def test_legacy_nonce_txparam_stable_across_create(
     sender = pre.fund_eoa(nonce=sender_nonce, delegation=creator)
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(), sender_frame()],
+        frames=[Frame.verify(), Frame.sender()],
         nonce_keys=[NONCE_KEY],
         nonce=0,
         expected_receipt=TransactionReceipt(
@@ -1518,7 +1512,7 @@ def test_consumption_survives_frame_revert(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(), sender_frame(target=reverter)],
+        frames=[Frame.verify(), Frame.sender(target=reverter)],
         nonce_keys=[NONCE_KEY],
         nonce=0,
         expected_receipt=TransactionReceipt(
@@ -1555,9 +1549,9 @@ def test_consumption_survives_atomic_batch_unroll(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            sender_frame(target=writer, flags=Spec8141.ATOMIC_BATCH_FLAG),
-            sender_frame(target=reverter),
+            Frame.verify(),
+            Frame.sender(target=writer, flags=Spec8141.ATOMIC_BATCH_FLAG),
+            Frame.sender(target=reverter),
         ],
         nonce_keys=[NONCE_KEY],
         nonce=0,
@@ -1596,7 +1590,7 @@ def test_first_use_state_gas_exact_budget(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(state_gas_limit=state_gas)],
+        frames=[Frame.verify(state_gas_limit=state_gas)],
         nonce_keys=nonce_keys,
         nonce=0,
         expected_receipt=TransactionReceipt(
@@ -1634,7 +1628,7 @@ def test_first_use_state_gas_short_budget_fails_verify(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(state_gas_limit=state_gas - 1)],
+        frames=[Frame.verify(state_gas_limit=state_gas - 1)],
         nonce_keys=nonce_keys,
         nonce=0,
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
@@ -1662,7 +1656,7 @@ def test_first_use_state_gas_halts_contract_approver(
     )
     tx = Transaction(
         sender=sender,
-        frames=[approving_frame, verify_frame()],
+        frames=[approving_frame, Frame.verify()],
         nonce_keys=[NONCE_KEY],
         nonce=0,
         expected_receipt=TransactionReceipt(
@@ -1762,20 +1756,10 @@ def test_sponsor_pays_first_use(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(flags=Spec8141.APPROVE_EXECUTION),
-            verify_frame(flags=Spec8141.APPROVE_PAYMENT, target=payer),
+            Frame.verify(flags=Spec8141.APPROVE_EXECUTION),
+            Frame.verify(flags=Spec8141.APPROVE_PAYMENT, target=payer),
         ],
-        signatures=[
-            FrameSignature(
-                scheme=Spec8141.SCHEME_SECP256K1,
-                signer=Bytes(sender),
-            ),
-            FrameSignature(
-                scheme=Spec8141.SCHEME_SECP256K1,
-                signer=Bytes(payer),
-                secret_key=payer.key,
-            ),
-        ],
+        signatures=[sender, payer],
         nonce_keys=[NONCE_KEY],
         nonce=0,
         expected_receipt=TransactionReceipt(
@@ -1837,7 +1821,7 @@ def test_payment_scope_consumes(
     )
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(flags=scope) for scope in scopes],
+        frames=[Frame.verify(flags=scope) for scope in scopes],
         nonce_keys=[NONCE_KEY],
         nonce=0,
         expected_receipt=TransactionReceipt(
@@ -1878,13 +1862,13 @@ def test_legacy_nonce_exhaustion_halts_approval(
         )
     )
     sender = pre.fund_eoa(nonce=sender_nonce, delegation=exhauster)
-    exhausting_frame = sender_frame(flags=Spec8141.APPROVE_PAYMENT)
+    exhausting_frame = Frame.sender(flags=Spec8141.APPROVE_PAYMENT)
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(flags=Spec8141.APPROVE_EXECUTION),
+            Frame.verify(flags=Spec8141.APPROVE_EXECUTION),
             exhausting_frame,
-            verify_frame(flags=Spec8141.APPROVE_PAYMENT),
+            Frame.verify(flags=Spec8141.APPROVE_PAYMENT),
         ],
         nonce_keys=[],
         nonce=sender_nonce,
@@ -1953,12 +1937,12 @@ def test_legacy_nonce_exhaustion_halts_nested_approval(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(flags=Spec8141.APPROVE_EXECUTION),
-            sender_frame(
+            Frame.verify(flags=Spec8141.APPROVE_EXECUTION),
+            Frame.sender(
                 flags=Spec8141.APPROVE_PAYMENT,
                 gas_limit=nested_call_gas + exhauster_code.gas_cost(fork),
             ),
-            verify_frame(flags=Spec8141.APPROVE_PAYMENT),
+            Frame.verify(flags=Spec8141.APPROVE_PAYMENT),
         ],
         nonce_keys=[],
         nonce=sender_nonce,
@@ -2025,8 +2009,8 @@ def test_nonce_manager_direct_call_reverts(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            default_frame(
+            Frame.verify(),
+            Frame.default(
                 target=caller,
                 state_gas_limit=caller_code.state_cost(fork),
             ),
@@ -2068,7 +2052,7 @@ def test_nonce_manager_stays_cold(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame(), default_frame(target=probe)],
+        frames=[Frame.verify(), Frame.default(target=probe)],
         nonce_keys=[NONCE_KEY],
         nonce=0,
         expected_receipt=TransactionReceipt(
@@ -2105,13 +2089,13 @@ def test_signature_binds_nonce_fields(
 ) -> None:
     """Reject changed nonce fields unless the sender signs them again."""
     sender = pre.fund_eoa()
-    tx = Transaction(
+    signed = Transaction(
         sender=sender,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
         nonce_keys=[NONCE_KEY],
         nonce=0,
     )
-    tx.sign()
+    signed.sign()
     changed_keys = (
         [NONCE_KEY, OTHER_KEY] if changed_field == "keys" else [NONCE_KEY]
     )
@@ -2119,16 +2103,25 @@ def test_signature_binds_nonce_fields(
     slots = used_key_slots(sender, {NONCE_KEY: 1}) if changed_seq else {}
     if slots:
         nonce_manager_with_slots(pre, slots)
-    tx = tx.copy(nonce_keys=changed_keys, nonce=changed_seq)
     if resign:
-        tx.signatures = None
         slots = {
             keyed_nonce_slot(sender, key): changed_seq + 1
             for key in changed_keys
         }
-    else:
-        # Recovery over the changed digest no longer yields the signer.
-        tx.error = TransactionException.TYPE_6_INVALID_FRAME_FORMAT
+    tx = Transaction(
+        sender=sender,
+        frames=[Frame.verify()],
+        # Carried over unchanged, the signature no longer recovers the
+        # signer from the changed digest.
+        signatures=None if resign else signed.signatures,
+        nonce_keys=changed_keys,
+        nonce=changed_seq,
+        error=(
+            None
+            if resign
+            else TransactionException.TYPE_6_INVALID_FRAME_FORMAT
+        ),
+    )
     state_test(
         pre=pre,
         tx=tx,
@@ -2158,7 +2151,7 @@ def test_nested_approval_follows_enclosing_frame(
     )
     sender = pre.fund_eoa(delegation=approver)
     frames = [
-        default_frame(
+        Frame.default(
             target=sender,
             flags=Spec8141.APPROVE_EXECUTION_AND_PAYMENT,
             state_gas_limit=first_use,
@@ -2173,7 +2166,7 @@ def test_nested_approval_follows_enclosing_frame(
         )
     ]
     if revert_outer:
-        frames.append(verify_frame(data=b"\x01", state_gas_limit=first_use))
+        frames.append(Frame.verify(data=b"\x01", state_gas_limit=first_use))
         receipts.append(
             FrameReceipt(
                 status=Spec8141.STATUS_SUCCESS, state_gas_used=first_use
@@ -2230,9 +2223,9 @@ def test_legacy_approval_increments_live_nonce(
         nonce_keys=[],
         nonce=sender_nonce,
         frames=[
-            verify_frame(flags=Spec8141.APPROVE_EXECUTION),
-            sender_frame(),
-            verify_frame(flags=Spec8141.APPROVE_PAYMENT),
+            Frame.verify(flags=Spec8141.APPROVE_EXECUTION),
+            Frame.sender(),
+            Frame.verify(flags=Spec8141.APPROVE_PAYMENT),
         ],
         error=(
             TransactionException.TYPE_6_INVALID_FRAME_EXECUTION

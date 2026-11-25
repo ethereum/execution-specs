@@ -18,11 +18,11 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Frame,
     Op,
     Transaction,
 )
 
-from ..eip8141_frame_transactions.helpers import verify_frame
 from .helpers import NONCE_KEY
 from .spec import Spec, keyed_nonce_slot, ref_spec_8250
 
@@ -146,7 +146,7 @@ def test_keyed_transaction_in_first_post_fork_block(
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        frames=[verify_frame()],
+        frames=[Frame.verify()],
         nonce_keys=[NONCE_KEY],
         nonce=0,
     )
@@ -212,7 +212,7 @@ def test_keyed_transactions_before_nonce_manager_deployed(
             txs=[
                 Transaction(
                     sender=sender,
-                    frames=[verify_frame()],
+                    frames=[Frame.verify()],
                     nonce_keys=[NONCE_KEY],
                     nonce=nonce,
                 )
