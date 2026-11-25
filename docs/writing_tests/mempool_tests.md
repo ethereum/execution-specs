@@ -71,5 +71,5 @@ A test therefore cannot mistake a consensus rule for a mempool rule. Whether the
 
 For a refusal by a mempool rule, the fill only proves that the transaction is valid. To keep the test from refusing the transaction for an unrelated reason:
 
-- Pair every refused case with an admitted twin that differs only in the rule under test, like `sender` and `callee` above. A client that admits the twin and refuses the other case can only be refusing it for that rule. A client that refuses both points at a test bug.
+- For every refused transaction, also test the same transaction without the rule violation, expecting it to be broadcast, like `sender` and `callee` above. A client that broadcasts the fixed transaction but refuses the original can only be refusing it for that rule. A client that refuses both points at a test bug.
 - Break only the rule under test, and name it in `rules`. When the transaction cannot avoid breaking several rules, name all of them and say why in a comment.

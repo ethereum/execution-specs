@@ -112,8 +112,8 @@ def test_allowed_validation_prefix(
     Admit a frame transaction whose self-verifying `VERIFY` frame runs no
     banned opcode, or runs `GAS` only as the gas argument of a `CALL`.
 
-    This is the positive twin of the banned opcode tests: the same
-    transaction without the banned read is broadcast.
+    These are the banned opcode tests' transactions without the banned
+    read, which are broadcast.
     """
     if gas_before_call:
         callee = pre.deploy_contract(code=Op.STOP)
