@@ -31,10 +31,13 @@ just docs-serve
 
 import functools
 import glob
+import json
 import logging
 import os
 import re
+import subprocess
 import sys
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import IO, Any, Dict, List, Set, Tuple, cast
@@ -43,6 +46,7 @@ import pytest
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from pytest import Item
 
+from execution_testing.fixtures import BlockchainEngineReorgFixture
 from execution_testing.forks import (
     ALL_TRANSITION_FORKS,
     BPO_SCENARIOS,
@@ -67,10 +71,14 @@ from .page_props import (
     TestFunction,
     sanitize_string_title,
 )
+from .reorg_diagram import Scenario, render_section
 
 logger = logging.getLogger("gen_docs")
 
 docstring_test_function_history: Dict[str, str] = {}
+
+REORG_FILL_TIMEOUT = 900
+"""Seconds the fill behind the reorg diagrams may take."""
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
@@ -106,6 +114,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         help=(
             "The default fork to use generated in generated doc pages. "
             "Should be the name of the next upcoming fork."
+        ),
+    )
+    gen_docs.addoption(
+        "--gen-docs-reorg-workers",
+        action="store",
+        dest="gen_docs_reorg_workers",
+        type=int,
+        default=min(4, os.cpu_count() or 1),
+        help=(
+            "Number of processes that fill the reorg tests whose fixtures "
+            "the test case reference draws its diagrams from (default: the "
+            "number of CPUs, at most 4)."
         ),
     )
 
@@ -240,6 +260,15 @@ def format_bytes_param(value: bytes) -> str:
         f"<code>{hex_value[i : i + 32]}</code>"
         for i in range(0, len(hex_value), 32)
     )
+
+
+def reorg_case_title(case: TestCase) -> str:
+    """
+    Return the name of a reorg test case's parameter set: its id without
+    the fork and the fixture format.
+    """
+    parts = case.abbreviated_id.split(f"-{case.fixture_type}", 1)
+    return parts[-1].lstrip("-") or "scenario"
 
 
 @functools.cache
@@ -388,6 +417,7 @@ class TestDocsGenerator:
 
         # the heavy work
         self.create_function_page_props(functions)
+        self.add_reorg_sections()
         self.create_module_page_props()
         # add the pages to the page_props dict
         self.page_props = {
@@ -593,6 +623,111 @@ class TestDocsGenerator:
                 mkdocs_function_page_target=f"./{get_test_function_name(items[0])}/",
                 is_benchmark=is_benchmark,
             )
+
+    def reorg_cases(self) -> Dict[str, List[TestCase]]:
+        """
+        Return, for each reorg test function, one case per parameter set
+        at the function's displayed fork, in collection order.
+        """
+        format_name = BlockchainEngineReorgFixture.format_name
+        selected: Dict[str, List[TestCase]] = {}
+        for function_id, page in self.function_page_props.items():
+            seen: Set[Tuple[Tuple[str, Any], ...]] = set()
+            for case in page.cases:
+                params = tuple(sorted(case.params.items()))
+                if (
+                    case.fixture_type != format_name
+                    or self._base_fork(case.fork) != page.target_or_valid_fork
+                    or params in seen
+                ):
+                    continue
+                seen.add(params)
+                selected.setdefault(function_id, []).append(case)
+        return selected
+
+    def fill_reorg_fixtures(self, cases: List[TestCase]) -> Dict[str, Any]:
+        """
+        Fill the given reorg test cases in a subprocess and return their
+        fixtures as parsed JSON, by test id.
+
+        The diagrams need filled fixtures: the outcomes most steps accept
+        and the head after each forkchoice update come from the fill-time
+        Engine API model. Raise if the fill fails or a fixture is missing,
+        so that pages are never written without their diagrams.
+        """
+        forks = {self._base_fork(case.fork) for case in cases}
+        until = max(forks, key=lambda f: self._fork_newness.get(f, -1))
+        workers = self.config.getoption("gen_docs_reorg_workers")
+        fixtures: Dict[str, Any] = {}
+        with tempfile.TemporaryDirectory() as output_dir:
+            command = [
+                sys.executable,
+                "-c",
+                "from execution_testing.cli.pytest_commands.fill import fill;"
+                " fill()",
+                f"--until={until}",
+                f"--output={output_dir}",
+                "-n",
+                str(workers),
+                "-q",
+                *(case.full_id for case in cases),
+            ]
+            try:
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=REORG_FILL_TIMEOUT,
+                )
+            except subprocess.TimeoutExpired as error:
+                raise pytest.UsageError(
+                    "Filling the reorg tests for their diagrams did not "
+                    f"finish within {REORG_FILL_TIMEOUT} s."
+                ) from error
+            if result.returncode != 0:
+                tail = "\n".join(result.stdout.splitlines()[-30:])
+                raise pytest.UsageError(
+                    f"Filling the reorg tests for their diagrams failed "
+                    f"(exit code {result.returncode}):\n{tail}\n"
+                    f"{result.stderr[-2000:]}"
+                )
+            format_dir = BlockchainEngineReorgFixture.output_base_dir_name()
+            for path in sorted(
+                (Path(output_dir) / format_dir).rglob("*.json")
+            ):
+                fixtures.update(json.loads(path.read_text()))
+        missing = [c.full_id for c in cases if c.full_id not in fixtures]
+        if missing:
+            raise pytest.UsageError(
+                "The fill for the reorg diagrams wrote no fixture for: "
+                + ", ".join(missing)
+            )
+        return fixtures
+
+    def add_reorg_sections(self) -> None:
+        """
+        Add generated diagrams of the block DAG, the steps and the accepted
+        outcomes to the page of every reorg test function.
+        """
+        selected = self.reorg_cases()
+        if not selected:
+            return
+        fixtures = self.fill_reorg_fixtures(
+            [case for cases in selected.values() for case in cases]
+        )
+        for function_id, cases in selected.items():
+            page = self.function_page_props[function_id]
+            page.reorg_section = render_section(
+                [
+                    (
+                        reorg_case_title(case),
+                        Scenario.from_fixture(fixtures[case.full_id]),
+                    )
+                    for case in cases
+                ]
+            )
+            page.reorg_fork = page.target_or_valid_fork
 
     def create_module_page_props(self) -> None:
         """Discover the test module doc pages and extract their properties."""

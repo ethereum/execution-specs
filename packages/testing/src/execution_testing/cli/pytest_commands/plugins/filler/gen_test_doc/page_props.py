@@ -241,6 +241,10 @@ class FunctionPageProps(PagePropsBase):
     html_static_page_target: str = ""
     mkdocs_function_page_target: str = ""
     cases: List[TestCase] = field(default_factory=list)
+    reorg_section: str = ""
+    """Generated diagrams of a reorg test's scenarios, as Markdown."""
+    reorg_fork: str = ""
+    """Fork the fixtures behind `reorg_section` were filled for."""
 
     @property
     def template(self) -> str:
