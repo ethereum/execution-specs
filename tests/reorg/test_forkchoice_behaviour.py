@@ -416,6 +416,12 @@ def test_safe_finalized_labels_follow_fcu(
                         disputed=DISPUTED_FINALITY_REVERSION,
                     ),
                 ],
+                # A client that answers SYNCING must leave its state on b3.
+                branches={
+                    "syncing": [
+                        AssertHeadStep(latest="b3", safe="b3", finalized="b3")
+                    ]
+                },
             ),
         ]
 
