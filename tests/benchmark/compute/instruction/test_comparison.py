@@ -10,11 +10,17 @@ Supported Opcodes:
 - ISZERO
 """
 
+import random
+
 import pytest
 from execution_testing import (
+    Alloc,
     BenchmarkTestFiller,
+    Bytecode,
+    Fork,
     JumpLoopGenerator,
     Op,
+    Transaction,
 )
 
 
@@ -24,10 +30,6 @@ from execution_testing import (
     [
         (
             Op.LT,  # Keeps getting result 1.
-            (0, 1),
-        ),
-        (
-            Op.GT,  # Keeps getting result 0.
             (0, 1),
         ),
         # Operands of the same sign: with different signs the result is the
@@ -69,6 +71,43 @@ def test_comparison(
         code_generator=JumpLoopGenerator(
             setup=Op.PUSH1(second),
             attack_block=Op.PUSH31[first.to_bytes(31, "big")] + opcode,
+        ),
+    )
+
+
+@pytest.mark.repricing
+def test_gt(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Benchmark GT instruction with unpredictable results.
+
+    Each GT takes the first argument from a PUSH31 and the previous result
+    as the second, as in the other comparison benchmarks. The pushed values
+    make the results a random sequence of zeros and ones.
+    """
+    rng = random.Random(1)  # Use random with a fixed seed.
+    setup = Op.PUSH1(1)
+    loop_back = Op.JUMP(len(setup))
+    room = fork.max_code_size() - len(setup + Op.JUMPDEST + loop_back)
+    count = room // len(Op.PUSH31[bytes(31)] + Op.GT)
+    # The last result is 1, as the setup's, so every loop pass is the same.
+    results = [rng.getrandbits(1) for _ in range(count - 1)] + [1]
+
+    body = Bytecode(Op.JUMPDEST)
+    previous = 1
+    for result in results:
+        # GT(previous + result, previous) is result.
+        body += Op.PUSH31[(previous + result).to_bytes(31, "big")] + Op.GT
+        previous = result
+
+    code = setup + body + loop_back
+    benchmark_test(
+        target_opcode=Op.GT,
+        tx=Transaction(
+            to=pre.deploy_contract(code=code), sender=pre.fund_eoa()
         ),
     )
 
