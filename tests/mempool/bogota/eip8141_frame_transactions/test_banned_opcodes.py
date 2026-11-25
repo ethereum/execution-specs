@@ -19,7 +19,6 @@ from execution_testing import (
     Environment,
     Fork,
     Frame,
-    MempoolException,
     MempoolTestFiller,
     Op,
     Transaction,
@@ -29,7 +28,7 @@ from tests.bogota.eip8141_frame_transactions.helpers import (
     APPROVE_ALL,
 )
 
-from .spec import RULE_SET, MempoolRule, ref_spec_8141
+from .spec import MempoolRule, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
@@ -96,9 +95,7 @@ def test_banned_opcode_in_validation_prefix(
         pre=pre,
         tx=tx,
         broadcast=False,
-        exception=MempoolException.FRAME_VALIDATION_BANNED_OPCODE,
         rules=[MempoolRule.BANNED_OPCODE],
-        mempool_rules=RULE_SET,
     )
 
 
@@ -136,5 +133,4 @@ def test_allowed_validation_prefix(
         tx=tx,
         broadcast=True,
         rules=[MempoolRule.BANNED_OPCODE],
-        mempool_rules=RULE_SET,
     )

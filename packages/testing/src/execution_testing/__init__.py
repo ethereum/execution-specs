@@ -27,7 +27,6 @@ from .checklists import EIPChecklist
 from .exceptions import (
     BlockException,
     EngineAPIError,
-    MempoolException,
     TransactionException,
 )
 from .fixtures import BaseFixture, FixtureCollector
@@ -246,7 +245,6 @@ __all__ = (
     "JumpLoopGenerator",
     "Macro",
     "Macros",
-    "MempoolException",
     "MempoolTest",
     "MempoolTestFiller",
     "MemoryVariable",

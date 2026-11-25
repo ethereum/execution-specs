@@ -17,7 +17,6 @@ from execution_testing import (
     Bytecode,
     Fork,
     Frame,
-    MempoolException,
     MempoolTestFiller,
     Op,
     Transaction,
@@ -42,7 +41,7 @@ from .deployment import (
     wallet,
     wallet_initcode,
 )
-from .spec import RULE_SET, MempoolRule, MempoolSpec, ref_spec_8141
+from .spec import MempoolRule, MempoolSpec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
@@ -70,6 +69,7 @@ def deploying_transaction(
     constructor: Bytecode | None = None,
     factory_code: Bytecode = FACTORY_CODE,
     deploy_overrides: dict | None = None,
+    error: TransactionException | None = None,
 ) -> tuple:
     """
     Return the funded counterfactual sender and its first transaction,
@@ -93,6 +93,7 @@ def deploying_transaction(
             self_verify_frame(),
             user_op(pre),
         ],
+        error=error,
     )
     return sender, tx
 
@@ -112,7 +113,6 @@ def test_deploy_and_self_verify(
         tx=tx,
         broadcast=True,
         rules=DEPLOY_RULES + [MempoolRule.STATE_WRITE],
-        mempool_rules=RULE_SET,
     )
 
 
@@ -147,7 +147,6 @@ def test_deploy_with_paymaster(
         tx=tx,
         broadcast=True,
         rules=DEPLOY_RULES,
-        mempool_rules=RULE_SET,
     )
 
 
@@ -173,7 +172,6 @@ def test_constructor_writes_sender_storage(
         broadcast=True,
         rules=DEPLOY_RULES
         + [MempoolRule.STATE_WRITE, MempoolRule.STORAGE_OUTSIDE_SENDER],
-        mempool_rules=RULE_SET,
     )
 
 
@@ -206,7 +204,6 @@ def test_proxy_wallet(
         tx=tx,
         broadcast=True,
         rules=DEPLOY_RULES + [MempoolRule.STORAGE_OUTSIDE_SENDER],
-        mempool_rules=RULE_SET,
     )
 
 
@@ -237,12 +234,10 @@ def test_validation_gas_caps(
             - VERIFY_GAS
             + excess
         }
-        exception = MempoolException.FRAME_VALIDATION_GAS_EXCEEDED
         rule = MempoolRule.VERIFY_GAS
     elif dimension == "state":
         # The `self_verify` frame has no state budget.
         budget = {"state_gas_limit": MempoolSpec.MAX_VERIFY_STATE_GAS + excess}
-        exception = MempoolException.FRAME_VALIDATION_STATE_GAS_EXCEEDED
         rule = MempoolRule.VERIFY_STATE_GAS
     else:
         raise ValueError(f"unknown dimension: {dimension}")
@@ -252,9 +247,7 @@ def test_validation_gas_caps(
         pre=pre,
         tx=tx,
         broadcast=not over,
-        exception=exception if over else None,
         rules=[rule],
-        mempool_rules=RULE_SET,
     )
 
 
@@ -281,25 +274,25 @@ def test_wallet_already_deployed(
         tx=tx,
         broadcast=True,
         rules=[MempoolRule.PREFIX_SHAPE],
-        mempool_rules=RULE_SET,
     )
 
 
 @pytest.mark.parametrize(
-    "nonce,exception",
+    "nonce,error,rules",
     [
         pytest.param(
             1,
+            None,
             # The colliding `CREATE2` installs no code, and the factory's
             # nonce bump is then a write outside the sender.
-            [
-                MempoolException.FRAME_DEPLOY_CODE_NOT_INSTALLED,
-                MempoolException.FRAME_VALIDATION_STATE_WRITE,
-            ],
+            [MempoolRule.DEPLOY_INSTALLS_CODE, MempoolRule.STATE_WRITE],
             id="resigned",
         ),
         pytest.param(
-            0, TransactionException.NONCE_MISMATCH_TOO_LOW, id="stale"
+            0,
+            TransactionException.NONCE_MISMATCH_TOO_LOW,
+            [MempoolRule.DEPLOY_INSTALLS_CODE],
+            id="stale",
         ),
     ],
 )
@@ -311,7 +304,8 @@ def test_deploy_front_run(
     pre: Alloc,
     scheme: str,
     nonce: int,
-    exception: List[MempoolException] | TransactionException,
+    error: TransactionException | None,
+    rules: List[str],
 ) -> None:
     """
     Refuse a deploying transaction after a third party deployed the
@@ -340,42 +334,32 @@ def test_deploy_front_run(
             self_verify_frame(),
             user_op(pre),
         ],
+        error=error,
     )
 
     mempool_test(
         pre=pre,
         tx=tx,
         broadcast=False,
-        exception=exception,
-        rules=[MempoolRule.DEPLOY_INSTALLS_CODE],
-        mempool_rules=RULE_SET,
+        rules=rules,
     )
 
 
 @pytest.mark.parametrize(
-    "deploy_target,exception,rules",
+    "deploy_target,rules",
     [
         pytest.param(
             Op.STOP,
-            MempoolException.FRAME_DEPLOY_CODE_NOT_INSTALLED,
             [MempoolRule.DEPLOY_INSTALLS_CODE],
             id="installs_nothing",
         ),
         pytest.param(
             FACTORY_CODE,
-            [
-                MempoolException.FRAME_DEPLOY_CODE_NOT_INSTALLED,
-                MempoolException.FRAME_VALIDATION_STATE_WRITE,
-            ],
             [MempoolRule.DEPLOY_INSTALLS_CODE, MempoolRule.STATE_WRITE],
             id="installs_elsewhere",
         ),
         pytest.param(
             Op.REVERT(0, 0),
-            [
-                MempoolException.FRAME_DEPLOY_CODE_NOT_INSTALLED,
-                MempoolException.FRAME_VALIDATION_REVERTED,
-            ],
             [MempoolRule.DEPLOY_INSTALLS_CODE, MempoolRule.PREFIX_REVERT],
             id="reverts",
         ),
@@ -385,7 +369,6 @@ def test_deploy_frame_without_code_at_sender(
     mempool_test: MempoolTestFiller,
     pre: Alloc,
     deploy_target: Bytecode,
-    exception: List[MempoolException] | MempoolException,
     rules: List[str],
 ) -> None:
     """
@@ -413,24 +396,20 @@ def test_deploy_frame_without_code_at_sender(
         pre=pre,
         tx=tx,
         broadcast=False,
-        exception=exception,
         rules=rules,
-        mempool_rules=RULE_SET,
     )
 
 
 @pytest.mark.parametrize(
-    "factory_code,exception,rule",
+    "factory_code,rule",
     [
         pytest.param(
             Op.SSTORE(0, 1) + FACTORY_CODE,
-            MempoolException.FRAME_VALIDATION_STATE_WRITE,
             MempoolRule.STATE_WRITE,
             id="writes_own_storage",
         ),
         pytest.param(
             Op.POP(Op.SLOAD(0)) + FACTORY_CODE,
-            MempoolException.FRAME_VALIDATION_STORAGE_ACCESS,
             MempoolRule.STORAGE_OUTSIDE_SENDER,
             id="reads_own_storage",
         ),
@@ -442,7 +421,6 @@ def test_factory_storage_access(
     pre: Alloc,
     scheme: str,
     factory_code: Bytecode,
-    exception: MempoolException,
     rule: str,
 ) -> None:
     """
@@ -457,36 +435,30 @@ def test_factory_storage_access(
         pre=pre,
         tx=tx,
         broadcast=False,
-        exception=exception,
         rules=[rule],
-        mempool_rules=RULE_SET,
     )
 
 
 @pytest.mark.parametrize(
-    "constructor,exception,rule",
+    "constructor,rule",
     [
         pytest.param(
             Op.POP(Op.CREATE(0, 0, 0)),
-            MempoolException.FRAME_VALIDATION_STATE_WRITE,
             MempoolRule.STATE_WRITE,
             id="creates_contract",
         ),
         pytest.param(
             Op.POP(Op.TIMESTAMP),
-            MempoolException.FRAME_VALIDATION_BANNED_OPCODE,
             MempoolRule.BANNED_OPCODE,
             id="TIMESTAMP",
         ),
         pytest.param(
             Op.POP(Op.NUMBER),
-            MempoolException.FRAME_VALIDATION_BANNED_OPCODE,
             MempoolRule.BANNED_OPCODE,
             id="NUMBER",
         ),
         pytest.param(
             Op.POP(Op.BALANCE(Op.CALLER)),
-            MempoolException.FRAME_VALIDATION_BANNED_OPCODE,
             MempoolRule.BANNED_OPCODE,
             id="BALANCE",
         ),
@@ -498,7 +470,6 @@ def test_constructor_violation(
     pre: Alloc,
     scheme: str,
     constructor: Bytecode,
-    exception: MempoolException,
     rule: str,
 ) -> None:
     """
@@ -514,9 +485,7 @@ def test_constructor_violation(
         pre=pre,
         tx=tx,
         broadcast=False,
-        exception=exception,
         rules=[rule],
-        mempool_rules=RULE_SET,
     )
 
 
@@ -530,16 +499,17 @@ def test_initcode_reverts(
     owner's entry, so the transaction is invalid.
     """
     _, tx = deploying_transaction(
-        pre, OWNERS[scheme](), constructor=Op.REVERT(0, 0)
+        pre,
+        OWNERS[scheme](),
+        constructor=Op.REVERT(0, 0),
+        error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
 
     mempool_test(
         pre=pre,
         tx=tx,
         broadcast=False,
-        exception=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
         rules=[MempoolRule.DEPLOY_INSTALLS_CODE],
-        mempool_rules=RULE_SET,
     )
 
 
@@ -566,10 +536,10 @@ def test_deploy_frame_shape(
     sender = account_address(factory, initcode)
     pre.fund_address(sender, SENDER_BALANCE)
     deploy = deploy_frame(factory, deployment_data(initcode))
-    exception: MempoolException | TransactionException
+    error: TransactionException | None
     if shape == "two_deploy_frames":
         frames = [deploy, deploy.model_copy(), self_verify_frame()]
-        exception = MempoolException.FRAME_PREFIX_NOT_RECOGNIZED
+        error = None
     elif shape == "deploy_flags":
         frames = [
             deploy_frame(
@@ -579,7 +549,7 @@ def test_deploy_frame_shape(
             ),
             self_verify_frame(),
         ]
-        exception = MempoolException.FRAME_PREFIX_NOT_RECOGNIZED
+        error = None
     elif shape == "deploy_in_verify_mode":
         # A `VERIFY` frame cannot create, and the factory never approves.
         frames = [
@@ -590,25 +560,26 @@ def test_deploy_frame_shape(
             ),
             self_verify_frame(),
         ]
-        exception = TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+        error = TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
     elif shape == "deploy_after_verify":
         # The sender has no code yet, so its default code rejects the
         # owner's entry.
         frames = [self_verify_frame(), deploy]
-        exception = TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+        error = TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
     else:
         raise ValueError(f"unknown shape: {shape}")
     tx = owner_transaction(
-        sender=sender, owner=owner, frames=frames + [user_op(pre)]
+        sender=sender,
+        owner=owner,
+        frames=frames + [user_op(pre)],
+        error=error,
     )
 
     mempool_test(
         pre=pre,
         tx=tx,
         broadcast=False,
-        exception=exception,
         rules=[MempoolRule.PREFIX_SHAPE],
-        mempool_rules=RULE_SET,
     )
 
 
@@ -633,11 +604,5 @@ def test_arbitrary_wallet_gas_read(
         pre=pre,
         tx=tx,
         broadcast=not gas_read,
-        exception=(
-            MempoolException.FRAME_VALIDATION_BANNED_OPCODE
-            if gas_read
-            else None
-        ),
         rules=[MempoolRule.BANNED_OPCODE],
-        mempool_rules=RULE_SET,
     )

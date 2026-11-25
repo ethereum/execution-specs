@@ -2,6 +2,7 @@
 
 from pprint import pprint
 from typing import (
+    Any,
     Callable,
     ClassVar,
     Dict,
@@ -15,10 +16,7 @@ from typing import (
 from pydantic import Field
 
 from execution_testing.client_clis import TransitionTool
-from execution_testing.exceptions import (
-    MempoolException,
-    TransactionException,
-)
+from execution_testing.exceptions.exceptions.base import to_pipe_str
 from execution_testing.execution import LabeledExecuteFormat
 from execution_testing.fixtures import FixtureFormat, LabeledFixtureFormat
 from execution_testing.fixtures.common import FixtureBlobSchedule
@@ -39,14 +37,6 @@ from .helpers import verify_transactions
 HEAD_BLOCK_TIME = 12
 """Seconds between the head block and the next block."""
 
-CONSENSUS_EXCEPTION_OF: Dict[MempoolException, TransactionException] = {
-    MempoolException.NONCE_GAP: TransactionException.NONCE_MISMATCH_TOO_HIGH,
-}
-"""
-Mempool rejections whose transaction is also invalid for the next block,
-with the exception the specification raises for it.
-"""
-
 
 class MempoolTest(BaseTest):
     """
@@ -58,18 +48,21 @@ class MempoolTest(BaseTest):
     """Environment of the next block, which the head is derived from."""
     pre: Alloc
     tx: Transaction
+    """
+    Transaction under test. Its `error` is the exception the specification
+    raises for it in the next block, if any.
+    """
     broadcast: bool
-    exception: (
-        List[MempoolException] | TransactionException | MempoolException | None
-    ) = None
-    """
-    Why the pool refuses the transaction. A list names every rule the
-    transaction breaks, when a pool may report any of them.
-    """
     rules: List[str] = Field(default_factory=list)
-    """IDs of the admission rules the test exercises."""
-    mempool_rules: Dict[str, str] | None = None
-    """Admission rule set versions the expectation assumes."""
+    """
+    IDs of the admission rules the test exercises. For a transaction that
+    only the mempool refuses, the rules it breaks.
+    """
+    mempool_ruleset: str | None = None
+    """
+    Versioned name of the admission rule set the expectation assumes,
+    taken from the `mempool_ruleset` pytest fixture unless given.
+    """
     chain_id: int = Field(
         default_factory=lambda: ChainConfigDefaults.chain_id,
         validate_default=True,
@@ -91,35 +84,21 @@ class MempoolTest(BaseTest):
         del fixture_format
         return fork.transitions_from().pre_allocation()
 
-    def consensus_exception(self) -> TransactionException | None:
-        """
-        Return the exception the specification must raise for the
-        transaction in the next block, or `None` if it must accept it.
-        """
-        if self.exception is None:
-            return None
-        if isinstance(self.exception, TransactionException):
-            return self.exception
-        if isinstance(self.exception, list):
-            assert not any(
-                exception in CONSENSUS_EXCEPTION_OF
-                for exception in self.exception
-            ), "a list of rejections only names mempool rules"
-            return None
-        return CONSENSUS_EXCEPTION_OF.get(self.exception)
-
     def expectation_source(self) -> str:
         """Return where the expected outcome comes from."""
-        if self.exception is None or isinstance(
-            self.exception, TransactionException
-        ):
+        if self.broadcast or self.tx.error is not None:
             return "specification"
-        if (
-            not isinstance(self.exception, list)
-            and self.exception in CONSENSUS_EXCEPTION_OF
-        ):
-            return "framework"
         return "author"
+
+    def info(self) -> Dict[str, Any]:
+        """Return the informative fields of the fixture's `_info`."""
+        info: Dict[str, Any] = {
+            "expectationSource": self.expectation_source(),
+            "rules": self.rules,
+        }
+        if self.tx.error is not None:
+            info["exception"] = to_pipe_str(self.tx.error)
+        return info
 
     def head(self, fork: Fork, env: Environment) -> FixtureHead:
         """
@@ -166,13 +145,16 @@ class MempoolTest(BaseTest):
 
     def make_mempool_test_fixture(self, t8n: TransitionTool) -> FillResult:
         """Create a fixture from the mempool test definition."""
-        assert self.broadcast == (self.exception is None), (
-            "a transaction is broadcast exactly when it has no exception"
-        )
-        assert self.tx.error is None, (
-            "set the expected rejection on the mempool test, not the "
-            "transaction"
-        )
+        assert self.mempool_ruleset, "no `mempool_ruleset` fixture is defined"
+        if self.broadcast:
+            assert self.tx.error is None, (
+                "a broadcast transaction must be valid for the next block"
+            )
+        else:
+            assert self.tx.error is not None or self.rules, (
+                "a valid transaction that is not broadcast must name the "
+                "rules it breaks"
+            )
         fork = self.fork.fork_at(
             block_number=self.env.number, timestamp=self.env.timestamp
         )
@@ -190,18 +172,12 @@ class MempoolTest(BaseTest):
             self.pre, fork=self.fork, fixture_format=MempoolFixture
         )
 
-        # The specification decides whether the transaction is valid for
-        # the next block. An admitted transaction, and one the mempool
-        # refuses although it is valid, must both be valid.
-        # `Transaction.copy` rebuilds a frame transaction unsigned, so the
-        # signed transaction is copied as is.
-        checked_tx = tx.model_copy(
-            update={"error": self.consensus_exception()}
-        )
+        # The specification must raise the transaction's `error`, and
+        # accept it when there is none.
         transition_tool_output = t8n.evaluate(
             transition_tool_data=TransitionTool.TransitionToolData(
                 alloc=pre_alloc,
-                txs=[checked_tx],
+                txs=[tx],
                 env=env,
                 fork=fork,
                 chain_id=self.chain_id,
@@ -212,7 +188,7 @@ class MempoolTest(BaseTest):
         )
         try:
             verify_transactions(
-                txs=[checked_tx],
+                txs=[tx],
                 result=transition_tool_output.result,
                 transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
             )
@@ -239,14 +215,8 @@ class MempoolTest(BaseTest):
             pre=pre_alloc,
             transaction=tx.rlp(),
             broadcast=self.broadcast,
-            exception=self.exception,
-            mempool_rules=self.mempool_rules,
-            info={
-                "mempool": {
-                    "expectationSource": self.expectation_source(),
-                    "rules": self.rules,
-                },
-            },
+            mempool_ruleset=self.mempool_ruleset,
+            info={"mempool": self.info()},
         )
         return FillResult(
             fixture=fixture,

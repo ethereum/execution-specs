@@ -8,7 +8,6 @@ from .exceptions_types import (
     ExceptionInstanceOrList,
     TransactionExceptionInstanceOrList,
 )
-from .mempool import MempoolException
 from .transaction import TransactionException
 
 __all__ = [
@@ -18,7 +17,6 @@ __all__ = [
     "to_pipe_str",
     "TransactionException",
     "BlockException",
-    "MempoolException",
     "ExceptionInstanceOrList",
     "TransactionExceptionInstanceOrList",
     "BlockExceptionInstanceOrList",

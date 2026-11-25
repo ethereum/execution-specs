@@ -25,6 +25,7 @@ from execution_testing import (
     Op,
     P256Signer,
     Transaction,
+    TransactionException,
     compute_create2_address,
 )
 
@@ -234,11 +235,13 @@ def owner_transaction(
     frames: List[Frame],
     other_signatures: Optional[List[FrameSignature | EOA]] = None,
     nonce: int = 0,
+    error: TransactionException | None = None,
 ) -> Transaction:
     """Return the transaction from `sender`, the owner's entry first."""
     return Transaction(
         sender=sender,
         nonce=nonce,
+        error=error,
         frames=frames,
         signatures=[owner.entry(), *(other_signatures or [])],
     )
