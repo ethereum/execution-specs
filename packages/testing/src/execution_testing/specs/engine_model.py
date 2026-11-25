@@ -221,6 +221,16 @@ class ClientModel:
     update has replaced since, in any outcome of the steps so far. While the
     peer serves it, the client may make it its head at any moment.
     """
+    served_diverged: Optional[str] = None
+    """
+    The step whose outcomes leave the peer serving different chains; an
+    ``awaitHead`` that depends on it is rejected.
+    """
+    pending_diverged: Optional[str] = None
+    """
+    The step whose outcomes leave different pending ``forkchoiceUpdated``
+    calls; an ``awaitHead`` that depends on it is rejected.
+    """
 
     def __post_init__(self) -> None:
         """Genesis is always known and valid."""
@@ -241,6 +251,7 @@ class ClientModel:
                 "the fixture holds no payload the peer could serve for it"
             )
         self.served = head
+        self.served_diverged = None
         self.servable.update(self.dag.ancestors(head))
 
     def await_head(self, head: str) -> None:
@@ -248,6 +259,12 @@ class ClientModel:
         Record that the client synced ``head`` from the peer and made it its
         head, as the ``forkchoiceUpdated`` it answered SYNCING asked.
         """
+        for reason in (self.served_diverged, self.pending_diverged):
+            if reason is not None:
+                raise ValueError(
+                    f"{reason}; awaitHead({head!r}) depends on which "
+                    "occurred: move it into each branch"
+                )
         if self.served is None or head not in self.dag.ancestors(self.served):
             raise ValueError(
                 f"awaitHead({head!r}): the peer does not serve it"
@@ -632,12 +649,14 @@ class ClientModel:
                 self.build = (step.head, attrs)
         if outcome.status == PayloadStatusEnum.SYNCING:
             self.pending = (step.head, step.safe, step.finalized)
+            self.pending_diverged = None
             self.announced = {step.head}
         elif applied:
             self.head = step.head
             self.safe = step.safe
             self.finalized = step.finalized
             self.pending = None
+            self.pending_diverged = None
             self.announced = set()
 
     def head_assertion(self) -> AssertHeadStep:
@@ -780,6 +799,28 @@ def _continue(
     elif any(m.build != model.build for _, m in branches[1:]):
         model.build_diverged = (
             f"{where}: outcomes {ids} leave different payload builds"
+        )
+    # Whatever any outcome lets the peer serve or the client sync can make a
+    # later generated outcome wrong, so those sets are joined. An awaitHead
+    # needs every outcome to agree on the served chain and the pending
+    # update.
+    for _, other in branches[1:]:
+        model.servable |= other.servable
+        model.announced |= other.announced
+    reasons = [m.served_diverged for _, m in branches if m.served_diverged]
+    if reasons:
+        model.served_diverged = reasons[0]
+    elif any(m.served != model.served for _, m in branches[1:]):
+        model.served_diverged = (
+            f"{where}: outcomes {ids} leave the peer serving different chains"
+        )
+    reasons = [m.pending_diverged for _, m in branches if m.pending_diverged]
+    if reasons:
+        model.pending_diverged = reasons[0]
+    elif any(m.pending != model.pending for _, m in branches[1:]):
+        model.pending_diverged = (
+            f"{where}: outcomes {ids} leave different pending "
+            "forkchoiceUpdated calls"
         )
 
 

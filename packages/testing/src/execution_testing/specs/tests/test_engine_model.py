@@ -565,6 +565,63 @@ def test_authored_outcomes_are_accepted_during_a_sync() -> None:
     assert model.head == "a3"
 
 
+def test_serve_peer_in_any_outcome_branch_reaches_later_steps() -> None:
+    """
+    The peer may serve a chain after any outcome, so a later generated
+    SYNCING for a block of that chain is refused whichever branch has the
+    ``servePeer``.
+    """
+    dag = make_dag({"a1": "genesis", "c1": "genesis", "c2": "c1"})
+    for branch in ("valid", "accepted"):
+        steps: List[Step] = [
+            NewPayloadStep(
+                block="a1",
+                expect=[
+                    Outcome(id="valid", status="VALID"),
+                    Outcome(id="accepted", status="ACCEPTED"),
+                ],
+                branches={branch: [ServePeerStep(head="c2")]},
+            ),
+            NewPayloadStep(block="c2"),
+        ]
+        with pytest.raises(ValueError, match="the peer serves 'c1'"):
+            annotate_steps(steps, ClientModel(dag=dag), Cancun)
+
+
+@pytest.mark.parametrize(
+    "outcome_ids", [["syncing", "refused"], ["refused", "syncing"]]
+)
+@pytest.mark.parametrize(
+    "step,match",
+    [
+        (AssertHeadStep(latest="genesis"), "at any moment"),
+        (AwaitHeadStep(latest="a3"), "different pending"),
+    ],
+    ids=["assert_head", "await_head"],
+)
+def test_outcomes_that_disagree_on_a_pending_sync(
+    outcome_ids: List[str], step: Step, match: str
+) -> None:
+    """
+    When only one outcome leaves a sync pending, the client may still be
+    syncing, and ``awaitHead`` cannot rely on it.
+    """
+    outcomes = {
+        "syncing": Outcome(id="syncing", status="SYNCING"),
+        "refused": Outcome(id="refused", any_error=True),
+    }
+    steps: List[Step] = [
+        NewPayloadStep(block="a3"),
+        ForkchoiceUpdatedStep(
+            head="a3", expect=[outcomes[oid] for oid in outcome_ids]
+        ),
+        ServePeerStep(head="a3"),
+        step,
+    ]
+    with pytest.raises(ValueError, match=match):
+        annotate_steps(steps, ClientModel(dag=dag_linear_with_fork()), Cancun)
+
+
 def test_serve_peer_refuses_a_payload_the_client_built() -> None:
     """The fixture holds no payload for a ``getPayload`` label to serve."""
     model = ClientModel(dag=dag_linear_with_fork())
