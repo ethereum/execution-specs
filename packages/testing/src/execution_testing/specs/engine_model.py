@@ -215,6 +215,12 @@ class ClientModel:
     SYNCING; the client makes that head its head once it has synced the
     chain.
     """
+    announced: Set[str] = field(default_factory=set)
+    """
+    Head of the last ``forkchoiceUpdated`` answered SYNCING that no applied
+    update has replaced since, in any outcome of the steps so far. While the
+    peer serves it, the client may make it its head at any moment.
+    """
 
     def __post_init__(self) -> None:
         """Genesis is always known and valid."""
@@ -261,6 +267,15 @@ class ClientModel:
             self.syncing.discard(label)
         self.head = head
         self.pending = None
+        self.announced = set()
+
+    def sync_may_finish(self) -> Optional[str]:
+        """
+        A head the client may make its head at any moment, because a
+        ``forkchoiceUpdated`` to it was answered SYNCING and the peer serves
+        it; ``None`` if there is none.
+        """
+        return next(iter(sorted(self.announced & self.servable)), None)
 
     def _unknown_ancestors(self, label: str, where: str) -> List[Outcome]:
         """
@@ -617,11 +632,13 @@ class ClientModel:
                 self.build = (step.head, attrs)
         if outcome.status == PayloadStatusEnum.SYNCING:
             self.pending = (step.head, step.safe, step.finalized)
+            self.announced = {step.head}
         elif applied:
             self.head = step.head
             self.safe = step.safe
             self.finalized = step.finalized
             self.pending = None
+            self.announced = set()
 
     def head_assertion(self) -> AssertHeadStep:
         """``assertHead`` for the current model state."""
@@ -643,6 +660,7 @@ class ClientModel:
             diverged=dict(self.diverged),
             syncing=set(self.syncing),
             servable=set(self.servable),
+            announced=set(self.announced),
         )
 
 
@@ -691,6 +709,29 @@ def _reject_duplicate_outcome_ids(step: OutcomeStep, where: str) -> None:
     )
     if duplicates:
         raise ValueError(f"{where}: repeated outcome id(s) {duplicates}")
+
+
+def _refuse_during_sync(step: Step, model: ClientModel) -> None:
+    """
+    Refuse a step whose result depends on whether the client has finished
+    a sync from the peer.
+
+    Between ``servePeer`` and ``awaitHead`` the client may make the synced
+    block its head at any moment, so only steps that do not rely on the
+    model's head are accepted: ``servePeer``, ``awaitHead``, and a
+    ``newPayload`` or ``forkchoiceUpdated`` whose ``expect`` is authored.
+    """
+    head = model.sync_may_finish()
+    if head is None or isinstance(step, (ServePeerStep, AwaitHeadStep)):
+        return
+    if isinstance(step, OutcomeStep) and step.expect:
+        return
+    raise ValueError(
+        f"{step.type}: the peer serves {head!r} and a forkchoiceUpdated to "
+        "it was answered SYNCING, so the client may make it its head at any "
+        "moment; before awaitHead only servePeer, and a newPayload or "
+        "forkchoiceUpdated with an authored expect, are accepted"
+    )
 
 
 def _state_class(model: ClientModel, label: str) -> Optional[Validity]:
@@ -917,6 +958,7 @@ def annotate_steps(
     """
     for i, step in enumerate(steps):
         has_continuation = i + 1 < len(steps) or more_follow
+        _refuse_during_sync(step, model)
         if isinstance(step, NewPayloadStep):
             if not step.expect:
                 step.expect = model.new_payload_outcomes(step.block)
@@ -964,7 +1006,10 @@ def annotate_steps(
                 branch_model = model.copy()
                 branch_model.apply_forkchoice(step, outcome)
                 branch = step.branches.setdefault(outcome.id, [])
-                if outcome.status != PayloadStatusEnum.SYNCING:
+                if (
+                    outcome.status != PayloadStatusEnum.SYNCING
+                    and branch_model.sync_may_finish() is None
+                ):
                     branch.insert(0, branch_model.head_assertion())
                 annotate_steps(branch, branch_model, fork, has_continuation)
                 branches.append((outcome.id, branch_model))
