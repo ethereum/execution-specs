@@ -169,6 +169,8 @@ class StepRunner:
         Head label -> the last ``forkchoiceUpdated`` to it answered SYNCING,
         which ``awaitHead`` sends again.
         """
+        self.reannounce_error: int | None = None
+        """Error code of the last re-announcement answered with one."""
         self.matched: List[str] = []
         """Log of ``<step>:<outcome id>`` selections, for offline analysis."""
 
@@ -809,7 +811,9 @@ class StepRunner:
             ]
         except JSONRPCError as e:
             logger.info(f"{name}: re-announcement answered {e.code}")
+            self.reannounce_error = e.code
             return
+        self.reannounce_error = None
         for status in statuses:
             if status.status in (
                 PayloadStatusEnum.INVALID,
@@ -824,15 +828,22 @@ class StepRunner:
     def peer_report(self) -> str:
         """State of the peer connection and its transcript, for messages."""
         peer = self.peer
+        refused = (
+            ""
+            if self.reannounce_error is None
+            else "The last re-announcement was answered with error "
+            f"{self.reannounce_error}. "
+        )
         if peer is None:
-            return "No peer was dialed."
+            return f"{refused}No peer was dialed."
         state = (
             "is connected"
             if peer.alive
             else f"was dropped (Disconnect reason {peer.disconnect_reason})"
         )
         return (
-            f"The peer {state}. Peer transcript: {peer.statistics.transcript}"
+            f"{refused}The peer {state}. Peer transcript: "
+            f"{peer.statistics.transcript}"
         )
 
 

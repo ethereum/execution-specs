@@ -603,6 +603,32 @@ def test_await_head_redials_a_dropped_peer_and_reports_it_on_timeout(
     assert peer.reconnect.call_count == 2
 
 
+def test_await_head_reports_a_refused_announcement_on_timeout(
+    make_runner: MakeRunner,
+) -> None:
+    """
+    An error code answered to the re-announcement does not end the wait,
+    but the timeout message names it.
+    """
+    step_runner, engine, _ = awaiting(make_runner, polls=5)
+    engine.forkchoice_updated.side_effect = JSONRPCError(
+        -38002, "Invalid forkchoice state"
+    )
+
+    def timeout_after_an_announcement() -> float:
+        if engine.forkchoice_updated.call_count < 1:
+            return 0.0
+        return reorg_logic.SYNC_TIMEOUT
+
+    clock = MagicMock(monotonic=timeout_after_an_announcement)
+    with (
+        patch.object(reorg_logic, "time", clock),
+        patch.object(reorg_logic, "FIRST_REANNOUNCE_DELAY", 0),
+        pytest.raises(LoggedError, match="answered with error -38002"),
+    ):
+        step_runner.await_head("await", AwaitHeadStep(latest="a2"))
+
+
 def test_await_head_needs_a_forkchoice_update_to_the_head(
     make_runner: MakeRunner,
 ) -> None:
