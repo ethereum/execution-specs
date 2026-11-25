@@ -18,9 +18,12 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Fork,
+    Frame,
+    FrameOutcome,
     Initcode,
     Op,
     StateTestFiller,
+    Transaction,
     TransactionException,
     compute_create_address,
 )
@@ -29,14 +32,6 @@ from execution_testing import (
 )
 
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
-from tests.bogota.eip8141_frame_transactions.helpers import (
-    FrameCase,
-    FrameTransaction,
-    Outcome,
-    default_frame,
-    sender_frame,
-    verify_frame,
-)
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
 
 from .spec import ref_spec_4758
@@ -72,14 +67,12 @@ def deploy_factory(
     return factory, compute_create_address(address=factory, nonce=1)
 
 
-def factory_frame(
-    fork: Fork, child_code: Bytecode, **overrides: Any
-) -> FrameCase:
+def factory_frame(fork: Fork, child_code: Bytecode, **overrides: Any) -> Frame:
     """
     Return a `SENDER` frame running a factory, which pays the child's
     creation from its state budget.
     """
-    return sender_frame(
+    return Frame.sender(
         # The initcode's execution is not priced by the factory code.
         pin_gas=False,
         state_gas_used=fork.create_state_gas(code_size=len(child_code)),
@@ -90,15 +83,15 @@ def factory_frame(
 @pytest.mark.parametrize(
     "frame",
     [
-        pytest.param(default_frame, id="default_frame"),
-        pytest.param(sender_frame, id="sender_frame"),
+        pytest.param(Frame.default, id="default_frame"),
+        pytest.param(Frame.sender, id="sender_frame"),
     ],
 )
 def test_sendall_in_frame(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    frame: Callable[..., FrameCase],
+    frame: Callable[..., Frame],
 ) -> None:
     """
     Sweep a contract from a frame: the balance moves to the beneficiary
@@ -111,18 +104,17 @@ def test_sendall_in_frame(
         code=victim_code, storage={0: 1}, balance=VICTIM_BALANCE
     )
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=pre.fund_eoa(),
         frames=[
-            verify_frame(),
+            Frame.verify(),
             frame(
                 target=victim,
                 code=victim_code,
                 logs=[transfer_log(victim, beneficiary, VICTIM_BALANCE)],
             ),
         ],
-    )
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -152,15 +144,14 @@ def test_sendall_in_verify_frame(
         code=Op.SELFDESTRUCT(beneficiary), balance=VICTIM_BALANCE
     )
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            verify_frame(target=victim, flags=Spec8141.APPROVE_NONE),
+            Frame.verify(),
+            Frame.verify(target=victim, flags=Spec8141.APPROVE_NONE),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
-    )
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -205,16 +196,15 @@ def test_created_account_swept_in_frame_survives(
         frames = [
             factory_frame(fork, child_code, target=factory, logs=[funding]),
             # The creation warmed the child for the frames after it.
-            sender_frame(
+            Frame.sender(
                 target=child, code=child_code, warm=True, logs=[swept]
             ),
         ]
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=pre.fund_eoa(),
-        frames=[verify_frame(), *frames],
-    )
+        frames=[Frame.verify(), *frames],
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -246,7 +236,7 @@ def test_sendall_unrolled_with_atomic_batch(
     reverter_code = Op.REVERT(0, 0)
     reverter = pre.deploy_contract(code=reverter_code)
 
-    frames: List[FrameCase] = []
+    frames: List[Frame] = []
     if victim_origin == "pre_existing":
         victim = pre.deploy_contract(code=victim_code, balance=VICTIM_BALANCE)
         victim_post = Account(code=victim_code, balance_change=0)
@@ -265,23 +255,22 @@ def test_sendall_unrolled_with_atomic_batch(
         )
 
     frames += [
-        sender_frame(
+        Frame.sender(
             flags=Spec8141.ATOMIC_BATCH_FLAG,
             target=victim,
             code=victim_code,
             warm=victim_origin != "pre_existing",
-            outcome=Outcome.UNROLLED,
+            outcome=FrameOutcome.UNROLLED,
         ),
-        sender_frame(
-            target=reverter, code=reverter_code, outcome=Outcome.REVERT
+        Frame.sender(
+            target=reverter, code=reverter_code, outcome=FrameOutcome.REVERT
         ),
     ]
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=pre.fund_eoa(),
-        frames=[verify_frame(), *frames],
-    )
+        frames=[Frame.verify(), *frames],
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
@@ -314,16 +303,15 @@ def test_sendall_to_new_account_draws_frame_state_gas(
     victim = pre.deploy_contract(code=victim_code, balance=VICTIM_BALANCE)
     swept = state_gas_limit_delta >= 0
 
-    tx = FrameTransaction.build(
-        fork=fork,
+    tx = Transaction(
         sender=pre.fund_eoa(),
         frames=[
-            verify_frame(),
-            sender_frame(
+            Frame.verify(),
+            Frame.sender(
                 target=victim,
                 code=victim_code,
                 state_gas_limit_delta=state_gas_limit_delta,
-                outcome=Outcome.SUCCESS if swept else Outcome.HALT,
+                outcome=FrameOutcome.SUCCESS if swept else FrameOutcome.HALT,
                 logs=(
                     [transfer_log(victim, beneficiary, VICTIM_BALANCE)]
                     if swept
@@ -331,7 +319,7 @@ def test_sendall_to_new_account_draws_frame_state_gas(
                 ),
             ),
         ],
-    )
+    ).resolve_frames(fork)
 
     state_test(
         pre=pre,
