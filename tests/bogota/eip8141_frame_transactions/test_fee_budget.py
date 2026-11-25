@@ -16,6 +16,8 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Bytes,
+    Conditional,
     Environment,
     Fork,
     Frame,
@@ -30,9 +32,13 @@ from execution_testing import (
 
 from ...cancun.eip4844_blobs.spec import SpecHelpers as BlobSpecHelpers
 from .helpers import (
+    APPROVE_ALL,
     BASE_FEE,
+    CURRENT_FRAME_INDEX,
     PRIORITY_FEE,
+    created_address,
     fee_budget,
+    frame_data_create_code,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -408,4 +414,84 @@ def test_gasprice(
         pre=pre,
         tx=tx,
         post={probe: Account(storage={0: gas_price})},
+    )
+
+
+@pytest.mark.with_all_create_opcodes
+def test_gasprice_is_the_same_in_every_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Test that `GASPRICE` returns `base_fee_per_gas + max_priority_fee //
+    max_gas` in a `VERIFY`, a `SENDER` and a `DEFAULT` frame, in a call
+    nested in a frame and in initcode a frame creates.
+    """
+    # The budget pays half the full tip, so `GASPRICE` is neither the
+    # base fee nor the base fee plus `max_priority_fee_per_gas`.
+    half_tip_per_gas = PRIORITY_FEE // 2
+    gas_price = BASE_FEE + half_tip_per_gas
+    record = Op.SSTORE(CURRENT_FRAME_INDEX, Op.GASPRICE) + Op.STOP
+    recorder = pre.deploy_contract(code=record)
+    caller = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=Op.GAS, address=recorder)) + Op.STOP
+    )
+    factory_code = frame_data_create_code(create_opcode, record)
+    factory = pre.deploy_contract(code=factory_code)
+    created = created_address(factory, create_opcode, record)
+    # A `VERIFY` frame cannot write storage, so the sender approves only
+    # if it reads the expected value.
+    sender_code = Conditional(
+        condition=Op.EQ(Op.GASPRICE, gas_price),
+        if_true=APPROVE_ALL,
+        if_false=Op.REVERT(0, 0),
+    )
+    sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
+
+    slot_gas = record.state_cost(fork)
+    frame_gas = 200_000
+    frames = [
+        Frame.verify(pin_gas=False),
+        Frame.sender(target=recorder, pin_gas=False, state_gas_used=slot_gas),
+        Frame.default(target=recorder, pin_gas=False, state_gas_used=slot_gas),
+        Frame.default(
+            target=caller,
+            gas_limit=frame_gas,
+            pin_gas=False,
+            state_gas_used=slot_gas,
+        ),
+        Frame.default(
+            target=factory,
+            data=Bytes(bytes(record)),
+            gas_limit=frame_gas,
+            pin_gas=False,
+            # The creation's new account and the initcode's write.
+            state_gas_used=factory_code.state_cost(fork) + slot_gas,
+        ),
+    ]
+    fees = fee_budget(fork, sender, frames)
+    max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
+    max_fee = required_max_fee + PRIORITY_FEE * max_gas // 2
+
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        max_fee=max_fee,
+        max_priority_fee_per_gas=PRIORITY_FEE,
+        frames=frames,
+    ).resolve_frames(fork)
+
+    state_test(
+        env=Environment(base_fee_per_gas=BASE_FEE),
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce_change=1),
+            recorder: Account(
+                storage={1: gas_price, 2: gas_price, 3: gas_price}
+            ),
+            created: Account(storage={4: gas_price}),
+        },
     )
