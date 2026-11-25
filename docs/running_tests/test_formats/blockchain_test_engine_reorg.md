@@ -84,7 +84,7 @@ A step is one of the variants below, distinguished by its `type` field. Every va
 
 #### - `type`: `String`
 
-One of `newPayload`,`forkchoiceUpdated`,`getPayload`,`assertHead`,`assertCanonical`,`assertState`,`assertReceipt`,`assertLogs`,`sendRawTransaction`,`assertTxStatus`.
+One of `newPayload`,`forkchoiceUpdated`,`getPayload`,`assertHead`,`assertCanonical`,`assertState`,`assertReceipt`,`assertLogs`,`sendRawTransaction`,`assertTxStatus`,`servePeer`,`awaitHead`.
 
 #### - `description`: [`Optional`](./common_types.md#optional)`[String]`
 
@@ -149,6 +149,18 @@ The wait before `engine_getPayloadVX` is the consumer's `--get-payload-wait-time
 - `tx`: [`TxRef`](#txref).
 - `expect`: [`List`](./common_types.md#list)`[String]` — non-empty subset of `["included", "pending", "dropped"]`, preferred first. The consumer polls `eth_getTransactionByHash` until the status is the first listed one; once its deadline passes, any listed status is accepted.
 - `includedIn`: [`Optional`](./common_types.md#optional)`[String]` — required block label when `included` matches.
+
+#### `servePeer`
+
+- `head`: `String` — label of the block whose chain, from genesis, a devp2p peer serves to the client; the consumer dials the peer into the client on the first `servePeer` step. A later `servePeer` switches the served chain, and the peer still answers requests by hash for earlier ones. A client may download a block's missing ancestors from the peer within a `newPayload` or `forkchoiceUpdated` call, so a head is announced before `servePeer`.
+
+#### `awaitHead`
+
+- `latest`: `String` — label of the block the client must sync from the peer and make its head, after a `forkchoiceUpdated` to it answered `SYNCING`. That update keeps safe and finalized, which a client may apply with the head or only on a later update. The consumer polls `eth_getBlockByNumber("latest")` for up to 60 seconds. It sends the `newPayload` of that block and that `forkchoiceUpdated` again after 0.5 seconds and then every 3 seconds, redialing the peer first if the client dropped it. An `INVALID` answer to either fails the step at once.
+
+The Engine API never requires a client to sync: `paris.md` only says a client MAY start one. `awaitHead` is therefore a liveness expectation beyond the specification, and a failure means the client did not reach the head in time while the update was repeated, not that it violated the Engine API.
+
+Between `servePeer` and `awaitHead` the client may make the synced block its head at any moment. The filler therefore accepts only `servePeer`, and a `newPayload` or `forkchoiceUpdated` with an authored `expect`, between the two.
 
 ### `Outcome`
 

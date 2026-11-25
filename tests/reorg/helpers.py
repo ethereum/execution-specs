@@ -4,6 +4,7 @@ from typing import List, Tuple
 
 from execution_testing import Address, Alloc, EngineAPIError, Hash, Transaction
 from execution_testing.fixtures.reorg import (
+    ZERO_LABEL,
     ForkchoiceUpdatedStep,
     NewPayloadStep,
     Outcome,
@@ -75,13 +76,14 @@ def chain(
     recipient: Address | None = None,
     with_fcu: bool = True,
     txs_per_block: int = 1,
+    finalized: str = ZERO_LABEL,
 ) -> Tuple[List[ReorgBlock], List[Step]]:
     """
     ``length`` blocks ``{prefix}{start}..`` on ``parent``, each with
     ``txs_per_block`` value transfers from a fresh sender (nonces independent
     per chain) to ``recipient`` (a fresh empty account if unset), plus the
     newPayload steps and, ``with_fcu``, the forkchoiceUpdated steps that make
-    the last block the head.
+    the last block the head, with safe and finalized at ``finalized``.
     """
     sender = pre.fund_eoa()
     if recipient is None:
@@ -107,5 +109,9 @@ def chain(
         )
         steps.append(NewPayloadStep(block=label))
         if with_fcu:
-            steps.append(ForkchoiceUpdatedStep(head=label))
+            steps.append(
+                ForkchoiceUpdatedStep(
+                    head=label, safe=finalized, finalized=finalized
+                )
+            )
     return blocks, steps

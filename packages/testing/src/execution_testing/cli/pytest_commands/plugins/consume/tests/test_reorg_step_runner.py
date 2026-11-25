@@ -3,24 +3,27 @@
 import hashlib
 import logging
 from typing import Callable, List, Sequence
-from unittest.mock import MagicMock, patch
+from unittest.mock import DEFAULT, MagicMock, patch
 
 import pytest
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.client_clis import TransitionTool
+from execution_testing.devp2p.rlpx import RLPxError
 from execution_testing.fixtures.blockchain import PayloadStatusEnum
 from execution_testing.fixtures.reorg import (
     AssertLogsStep,
     AssertReceiptStep,
     AssertStateStep,
     AssertTxStatusStep,
+    AwaitHeadStep,
     BlockchainEngineReorgFixture,
     ForkchoiceUpdatedStep,
     GetPayloadStep,
     Outcome,
     PayloadAttributes,
     SendRawTransactionStep,
+    ServePeerStep,
     TxRef,
 )
 from execution_testing.forks import Cancun
@@ -421,6 +424,251 @@ def test_assert_tx_status_retries_within_its_own_deadline(
         step_runner.assert_tx_status("status", step)
     # One lookup per interval from the start up to and including the deadline.
     assert eth.get_transaction_by_hash.call_count == timeout / interval + 1
+
+
+def awaiting(
+    make_runner: MakeRunner, polls: int = 2
+) -> tuple[StepRunner, MagicMock, MagicMock]:
+    """
+    A runner on a1..a2 whose client reports genesis for ``polls`` polls and
+    then a2, with a ``forkchoiceUpdated`` sent to a2 and a later one to a1.
+    """
+    eth = MagicMock()
+    engine = MagicMock()
+    step_runner = make_runner(labels=("a1", "a2"), eth=eth, engine=engine)
+    behind = {"hash": step_runner.resolve("genesis")}
+    synced = {"hash": step_runner.resolve("a2")}
+    eth.get_block_by_number.side_effect = [behind] * polls + [synced]
+    awaited = MagicMock()
+    step_runner.forkchoice_sent = {"a2": (awaited, 3), "a1": (MagicMock(), 3)}
+    return step_runner, engine, awaited
+
+
+def test_await_head_announces_the_awaited_head_until_it_is_synced(
+    make_runner: MakeRunner,
+) -> None:
+    """
+    While ``latest`` is another block, the newPayload of the awaited head and
+    the forkchoiceUpdated sent to it are sent again, whatever was sent
+    since; the step passes once ``latest`` is the awaited head.
+    """
+    step_runner, engine, awaited = awaiting(make_runner)
+    params, version = step_runner._new_payload_params("a2")
+    with (
+        patch.object(reorg_logic, "FIRST_REANNOUNCE_DELAY", 0),
+        patch.object(reorg_logic, "REANNOUNCE_INTERVAL", 0),
+        patch.object(reorg_logic, "SYNC_POLL_INTERVAL", 0),
+    ):
+        step_runner.await_head("await", AwaitHeadStep(latest="a2"))
+    assert engine.new_payload.call_count == 2
+    engine.new_payload.assert_called_with(*params, version=version)
+    assert engine.forkchoice_updated.call_count == 2
+    engine.forkchoice_updated.assert_called_with(
+        forkchoice_state=awaited, payload_attributes=None, version=3
+    )
+
+
+def test_await_head_announces_the_update_answered_syncing(
+    make_runner: MakeRunner,
+) -> None:
+    """
+    A later forkchoiceUpdated to the awaited head that errors is not the one
+    announced again.
+    """
+    eth = MagicMock()
+    engine = MagicMock()
+    step_runner = make_runner(labels=("a1", "a2"), eth=eth, engine=engine)
+    syncing = MagicMock()
+    syncing.payload_status.status = PayloadStatusEnum.SYNCING
+    syncing.payload_status.latest_valid_hash = None
+    syncing.payload_status.validation_error = None
+    syncing.payload_id = None
+    engine.forkchoice_updated.side_effect = [
+        syncing,
+        JSONRPCError(-38002, "Invalid forkchoice state"),
+        syncing,
+    ]
+    for safe, outcome in (
+        ("zero", Outcome(id="syncing", status="SYNCING")),
+        ("a1", Outcome(id="refused", error_code=-38002)),
+    ):
+        step = ForkchoiceUpdatedStep(
+            head="a2", safe=safe, version=3, expect=[outcome]
+        )
+        step_runner.forkchoice_updated("fcu", step, 0)
+    eth.get_block_by_number.side_effect = [
+        {"hash": step_runner.resolve("genesis")},
+        {"hash": step_runner.resolve("a2")},
+    ]
+    with (
+        patch.object(reorg_logic, "FIRST_REANNOUNCE_DELAY", 0),
+        patch.object(reorg_logic, "SYNC_POLL_INTERVAL", 0),
+    ):
+        step_runner.await_head("await", AwaitHeadStep(latest="a2"))
+    first, _, announced = engine.forkchoice_updated.call_args_list
+    assert (
+        announced.kwargs["forkchoice_state"]
+        == first.kwargs["forkchoice_state"]
+    )
+
+
+def test_await_head_announces_early_once_then_at_the_interval(
+    make_runner: MakeRunner,
+) -> None:
+    """
+    The first announcement comes after ``FIRST_REANNOUNCE_DELAY``, the next
+    ones every ``REANNOUNCE_INTERVAL``.
+    """
+
+    class Clock:
+        """A clock that only moves when the code under test sleeps."""
+
+        now = 0.0
+
+        def monotonic(self) -> float:
+            return self.now
+
+        def sleep(self, seconds: float) -> None:
+            self.now += seconds
+
+    clock = Clock()
+    first = reorg_logic.FIRST_REANNOUNCE_DELAY
+    interval = reorg_logic.REANNOUNCE_INTERVAL
+    due = [first + i * interval for i in range(3)]
+    # Every poll until the last announcement is due sees genesis.
+    polls = round(due[-1] / reorg_logic.SYNC_POLL_INTERVAL) + 1
+    step_runner, engine, _ = awaiting(make_runner, polls=polls)
+    announced: List[float] = []
+
+    def announce(*_args: object, **_kwargs: object) -> object:
+        announced.append(clock.now)
+        return DEFAULT
+
+    engine.new_payload.side_effect = announce
+    with patch.object(reorg_logic, "time", clock):
+        step_runner.await_head("await", AwaitHeadStep(latest="a2"))
+    assert announced == due
+
+
+def test_await_head_fails_at_once_when_the_client_rejects_the_head(
+    make_runner: MakeRunner,
+) -> None:
+    """An INVALID answer to an announcement does not wait for the timeout."""
+    step_runner, engine, _ = awaiting(make_runner, polls=5)
+    engine.new_payload.return_value = MagicMock(
+        status=PayloadStatusEnum.INVALID, validation_error="bad block"
+    )
+    step_runner.peer = MagicMock(alive=True)
+    step_runner.peer.statistics.transcript = ["GetBlockHeaders"]
+    with (
+        patch.object(reorg_logic, "FIRST_REANNOUNCE_DELAY", 0),
+        patch.object(reorg_logic, "SYNC_POLL_INTERVAL", 0),
+        pytest.raises(LoggedError, match="rejected a2.*GetBlockHeaders"),
+    ):
+        step_runner.await_head("await", AwaitHeadStep(latest="a2"))
+    assert engine.new_payload.call_count == 1
+
+
+def test_await_head_redials_a_dropped_peer_and_reports_it_on_timeout(
+    make_runner: MakeRunner,
+) -> None:
+    """
+    A peer the client dropped is redialed before each announcement, and the
+    timeout message says so and carries the peer's transcript.
+    """
+    step_runner, _, _ = awaiting(make_runner, polls=5)
+    peer = MagicMock(alive=False, disconnect_reason=4)
+    peer.statistics.transcript = ["eth/69 negotiated"]
+    peer.reconnect.side_effect = OSError("refused")
+    step_runner.peer = peer
+    step_runner.served_chain = MagicMock()
+
+    def timeout_after_two_polls() -> float:
+        if peer.reconnect.call_count < 2:
+            return 0.0
+        return reorg_logic.SYNC_TIMEOUT
+
+    clock = MagicMock(monotonic=timeout_after_two_polls)
+    with (
+        patch.object(reorg_logic, "time", clock),
+        patch.object(reorg_logic, "FIRST_REANNOUNCE_DELAY", 0),
+        patch.object(reorg_logic, "REANNOUNCE_INTERVAL", 0),
+        pytest.raises(
+            LoggedError,
+            match="dropped .Disconnect reason 4.*eth/69 negotiated",
+        ),
+    ):
+        step_runner.await_head("await", AwaitHeadStep(latest="a2"))
+    peer.reconnect.assert_called_with(step_runner.served_chain)
+    assert peer.reconnect.call_count == 2
+
+
+def test_await_head_reports_a_refused_announcement_on_timeout(
+    make_runner: MakeRunner,
+) -> None:
+    """
+    An error code answered to the re-announcement does not end the wait,
+    but the timeout message names it.
+    """
+    step_runner, engine, _ = awaiting(make_runner, polls=5)
+    engine.forkchoice_updated.side_effect = JSONRPCError(
+        -38002, "Invalid forkchoice state"
+    )
+
+    def timeout_after_an_announcement() -> float:
+        if engine.forkchoice_updated.call_count < 1:
+            return 0.0
+        return reorg_logic.SYNC_TIMEOUT
+
+    clock = MagicMock(monotonic=timeout_after_an_announcement)
+    with (
+        patch.object(reorg_logic, "time", clock),
+        patch.object(reorg_logic, "FIRST_REANNOUNCE_DELAY", 0),
+        pytest.raises(LoggedError, match="answered with error -38002"),
+    ):
+        step_runner.await_head("await", AwaitHeadStep(latest="a2"))
+
+
+def test_await_head_needs_a_forkchoice_update_to_the_head(
+    make_runner: MakeRunner,
+) -> None:
+    """Without one there is nothing to announce again."""
+    with pytest.raises(LoggedError, match="no forkchoiceUpdated to a1"):
+        make_runner().await_head("await", AwaitHeadStep(latest="a1"))
+
+
+@pytest.mark.parametrize(
+    "error", [OSError("connection refused"), RLPxError("no shared eth")]
+)
+def test_serve_peer_reports_a_failed_dial(
+    make_runner: MakeRunner, error: Exception
+) -> None:
+    """A refused connection or handshake is reported with its cause."""
+    step_runner = make_runner()
+    step_runner.dial_peer = MagicMock(side_effect=error)
+    with pytest.raises(LoggedError, match=f"could not connect.*{error}"):
+        step_runner.serve_peer("serve", ServePeerStep(head="a1"))
+
+
+def test_serve_peer_dials_once_then_switches_or_redials(
+    make_runner: MakeRunner,
+) -> None:
+    """
+    The first step dials the peer; a later one switches the served chain,
+    or redials when the client has dropped the peer.
+    """
+    step_runner = make_runner(labels=("a1", "a2"))
+    with pytest.raises(LoggedError, match="no peer can be dialed"):
+        step_runner.serve_peer("serve", ServePeerStep(head="a1"))
+    peer = MagicMock(alive=True)
+    step_runner.dial_peer = MagicMock(return_value=peer)
+    step_runner.serve_peer("serve", ServePeerStep(head="a1"))
+    step_runner.serve_peer("serve", ServePeerStep(head="a2"))
+    assert step_runner.dial_peer.call_count == 1
+    peer.set_chain.assert_called_once_with(step_runner.served_chain)
+    peer.alive = False
+    step_runner.serve_peer("serve", ServePeerStep(head="a1"))
+    peer.reconnect.assert_called_once_with(step_runner.served_chain)
 
 
 def test_assert_state_rejects_noncanonical_block(

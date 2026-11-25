@@ -108,6 +108,15 @@ Build on reorganized heads and observe client-built payloads through
 | `test_two_built_payloads_same_parent`: Switch the PREVRANDAO value stored by the same transaction in competing builds. | Adapted port of Hive [`SidechainReOrgTest`][hive-build-siblings]: two builds on a1 both include the pending PREVRANDAO-store transaction; select p → q → p and check storage/canonical mappings. Shorter setup and deterministic attributes replace CLMock callbacks. | No additional source. |
 | `test_pool_tx_reorged_out_of_built_payload`: Follow a built payload's pool transaction across reorgs. | Adapted port of Hive [`TransactionReOrgTest`][hive-tx-reorg], one scenario per id: one pool transaction and one build on a1, one round instead of five. A prefilled b2 replaces the CL mock's sibling payload; in `[scenario_different_block]` and `[scenario_new_payload_on_revert]` it holds the same transaction instead of copying the built payload with other `extraData`. `[scenario_back_in]` requires the next pool transaction in the payload built on b2. | No additional source. |
 
+## `test_peer_sync_reorg.py`
+
+Blocks reach the client from a mock devp2p peer instead of `newPayload`. The Engine API never requires a client to sync, so `awaitHead` is a liveness expectation beyond `paris.md`: a failure there means the client did not reach the head while the update was repeated.
+
+| Test | Source relationship and limitations | Related upstream tests |
+|---|---|---|
+| `test_sync_head_from_peer`: Sync a head's ancestors from the peer. | Authored scenario; no direct port. | No additional source. |
+| `test_reorg_to_branch_from_peer`: Reorg to a branch only the peer has. | Partial port of Hive's [`Withdrawals Fork on Block 1 - 8 Block Re-Org, Sync` registration][hive-withdrawals-sync]: a mock peer replaces Hive's second client; no withdrawals or fork boundary. | No additional source. |
+
 ## `test_selfdestruct_reorg.py`
 
 Account creation, destruction and recreation across reorgs. The original
@@ -130,13 +139,6 @@ reinjection is observed as client policy, not required as conformance.
 | `test_tx_reorg_shared_dropped_postponed_added`: Receipts and transaction status follow the winning branch. | Adapted port of geth [`testChainTxReorgs`][geth-tx-reorg]: keep shared/dropped/postponed/added classes, with smaller branches, FCU selection and RPC observations instead of internal indexes; omit a separate swapped-transaction class. Dropped transactions may be pending or dropped. | No additional source. |
 | `test_logs_follow_reorg`: Return only the canonical branch's logs before and after reorgs. | Adapted port of Erigon [`TestEthGetLogsDoNotGetAffectedAfterNewPayloadOnSideChain`][erigon-logs]: range queries and a smaller emitter replace its block-hash query/contract setup; add branch switches and receipt removal. | Inspiration: geth [`testLogReorgs`][geth-logs] asserts subscription removal events, not these RPC log queries; no event-stream or removed-log-flag coverage is claimed. |
 | `test_txpool_reinjection_after_reorg`: Record whether an executable reorged-out transaction returns to the pool. | Policy observation, not a direct conformance port: allow pending or dropped after reorg; require the replacement transaction to be included and restore the original receipt on returning. | Related: reth [`maintain_txpool_reorg`][reth-pool] and Besu [`shouldReAddTransactionsFromThePreviousCanonicalHeadWhenAReorgOccurs`][besu-pool] require reinjection in their pool tests. geth [`LegacyPool.reset`][geth-pool] is implementation context, not an upstream test. |
-
-## Not covered: delivery by peer sync
-
-Every block in these tests reaches the client through `engine_newPayload`.
-Reaching a head by syncing it from a peer, as Hive's
-[`Withdrawals Fork on Block 1 - 8 Block Re-Org, Sync` registration][hive-withdrawals-sync]
-does, is tracked in ethereum/execution-specs#3991.
 
 [geth-depth]: https://github.com/ethereum/go-ethereum/blob/8801a261e0f47d087e80611355b1cfff48f54a67/eth/catalyst/api_test.go#L489
 [geth-trie-gc]: https://github.com/ethereum/go-ethereum/blob/8801a261e0f47d087e80611355b1cfff48f54a67/core/blockchain_test.go#L1631
