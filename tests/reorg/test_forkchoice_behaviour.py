@@ -40,6 +40,11 @@ DISPUTED_FINALITY_REVERSION = (
     "execution-apis#983: whether a client may refuse a reorg that reverts "
     "the latest known finalized block"
 )
+DISPUTED_DISCARDED_BRANCH = (
+    "paris.md forkchoiceUpdated point 9, related to execution-apis#983: "
+    "whether a client may answer SYNCING for a block that was VALID before "
+    "it discarded the block's branch at finalization"
+)
 
 
 @pytest.mark.valid_from("Shanghai")
@@ -413,7 +418,7 @@ def test_safe_finalized_labels_follow_fcu(
                     Outcome(
                         id="syncing",
                         status="SYNCING",
-                        disputed=DISPUTED_FINALITY_REVERSION,
+                        disputed=DISPUTED_DISCARDED_BRANCH,
                     ),
                 ],
                 # A client that answers SYNCING must leave its state on b3.
