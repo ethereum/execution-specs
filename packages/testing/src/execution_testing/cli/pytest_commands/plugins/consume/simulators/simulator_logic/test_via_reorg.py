@@ -11,7 +11,7 @@ decision is in the fixture.
 
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Tuple
+from typing import Any, Callable, Dict, List, Literal, Tuple, TypeVar
 
 from hive.client import Client
 
@@ -63,6 +63,14 @@ logger = get_logger(__name__)
 TX_STATUS_TIMEOUT = 5.0
 """Seconds to wait for a transaction to reach an expected pool/chain status."""
 TX_STATUS_POLL_INTERVAL = 0.25
+TX_INDEXING_IN_PROGRESS = "transaction indexing is in progress"
+"""
+Error message of a transaction lookup a client cannot answer yet: its index
+has not caught up with the head, so it cannot tell an unknown transaction
+from one it has not indexed. go-ethereum answers so instead of ``null``.
+"""
+
+T = TypeVar("T")
 
 HEAD_TAGS: Tuple[Literal["latest", "safe", "finalized"], ...] = (
     "latest",
@@ -172,6 +180,32 @@ class StepRunner:
         if ref.block in self.bound:
             return self.bound[ref.block].payload.transactions[ref.index]
         return self.fixture.tx_rlp(ref)
+
+    def tx_lookup(
+        self,
+        name: str,
+        lookup: Callable[[], T],
+        deadline: float | None = None,
+    ) -> T:
+        """
+        Run a transaction lookup, retrying while the client answers that it
+        is still indexing. Each retry is logged. The retries end at
+        ``deadline``, which defaults to ``TX_STATUS_TIMEOUT`` from now; a
+        caller that already polls passes its own deadline to stay within it.
+        """
+        if deadline is None:
+            deadline = time.monotonic() + TX_STATUS_TIMEOUT
+        while True:
+            try:
+                return lookup()
+            except JSONRPCError as e:
+                if (
+                    e.message != TX_INDEXING_IN_PROGRESS
+                    or time.monotonic() >= deadline
+                ):
+                    raise
+            logger.info(f"{name}: client is still indexing, retrying")
+            time.sleep(TX_STATUS_POLL_INTERVAL)
 
     def matches(self, outcome: Outcome, observed: Observed) -> bool:
         """Whether an observed response satisfies an outcome's constraints."""
@@ -514,7 +548,9 @@ class StepRunner:
     def assert_receipt(self, name: str, step: AssertReceiptStep) -> None:
         """Check ``eth_getTransactionReceipt`` block hash (or absence)."""
         tx_hash = self.tx_hash(step.tx)
-        receipt = self.eth.get_transaction_receipt(tx_hash)
+        receipt = self.tx_lookup(
+            name, lambda: self.eth.get_transaction_receipt(tx_hash)
+        )
         ref = f"{step.tx.block}:{step.tx.index}"
         if step.block is None:
             if receipt is not None:
@@ -609,7 +645,11 @@ class StepRunner:
         tx_hash = self.tx_hash(step.tx)
         deadline = time.monotonic() + TX_STATUS_TIMEOUT
         while True:
-            tx = self.eth.get_transaction_by_hash(tx_hash)
+            tx = self.tx_lookup(
+                name,
+                lambda: self.eth.get_transaction_by_hash(tx_hash),
+                deadline,
+            )
             if tx is None:
                 status = "dropped"
             elif tx.block_hash is None:
