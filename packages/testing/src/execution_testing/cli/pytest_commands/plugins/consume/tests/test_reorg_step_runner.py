@@ -468,6 +468,50 @@ def test_await_head_announces_the_awaited_head_until_it_is_synced(
     )
 
 
+def test_await_head_announces_the_update_answered_syncing(
+    make_runner: MakeRunner,
+) -> None:
+    """
+    A later forkchoiceUpdated to the awaited head that errors is not the one
+    announced again.
+    """
+    eth = MagicMock()
+    engine = MagicMock()
+    step_runner = make_runner(labels=("a1", "a2"), eth=eth, engine=engine)
+    syncing = MagicMock()
+    syncing.payload_status.status = PayloadStatusEnum.SYNCING
+    syncing.payload_status.latest_valid_hash = None
+    syncing.payload_status.validation_error = None
+    syncing.payload_id = None
+    engine.forkchoice_updated.side_effect = [
+        syncing,
+        JSONRPCError(-38002, "Invalid forkchoice state"),
+        syncing,
+    ]
+    for safe, outcome in (
+        ("zero", Outcome(id="syncing", status="SYNCING")),
+        ("a1", Outcome(id="refused", error_code=-38002)),
+    ):
+        step = ForkchoiceUpdatedStep(
+            head="a2", safe=safe, version=3, expect=[outcome]
+        )
+        step_runner.forkchoice_updated("fcu", step, 0)
+    eth.get_block_by_number.side_effect = [
+        {"hash": step_runner.resolve("genesis")},
+        {"hash": step_runner.resolve("a2")},
+    ]
+    with (
+        patch.object(reorg_logic, "FIRST_REANNOUNCE_DELAY", 0),
+        patch.object(reorg_logic, "SYNC_POLL_INTERVAL", 0),
+    ):
+        step_runner.await_head("await", AwaitHeadStep(latest="a2"))
+    first, _, announced = engine.forkchoice_updated.call_args_list
+    assert (
+        announced.kwargs["forkchoice_state"]
+        == first.kwargs["forkchoice_state"]
+    )
+
+
 def test_await_head_announces_early_once_then_at_the_interval(
     make_runner: MakeRunner,
 ) -> None:

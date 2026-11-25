@@ -156,7 +156,7 @@ The wait before `engine_getPayloadVX` is the consumer's `--get-payload-wait-time
 
 #### `awaitHead`
 
-- `latest`: `String` — label of the block the client must sync from the peer and make its head, after a `forkchoiceUpdated` to it answered `SYNCING`. That update keeps safe and finalized, which a client may apply with the head or only on a later update. The consumer polls `eth_getBlockByNumber("latest")` for up to 60 seconds. It sends the `newPayload` of that block and the `forkchoiceUpdated` to it again after 0.5 seconds and then every 3 seconds, redialing the peer first if the client dropped it. An `INVALID` answer to either fails the step at once.
+- `latest`: `String` — label of the block the client must sync from the peer and make its head, after a `forkchoiceUpdated` to it answered `SYNCING`. That update keeps safe and finalized, which a client may apply with the head or only on a later update. The consumer polls `eth_getBlockByNumber("latest")` for up to 60 seconds. It sends the `newPayload` of that block and that `forkchoiceUpdated` again after 0.5 seconds and then every 3 seconds, redialing the peer first if the client dropped it. An `INVALID` answer to either fails the step at once.
 
 ### `Outcome`
 

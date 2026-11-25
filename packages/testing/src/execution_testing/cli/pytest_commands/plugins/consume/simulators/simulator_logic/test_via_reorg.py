@@ -165,7 +165,10 @@ class StepRunner:
         self.last_payload_attributes: PayloadAttributes | None = None
         self.served_chain: Chain | None = None
         self.forkchoice_sent: Dict[str, tuple[ForkchoiceState, int]] = {}
-        """Head label -> the last ``forkchoiceUpdated`` sent for it."""
+        """
+        Head label -> the last ``forkchoiceUpdated`` to it answered SYNCING,
+        which ``awaitHead`` sends again.
+        """
         self.matched: List[str] = []
         """Log of ``<step>:<outcome id>`` selections, for offline analysis."""
 
@@ -388,7 +391,6 @@ class StepRunner:
             finalized_block_hash=self.resolve(step.finalized),
         )
         attributes = step.payload_attributes
-        self.forkchoice_sent[step.head] = (state, int(step.version))
         with self.timing_data.time(f"engine_forkchoiceUpdatedV{step.version}"):
             try:
                 response = self.engine.forkchoice_updated(
@@ -397,6 +399,11 @@ class StepRunner:
                     version=step.version,
                 )
                 ps = response.payload_status
+                if ps.status == PayloadStatusEnum.SYNCING:
+                    self.forkchoice_sent[step.head] = (
+                        state,
+                        int(step.version),
+                    )
                 observed = Observed(
                     status=ps.status,
                     latest_valid_hash=ps.latest_valid_hash,
@@ -739,7 +746,8 @@ class StepRunner:
         """
         if step.latest not in self.forkchoice_sent:
             raise LoggedError(
-                f"{name}: no forkchoiceUpdated to {step.latest} was sent"
+                f"{name}: no forkchoiceUpdated to {step.latest} was answered "
+                "SYNCING"
             )
         target = self.resolve(step.latest)
         start = time.monotonic()
@@ -785,8 +793,8 @@ class StepRunner:
     def reannounce(self, name: str, label: str) -> None:
         """
         Send the ``newPayload`` of ``label`` and the last
-        ``forkchoiceUpdated`` to it again. The served chain is valid, so an
-        INVALID answer fails at once.
+        ``forkchoiceUpdated`` to it answered SYNCING again. The served chain
+        is valid, so an INVALID answer fails at once.
         """
         params, version = self._new_payload_params(label)
         state, forkchoice_version = self.forkchoice_sent[label]
