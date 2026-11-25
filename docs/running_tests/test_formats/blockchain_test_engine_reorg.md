@@ -158,6 +158,10 @@ The wait before `engine_getPayloadVX` is the consumer's `--get-payload-wait-time
 
 - `latest`: `String` — label of the block the client must sync from the peer and make its head, after a `forkchoiceUpdated` to it answered `SYNCING`. That update keeps safe and finalized, which a client may apply with the head or only on a later update. The consumer polls `eth_getBlockByNumber("latest")` for up to 60 seconds, re-sending the last `newPayload` and `forkchoiceUpdated` every 3 seconds.
 
+The Engine API does not require a client to sync: every sync clause in `paris.md` is a MAY. `awaitHead` is therefore a liveness expectation beyond the specification, and a failure means the client did not reach the head in time while the update was repeated, not that it violated the Engine API.
+
+Between `servePeer` and `awaitHead` the client may make the synced block its head at any moment. The filler therefore accepts only `servePeer`, and a `newPayload` or `forkchoiceUpdated` with an authored `expect`, between the two.
+
 ### `Outcome`
 
 One legal outcome of an Engine API step. Every set field is a constraint; unset fields are not checked. Each outcome sets `errorCode`/`anyError`, `status` or `headMoved`: the other fields alone are also met by a `SYNCING` or `INVALID` response.
