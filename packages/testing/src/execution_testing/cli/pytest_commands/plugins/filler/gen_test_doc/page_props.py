@@ -355,7 +355,15 @@ class MarkdownPageProps(PagePropsBase):
 
     @property
     def target_output_file(self) -> Path:
-        """Get the target output file for this page."""
+        """
+        Get the target output file for this page.
+
+        A `README.md` is written as `readme.md`: the site builder takes
+        `README.md` for the directory's index page and drops it, because
+        the directory page already provides `index.md`.
+        """
+        if self.path.name == "README.md":
+            return self.path.with_name("readme.md")
         return self.path
 
     def write_page(
