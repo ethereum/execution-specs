@@ -9,6 +9,7 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Fork,
+    Frame,
     FrameReceipt,
     Op,
     StateTestFiller,
@@ -16,7 +17,6 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from tests.bogota.eip8141_frame_transactions.helpers import verify_frame
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
 
 from .helpers import (
@@ -171,7 +171,7 @@ def test_diff_gas_boundary(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
+            Frame.verify(),
             body_frame(fork, target=emitter),
             assert_frame(fork, target=assertion, gas_limit=gas - shortfall),
         ],

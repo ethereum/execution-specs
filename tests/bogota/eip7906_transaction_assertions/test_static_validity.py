@@ -30,11 +30,6 @@ from execution_testing import (
     TransactionTestFiller,
 )
 
-from tests.bogota.eip8141_frame_transactions.helpers import (
-    default_frame,
-    sender_frame,
-    verify_frame,
-)
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
 
 from .helpers import assert_frame, success_receipts
@@ -51,38 +46,38 @@ FrameList = Callable[[Fork, Address, Address], List[Frame]]
 INVALID_FRAME_LISTS = [
     pytest.param(
         lambda fork, noop, _: [
-            verify_frame(),
+            Frame.verify(),
             assert_frame(fork, target=noop),
-            sender_frame(target=noop),
+            Frame.sender(target=noop),
         ],
         id="sender_after_assert",
     ),
     pytest.param(
         lambda fork, noop, _: [
-            verify_frame(),
+            Frame.verify(),
             assert_frame(fork, target=noop),
-            default_frame(target=noop),
+            Frame.default(target=noop),
         ],
         id="default_after_assert",
     ),
     pytest.param(
         lambda fork, noop, _: [
-            verify_frame(),
+            Frame.verify(),
             assert_frame(fork, target=noop),
-            verify_frame(target=noop, flags=Spec8141.APPROVE_PAYMENT),
+            Frame.verify(target=noop, flags=Spec8141.APPROVE_PAYMENT),
         ],
         id="verify_after_assert",
     ),
     pytest.param(
         lambda fork, noop, _: [
-            verify_frame(),
+            Frame.verify(),
             assert_frame(fork, target=noop, value=1),
         ],
         id="assert_with_value",
     ),
     pytest.param(
         lambda fork, noop, _: [
-            verify_frame(),
+            Frame.verify(),
             assert_frame(fork, target=noop, flags=Spec8141.ATOMIC_BATCH_FLAG),
             assert_frame(fork, target=noop),
         ],
@@ -90,17 +85,17 @@ INVALID_FRAME_LISTS = [
     ),
     pytest.param(
         lambda fork, noop, failure: [
-            verify_frame(),
-            sender_frame(target=failure, flags=Spec8141.ATOMIC_BATCH_FLAG),
+            Frame.verify(),
+            Frame.sender(target=failure, flags=Spec8141.ATOMIC_BATCH_FLAG),
             assert_frame(fork, target=noop),
         ],
         id="batch_ends_on_assert",
     ),
     pytest.param(
         lambda fork, noop, failure: [
-            verify_frame(),
-            sender_frame(target=noop),
-            sender_frame(target=failure, flags=Spec8141.ATOMIC_BATCH_FLAG),
+            Frame.verify(),
+            Frame.sender(target=noop),
+            Frame.sender(target=failure, flags=Spec8141.ATOMIC_BATCH_FLAG),
             assert_frame(fork, target=noop),
         ],
         id="failing_batch_skips_assertion",
@@ -175,8 +170,8 @@ def test_assert_frame_suffix_valid(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(),
-            sender_frame(target=noop),
+            Frame.verify(),
+            Frame.sender(target=noop),
             assert_frame(fork, target=noop),
             assert_frame(fork, target=noop),
         ],

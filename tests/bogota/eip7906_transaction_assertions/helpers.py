@@ -23,7 +23,6 @@ from execution_testing import (
     compute_create_address,
 )
 
-from tests.bogota.eip8141_frame_transactions.helpers import verify_frame
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
 
 from .spec import Spec
@@ -239,7 +238,7 @@ def assertion_transaction(
     kwargs: Dict[str, Any] = dict(
         sender=sender,
         frames=[
-            verify_frame(),
+            Frame.verify(),
             *body,
             *[assert_frame(fork, target=target) for target in assertions],
         ],

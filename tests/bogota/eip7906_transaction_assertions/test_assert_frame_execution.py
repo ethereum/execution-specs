@@ -22,11 +22,6 @@ from execution_testing import (
     add_kzg_version,
 )
 
-from tests.bogota.eip8141_frame_transactions.helpers import (
-    default_frame,
-    sender_frame,
-    verify_frame,
-)
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
 
 from .helpers import (
@@ -284,7 +279,7 @@ def test_assert_frame_approval_scope_is_inert(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(),
+                Frame.verify(),
                 body_frame(fork, target=writer),
                 assert_frame(fork, flags=scope),
             ],
@@ -320,7 +315,7 @@ def test_assert_frame_approval_scope_does_not_lift_static(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(),
+                Frame.verify(),
                 body_frame(fork, target=writer),
                 assert_frame(
                     fork, target=sponsor, flags=Spec8141.APPROVE_PAYMENT
@@ -474,8 +469,8 @@ def test_diff_instructions_in_subcall(
 @pytest.mark.parametrize(
     "frame_builder",
     [
-        pytest.param(sender_frame, id="sender_frame"),
-        pytest.param(default_frame, id="default_frame"),
+        pytest.param(Frame.sender, id="sender_frame"),
+        pytest.param(Frame.default, id="default_frame"),
     ],
 )
 def test_diff_instructions_outside_assert(
@@ -500,7 +495,7 @@ def test_diff_instructions_outside_assert(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(),
+                Frame.verify(),
                 frame_builder(target=probe, gas_limit=frame_gas(fork)),
             ],
             expected_receipt=TransactionReceipt(
@@ -572,8 +567,8 @@ def test_diff_instructions_in_verify_frame(
     tx = Transaction(
         sender=sender,
         frames=[
-            verify_frame(flags=Spec8141.APPROVE_EXECUTION),
-            verify_frame(target=payer, flags=Spec8141.APPROVE_PAYMENT),
+            Frame.verify(flags=Spec8141.APPROVE_EXECUTION),
+            Frame.verify(target=payer, flags=Spec8141.APPROVE_PAYMENT),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )

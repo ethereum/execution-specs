@@ -17,6 +17,7 @@ from execution_testing import (
     Bytecode,
     Bytes,
     Fork,
+    Frame,
     Hash,
     Initcode,
     Op,
@@ -29,7 +30,6 @@ from execution_testing import (
 )
 
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import Spec as Spec7708
-from tests.bogota.eip8141_frame_transactions.helpers import verify_frame
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
 from tests.bogota.eip8250_keyed_nonces.helpers import NONCE_KEY
 from tests.bogota.eip8250_keyed_nonces.spec import Spec as Spec8250
@@ -790,8 +790,8 @@ def test_sponsored_gas_pre_charge(
             blob_versioned_hashes=[bytes.fromhex("01" + "00" * 31)]
             * blob_count,
             frames=[
-                verify_frame(flags=Spec8141.APPROVE_EXECUTION),
-                verify_frame(target=payer, flags=Spec8141.APPROVE_PAYMENT),
+                Frame.verify(flags=Spec8141.APPROVE_EXECUTION),
+                Frame.verify(target=payer, flags=Spec8141.APPROVE_PAYMENT),
                 assert_frame(fork, target=assertion),
             ],
             expected_receipt=TransactionReceipt(
@@ -876,7 +876,7 @@ def test_gas_pre_charge_amount(
             blob_versioned_hashes=[bytes.fromhex("01" + "00" * 31)]
             * blob_count,
             frames=[
-                verify_frame(),
+                Frame.verify(),
                 assert_frame(fork, target=assertion, data=data),
             ],
             expected_receipt=TransactionReceipt(

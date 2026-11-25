@@ -19,6 +19,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     Bytecode,
     Fork,
+    Frame,
     FrameReceipt,
     Header,
     Initcode,
@@ -29,10 +30,6 @@ from execution_testing import (
     compute_create_address,
 )
 
-from tests.bogota.eip8141_frame_transactions.helpers import (
-    default_frame,
-    verify_frame,
-)
 from tests.bogota.eip8141_frame_transactions.spec import Spec as Spec8141
 
 from .helpers import (
@@ -516,7 +513,7 @@ def test_assert_frame_gas_settlement(
         sender=sender,
         max_priority_fee_per_gas=0,
         frames=[
-            verify_frame(),
+            Frame.verify(),
             body_frame(
                 fork,
                 target=worker,
@@ -573,7 +570,7 @@ def test_failed_assertion_keeps_prefix_deployment(
         tx=Transaction(
             sender=sender,
             frames=[
-                default_frame(
+                Frame.default(
                     target=factory,
                     gas_limit=frame_gas(fork),
                     state_gas_limit=creation_state_gas(
@@ -582,7 +579,7 @@ def test_failed_assertion_keeps_prefix_deployment(
                         deposited_bytes=len(DEPLOYED_RUNTIME),
                     ),
                 ),
-                verify_frame(),
+                Frame.verify(),
                 body_frame(fork, target=writer),
                 assert_frame(fork, target=assertion),
             ],
@@ -624,8 +621,8 @@ def test_failed_assertion_charges_sponsor(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(flags=Spec8141.APPROVE_EXECUTION),
-                verify_frame(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
+                Frame.verify(flags=Spec8141.APPROVE_EXECUTION),
+                Frame.verify(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
                 body_frame(fork, target=writer),
                 assert_frame(fork, target=assertion),
             ],
@@ -689,12 +686,12 @@ def test_body_revert_restores_prefix_state_charge(
         tx=Transaction(
             sender=sender,
             frames=[
-                default_frame(
+                Frame.default(
                     target=toggler,
                     gas_limit=frame_gas(fork),
                     state_gas_limit=charge,
                 ),
-                verify_frame(),
+                Frame.verify(),
                 body_frame(fork, target=toggler),
                 assert_frame(fork, target=assertion),
             ],
@@ -743,14 +740,14 @@ def test_body_revert_drops_scheduled_deletion(
         tx=Transaction(
             sender=sender,
             frames=[
-                default_frame(
+                Frame.default(
                     target=factory,
                     gas_limit=frame_gas(fork),
                     state_gas_limit=creation_state_gas(
                         fork, creations=1, deposited_bytes=len(runtime)
                     ),
                 ),
-                verify_frame(),
+                Frame.verify(),
                 body_frame(fork, target=created),
                 assert_frame(fork, target=assertion),
             ],
@@ -817,9 +814,9 @@ def test_frames_before_payment_approval_survive_failed_assertion(
         sender=sender,
         max_priority_fee_per_gas=0,
         frames=[
-            verify_frame(flags=Spec8141.APPROVE_EXECUTION),
+            Frame.verify(flags=Spec8141.APPROVE_EXECUTION),
             body_frame(fork, target=prefix_writer),
-            verify_frame(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
+            Frame.verify(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
             body_frame(fork, target=body_writer),
             assert_frame(fork, target=assertion),
         ],
@@ -882,9 +879,9 @@ def test_failed_assertion_keeps_prefix_state_gas(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(flags=Spec8141.APPROVE_EXECUTION),
+                Frame.verify(flags=Spec8141.APPROVE_EXECUTION),
                 *prefix.frames,
-                verify_frame(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
+                Frame.verify(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
                 *body.frames,
                 assert_frame(fork, target=assertion),
             ],
@@ -924,9 +921,9 @@ def test_failed_assertion_keeps_prefix_storage_change(
         tx=Transaction(
             sender=sender,
             frames=[
-                verify_frame(flags=Spec8141.APPROVE_EXECUTION),
+                Frame.verify(flags=Spec8141.APPROVE_EXECUTION),
                 body_frame(fork, target=counter),
-                verify_frame(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
+                Frame.verify(target=sponsor, flags=Spec8141.APPROVE_PAYMENT),
                 body_frame(fork, target=counter),
                 assert_frame(fork, target=assertion),
             ],
