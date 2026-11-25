@@ -1,13 +1,14 @@
 """Tests for the `consume reorg` step runner."""
 
 import hashlib
-from typing import Callable, List, Sequence
+from typing import Any, Callable, List, Sequence
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from execution_testing.base_types import Bytes, Hash
+from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.client_clis import TransitionTool
+from execution_testing.exceptions import EngineAPIError
 from execution_testing.fixtures.blockchain import PayloadStatusEnum
 from execution_testing.fixtures.reorg import (
     AssertLogsStep,
@@ -310,3 +311,97 @@ def test_assert_state_rejects_noncanonical_block(
         step_runner.assert_state(
             "assertState", AssertStateStep(at="a1", accounts={})
         )
+
+
+FIRST_ID = Bytes(b"\x01" * 8)
+SECOND_ID = Bytes(b"\x02" * 8)
+BUILD_ATTRIBUTES = PayloadAttributes(
+    timestamp=12, prev_randao=Hash(0), suggested_fee_recipient=Address(0)
+)
+
+
+def fcu_response(
+    status: PayloadStatusEnum, payload_id: Bytes | None
+) -> MagicMock:
+    """A ``forkchoiceUpdated`` response."""
+    reply = MagicMock()
+    reply.payload_status.status = status
+    reply.payload_status.latest_valid_hash = None
+    reply.payload_status.validation_error = None
+    reply.payload_id = payload_id
+    return reply
+
+
+@pytest.mark.parametrize(
+    "attributes,reply,outcome,kept",
+    [
+        pytest.param(
+            None,
+            fcu_response(PayloadStatusEnum.VALID, None),
+            Outcome(id="o", status="VALID"),
+            FIRST_ID,
+            id="update_without_attributes",
+        ),
+        pytest.param(
+            BUILD_ATTRIBUTES,
+            fcu_response(PayloadStatusEnum.SYNCING, None),
+            Outcome(id="o", status="SYNCING"),
+            FIRST_ID,
+            id="build_answered_without_payload_id",
+        ),
+        pytest.param(
+            BUILD_ATTRIBUTES,
+            JSONRPCError(-38003, "Invalid payload attributes"),
+            Outcome(
+                id="o", error_code=EngineAPIError.InvalidPayloadAttributes
+            ),
+            FIRST_ID,
+            id="build_answered_with_an_error",
+        ),
+        pytest.param(
+            BUILD_ATTRIBUTES,
+            fcu_response(PayloadStatusEnum.VALID, SECOND_ID),
+            Outcome(id="o", status="VALID"),
+            SECOND_ID,
+            id="build_answered_with_a_payload_id",
+        ),
+    ],
+)
+def test_only_a_returned_payload_id_replaces_the_build(
+    make_runner: MakeRunner,
+    attributes: PayloadAttributes | None,
+    reply: Any,
+    outcome: Outcome,
+    kept: Bytes,
+) -> None:
+    """
+    ``getPayload`` retrieves the last ``payloadId`` a ``forkchoiceUpdated``
+    returned; a response without one starts no build and ends none.
+    """
+    engine = MagicMock()
+    engine.forkchoice_updated.side_effect = [
+        fcu_response(PayloadStatusEnum.VALID, FIRST_ID),
+        reply,
+    ]
+    step_runner = make_runner(engine=engine)
+    step_runner.forkchoice_updated(
+        "build",
+        ForkchoiceUpdatedStep(
+            head="a1",
+            version=3,
+            payload_attributes=BUILD_ATTRIBUTES,
+            expect=[Outcome(id="o", status="VALID")],
+        ),
+        0,
+    )
+    step_runner.forkchoice_updated(
+        "next",
+        ForkchoiceUpdatedStep(
+            head="a1",
+            version=3,
+            payload_attributes=attributes,
+            expect=[outcome],
+        ),
+        0,
+    )
+    assert step_runner.last_payload_id == kept
