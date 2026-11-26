@@ -23,7 +23,7 @@ which has the verifier and the generator that signs the proofs.
 `leanxmss_pop_chain_1.json` has 17 valid proofs for chain ID 1, each with
 its own XMSS and BLS key, and two that the verifier rejects: `wrongLeaf` is
 signed at leaf 1, and `noDomain` signs the message without the domain. The
-generator wrote it at `d130696`, run from its `xmss/` directory:
+generator writes it at `e1201be`, run from its `xmss/` directory:
 
 ```sh
 cargo run --release -- --chain-id 1 --proofs 17 \
@@ -31,5 +31,5 @@ cargo run --release -- --chain-id 1 --proofs 17 \
 ```
 
 `leanxmss_pop_chain_31337.json` is `contracts/test/vectors/leanxmss_pop.json`
-at `c91df85`, the vectors of the verifier's forge tests. On chain 1 its
+at `e1201be`, the vectors of the verifier's forge tests. On chain 1 its
 proofs are valid proofs for another chain, which the verifier rejects.
