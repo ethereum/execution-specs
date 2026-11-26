@@ -308,7 +308,7 @@ verifies anything. Improve coupling and observability:
   forwarded gas is credited back). When reframing, it is easy to carry over
   the headline assertion and silently drop the second. Diff the old post's
   slots against the new one and re-express each dropped slot dynamically (or
-  justify its removal explicitly). Validated on `test_raw_call_gas_ask` (the
+  justify its removal explicitly). Validated on `test_raw_call_gas` (the
   caller reports its remaining gas up the stack as a second return word).
 - **Add a canary.** Write a distinctive non-zero sentinel to an extra slot as the
   *final* step (e.g. `Op.SSTORE(0x2, 0xC0DE)`), and assert it. If creation
@@ -515,7 +515,9 @@ cost ~100k, so a fixed value is both fork-fragile and brittle. (Size the SSTORE
 with a placeholder `new_value`: its cost depends only on the zero->non-zero
 transition, not the magnitude — which also breaks the `forward_gas`/`new_value`
 circularity.) Set `state_gas_reservoir=0` so the state gas is captured.
-Validated on `test_raw_call_gas`.
+Prefer the return-up-the-stack shape below when the callee only needs to
+report its gas: it needs no callee SSTORE and so sidesteps the state-gas trap
+entirely (`test_raw_call_gas` moved from this shape to that one).
 
 **An expensive store after a callee that eats all forwarded gas — pre-write
 the slot.** When a frame must SSTORE a result *after* a subcall that
@@ -648,9 +650,17 @@ expected_gas = forwarded + stipend - Op.GAS.gas_cost(fork)
 where `stipend = fork.call_value_stipend()` for a value-bearing call (0
 otherwise). **The `// 64` form is the trap:** `available - available // 64` and
 `available * 63 // 64` differ by exactly 1 whenever `available % 64 != 0` (the
-EVM uses the former). One parametrize over `(opcode, value, memory)` covers the
-whole CALL/CALLCODE/DELEGATECALL family; floor **Berlin** (the call metadata).
-Validated on `test_raw_call_gas_ask` (10 RawCall*GasAsk fillers).
+EVM uses the former). Gate the cap on `fork.is_eip_enabled(150)`: before
+Tangerine Whistle a CALL forwards exactly what it asks, so asking for more than
+is available runs the caller out of gas — assert that outcome (every reported
+slot stays 0) rather than raising the floor. Push the asked amount with a PUSH
+instead of `GAS`, so the "asks less" and "asks more" arms differ only in the
+operand value. If the fillers differ only in that ask (e.g. `RawCall*Gas`
+vs `RawCall*GasAsk`), merge them into one test with a `gas_ask` parameter. One
+parametrize over `(opcode, value, memory)` covers the whole
+CALL/CALLCODE/DELEGATECALL/STATICCALL family (filtered per fork); floor
+**Frontier**. Validated on `test_raw_call_gas` (20 RawCall* fillers, the
+former `test_raw_call_gas_ask` merged in).
 
 **Error paths charge execution gas only — assert `execution_cost(fork)`.** A
 failed `CREATE`/`CALL` still charges its execution costs (base, memory,
@@ -663,7 +673,8 @@ forks `state_cost` is 0 so the two coincide — one expression, correct on every
 fork. Drive a `CREATE` down the balance-failure path by funding the creator one
 wei short of the transferred `value` (`balance = value - 1`); the created
 address is then `Account.NONEXISTENT`. Validated end-to-end on
-`test_raw_create_gas` (6 RawCreate*Gas fillers consolidated).
+`test_raw_create_gas` (6 RawCreate*Gas fillers consolidated, every create
+opcode via `with_all_create_opcodes`, floor Frontier).
 
 ### 11. Lower `valid_from` to extend coverage
 The ported `valid_from` (often `Cancun`) is usually higher than necessary — lower
@@ -672,18 +683,27 @@ it to widen coverage. Find the true floor empirically: temporarily delete the
 Frontier up); the earliest fork that *passes* is your floor. Set
 `@pytest.mark.valid_from("<that fork>")` — the marker is mandatory, so this is a
 lowering, never a true removal.
-- **Gas tests floor at the EIP that introduced their metadata.** A test using
-  `address_warm` / cold-access metadata + `gas_cost(fork)` is only valid from
-  **Berlin (EIP-2929)**: earlier forks have no warm/cold distinction, so
-  `gas_cost` over-predicts by `cold − flat` (2600 − 700 = 1900) and every
-  pre-Berlin fork fails the measurement. Same shape elsewhere — EIP-3860
-  init-code metering floors at Shanghai, etc. The floor is whichever EIP the
-  test's behavior/metadata depends on, which the empirical sweep reveals directly.
-- **Behavioral floors show up as non-gas mismatches in the sweep.** A CREATE
-  test asserting the created account has `nonce=1` floors at **SpuriousDragon
-  (EIP-161)** — earlier forks start contract nonces at 0, so Frontier/Homestead/
-  TangerineWhistle fail on the nonce, not the gas. Read *what* the sweep's
-  earliest-passing fork is gated on; it is not always a gas-schedule change.
+- **Gas metadata does not set the floor — the framework is fork-aware.**
+  `gas_cost(fork)` already applies each fork's schedule to the metadata: before
+  Berlin, `address_warm` is ignored and the flat access cost is charged (e.g.
+  BALANCE costs 23 on Frontier and 703 on Istanbul, warm or cold); before
+  Shanghai, `init_code_size` adds no EIP-3860 word cost. So a test using
+  warm/cold or init-code metadata runs from Frontier unchanged. If a pre-EIP fork
+  fails the measurement, suspect the test (a missing metadata flag, a
+  hand-computed value) before raising the floor. Validated on
+  `test_raw_account_access_gas` and `test_raw_create_gas`.
+- **Behavioral differences: derive them from the fork, don't floor on them.**
+  A sweep failing on a non-gas field (e.g. a created account's nonce, which is
+  0 before **SpuriousDragon (EIP-161)** and 1 from it on) points at a fork
+  behavior the expectation should follow: assert
+  `nonce=int(fork.is_eip_enabled(161))`, or use a fork predicate such as
+  `fork.selfdestruct_deletes_existing_accounts()`,
+  `fork.selfdestruct_burns_balance()` or `fork.header_prev_randao_required()`.
+  Raise the floor only when the scenario itself cannot exist on earlier forks
+  (e.g. the opcode under test is missing — filter it per fork with
+  `fork.valid_opcodes()` or a covariant marker instead, where only some cases
+  need it). Validated on `test_raw_create_gas`, `test_suicide` and
+  `test_block_info`.
 - **A `bad v` / `INVALID_SIGNATURE_VRS` failure is a signature floor, not a
   real one — don't raise `valid_from` for it.** The default `Transaction` is
   EIP-155-protected, which pre-SpuriousDragon forks reject. Instead set
