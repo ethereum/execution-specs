@@ -1,6 +1,8 @@
 """
 Test block information opcodes.
 
+The original tests were written by Ori Pomerantz.
+
 Ported from:
 state_tests/VMTests/vmTests/blockInfoFiller.yml
 """
@@ -10,6 +12,7 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -25,7 +28,7 @@ SENTINEL = 0x0BAD
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmTests/blockInfoFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Frontier")
 @pytest.mark.execute(
     pytest.mark.skip(reason="Asserts the block fields of the test env")
 )
@@ -42,18 +45,26 @@ SENTINEL = 0x0BAD
 def test_block_info(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     opcode: Opcode,
     field: str,
 ) -> None:
     """Store a block field read by its opcode."""
-    env = (
-        Environment(prev_randao=0x20000)
-        if opcode == Op.PREVRANDAO
-        else Environment()
-    )
+    env = Environment()
+    if opcode == Op.PREVRANDAO:
+        if fork.header_prev_randao_required():
+            env = Environment(prev_randao=0x20000)
+        else:
+            # Before the merge the same opcode reads the difficulty.
+            field = "difficulty"
+            env = Environment(difficulty=0x20000)
     contract = pre.deploy_contract(
         code=Op.SSTORE(0, opcode) + Op.STOP, storage={0: SENTINEL}
     )
-    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=contract,
+        protected=fork.supports_protected_txs(),
+    )
     post = {contract: Account(storage={0: getattr(env, field)})}
     state_test(env=env, pre=pre, post=post, tx=tx)

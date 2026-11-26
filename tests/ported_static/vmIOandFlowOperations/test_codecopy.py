@@ -1,6 +1,8 @@
 """
 Test CODECOPY of the executing contract's code.
 
+The original tests were written by Ori Pomerantz.
+
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/codecopyFiller.yml
 """
@@ -13,6 +15,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -40,7 +43,7 @@ def code_words(code: Bytecode, count: int) -> dict[int, int]:
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmIOandFlowOperations/codecopyFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     "case",
     [
@@ -54,6 +57,7 @@ def code_words(code: Bytecode, count: int) -> dict[int, int]:
 def test_codecopy(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     case: str,
 ) -> None:
     """Copy the contract's code to memory and store it word by word."""
@@ -66,6 +70,8 @@ def test_codecopy(
         code = Op.CODECOPY(dest_offset=0, offset=0, size=0x1000)
     elif case == "codecopy_2buff":
         words = 3
+        # Pad the code so the second copy reads a full word of real code
+        # and then crosses the end of the code, which must zero-fill.
         padding: Bytecode | int = 1
         for i in range(2, 17):
             padding = Op.ADD(padding, i)
@@ -86,7 +92,12 @@ def test_codecopy(
     else:
         raise ValueError(f"Unknown case: {case}")
     code += store_words(words) + Op.STOP
+    if case == "codecopy_2buff":
+        assert 0x40 < len(code) < 0x60, "code must end inside word 2"
     if case == "codecopy_opcodes":
+        # Unreachable, potentially problematic opcodes after the STOP:
+        # CODECOPY must copy them verbatim as plain data, without
+        # interpreting them or truncating the code at a terminator.
         code += (
             Op.SELFDESTRUCT(address=0xDEAD)
             + Op.RETURN(offset=0, size=Op.SLOAD(0xFF))
@@ -103,7 +114,11 @@ def test_codecopy(
 
     pre_storage: dict = dict.fromkeys(range(words), SENTINEL)
     contract = pre.deploy_contract(code=code, storage=pre_storage)
-    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=contract,
+        protected=fork.supports_protected_txs(),
+    )
     if case == "codecopy_infbuff":
         storage = pre_storage
     else:
