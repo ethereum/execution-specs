@@ -12,6 +12,7 @@ on:
       - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/fill_stateful/**"
       - "packages/testing/src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill-stateful.ini"
       - "packages/testing/src/execution_testing/client_clis/client_backend.py"
+      - "Justfile"
       - "packages/testing/src/execution_testing/rpc/**"
       - ".github/workflows/hive-execute.yaml"
       - ".github/actions/start-hive-dev/**"
@@ -53,14 +54,7 @@ jobs:
                 -p execution_testing.cli.pytest_commands.plugins.concurrency \
                 src/execution_testing/cli/pytest_commands/plugins/execute/tests/test_execute_remote.py
           - name: Fill Stateful E2E
-            command: |
-              uv run fill-stateful \
-                --hive-mode \
-                --fork Amsterdam \
-                --gas-benchmark-values 1 \
-                --output "$RUNNER_TEMP/fill-stateful-fixtures" \
-                --clean \
-                tests/benchmark/compute/instruction/test_arithmetic.py
+            command: just fill-stateful-smoke
     steps:
       - name: Checkout execution-specs
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0

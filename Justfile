@@ -484,6 +484,20 @@ bench-opcode *args: (_tmp-logs "bench-opcode")
         "$@" \
         tests/benchmark/compute
 
+# Smoke-test fill-stateful against a running hive --dev (needs HIVE_SIMULATOR)
+[group('benchmark tests')]
+fill-stateful-smoke *args: (_tmp "fill-stateful-smoke")
+    uv run fill-stateful \
+        --hive-mode \
+        --fork "{{ benchmark_fork }}" \
+        --gas-benchmark-values 1 \
+        --output="{{ output_dir }}/fill-stateful-smoke/fixtures" \
+        --basetemp="{{ output_dir }}/fill-stateful-smoke/tmp" \
+        --clean \
+        "$@" \
+        tests/benchmark/compute/instruction/test_arithmetic.py \
+        tests/benchmark/compute/eip7928_block_level_access_lists/test_block_access_list.py
+
 # Run benchmark_parser, then fill benchmark tests using its config
 [group('benchmark tests')]
 bench-opcode-config *args: (_tmp-logs "bench-opcode-config")
