@@ -143,6 +143,9 @@ jobs:
     if: needs.setup.outputs.run == 'true'
     runs-on: [self-hosted-ghr, size-gigachungus-x64]
     timeout-minutes: 1440
+    outputs:
+      # The same for every range, so the last range to finish sets it.
+      evm_impl: ${{ steps.fixtures.outputs.evm-impl }}
     strategy:
       # A release must be complete, so abort on the first failed range; a
       # nightly wants every range's result for debugging.
@@ -156,6 +159,7 @@ jobs:
           ref: ${{ needs.setup.outputs.target_sha }}
 
       - uses: ./.github/actions/build-fixtures
+        id: fixtures
         with:
           release_name: ${{ matrix.feature }}
           from_fork: ${{ matrix.from_fork }}
@@ -167,6 +171,43 @@ jobs:
           evm: ${{ inputs.evm }}
           evm_repo: ${{ inputs.evm_repo }}
           evm_ref: ${{ inputs.evm_ref }}
+
+  # EELS re-executes the blockchain tests of each EELS-filled range here,
+  # beside `combine`, instead of before the range's upload. A release
+  # waits for it. The nightly hive images do not: a failed validation
+  # still fails the run, but after that night's images are out.
+  validate:
+    name: validate (${{ matrix.label }})
+    needs: [setup, build]
+    if: needs.setup.outputs.combine_labels != '' && needs.build.outputs.evm_impl == 'eels'
+    runs-on: [self-hosted-ghr, size-gigachungus-x64]
+    timeout-minutes: 120
+    strategy:
+      fail-fast: ${{ github.event_name != 'schedule' }}
+      matrix:
+        include: ${{ fromJson(needs.setup.outputs.build_matrix) }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: false
+          ref: ${{ needs.setup.outputs.target_sha }}
+      - uses: ./.github/actions/setup-uv
+        with:
+          enable-cache: "false"
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: fixtures__${{ matrix.label }}
+          path: fixtures
+      - name: Validate blockchain fixtures with EELS
+        shell: bash
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+        run: |
+          if [ ! -d fixtures/blockchain_tests ]; then
+            echo "No blockchain_tests fixtures to validate."
+            exit 0
+          fi
+          just validate-blocks fixtures/blockchain_tests --no-cov
 
   combine:
     name: combine (${{ needs.setup.outputs.feature_name }})
@@ -242,13 +283,14 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
-    needs: [setup, build, combine]
+    needs: [setup, build, validate, combine]
     # Scheduled runs stop after `combine`: no tag, no draft release.
     # Cached releases skip the fill, so a skipped `build` is expected;
     # `setup` must have succeeded explicitly, because a failed `setup`
     # also leaves `build` skipped and would otherwise start this job
-    # with empty outputs.
-    if: always() && github.event_name == 'workflow_dispatch' && needs.setup.result == 'success' && (needs.build.result == 'success' || ((inputs.cached || inputs.commit != '') && needs.build.result == 'skipped')) && (needs.combine.result == 'success' || needs.combine.result == 'skipped')
+    # with empty outputs. `validate` is skipped for unsplit and
+    # non-EELS fills.
+    if: always() && github.event_name == 'workflow_dispatch' && needs.setup.result == 'success' && (needs.build.result == 'success' || ((inputs.cached || inputs.commit != '') && needs.build.result == 'skipped')) && (needs.validate.result == 'success' || needs.validate.result == 'skipped') && (needs.combine.result == 'success' || needs.combine.result == 'skipped')
     permissions:
       contents: write
       # Cached releases download the artifact from the resolved
@@ -335,7 +377,8 @@ jobs:
   # A scheduled fill also becomes the `nightly` hive simulator images: every
   # image at the filled commit, from the fixtures_<sha> artifact of this run.
   # Publishing a release triggers the same workflow through its `release`
-  # event instead. See docs/dev/publishing_images.md.
+  # event instead. See docs/dev/publishing_images.md. It does not wait for
+  # `validate`, see that job.
   hive-images:
     name: hive simulator images (nightly)
     needs: [setup, combine]
