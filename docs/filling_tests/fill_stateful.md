@@ -58,9 +58,9 @@ kurtosis files download fillst el_cl_genesis_data /tmp/multi-snap/genesis
 kurtosis files download fillst jwt_file /tmp/fillst-out/jwt
 ```
 
-For production benchmarking, use a perfnet / bloatnet snapshot instead;
-[Stateful Environment Stub Accounts Configuration](stateful_environment.md)
-lists the accounts such a snapshot must contain.
+For production benchmarking, use a perfnet / bloatnet snapshot instead.
+[Stateful Environment](stateful_environment.md) says where the accounts
+such a snapshot must contain are defined.
 
 ### 2. Start a standalone client on a copy of the snapshot
 
