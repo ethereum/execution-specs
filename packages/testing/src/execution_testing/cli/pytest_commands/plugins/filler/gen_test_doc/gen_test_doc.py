@@ -173,9 +173,9 @@ def get_import_path(path: Path) -> str:
 
 def create_github_issue_url(title: str) -> str:
     """Create a GitHub issue URL for the given title."""
-    url_base = "https://github.com/ethereum/execution-spec-tests/issues/new?"
+    url_base = "https://github.com/ethereum/execution-specs/issues/new?"
     title = title.replace(" ", "%20")
-    labels = "scope:docs,type:bug"
+    labels = "A-doc,C-bug"
     return f"{url_base}title={title}&labels={labels}"
 
 
