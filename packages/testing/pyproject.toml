@@ -110,7 +110,7 @@ where = ["src"]
 exclude = ["*tests*"]
 
 [tool.setuptools.package-data]
-"execution_testing.forks" = ["forks/eips/**/*.bin"]
+"execution_testing.forks" = ["forks/eips/**/*.bin", "forks/eips/**/*.json"]
 "execution_testing.cli.pytest_commands.plugins.execute" = ["eth_config/networks.yml"]
 "execution_testing.cli.eest.make" = ["templates/*.j2"]
 "execution_testing.cli.pytest_commands" = ["pytest_ini_files/*.ini"]
