@@ -62,9 +62,8 @@ def test_bad_block_hash_on_new_payload(
     """
     A payload whose ``blockHash`` does not match its contents is INVALID.
 
-    A payload whose ``blockHash`` does not match its contents is ``INVALID``
-    with a null latestValidHash (shanghai.md supplants V1's
-    ``INVALID_BLOCK_HASH``); the head does not move. The same payload with
+    The answer has a null latestValidHash (shanghai.md supplants V1's
+    ``INVALID_BLOCK_HASH``) and the head does not move. The same payload with
     its correct hash is then deliverable and becomes the head, so the client
     recorded neither the claimed hash nor the contents as bad.
     """
