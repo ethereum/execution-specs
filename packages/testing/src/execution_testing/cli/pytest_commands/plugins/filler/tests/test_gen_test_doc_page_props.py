@@ -67,7 +67,11 @@ def test_function_page_has_a_plain_title() -> None:
     front_matter = written.split("---")[1]
     lines = front_matter.splitlines()
     assert 'title: "test_example"' in lines
-    assert '    title: "test_ example"' in lines
+    social = lines.index("social:")
+    assert lines[social + 1 : social + 3] == [
+        "  cards_layout_options:",
+        '    title: "test_ example"',
+    ]
 
 
 @pytest.mark.parametrize(

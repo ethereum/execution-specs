@@ -221,6 +221,11 @@ jobs:
 
       - uses: ./.github/actions/setup-uv
 
+      # test.yaml ignores docs/**, so a change to the page templates alone
+      # would not run the tests of the pages rendered from them.
+      - name: Test the test case reference page templates
+        run: just test-tests -k test_gen_test_doc_page_props
+
       - name: Build Zensical documentation
         env:
           SITE_URL: ${{ needs.check-should-publish.outputs.site_url }}
