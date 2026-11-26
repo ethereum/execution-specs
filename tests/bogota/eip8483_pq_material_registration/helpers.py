@@ -72,7 +72,6 @@ def queue_storage(
 def call_results_relay(
     pre: Alloc,
     calls: Sequence[Tuple[Address, bytes, int, bool]],
-    extra_code: Bytecode | None = None,
 ) -> Tuple[Address, bytes, Storage]:
     """
     Deploy a relay that makes each `(address, calldata, value, succeeds)`
@@ -90,8 +89,6 @@ def call_results_relay(
             Op.CALL(Op.GAS, address, value, 0, len(calldata), 0, 0),
         )
         offset += len(calldata)
-    if extra_code is not None:
-        code += extra_code
     relay = pre.deploy_contract(
         code,
         balance=sum(value for _, _, value, _ in calls),

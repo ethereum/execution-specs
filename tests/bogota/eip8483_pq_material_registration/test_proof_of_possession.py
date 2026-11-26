@@ -17,6 +17,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    EIPChecklist,
     FeeSystemContractRequest,
     Header,
     Op,
@@ -89,6 +90,7 @@ def every_proof_scenarios() -> List[ParameterSet]:
     "request_class,system_contract_interactions_per_block",
     every_proof_scenarios(),
 )
+@EIPChecklist.SystemContract.Test.Inputs.Valid()
 def test_every_proof_accepted(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -155,11 +157,24 @@ def invalid_proofs() -> List[ParameterSet]:
             VALID_PROOF, signature=flip_byte(signature, len(signature) - 1)
         ),
     }
-    return [pytest.param(proof, id=name) for name, proof in cases.items()]
+    return [
+        pytest.param(
+            proof,
+            id=name,
+            # A changed byte corrupts a valid proof. The other cases are
+            # well-formed proofs of the wrong statement.
+            marks=EIPChecklist.SystemContract.Test.Inputs.Invalid.Corrupted()
+            if name.endswith("_changed")
+            else (),
+        )
+        for name, proof in cases.items()
+    ]
 
 
 @pytest.mark.parametrize("invalid_proof", invalid_proofs())
 @with_both_registrations
+@EIPChecklist.SystemContract.Test.Inputs.Invalid(exact=True)
+@EIPChecklist.SystemContract.Test.Inputs.Invalid.Crypto()
 def test_invalid_proof_rejected(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

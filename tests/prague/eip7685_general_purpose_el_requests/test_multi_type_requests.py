@@ -203,7 +203,9 @@ def get_fork_permutations(fork: Fork) -> Generator[ParameterSet, None, None]:
 
 @pytest.mark.parametrize_by_fork("requests", get_fork_permutations)
 @pytest.mark.eels_base_coverage
-@EIPChecklist.ExecutionLayerRequest.Test.CrossRequestType.Update(eip=[8282])
+@EIPChecklist.ExecutionLayerRequest.Test.CrossRequestType.Update(
+    eip=[8282, 8483]
+)
 def test_valid_multi_type_requests(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

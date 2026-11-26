@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    EIPChecklist,
     FeeSystemContractRequest,
     Header,
     PQBuilderRegistrationRequest,
@@ -37,6 +38,7 @@ REQUEST_CLASSES: List[type[FeeSystemContractRequest]] = [
 
 @pytest.mark.valid_at_transition_to("Bogota")
 @pytest.mark.pre_alloc_mutable
+@EIPChecklist.SystemContract.Test.ForkTransition.CallBeforeFork()
 def test_registrations_during_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

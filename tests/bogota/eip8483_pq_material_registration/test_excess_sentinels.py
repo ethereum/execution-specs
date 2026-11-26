@@ -13,6 +13,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    EIPChecklist,
     FeeSystemContractRequest,
     Header,
     Requests,
@@ -109,6 +110,9 @@ def test_inhibitor_disables_registrations(
 
 
 @with_both_registrations
+@EIPChecklist.SystemContract.Test.ValueTransfer.Fee.Under()
+@EIPChecklist.SystemContract.Test.ValueTransfer.Fee.Exact()
+@EIPChecklist.SystemContract.Test.InputLengths.Zero()
 def test_pre_fork_fee(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

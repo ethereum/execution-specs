@@ -13,6 +13,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    EIPChecklist,
     FeeSystemContractRequest,
     Header,
     Op,
@@ -57,8 +58,22 @@ pytestmark = [
 SEEDED_SOURCE = Address(0x5EED)
 
 
-@pytest.mark.parametrize("source", ["eoa", "contract"])
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param(
+            "eoa",
+            marks=EIPChecklist.SystemContract.Test.CallContexts.TxEntry(),
+        ),
+        pytest.param(
+            "contract",
+            marks=EIPChecklist.SystemContract.Test.CallContexts.Normal(),
+        ),
+    ],
+)
 @with_both_registrations
+@EIPChecklist.SystemContract.Test.InputLengths.Static.Correct()
+@EIPChecklist.SystemContract.Test.ValueTransfer.Fee.Exact()
 def test_registration_logs_and_stores_record(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -190,6 +205,7 @@ def registration_scenarios() -> List[ParameterSet]:
     "request_class,system_contract_interactions_per_block",
     registration_scenarios(),
 )
+@EIPChecklist.SystemContract.Test.Inputs.Valid()
 def test_registrations(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -218,6 +234,7 @@ def test_registrations(
 
 @pytest.mark.pre_alloc_mutable
 @with_both_registrations
+@EIPChecklist.SystemContract.Test.Inputs.Boundary()
 def test_backlog_drains_first(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -390,10 +407,22 @@ def test_registration_undone_by_caller(
 @pytest.mark.parametrize(
     "calldata_case",
     [
-        "one_byte_short",
-        "one_byte_long",
-        "without_signature",
-        "other_contract_request",
+        pytest.param(
+            "one_byte_short",
+            marks=EIPChecklist.SystemContract.Test.InputLengths.Static.TooShort(),
+        ),
+        pytest.param(
+            "one_byte_long",
+            marks=EIPChecklist.SystemContract.Test.InputLengths.Static.TooLong(),
+        ),
+        pytest.param(
+            "without_signature",
+            marks=EIPChecklist.SystemContract.Test.InputLengths.Static.TooShort(),
+        ),
+        pytest.param(
+            "other_contract_request",
+            marks=EIPChecklist.SystemContract.Test.Inputs.Invalid.Checks(),
+        ),
     ],
 )
 @with_both_registrations
@@ -455,10 +484,18 @@ def test_invalid_calldata_length(
 @pytest.mark.parametrize(
     "unsigned",
     [
-        pytest.param(0, id="zero"),
+        pytest.param(
+            0,
+            id="zero",
+            marks=EIPChecklist.SystemContract.Test.Inputs.AllZeros(),
+        ),
         pytest.param(1, id="one"),
         pytest.param(1 << 128, id="low_bit_of_first_half"),
-        pytest.param(2**256 - 1, id="all_ones"),
+        pytest.param(
+            2**256 - 1,
+            id="all_ones",
+            marks=EIPChecklist.SystemContract.Test.Inputs.MaxValues(),
+        ),
     ],
 )
 def test_validator_unsigned_pq_data(

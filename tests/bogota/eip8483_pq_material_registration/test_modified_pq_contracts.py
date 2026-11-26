@@ -12,6 +12,7 @@ from execution_testing import (
     BlockchainTestFiller,
     BlockException,
     Bytecode,
+    EIPChecklist,
     FeeSystemContractRequest,
     Header,
     Op,
@@ -57,6 +58,10 @@ def returning(data: bytes) -> Bytecode:
         ),
     ],
 )
+@EIPChecklist.SystemContract.Test.ContractSubstitution.RaisesException()
+@EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitSuccess()
+@EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitFailure()
+@EIPChecklist.SystemContract.Test.ExcessiveGas.SystemCall()
 @generate_system_contract_error_test()  # type: ignore[arg-type]
 def test_system_contract_errors() -> None:
     """
@@ -71,6 +76,7 @@ def test_system_contract_errors() -> None:
 
 @pytest.mark.exception_test
 @with_both_registrations
+@EIPChecklist.SystemContract.Test.Deployment.Missing()
 def test_predeploy_without_code(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -89,6 +95,7 @@ def test_predeploy_without_code(
 
 
 @with_both_registrations
+@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
 def test_more_records_than_max_per_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
