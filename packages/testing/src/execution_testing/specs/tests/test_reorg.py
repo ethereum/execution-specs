@@ -149,6 +149,11 @@ def test_fill_sibling_and_invalid_child(
     )
     assert "validationError" not in dumped_blocks["i3"]
     assert "validationError" not in dumped_blocks["a1"]
+    # A payload with a wrong block hash says so.
+    bad_hash = ReorgBlock(label="h", engine_new_payload_block_hash=Hash(1))
+    assert ReorgTest._validation_error(bad_hash) == [
+        BlockException.INVALID_BLOCK_HASH
+    ]
 
     # Model annotations.
     steps = fixture.steps
