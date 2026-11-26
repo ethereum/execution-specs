@@ -4,9 +4,13 @@ import dataclasses
 from typing import Any, Dict, Iterator, List, Tuple, Type
 
 import pytest
+from ethereum.forks.bogota.keyed_nonces import nonce_slot
+from ethereum.forks.bogota.transactions.frame_transaction import NONCE_MANAGER
+from ethereum_types.bytes import Bytes20
+from ethereum_types.numeric import U256
 from pydantic import BaseModel
 
-from execution_testing.base_types import BlobSchedule
+from execution_testing.base_types import Address, BlobSchedule
 from execution_testing.vm import Opcodes
 
 from ..base_fork import BaseFork, BaseForkMeta, GasDimension, SystemCallPhase
@@ -809,6 +813,29 @@ def test_block_gas_dimensions() -> None:
     after = transition.fork_at(timestamp=15_000)
     assert before.block_gas_dimensions() == execution
     assert after.block_gas_dimensions() == both
+
+
+def test_keyed_nonce_slots() -> None:
+    """
+    EIP-8250 holds each nonce key's sequence in the nonce manager, at the
+    slot the specification derives.
+    """
+    sender = Address(0x1234)
+    keys = [0, 7, 2**256 - 1]
+    in_nonce_manager = [
+        (
+            Address(NONCE_MANAGER),
+            int.from_bytes(nonce_slot(Bytes20(sender), U256(key)), "big"),
+        )
+        for key in keys
+    ]
+    assert Amsterdam.keyed_nonce_slots(sender, keys) == []
+    assert Bogota.keyed_nonce_slots(sender, keys) == in_nonce_manager
+    transition = AmsterdamToBogotaAtTime15k
+    before = transition.fork_at(timestamp=14_999)
+    after = transition.fork_at(timestamp=15_000)
+    assert before.keyed_nonce_slots(sender, keys) == []
+    assert after.keyed_nonce_slots(sender, keys) == in_nonce_manager
 
 
 def test_fork_adapters() -> None:  # noqa: D103

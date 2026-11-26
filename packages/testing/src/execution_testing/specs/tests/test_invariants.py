@@ -9,10 +9,20 @@ from execution_testing.base_types import Address
 from execution_testing.client_clis import Result
 from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.evm_tools.t8n.evm_trace.bal_witness import BalWitness
-from execution_testing.forks import Amsterdam, Cancun, Fork, Osaka, Shanghai
+from execution_testing.forks import (
+    Amsterdam,
+    Bogota,
+    Cancun,
+    Fork,
+    Osaka,
+    Shanghai,
+)
 from execution_testing.test_types import (
+    EOA,
     Account,
     Alloc,
+    Frame,
+    Transaction,
     TransactionReceipt,
 )
 from execution_testing.test_types.block_access_list import (
@@ -245,6 +255,78 @@ def test_nonce_decreases_only_with_selfdestruct_before_eip6780(
     assert name_of(violation) == expected
 
 
+SENDER = EOA(key=1)
+NONCE_KEY = 7
+NONCE_MANAGER, KEYED_NONCE_SLOT = Bogota.keyed_nonce_slots(
+    SENDER, [NONCE_KEY]
+)[0]
+
+
+def frame_tx(*nonce_keys: int) -> Transaction:
+    """Return a frame transaction from `SENDER` selecting the nonce keys."""
+    return Transaction(
+        sender=SENDER, frames=[Frame.verify()], nonce_keys=list(nonce_keys)
+    )
+
+
+def nonce_state(account_nonce: int, sequence: int) -> Alloc:
+    """Return the sender at a nonce and the nonce key at a sequence."""
+    return Alloc(
+        {
+            SENDER: Account(nonce=account_nonce),
+            NONCE_MANAGER: Account(
+                nonce=1,
+                storage={KEYED_NONCE_SLOT: sequence} if sequence else {},
+            ),
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "nonce_keys,transactions,post_nonce,post_sequence,expected",
+    [
+        pytest.param([], 1, 1, 0, None, id="account_nonce_advanced"),
+        pytest.param(
+            [], 1, 0, 1, "sender_nonce_advances", id="account_nonce_stuck"
+        ),
+        pytest.param([NONCE_KEY], 1, 0, 1, None, id="sequence_advanced"),
+        pytest.param(
+            [NONCE_KEY], 1, 1, 0, "keyed_nonce_advances", id="sequence_stuck"
+        ),
+        pytest.param([NONCE_KEY], 2, 0, 2, None, id="two_on_one_key"),
+        pytest.param(
+            [NONCE_KEY],
+            2,
+            0,
+            1,
+            "keyed_nonce_advances",
+            id="two_on_one_key_one_short",
+        ),
+    ],
+)
+def test_accepted_transaction_advances_its_nonce(
+    nonce_keys: List[int],
+    transactions: int,
+    post_nonce: int,
+    post_sequence: int,
+    expected: Optional[str],
+) -> None:
+    """
+    An accepted transaction advances its sender's account nonce, or with
+    EIP-8250 nonce keys each key's sequence instead.
+    """
+    violation = violated(
+        lambda: check_nonce_monotonicity(
+            Bogota,
+            nonce_state(0, 0),
+            nonce_state(post_nonce, post_sequence),
+            [frame_tx(*nonce_keys)] * transactions,
+            result(),
+        )
+    )
+    assert name_of(violation) == expected
+
+
 def bal(**changes: Any) -> BlockAccessList:
     """Return a BAL with one account entry."""
     return BlockAccessList([BalAccountChange(address=ACCOUNT, **changes)])
@@ -391,6 +473,83 @@ def test_bal_slots_between_witness_bounds(
         assert violation is not None
         assert violation.invariant == "bal_access_witness"
         assert violation.message.partition(" (")[0] == expected
+
+
+@pytest.mark.parametrize(
+    "listed,expected",
+    [
+        pytest.param(bal(storage_reads=[1, 5]), None, id="listed"),
+        pytest.param(bal(storage_reads=[1]), DROPPED, id="dropped"),
+        pytest.param(
+            bal(storage_reads=[1, 5, 9]), INVENTED, id="another_slot_invented"
+        ),
+    ],
+)
+def test_bal_lists_slots_the_protocol_accessed(
+    listed: BlockAccessList, expected: Optional[str]
+) -> None:
+    """
+    An instruction accessed slot 1 and the protocol itself slot 5, so the
+    BAL must list both though the trace shows only slot 1.
+    """
+    account = int.from_bytes(ACCOUNT, "big")
+    witness = BalWitness(
+        started=frozenset({(account, 1)}), ended=frozenset({(account, 1)})
+    )
+    violation = violated(
+        lambda: check_bal_access_witness(
+            witness, listed, protocol_accessed={(account, 5)}
+        )
+    )
+    if expected is None:
+        assert violation is None
+    else:
+        assert violation is not None
+        assert violation.invariant == "bal_access_witness"
+        assert violation.message.partition(" (")[0] == expected
+
+
+@pytest.mark.parametrize(
+    "nonce_keys,expected",
+    [
+        pytest.param([NONCE_KEY], None, id="selected_by_the_transaction"),
+        pytest.param([], "bal_access_witness", id="no_nonce_keys"),
+        pytest.param(
+            [NONCE_KEY + 1], "bal_access_witness", id="another_key_selected"
+        ),
+    ],
+)
+def test_keyed_nonce_slot_needs_no_storage_instruction(
+    nonce_keys: List[int], expected: Optional[str]
+) -> None:
+    """
+    A block's access list may hold a keyed nonce slot that no `SLOAD` or
+    `SSTORE` touched only when an accepted transaction selects its key.
+    """
+    advanced = BalStorageSlot(
+        slot=KEYED_NONCE_SLOT,
+        slot_changes=[BalStorageChange(block_access_index=1, post_value=1)],
+    )
+    violation = violated(
+        lambda: check_block_invariants(
+            fork=Bogota,
+            pre_alloc=nonce_state(0, 0),
+            post_alloc=nonce_state(0, 1),
+            result=result(),
+            txs=[frame_tx(*nonce_keys)],
+            totals=totals(),
+            block_access_list=BlockAccessList(
+                [
+                    BalAccountChange(
+                        address=NONCE_MANAGER, storage_changes=[advanced]
+                    )
+                ]
+            ),
+            bal_witness=BalWitness(),
+            block_access_list_only=True,
+        )
+    )
+    assert name_of(violation) == expected
 
 
 def test_bal_state_diff_names_the_lowest_address_first() -> None:

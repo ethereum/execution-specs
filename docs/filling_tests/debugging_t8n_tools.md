@@ -207,9 +207,9 @@ The `--invariant-checks` flag checks every valid block the transition tool produ
 
 - Total ether changes only by withdrawals and block rewards minus the base fee and blob fee burn. Before [EIP-8246](https://eips.ethereum.org/EIPS/eip-8246), a block that ran `SELFDESTRUCT` may lose more.
 - The header's gas used stays within the gas limit and is consistent with the receipts: equal to the last receipt's cumulative gas, or within the bounds [EIP-7778](https://eips.ethereum.org/EIPS/eip-7778) and [EIP-8037](https://eips.ethereum.org/EIPS/eip-8037) allow.
-- Nonces never decrease, except through `SELFDESTRUCT` before [EIP-6780](https://eips.ethereum.org/EIPS/eip-6780), and each sender's nonce advances by at least its number of included transactions.
+- Nonces never decrease, except through `SELFDESTRUCT` before [EIP-6780](https://eips.ethereum.org/EIPS/eip-6780), and each sender's nonce advances by at least its number of included transactions. A transaction with [EIP-8250](https://eips.ethereum.org/EIPS/eip-8250) nonce keys advances each key's sequence in the nonce manager instead.
 - The block access list ([EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)) has an entry for every changed balance, nonce, code and storage value, its last entry for each equals the post-state, and no entry repeats the value before it.
-- With the EELS transition tool, the block access list contains every storage slot an `SLOAD` or `SSTORE` completed on, and only slots one of them started on, as seen in the execution trace.
+- With the EELS transition tool, the block access list contains every storage slot an `SLOAD` or `SSTORE` completed on, and only slots one of them started on, as seen in the execution trace. The keyed nonce slots of the included transactions, which the protocol reads and writes without either instruction, must be listed as well.
 
 A state test's own fill checks the first three rules; its blockchain form (`blockchain_test_from_state_test`) checks only the block access list.
 

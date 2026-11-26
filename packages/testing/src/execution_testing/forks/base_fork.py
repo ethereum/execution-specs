@@ -1489,6 +1489,20 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         del nonce_keys
         return 0
 
+    @classmethod
+    def keyed_nonce_slots(
+        cls, sender: Address, nonce_keys: Sequence[int]
+    ) -> List[Tuple[Address, int]]:
+        """
+        Return the storage slots, each as `(account, slot)`, that hold the
+        sequences a frame transaction's nonce keys select.
+
+        The protocol checks and advances these sequences itself, with no
+        instruction reading or writing the slots.
+        """
+        del sender, nonce_keys
+        return []
+
     # Engine API information abstract methods
     @classmethod
     @abstractmethod

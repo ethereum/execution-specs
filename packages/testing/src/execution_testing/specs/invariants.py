@@ -7,7 +7,7 @@ Enabled with `fill --invariant-checks`. A violation is raised as an
 
 from collections import Counter
 from dataclasses import dataclass
-from typing import Dict, Optional, Sequence, Set, Tuple
+from typing import AbstractSet, Dict, Optional, Sequence, Set, Tuple
 
 from execution_testing.base_types import Account, Address
 from execution_testing.client_clis.cli_types import Result
@@ -46,6 +46,24 @@ def _accepted_txs(
     return [
         tx for index, tx in enumerate(txs) if index not in rejected_indices
     ]
+
+
+def _keyed_nonce_uses(
+    fork: Fork, txs: Sequence[Transaction], result: Result
+) -> Counter[Tuple[Address, int]]:
+    """
+    Count the accepted transactions selecting each keyed nonce slot.
+
+    A transaction with EIP-8250 nonce keys leaves its sender's account
+    nonce alone and advances each key's sequence, held in a storage slot
+    as `(account, slot)`. The protocol reads and writes that slot itself,
+    with no `SLOAD` or `SSTORE`.
+    """
+    uses: Counter[Tuple[Address, int]] = Counter()
+    for tx in _accepted_txs(txs, result):
+        if tx.sender is not None and tx.nonce_keys:
+            uses.update(fork.keyed_nonce_slots(tx.sender, tx.nonce_keys))
+    return uses
 
 
 @dataclass(frozen=True)
@@ -189,6 +207,9 @@ def check_nonce_monotonicity(
     transfer re-creates at nonce 0, so a block that ran it skips the
     decrease check. From EIP-6780 on it deletes only accounts created in
     the same transaction, which never lowers a nonce.
+
+    A transaction with EIP-8250 nonce keys advances each key's sequence
+    instead of its sender's account nonce.
     """
 
     def nonce_of(alloc: Alloc, address: Address) -> int | None:
@@ -196,6 +217,12 @@ def check_nonce_monotonicity(
         if account is None:
             return None
         return int(account.nonce)
+
+    def sequence_of(alloc: Alloc, address: Address, slot: int) -> int:
+        account = alloc.root.get(address)
+        if account is None or slot not in account.storage:
+            return 0
+        return int(account.storage[slot])
 
     may_delete = fork.selfdestruct_deletes_existing_accounts() and (
         _may_have_run_selfdestruct(result)
@@ -218,7 +245,9 @@ def check_nonce_monotonicity(
                 )
 
     accepted = Counter(
-        tx.sender for tx in _accepted_txs(txs, result) if tx.sender is not None
+        tx.sender
+        for tx in _accepted_txs(txs, result)
+        if tx.sender is not None and not tx.nonce_keys
     )
     for sender, count in accepted.items():
         pre_nonce = nonce_of(pre_alloc, sender) or 0
@@ -230,6 +259,20 @@ def check_nonce_monotonicity(
                     f"sender {sender} nonce {pre_nonce} -> "
                     f"{post_nonce} after {count} accepted "
                     "transactions"
+                ),
+            )
+
+    keyed = _keyed_nonce_uses(fork, txs, result)
+    for (account, slot), count in keyed.items():
+        pre_sequence = sequence_of(pre_alloc, account, slot)
+        post_sequence = sequence_of(post_alloc, account, slot)
+        if post_sequence < pre_sequence + count:
+            raise InvariantViolationError(
+                invariant="keyed_nonce_advances",
+                message=(
+                    f"keyed nonce at {account} slot {slot:#x} went "
+                    f"{pre_sequence} -> {post_sequence} after {count} "
+                    "accepted transactions"
                 ),
             )
 
@@ -346,6 +389,7 @@ def check_bal_against_state_diff(
 def check_bal_access_witness(
     witness: Optional[BalWitness],
     block_access_list: Optional[BlockAccessList],
+    protocol_accessed: AbstractSet[SlotAccess] = frozenset(),
 ) -> None:
     """
     Check the BAL's storage slots against the slots execution accessed.
@@ -353,9 +397,14 @@ def check_bal_access_witness(
     The witness comes from the trace stream, not from the state tracker
     that builds the BAL, so a slot the tracker dropped or invented shows
     up here. Only the EELS transition tool produces a witness.
+
+    `protocol_accessed` holds the slots the protocol read or wrote itself.
+    No instruction shows them in the trace, and the BAL must list each.
     """
     if witness is None or block_access_list is None:
         return
+    started = witness.started | protocol_accessed
+    ended = witness.ended | protocol_accessed
     listed: Set[SlotAccess] = set()
     for entry in block_access_list.root:
         address = int.from_bytes(entry.address, "big")
@@ -366,8 +415,8 @@ def check_bal_access_witness(
     # so the BAL must hold every slot an SLOAD or SSTORE completed on, and
     # only slots one started on: `ended <= BAL <= started`.
     for problem, slots in (
-        ("accessed but absent from the BAL", witness.ended - listed),
-        ("in the BAL but never accessed", listed - witness.started),
+        ("accessed but absent from the BAL", ended - listed),
+        ("in the BAL but never accessed", listed - started),
     ):
         if not slots:
             continue
@@ -410,7 +459,14 @@ def check_block_invariants(
             check_gas_accounting(fork, result, totals)
             check_nonce_monotonicity(fork, pre_alloc, post_alloc, txs, result)
         check_bal_against_state_diff(pre_alloc, post_alloc, block_access_list)
-        check_bal_access_witness(bal_witness, block_access_list)
+        check_bal_access_witness(
+            bal_witness,
+            block_access_list,
+            protocol_accessed={
+                (int.from_bytes(account, "big"), slot)
+                for account, slot in _keyed_nonce_uses(fork, txs, result)
+            },
+        )
     except InvariantViolationError as violation:
         if block_number is not None:
             violation.add_note(f"block {block_number}")
