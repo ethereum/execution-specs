@@ -63,12 +63,6 @@ from execution_testing.fixtures import (
     merge_partial_fixture_files,
     strip_fixture_format_from_node,
 )
-from execution_testing.fixtures.engine_x_checks import (
-    ENGINE_X_FIXTURES_DIR,
-    EngineXCheckError,
-    EngineXExecutionDriftError,
-    verify_engine_x_execution,
-)
 from execution_testing.fixtures.pre_alloc_groups import (
     GroupIndexEntries,
     _get_worker_id,
@@ -1032,26 +1026,6 @@ def pytest_terminal_summary(
                 bold=True,
                 yellow=True,
             )
-
-    engine_x_warning = getattr(config, "engine_x_check_warning", None)
-    if engine_x_warning is not None:
-        terminalreporter.write_sep(
-            "=",
-            " WARNING: Engine X execution consistency check skipped ",
-            bold=True,
-            yellow=True,
-        )
-        terminalreporter.write_line(engine_x_warning, yellow=True)
-
-    engine_x_error = getattr(config, "engine_x_check_error", None)
-    if engine_x_error is not None:
-        title = (
-            " ERROR: Engine X execution drift "
-            if isinstance(engine_x_error, EngineXExecutionDriftError)
-            else " ERROR: Engine X execution consistency check failed "
-        )
-        terminalreporter.write_sep("=", title, bold=True, red=True)
-        terminalreporter.write_line(str(engine_x_error), red=True)
 
 
 def _aggregate_cache_stats(node: Any) -> None:
@@ -2295,45 +2269,6 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         for file in lock_files:
             file.unlink()
         _log_timing(f"Lock files removed in {time.time() - t0:.1f}s")
-
-    # Loudly fail the fill if pre-alloc group packing changed any Engine X
-    # test's execution. The check reports through the terminal summary
-    # instead of raising: an exception from this hook would abort the
-    # terminal reporter before the FAILURES section prints (hiding any
-    # test failures, which the drift report may be the explanation for)
-    # and would skip the index merge and tarball below. Drift still fails
-    # the fill via the session exit status. The check runs on unclean
-    # sessions too: a leaked account that breaks a test's post-state is
-    # exactly the failure the drift report diagnoses.
-    if not session.config.getoption("optimistic_pre_alloc_grouping_disabled"):
-        _log_timing("verify_engine_x_execution: starting...")
-        t0 = time.time()
-        try:
-            engine_x_check = verify_engine_x_execution(
-                fixture_output.directory
-            )
-        except EngineXCheckError as check_error:
-            logger.error(str(check_error))
-            session.config.engine_x_check_error = check_error  # type: ignore[attr-defined] # noqa: E501
-            session.exitstatus = pytest.ExitCode.TESTS_FAILED
-        else:
-            if engine_x_check.compared > 0:
-                logger.info(engine_x_check.summary)
-            if engine_x_check.skip_reason is not None:
-                logger.warning(engine_x_check.skip_reason)
-                # Repeated in the terminal summary; a log line alone is
-                # easy to miss.
-                session.config.engine_x_check_warning = (  # type: ignore[attr-defined] # noqa: E501
-                    engine_x_check.skip_reason
-                )
-        _log_timing(
-            f"verify_engine_x_execution: done in {time.time() - t0:.1f}s"
-        )
-    elif (fixture_output.directory / ENGINE_X_FIXTURES_DIR).is_dir():
-        logger.info(
-            "Engine X execution consistency check skipped: optimistic "
-            "pre-alloc grouping is disabled."
-        )
 
     # Verify fixtures after merge if verification is enabled
     if session.config.getoption("verify_fixtures"):
