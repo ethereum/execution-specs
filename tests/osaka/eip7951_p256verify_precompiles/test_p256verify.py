@@ -293,6 +293,23 @@ def test_wycheproof_extra(
             + Spec.Y0,
             id="u1_eq_u2_and_Q_ne_G",
         ),
+        # Test case for Q == -G.
+        # This test case is important because G + Q, which implementations
+        # of u1*G + u2*Q may precompute, is the point at infinity.
+        pytest.param(
+            H(
+                0x6038D49A0C9EDC92C761AA73983CFFD22AAB0CFC8E972D09100F2EA5FA094CB0
+            )
+            + R(
+                0xE4958EB9A98B86C3FD80EF08A6702A50532D4470A9D5CCD7F21FEFF38EBFCF06
+            )
+            + S(
+                0x2AA1C1DFB80EC2E1AC69E9F321C50304684EFC958443A5BFA1E546DD4E6BEB86
+            )
+            + X(Spec.Gx)
+            + Y(Spec.P - Spec.Gy),
+            id="Q_eq_minus_G",
+        ),
     ],
 )
 @pytest.mark.parametrize(
