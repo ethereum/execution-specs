@@ -9,7 +9,14 @@ import pytest
 GROUPS_MODULE = """\
 import pytest
 
-from execution_testing import Alloc, Block, BlockchainTestFiller
+from execution_testing import (
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Op,
+    StateTestFiller,
+    Transaction,
+)
 
 
 @pytest.mark.valid_at("Prague")
@@ -17,6 +24,19 @@ def test_another_group(
     pre: Alloc, blockchain_test: BlockchainTestFiller
 ) -> None:
     blockchain_test(pre=pre, blocks=[Block(txs=[])], post={})
+
+
+@pytest.mark.valid_at("Prague")
+def test_state_group(pre: Alloc, state_test: StateTestFiller) -> None:
+    state_test(
+        pre=pre,
+        post={},
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=pre.deploy_contract(Op.STOP),
+            gas_limit=100_000,
+        ),
+    )
 
 
 @pytest.mark.valid_at("Prague")
@@ -53,6 +73,9 @@ def test_xdist_runs_slow_then_large_groups_first(
     """
     Hand slow groups to workers first, then larger groups.
 
+    `test_state_group` and `test_another_group` get automatic `t8n-cache`
+    groups, and the state test's three fixture formats put its group ahead.
+
     xdist sorts groups by size by default, which sent slow tests with few
     fixture formats out mid-run, so they finished minutes after every
     other worker.
@@ -85,5 +108,6 @@ def test_xdist_runs_slow_then_large_groups_first(
     assert _run_order(result.outlines) == [
         "test_slow_group",
         "test_large_group",
+        "test_state_group",
         "test_another_group",
     ]
