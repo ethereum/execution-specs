@@ -58,6 +58,8 @@ DISPUTED_SHORTCUT_VS_38006 = (
 @pytest.mark.valid_from("Shanghai")
 def test_sibling_reorg(reorg_test: ReorgTestFiller, pre: Alloc) -> None:
     r"""
+    The head moves between two sibling blocks and back.
+
     Genesis <- a1 <- a2.
                  \\- b2.
 
@@ -245,6 +247,8 @@ def test_invalid_side_chain(
     reorg_test: ReorgTestFiller, pre: Alloc, invalid_index: int
 ) -> None:
     r"""
+    A side chain with one invalid block never becomes canonical.
+
     Genesis <- a1 <- a2 .. a5           (canonical).
                 \\- s2 .. s6            (side chain, block ``invalid_index``
                                          of it invalid).
@@ -456,6 +460,8 @@ def test_fcu_rewind_to_canonical_ancestor_above_finalized(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
+    Rewind the head to a canonical ancestor above the finalized block.
+
     #786 case (c): finalized = a5, head = a10, then FCU(head=a7, safe=a7,
     finalized=a5).
 
