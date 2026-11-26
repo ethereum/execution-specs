@@ -15,6 +15,7 @@ from typing import List, Tuple, Type
 from execution_testing.client_clis.runner_interface import (
     BalExecution,
     BalFallback,
+    BuildRunnerResults,
     RunnerResults,
 )
 from pydantic import BaseModel
@@ -24,6 +25,7 @@ logger = logging.getLogger("gen_docs")
 PAGE = Path("running_tests/consume/client_runner_schemas.md")
 SECTIONS: List[Tuple[str, Type[BaseModel]]] = [
     ("Results", RunnerResults),
+    ("Build test results", BuildRunnerResults),
     ("BAL execution lines", BalExecution),
     ("BAL fallback lines", BalFallback),
 ]

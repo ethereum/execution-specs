@@ -1,5 +1,5 @@
 """
-Output of client test runners (`blocktest`, `enginetest`).
+Output of client test runners (`blocktest`, `enginetest`, `buildtest`).
 
 The interface is described in `docs/running_tests/consume/client_runners.md`;
 the docs build renders their JSON Schemas on a page it links to.
@@ -7,7 +7,7 @@ the docs build renders their JSON Schemas on a page it links to.
 
 from typing import List, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, JsonValue
 
 from execution_testing.base_types import (
     CamelModel,
@@ -68,6 +68,48 @@ class RunnerResults(EthereumTestRootModel[List[FixtureResult]]):
     """The JSON array a runner prints on stdout: one object per fixture."""
 
     root: List[FixtureResult]
+
+
+class Mismatch(RunnerModel):
+    """A field of a built payload that differs from the fixture's."""
+
+    index: int = Field(
+        ge=0,
+        description="Position of the payload in `engineNewPayloads`, from 0.",
+    )
+    field: str = Field(
+        description=(
+            "The field's name as in the payload JSON, such as `stateRoot`, "
+            "or `executionRequests`."
+        ),
+    )
+    expected: JsonValue = Field(
+        description="The fixture's value, as in the payload JSON.",
+    )
+    got: JsonValue = Field(
+        description="The built value, as in the payload JSON.",
+    )
+
+
+class BuildFixtureResult(FixtureResult):
+    """The outcome of one fixture under `buildtest`."""
+
+    built: int = Field(
+        ge=0,
+        description="The number of payloads the client built.",
+    )
+    mismatches: List[Mismatch] = Field(
+        description=(
+            "Every field of a built payload that differs from the "
+            "fixture's, in fixture order."
+        ),
+    )
+
+
+class BuildRunnerResults(EthereumTestRootModel[List[BuildFixtureResult]]):
+    """The JSON array `buildtest` prints on stdout: one object per fixture."""
+
+    root: List[BuildFixtureResult]
 
 
 class BalExecution(RunnerModel):
