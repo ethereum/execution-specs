@@ -25,12 +25,14 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Bytes,
+    Case,
     Conditional,
     Fork,
     Frame,
     FrameOutcome,
     Op,
     StateTestFiller,
+    Switch,
     Transaction,
 )
 
@@ -53,9 +55,6 @@ TRANSIENT_VALUE = 0x2A
 
 FAILED_FRAME_TRANSIENT_VALUE = 0x99
 """Value a failing frame writes into the slot before it fails."""
-
-CALLING_FRAME_GAS = 200_000
-"""Execution gas budget of the frames whose target calls another account."""
 
 SLOT_SEEN_AT_ENTRY = 0x00
 """
@@ -261,7 +260,11 @@ def test_transient_storage_discarded_after_failed_frame(
 
     def record(**overrides: Any) -> Frame:
         overrides.setdefault("state_gas_used", record_state_gas)
-        return Frame.default(target=recorder, pin_gas=False, **overrides)
+        return Frame.default(
+            target=recorder,
+            code=code.branch(condition=False),
+            **overrides,
+        )
 
     batch = []
     # The unroll restores the pre-batch state. A client whose unroll also
@@ -272,6 +275,7 @@ def test_transient_storage_discarded_after_failed_frame(
         batch.append(
             record(
                 flags=Spec.ATOMIC_BATCH_FLAG,
+                warm=True,
                 outcome=FrameOutcome.UNROLLED,
                 state_gas_used=0,
             )
@@ -279,13 +283,15 @@ def test_transient_storage_discarded_after_failed_frame(
     batch.append(
         Frame.default(
             target=recorder,
+            warm=True,
             data=Bytes(b"\x01"),
             outcome=failed_outcome,
-            pin_gas=False,
+            code=code.branch(condition=True),
         )
     )
 
-    frames = [Frame.verify(), record(), *batch, record()]
+    # The first frame's success leaves the recorder warm.
+    frames = [Frame.verify(), record(), *batch, record(warm=True)]
     tx = Transaction(sender=sender, frames=frames).resolve_frames(fork)
 
     state_test(
@@ -317,16 +323,17 @@ def test_transient_storage_discarded_before_verify_frame(
     be invalid.
     """
     writer = Op.TSTORE(TRANSIENT_KEY, TRANSIENT_VALUE) + Op.STOP
-    verifier = Conditional(
-        condition=Op.ISZERO(Op.TLOAD(TRANSIENT_KEY)),
-        if_true=APPROVE_ALL,
-        if_false=Op.REVERT(0, 0),
-    )
-    # The `DEFAULT` frame supplies calldata, the `VERIFY` frame none.
-    sender_code = Conditional(
-        condition=Op.CALLDATASIZE,
-        if_true=writer,
-        if_false=verifier,
+    # The `DEFAULT` frame supplies calldata and writes; the `VERIFY`
+    # frame supplies none and approves only on an empty slot.
+    sender_code = Switch(
+        cases=[
+            Case(condition=Op.CALLDATASIZE, action=writer),
+            Case(
+                condition=Op.ISZERO(Op.TLOAD(TRANSIENT_KEY)),
+                action=APPROVE_ALL,
+            ),
+        ],
+        default_action=Op.REVERT(0, 0),
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
@@ -334,8 +341,12 @@ def test_transient_storage_discarded_before_verify_frame(
         sender=sender,
         nonce=1,
         frames=[
-            Frame.default(target=sender, data=Bytes(b"\x01"), pin_gas=False),
-            Frame.verify(pin_gas=False),
+            Frame.default(
+                target=sender,
+                data=Bytes(b"\x01"),
+                code=sender_code.branch(case=0),
+            ),
+            Frame.verify(code=sender_code.branch(case=1)),
         ],
     ).resolve_frames(fork)
 
@@ -379,32 +390,46 @@ def test_transient_storage_discarded_for_called_account(
     )
     callee = pre.deploy_contract(code=callee_code)
     writer_code = (
-        Op.POP(Op.CALL(gas=Op.GAS, address=callee, args_size=1))
-        + Op.POP(Op.CALL(gas=Op.GAS, address=callee))
+        Op.POP(
+            Op.CALL(gas=Op.GAS, address=callee, args_size=1, new_memory_size=1)
+        )
+        + Op.POP(Op.CALL(gas=Op.GAS, address=callee, address_warm=True))
         + Op.STOP
     )
     writer = pre.deploy_contract(code=writer_code)
-    reader = pre.deploy_contract(
-        code=Op.POP(Op.CALL(gas=Op.GAS, address=callee)) + Op.STOP
+    # The writer's frame succeeded, so the callee it called stays warm.
+    reader_code = (
+        Op.POP(Op.CALL(gas=Op.GAS, address=callee, address_warm=True))
+        + Op.STOP
     )
+    reader = pre.deploy_contract(code=reader_code)
     # Each frame is charged the callee's record of its read.
     slot_gas = record.state_cost(fork)
     sender = pre.fund_eoa()
+
+    writer_path = (
+        writer_code
+        + callee_code.branch(condition=True)
+        + callee_code.branch(condition=False)
+    )
+    reader_path = reader_code + callee_code.branch(condition=False)
 
     tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
+            # Each call forwards all but a 64th of the gas left, so the
+            # budgets carry the retention.
             Frame.default(
                 target=writer,
-                gas_limit=CALLING_FRAME_GAS,
-                pin_gas=False,
+                code=writer_path,
+                gas_limit_delta=writer_path.execution_cost(fork) // 64,
                 state_gas_used=slot_gas,
             ),
             Frame.default(
                 target=reader,
-                gas_limit=CALLING_FRAME_GAS,
-                pin_gas=False,
+                code=reader_path,
+                gas_limit_delta=reader_path.execution_cost(fork) // 64,
                 state_gas_used=slot_gas,
             ),
         ],

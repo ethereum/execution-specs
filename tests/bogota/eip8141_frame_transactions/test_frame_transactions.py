@@ -17,6 +17,7 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Bytes,
+    Case,
     Conditional,
     Fork,
     Frame,
@@ -24,6 +25,7 @@ from execution_testing import (
     GasFee,
     Op,
     StateTestFiller,
+    Switch,
     Transaction,
     TransactionException,
 )
@@ -307,7 +309,8 @@ def test_frame_revert_discards_the_approval_it_granted(
     # both invocations run the sender's code. Calldata distinguishes them:
     # the frame supplies some, the self-call supplies none.
     record = Op.SSTORE(SLOT_EXECUTED, 1)
-    outer = record + Op.CALL(gas=Op.GAS, address=Op.ADDRESS) + frame_ending
+    outer = record + Op.CALL(gas=Op.GAS, address=Op.ADDRESS, address_warm=True)
+    outer += frame_ending
     sender_code = Conditional(
         condition=Op.CALLDATASIZE,
         if_true=outer,
@@ -316,6 +319,10 @@ def test_frame_revert_discards_the_approval_it_granted(
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
 
+    invocation = sender_code.branch(condition=True) + sender_code.branch(
+        condition=False
+    )
+
     tx = Transaction(
         sender=sender,
         nonce=1,
@@ -323,9 +330,12 @@ def test_frame_revert_discards_the_approval_it_granted(
             Frame.default(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
-                gas_limit=400_000,
+                warm=True,
+                # The nested call forwards all but a 64th of the gas
+                # left, so the budget carries the retention.
+                code=invocation,
+                gas_limit_delta=invocation.execution_cost(fork) // 64,
                 data=Bytes(b"\x01"),
-                pin_gas=False,
                 state_gas_used=record.state_cost(fork),
             ),
         ],
@@ -399,24 +409,36 @@ def test_call_revert_above_approve_discards_the_approval(
     outer = (
         record
         + Op.POP(
-            Op.CALL(gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1)
+            Op.CALL(
+                gas=Op.GAS,
+                address=Op.ADDRESS,
+                args_offset=0,
+                args_size=1,
+                # gas accounting
+                address_warm=True,
+                new_memory_size=1,
+            )
         )
         + (approve if outer_approves else Op.STOP)
     )
-    middle = Op.POP(Op.CALL(gas=Op.GAS, address=Op.ADDRESS)) + (
-        Op.REVERT(0, 0) if middle_reverts else Op.STOP
-    )
-    sender_code = Conditional(
-        condition=Op.CALLDATASIZE,
-        if_true=Conditional(
-            condition=Op.EQ(Op.CALLDATASIZE, 2),
-            if_true=outer,
-            if_false=middle,
-        ),
+    middle = Op.POP(
+        Op.CALL(gas=Op.GAS, address=Op.ADDRESS, address_warm=True)
+    ) + (Op.REVERT(0, 0) if middle_reverts else Op.STOP)
+    sender_code = Switch(
+        cases=[
+            Case(condition=Op.EQ(Op.CALLDATASIZE, 2), action=outer),
+            Case(condition=Op.CALLDATASIZE, action=middle),
+        ],
         # `APPROVE` exits this call context, returning control to `middle`.
-        if_false=approve,
+        default_action=approve,
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
+
+    invocation = (
+        sender_code.branch(case=0)
+        + sender_code.branch(case=1)
+        + sender_code.branch(case=None)
+    )
 
     approved = not middle_reverts or outer_approves
     tx = Transaction(
@@ -426,9 +448,12 @@ def test_call_revert_above_approve_discards_the_approval(
             Frame.default(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
-                gas_limit=400_000,
+                warm=True,
+                # Each nested call forwards all but a 64th of the gas
+                # left, so the budget carries both retentions.
+                code=invocation,
+                gas_limit_delta=invocation.execution_cost(fork) // 32,
                 data=Bytes(b"\x01\x01"),
-                pin_gas=False,
                 state_gas_used=record.state_cost(fork),
             ),
         ],
@@ -489,20 +514,24 @@ def test_approve_inside_staticcall(
     inner = Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT)
     if static_call_writes:
         inner = Op.SSTORE(SLOT_EXECUTED, 1) + inner
-    # The frame succeeds only if the static self-call did, so a refused
-    # or halted approval fails the frame and leaves no payer.
-    outer = Conditional(
-        condition=Op.STATICCALL(gas=Op.GAS, address=Op.ADDRESS),
-        if_true=Op.STOP,
-        if_false=Op.REVERT(0, 0),
-    )
-    # The frame supplies calldata, the static self-call supplies none.
-    sender_code = Conditional(
-        condition=Op.CALLDATASIZE,
-        if_true=outer,
-        if_false=inner,
+    # The static self-call supplies no calldata and approves. The frame
+    # supplies some, and succeeds only if the static self-call did, so a
+    # refused or halted approval fails the frame and leaves no payer.
+    sender_code = Switch(
+        cases=[
+            Case(condition=Op.ISZERO(Op.CALLDATASIZE), action=inner),
+            Case(
+                condition=Op.STATICCALL(
+                    gas=Op.GAS, address=Op.ADDRESS, address_warm=True
+                ),
+                action=Op.STOP,
+            ),
+        ],
+        default_action=Op.REVERT(0, 0),
     )
     sender = pre.deploy_contract(code=sender_code, balance=10**18)
+
+    invocation = sender_code.branch(case=1) + sender_code.branch(case=0)
 
     tx = Transaction(
         sender=sender,
@@ -511,9 +540,11 @@ def test_approve_inside_staticcall(
             approving_frame(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
-                gas_limit=400_000,
+                # The static call forwards all but a 64th of the gas
+                # left, so the budget carries the retention.
+                code=invocation,
+                gas_limit_delta=invocation.execution_cost(fork) // 64,
                 data=Bytes(b"\x01"),
-                pin_gas=False,
             ),
         ],
         error=(
@@ -570,20 +601,24 @@ def test_approve_payment_inside_staticcall(
     inner = Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT)
     if static_call_writes:
         inner = Op.SSTORE(SLOT_EXECUTED, 1) + inner
-    # The frame succeeds only if the static self-call did, so a refused
-    # or halted approval fails the frame and leaves no payer.
-    outer = Conditional(
-        condition=Op.STATICCALL(gas=Op.GAS, address=Op.ADDRESS),
-        if_true=Op.STOP,
-        if_false=Op.REVERT(0, 0),
-    )
-    # The frame supplies calldata, the static self-call supplies none.
-    payer_code = Conditional(
-        condition=Op.CALLDATASIZE,
-        if_true=outer,
-        if_false=inner,
+    # The static self-call supplies no calldata and approves. The frame
+    # supplies some, and succeeds only if the static self-call did, so a
+    # refused or halted approval fails the frame and leaves no payer.
+    payer_code = Switch(
+        cases=[
+            Case(condition=Op.ISZERO(Op.CALLDATASIZE), action=inner),
+            Case(
+                condition=Op.STATICCALL(
+                    gas=Op.GAS, address=Op.ADDRESS, address_warm=True
+                ),
+                action=Op.STOP,
+            ),
+        ],
+        default_action=Op.REVERT(0, 0),
     )
     payer = pre.deploy_contract(code=payer_code, balance=10**18)
+
+    invocation = payer_code.branch(case=1) + payer_code.branch(case=0)
 
     tx = Transaction(
         sender=sender,
@@ -593,9 +628,11 @@ def test_approve_payment_inside_staticcall(
             approving_frame(
                 flags=Spec.APPROVE_PAYMENT,
                 target=payer,
-                gas_limit=400_000,
+                # The static call forwards all but a 64th of the gas
+                # left, so the budget carries the retention.
+                code=invocation,
+                gas_limit_delta=invocation.execution_cost(fork) // 64,
                 data=Bytes(b"\x01"),
-                pin_gas=False,
             ),
         ],
         error=(

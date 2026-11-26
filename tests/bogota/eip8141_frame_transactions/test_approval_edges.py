@@ -16,6 +16,7 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
+    Case,
     CodeGasMeasure,
     Conditional,
     Environment,
@@ -26,6 +27,7 @@ from execution_testing import (
     Op,
     Opcode,
     StateTestFiller,
+    Switch,
     Transaction,
     TransactionException,
 )
@@ -81,7 +83,15 @@ def test_approve_reached_through_another_contract(
     """
     helper_code = (
         Op.POP(
-            Op.CALL(gas=Op.GAS, address=Op.CALLER, args_offset=0, args_size=1)
+            Op.CALL(
+                gas=Op.GAS,
+                address=Op.CALLER,
+                args_offset=0,
+                args_size=1,
+                # gas accounting
+                address_warm=True,
+                new_memory_size=1,
+            )
         )
         + Op.STOP
         if reentry
@@ -98,6 +108,10 @@ def test_approve_reached_through_another_contract(
     )
     sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
 
+    invocation = sender_code.branch(condition=False) + helper_code
+    if reentry:
+        invocation += sender_code.branch(condition=True)
+
     tx = Transaction(
         sender=sender,
         nonce=1,
@@ -105,8 +119,10 @@ def test_approve_reached_through_another_contract(
             Frame.default(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
-                gas_limit=FRAME_GAS,
-                pin_gas=False,
+                # Each nested call forwards all but a 64th of the gas
+                # left, so the budget carries both retentions.
+                code=invocation,
+                gas_limit_delta=invocation.execution_cost(fork) // 32,
                 state_gas_used=record.state_cost(fork),
             ),
         ],
@@ -159,10 +175,19 @@ def test_approve_in_library_code(
     )
     sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
 
+    invocation = sender_code.branch(condition=True) + APPROVE_ALL
+
     tx = Transaction(
         sender=sender,
         nonce=1,
-        frames=[Frame.verify(gas_limit=FRAME_GAS, pin_gas=False)],
+        frames=[
+            Frame.verify(
+                # The call forwards all but a 64th of the gas left, so
+                # the budget carries the retention.
+                code=invocation,
+                gas_limit_delta=invocation.execution_cost(fork) // 64,
+            )
+        ],
         error=(
             None
             if approves
@@ -203,10 +228,15 @@ def test_split_approval_order(
         else (Spec.APPROVE_PAYMENT, Spec.APPROVE_EXECUTION)
     )
     call_self = Op.CALL(
-        gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
+        gas=Op.GAS,
+        address=Op.ADDRESS,
+        args_offset=0,
+        args_size=1,
+        # gas accounting
+        address_warm=True,
     )
     record = (
-        Op.MSTORE8(0, first)
+        Op.MSTORE8(0, first, new_memory_size=1)
         + Op.SSTORE(0, Op.ADD(1, call_self))
         + Op.MSTORE8(0, second)
         + Op.SSTORE(1, Op.ADD(1, call_self))
@@ -219,12 +249,19 @@ def test_split_approval_order(
     sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
     payer = pre.fund_eoa(amount=FUNDS)
 
+    invocation = (
+        sender_code.branch(condition=False)
+        + sender_code.branch(condition=True) * 2
+    )
+
     frames: List[Frame] = [
         Frame.default(
             flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
             target=sender,
-            gas_limit=FRAME_GAS,
-            pin_gas=False,
+            # Each self-call forwards all but a 64th of the gas left, so
+            # the budget carries the retention.
+            code=invocation,
+            gas_limit_delta=invocation.execution_cost(fork) // 64,
             state_gas_used=record.state_cost(fork),
         ),
     ]
@@ -272,7 +309,10 @@ def test_second_payment_approval_refused(
     `max_cost`.
     """
     sender = pre.fund_eoa()
-    record = Op.SSTORE(0, Op.ADD(1, Op.CALL(gas=Op.GAS, address=Op.ADDRESS)))
+    record = Op.SSTORE(
+        0,
+        Op.ADD(1, Op.CALL(gas=Op.GAS, address=Op.ADDRESS, address_warm=True)),
+    )
     # The frame supplies calldata, the self-call none.
     sponsor_code = Conditional(
         condition=Op.CALLDATASIZE,
@@ -280,12 +320,17 @@ def test_second_payment_approval_refused(
         if_false=Op.APPROVE(0, 0, Spec.APPROVE_PAYMENT),
     )
     sponsor = pre.deploy_contract(code=sponsor_code, balance=FUNDS)
+    invocation = sponsor_code.branch(condition=True) + sponsor_code.branch(
+        condition=False
+    )
     sponsor_frame = Frame.default(
         flags=Spec.APPROVE_PAYMENT,
         target=sponsor,
         data=Bytes(b"\x01"),
-        gas_limit=FRAME_GAS,
-        pin_gas=False,
+        # The self-call forwards all but a 64th of the gas left, so the
+        # budget carries the retention.
+        code=invocation,
+        gas_limit_delta=invocation.execution_cost(fork) // 64,
         state_gas_used=record.state_cost(fork),
     )
 
@@ -341,34 +386,45 @@ def test_execution_approval_refused_once_granted(
     payment, once a `VERIFY` frame approved it; a sponsor then pays.
     """
     call_self = Op.CALL(
-        gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
+        gas=Op.GAS,
+        address=Op.ADDRESS,
+        # gas accounting
+        args_offset=0,
+        args_size=1,
+        address_warm=True,
+        new_memory_size=1,
     )
     record = Op.SSTORE(0, Op.ADD(1, call_self))
     # The `VERIFY` frame supplies no calldata, the `DEFAULT` frame two
     # bytes, and its self-call one.
-    sender_code = Conditional(
-        condition=Op.CALLDATASIZE,
-        if_true=Conditional(
-            condition=Op.EQ(Op.CALLDATASIZE, 2),
-            if_true=record + Op.STOP,
-            if_false=Op.APPROVE(0, 0, scope),
-        ),
-        if_false=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION),
+    sender_code = Switch(
+        cases=[
+            Case(condition=Op.EQ(Op.CALLDATASIZE, 2), action=record + Op.STOP),
+            Case(condition=Op.CALLDATASIZE, action=Op.APPROVE(0, 0, scope)),
+        ],
+        default_action=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION),
     )
     sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
     payer = pre.fund_eoa(amount=FUNDS)
+
+    invocation = sender_code.branch(case=0) + sender_code.branch(case=1)
 
     tx = Transaction(
         sender=sender,
         nonce=1,
         frames=[
-            Frame.verify(flags=Spec.APPROVE_EXECUTION, pin_gas=False),
+            Frame.verify(
+                flags=Spec.APPROVE_EXECUTION,
+                code=sender_code.branch(case=None),
+            ),
             Frame.default(
                 flags=scope,
                 target=sender,
                 data=Bytes(b"\x01\x01"),
-                gas_limit=FRAME_GAS,
-                pin_gas=False,
+                # The self-call forwards all but a 64th of the gas left,
+                # so the budget carries the retention.
+                code=invocation,
+                gas_limit_delta=invocation.execution_cost(fork) // 64,
                 state_gas_used=record.state_cost(fork),
             ),
             Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
@@ -446,40 +502,49 @@ def test_scope_beyond_frame_flags_refused(
         raise ValueError(f"unknown scope: {scope!r}")
     assert scope & ~allowed, "the scope must exceed the frame's flags"
     call_self = Op.CALL(
-        gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
+        gas=Op.GAS,
+        address=Op.ADDRESS,
+        args_offset=0,
+        args_size=1,
+        # gas accounting
+        address_warm=True,
+        new_memory_size=1,
     )
     record = Op.SSTORE(0, Op.ADD(1, call_self))
     # The `VERIFY` frames supply no calldata, the `DEFAULT` frame two
     # bytes, and its self-call one.
-    sender_code = Conditional(
-        condition=Op.CALLDATASIZE,
-        if_true=Conditional(
-            condition=Op.EQ(Op.CALLDATASIZE, 2),
-            if_true=record + Op.STOP,
-            if_false=Op.APPROVE(0, 0, scope),
-        ),
-        if_false=Op.APPROVE(0, 0, top_level_scope),
+    sender_code = Switch(
+        cases=[
+            Case(condition=Op.EQ(Op.CALLDATASIZE, 2), action=record + Op.STOP),
+            Case(condition=Op.CALLDATASIZE, action=Op.APPROVE(0, 0, scope)),
+        ],
+        default_action=Op.APPROVE(0, 0, top_level_scope),
     )
     sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
     payer = pre.fund_eoa(amount=FUNDS)
+
+    invocation = sender_code.branch(case=0) + sender_code.branch(case=1)
+    verify_path = sender_code.branch(case=None)
 
     probe = Frame.default(
         flags=allowed,
         target=sender,
         data=Bytes(b"\x01\x01"),
-        gas_limit=FRAME_GAS,
-        pin_gas=False,
+        # The self-call forwards all but a 64th of the gas left, so the
+        # budget carries the retention.
+        code=invocation,
+        gas_limit_delta=invocation.execution_cost(fork) // 64,
         state_gas_used=record.state_cost(fork),
     )
     frames: List[Frame]
     if execution_first:
         frames = [
-            Frame.verify(flags=Spec.APPROVE_EXECUTION, pin_gas=False),
+            Frame.verify(flags=Spec.APPROVE_EXECUTION, code=verify_path),
             probe,
             Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
         ]
     else:
-        frames = [probe, Frame.verify(pin_gas=False)]
+        frames = [probe, Frame.verify(code=verify_path)]
 
     tx = Transaction(
         sender=sender,
@@ -681,20 +746,26 @@ def test_approve_return_data(
     caller as return data, and that scope 0 is refused. A refused
     call's return data is not read: the EIP leaves it unspecified.
     """
-    inner = Op.MSTORE(0, 0xBEEF) + Op.APPROVE(
+    inner = Op.MSTORE(0, 0xBEEF, new_memory_size=32) + Op.APPROVE(
         0,
         32,
         Spec.APPROVE_EXECUTION_AND_PAYMENT if granted else Spec.APPROVE_NONE,
     )
     call_self = Op.CALL(
-        gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
+        gas=Op.GAS,
+        address=Op.ADDRESS,
+        args_offset=0,
+        args_size=1,
+        # gas accounting
+        address_warm=True,
+        new_memory_size=1,
     )
     record = Op.SSTORE(0, Op.ADD(1, call_self))
     if granted:
         # Slot 1 records the return data size, slot 2 the returned word.
         record += (
             Op.SSTORE(1, Op.RETURNDATASIZE)
-            + Op.RETURNDATACOPY(0, 0, 32)
+            + Op.RETURNDATACOPY(0, 0, 32, data_size=32)
             + Op.SSTORE(2, Op.MLOAD(0))
         )
     outer = record + (Op.STOP if granted else APPROVE_ALL)
@@ -703,6 +774,10 @@ def test_approve_return_data(
     )
     sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
 
+    invocation = sender_code.branch(condition=False) + sender_code.branch(
+        condition=True
+    )
+
     tx = Transaction(
         sender=sender,
         nonce=1,
@@ -710,8 +785,10 @@ def test_approve_return_data(
             Frame.default(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
-                gas_limit=FRAME_GAS,
-                pin_gas=False,
+                # The self-call forwards all but a 64th of the gas left,
+                # so the budget carries the retention.
+                code=invocation,
+                gas_limit_delta=invocation.execution_cost(fork) // 64,
                 state_gas_used=record.state_cost(fork),
             ),
         ],
@@ -880,7 +957,8 @@ def test_max_cost_collected_at_payment_approval(
     """
     sender = pre.fund_eoa()
     payer = pre.fund_eoa(amount=FUNDS)
-    probe_code = Op.SSTORE(0, Op.BALANCE(payer)) + Op.STOP
+    # The payer's approving frame left it warm.
+    probe_code = Op.SSTORE(0, Op.BALANCE(payer, address_warm=True)) + Op.STOP
     probe = pre.deploy_contract(code=probe_code)
 
     tx = Transaction(
@@ -891,7 +969,7 @@ def test_max_cost_collected_at_payment_approval(
             Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
             Frame.default(
                 target=probe,
-                pin_gas=False,
+                code=probe_code,
                 state_gas_used=probe_code.state_cost(fork),
             ),
         ],
@@ -930,7 +1008,13 @@ def test_max_cost_collected_within_approving_frame(
     reduced balance.
     """
     call_self = Op.CALL(
-        gas=Op.GAS, address=Op.ADDRESS, args_offset=0, args_size=1
+        gas=Op.GAS,
+        address=Op.ADDRESS,
+        args_offset=0,
+        args_size=1,
+        # gas accounting
+        address_warm=True,
+        new_memory_size=1,
     )
     # Slot 0 records the self-call's result plus one, slot 1 the balance
     # its caller reads after it returns.
@@ -943,6 +1027,10 @@ def test_max_cost_collected_within_approving_frame(
     )
     sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
 
+    invocation = sender_code.branch(condition=False) + sender_code.branch(
+        condition=True
+    )
+
     tx = Transaction(
         sender=sender,
         nonce=1,
@@ -951,8 +1039,10 @@ def test_max_cost_collected_within_approving_frame(
             Frame.default(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 target=sender,
-                gas_limit=FRAME_GAS,
-                pin_gas=False,
+                # The self-call forwards all but a 64th of the gas left,
+                # so the budget carries the retention.
+                code=invocation,
+                gas_limit_delta=invocation.execution_cost(fork) // 64,
                 state_gas_used=record.state_cost(fork),
             ),
         ],
