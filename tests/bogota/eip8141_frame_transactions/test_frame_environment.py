@@ -114,7 +114,6 @@ def test_frame_receipt_drops_logs_of_reverted_calls(
             ),
             Frame.default(
                 target=third,
-                gas_limit=200_000,
                 pin_gas=False,
                 logs=[TransactionLog(address=third, topics=[4])],
             ),

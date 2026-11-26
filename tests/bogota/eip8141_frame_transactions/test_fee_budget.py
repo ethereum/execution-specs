@@ -451,21 +451,14 @@ def test_gasprice_is_the_same_in_every_frame(
     sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
 
     slot_gas = record.state_cost(fork)
-    frame_gas = 200_000
     frames = [
         Frame.verify(pin_gas=False),
         Frame.sender(target=recorder, pin_gas=False, state_gas_used=slot_gas),
         Frame.default(target=recorder, pin_gas=False, state_gas_used=slot_gas),
-        Frame.default(
-            target=caller,
-            gas_limit=frame_gas,
-            pin_gas=False,
-            state_gas_used=slot_gas,
-        ),
+        Frame.default(target=caller, pin_gas=False, state_gas_used=slot_gas),
         Frame.default(
             target=factory,
             data=Bytes(bytes(record)),
-            gas_limit=frame_gas,
             pin_gas=False,
             # The creation's new account and the initcode's write.
             state_gas_used=factory_code.state_cost(fork) + slot_gas,

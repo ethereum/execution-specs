@@ -45,9 +45,6 @@ SLOT_CALLER = 0x00
 SLOT_ORIGIN = 0x01
 """Storage slot the recorder writes `ORIGIN` into."""
 
-FRAME_GAS = 200_000
-"""Execution gas budget of the frames whose code makes nested calls."""
-
 RECORDER_CODE = (
     Op.SSTORE(SLOT_CALLER, Op.CALLER)
     + Op.SSTORE(SLOT_ORIGIN, Op.ORIGIN)
@@ -166,7 +163,6 @@ def test_caller_and_origin_in_nested_call(
             Frame(
                 mode=mode,
                 target=target,
-                gas_limit=FRAME_GAS,
                 code=target_code,
                 pin_gas=False,
             ),
@@ -232,7 +228,7 @@ def test_caller_and_origin_in_verify_frame(
     tx = Transaction(
         sender=sender,
         nonce=1,
-        frames=[Frame.verify(gas_limit=FRAME_GAS, pin_gas=False)],
+        frames=[Frame.verify(pin_gas=False)],
     ).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce_change=1)})
@@ -363,7 +359,6 @@ def test_caller_and_origin_in_create_initcode(
                 mode=mode,
                 target=factory,
                 data=Bytes(bytes(RECORDER_CODE)),
-                gas_limit=FRAME_GAS,
                 pin_gas=False,
                 # The new account, then the initcode's two writes.
                 state_gas_used=factory_code.state_cost(fork)
