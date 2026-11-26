@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import pytest
 
-from execution_testing.base_types import Address
+from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.client_clis import Result
 from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.evm_tools.t8n.evm_trace.bal_witness import BalWitness
@@ -18,6 +18,7 @@ from execution_testing.test_types import (
 from execution_testing.test_types.block_access_list import (
     BalAccountChange,
     BalBalanceChange,
+    BalCodeChange,
     BalStorageChange,
     BalStorageSlot,
     BlockAccessList,
@@ -278,6 +279,84 @@ def test_bal_balance_against_state_diff(
         )
     )
     assert name_of(violation) == expected
+
+
+OLD_CODE = Bytes(b"\x60\x00")
+NEW_CODE = Bytes(b"\x60\x01")
+OTHER_CODE = Bytes(b"\x60\x02")
+
+
+def code_changes(*codes: Bytes | Hash) -> List[BalCodeChange]:
+    """
+    Return code changes at consecutive indices, each recording bytecode
+    or, given a hash, only that code hash as an EIP-8298 adoption does.
+    """
+    return [
+        BalCodeChange(
+            block_access_index=index + 1, new_code=b"", new_code_hash=code
+        )
+        if isinstance(code, Hash)
+        else BalCodeChange(block_access_index=index + 1, new_code=code)
+        for index, code in enumerate(codes)
+    ]
+
+
+@pytest.mark.parametrize(
+    "recorded,expected",
+    [
+        pytest.param(code_changes(NEW_CODE), None, id="bytecode"),
+        pytest.param(code_changes(NEW_CODE.keccak256()), None, id="adopted"),
+        pytest.param(
+            code_changes(OTHER_CODE.keccak256(), NEW_CODE),
+            None,
+            id="adopted_then_bytecode",
+        ),
+        pytest.param([], "bal_state_diff", id="missing"),
+        pytest.param(
+            code_changes(OTHER_CODE.keccak256()),
+            "bal_state_diff",
+            id="adopted_another_code",
+        ),
+        pytest.param(
+            code_changes(OLD_CODE.keccak256(), NEW_CODE),
+            "bal_state_diff",
+            id="no_op_adoption",
+        ),
+    ],
+)
+def test_bal_code_against_state_diff(
+    recorded: List[BalCodeChange], expected: Optional[str]
+) -> None:
+    """
+    Code going from one program to another must end at the new one,
+    whether an entry records its bytecode or, as an EIP-8298 adoption
+    does, only its hash.
+    """
+    violation = violated(
+        lambda: check_bal_against_state_diff(
+            alloc(code=OLD_CODE),
+            alloc(code=NEW_CODE),
+            bal(code_changes=recorded),
+        )
+    )
+    assert name_of(violation) == expected
+
+
+def test_bal_code_violation_names_the_code_hashes() -> None:
+    """A code mismatch is reported by code hash, in hexadecimal."""
+    adopted, in_state = OTHER_CODE.keccak256(), NEW_CODE.keccak256()
+    violation = violated(
+        lambda: check_bal_against_state_diff(
+            alloc(code=OLD_CODE),
+            alloc(code=NEW_CODE),
+            bal(code_changes=code_changes(adopted)),
+        )
+    )
+    assert violation is not None
+    assert violation.message == (
+        f"{ACCOUNT} code hash last BAL value {adopted.hex()!r} "
+        f"!= post-state {in_state.hex()!r}"
+    )
 
 
 @pytest.mark.parametrize(
