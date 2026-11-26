@@ -226,12 +226,6 @@ class SystemContractInteractionContract(SystemContractInteractionBase):
         )
 
 
-# Scratch memory offsets for the out-of-gas measurement, placed above the
-# largest supported request calldata so they never overlap the copied calldata.
-_MEASURE_TOTAL_SLOT = 0x400
-_MEASURE_OVERHEAD_SLOT = 0x420
-
-
 @dataclass(kw_only=True, frozen=True)
 class SystemContractInteractionMeasuredOutOfGasContract(
     SystemContractInteractionContract
@@ -337,6 +331,13 @@ class SystemContractInteractionMeasuredOutOfGasContract(
             offsets.append(current)
             current += len(r.calldata)
 
+        # Scratch memory for the measurement, above the calldata that every
+        # call copies to memory 0, so the copies never overwrite it. It stays
+        # at 0x400 for requests that fit below it.
+        calldata_end = (len(self.requests[0].calldata) + 31) // 32 * 32
+        measure_total_slot = max(0x400, calldata_end)
+        measure_overhead_slot = measure_total_slot + 32
+
         def issue(
             *,
             index: int,
@@ -377,7 +378,7 @@ class SystemContractInteractionMeasuredOutOfGasContract(
             # Forward all gas using the same PUSH opcode in both calls:
             # Op.GAS and Op.PUSH0 could diverge in gas cost in the future.
             gas_argument=Op.PUSH4[0xFFFFFFFF],
-            measure_into=_MEASURE_TOTAL_SLOT,
+            measure_into=measure_total_slot,
         )
         for i in valid_indices[2:]:
             code += issue(index=i, gas_argument=Op.GAS)
@@ -387,10 +388,10 @@ class SystemContractInteractionMeasuredOutOfGasContract(
         code += issue(
             index=probe_index,
             gas_argument=Op.PUSH4[0],
-            measure_into=_MEASURE_OVERHEAD_SLOT,
+            measure_into=measure_overhead_slot,
         )
         required_gas = Op.SUB(
-            Op.MLOAD(_MEASURE_TOTAL_SLOT), Op.MLOAD(_MEASURE_OVERHEAD_SLOT)
+            Op.MLOAD(measure_total_slot), Op.MLOAD(measure_overhead_slot)
         )
         if self.exact_gas_margin:
             required_gas = Op.ADD(required_gas, self.exact_gas_margin)

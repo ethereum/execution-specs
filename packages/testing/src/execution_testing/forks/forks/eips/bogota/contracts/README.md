@@ -1,4 +1,18 @@
-# Proofs of possession
+# EIP-8483 contracts and proofs
+
+## Bytecode
+
+Bogota pre-allocates the runtime bytecode of three contracts. The two
+registration predeploys come from sys-asm#60 at `49891c0`, and they call the
+verifier at `0x8483…ffff` to check a proof of possession:
+
+| File | Contract | Source |
+| --- | --- | --- |
+| `pq_validator_registrations.bin` | Validator registrations | sys-asm `bytecode/pq_validator_registrations/main.hex` |
+| `pq_builder_registrations.bin` | Builder registrations | sys-asm `bytecode/pq_builder_registrations/main.hex` |
+| `pq_proof_of_possession.bin` | `PQProofOfPossession` | leanxmss-evm-verifier at `c91df85`, as sys-asm copies it to `test/vectors/pq_proof_of_possession/main.hex` |
+
+## Proofs of possession
 
 The EIP-8483 registration contracts only queue a request with a proof of
 possession of its leanXMSS key. A proof signs the chain ID, so the tests need

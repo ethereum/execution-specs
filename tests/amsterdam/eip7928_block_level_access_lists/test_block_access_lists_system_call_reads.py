@@ -22,6 +22,8 @@ from execution_testing import (
     Fork,
     Header,
     Macros,
+    PQBuilderRegistrationRequest,
+    PQRegistrationRequest,
     SystemCallPhase,
     SystemContractInteractionTransaction,
     Transaction,
@@ -39,6 +41,14 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 
 # Room for two blocks' worth of every request type in one enqueue block.
 BLOCK_GAS_LIMIT = 100_000_000
+# Request types whose queue stays empty, so their system calls only read the
+# queue's header. Two blocks' worth of EIP-8483 validator registrations don't
+# fit in a block, and the enqueue transactions split the block's gas evenly,
+# which leaves too little for the builder registrations and the others.
+IDLE_REQUEST_TYPES: list[Type[FeeSystemContractRequest]] = [
+    PQRegistrationRequest,
+    PQBuilderRegistrationRequest,
+]
 
 
 def _queued_request_types(fork: Fork) -> list[Type[FeeSystemContractRequest]]:
@@ -67,6 +77,20 @@ def _dequeue_reads(
     """Return the slots a dequeue of `count` requests reads, ascending."""
     return [request_class.count_slot] + request_class.record_slots(
         start_index, count
+    )
+
+
+def _idle_queue_reads(
+    request_class: Type[FeeSystemContractRequest],
+) -> list[int]:
+    """Return the slots the system call of an empty queue reads, ascending."""
+    return sorted(
+        {
+            request_class.excess_slot,
+            request_class.count_slot,
+            request_class.queue_head_slot,
+            request_class.queue_tail_slot,
+        }
     )
 
 
@@ -134,6 +158,11 @@ def test_bal_pending_system_call_reads_vs_leftover_gas(
     pending_reads: dict[Address, list[int]] = {}
     post: dict[Address, Account] = {}
     for request_class in request_types:
+        if request_class in IDLE_REQUEST_TYPES:
+            pending_reads[request_class.system_contract_address] = (
+                _idle_queue_reads(request_class)
+            )
+            continue
         # Block 1 dequeues the first block's worth, block 2 the second.
         requests = _enqueue_requests(
             request_class, 2 * request_class.max_per_block
@@ -189,8 +218,10 @@ def test_bal_pending_system_call_reads_vs_leftover_gas(
         address = request_class.system_contract_address
         account_expectations[address] = BalAccountExpectation(
             storage_reads=pending_reads[address],
-            storage_changes=_drained_queue_changes(
-                request_class, system_call_index
+            storage_changes=(
+                []
+                if request_class in IDLE_REQUEST_TYPES
+                else _drained_queue_changes(request_class, system_call_index)
             ),
         )
 

@@ -5,6 +5,10 @@ from .forks.eips.amsterdam.eip_8282 import (
     BuilderDepositRequest,
     BuilderExitRequest,
 )
+from .forks.eips.bogota.eip_8483 import (
+    PQBuilderRegistrationRequest,
+    PQRegistrationRequest,
+)
 from .forks.eips.prague.eip_6110 import (
     DepositRequest,
     create_deposit_log_bytes,
@@ -103,6 +107,8 @@ __all__ = [
     "ConsolidationRequest",
     "DepositRequest",
     "FeeSystemContractRequest",
+    "PQBuilderRegistrationRequest",
+    "PQRegistrationRequest",
     "RequestBase",
     "Requests",
     "SystemCallPhase",
