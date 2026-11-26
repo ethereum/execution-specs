@@ -276,6 +276,18 @@ def test_new_payload_branch_keeps_safe_and_finalized() -> None:
     assert (forkchoice_after.safe, forkchoice_after.finalized) == ("a1", "a1")
 
 
+def test_applied_forkchoice_clears_unnamed_markers() -> None:
+    """An applied update to a zero safe and finalized hash clears both."""
+    steps: List[Step] = [
+        new_payload("a1"),
+        forkchoice("a1", safe="a1", finalized="a1"),
+        new_payload("a2"),
+        forkchoice("a2"),
+    ]
+    after = rows(Scenario(linear("a", 2), steps))[-1].frames[0].forkchoice
+    assert (after.safe, after.finalized) == (None, None)
+
+
 def test_short_chains_are_drawn_in_full() -> None:
     """Below the thresholds nothing is folded or elided."""
     steps: List[Step] = [new_payload(f"a{i}") for i in range(1, 5)]
