@@ -9,12 +9,12 @@ https://eips.ethereum.org/EIPS/eip-8250
 """
 
 from dataclasses import replace
-from typing import List, Mapping, Sequence
+from typing import List, Mapping, Sequence, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.numeric import U256
 
-from execution_testing.base_types import Bytes
+from execution_testing.base_types import Address, Bytes
 
 from ....base_fork import BaseFork
 from ....gas_costs import GasCosts
@@ -64,6 +64,27 @@ class EIP8250(BaseFork):
             Bytes(
                 rlp.encode([U256(key) for key in nonce_keys]) + priced_sequence
             )
+        ]
+
+    @classmethod
+    def keyed_nonce_slots(
+        cls, sender: Address, nonce_keys: Sequence[int]
+    ) -> List[Tuple[Address, int]]:
+        """
+        Return each key's slot in the nonce manager: the hash of the
+        left-padded sender followed by the big-endian key.
+        """
+        manager = Address(NONCE_MANAGER_ADDRESS)
+        padded_sender = bytes(sender).rjust(32, b"\x00")
+        return [
+            (
+                manager,
+                int.from_bytes(
+                    Bytes(padded_sender + key.to_bytes(32, "big")).keccak256(),
+                    "big",
+                ),
+            )
+            for key in nonce_keys
         ]
 
     @classmethod
