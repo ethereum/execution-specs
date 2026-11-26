@@ -9,7 +9,8 @@ created, changed and destroyed in three blocks comes back with its first
 value after a reorg to a branch off its creation. From EIP-6780 on a
 ``SELFDESTRUCT`` only deletes the account when it runs in the transaction
 that created it, so the destroyed account is built by a factory that
-creates the contract and calls it back within one transaction.
+creates the contract and calls it back within one transaction. EIP-4758
+removes that deletion as well, so those tests stop where it activates.
 
 The ``CREATE2`` salt and initcode are the same on every branch, so the
 contract always lands on the same address and the branches differ only in
@@ -104,6 +105,7 @@ def _factory(pre: Alloc) -> Tuple[Address, Address]:
 
 
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_before("EIP4758")
 def test_reorg_over_same_tx_selfdestruct(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
@@ -155,6 +157,7 @@ def test_reorg_over_same_tx_selfdestruct(
 
 
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_before("EIP4758")
 def test_reorg_over_same_block_destroy_and_recreate(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
