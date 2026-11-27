@@ -9,7 +9,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, Optional, Sequence, Set, Tuple
 
-from execution_testing.base_types import Account, Address
+from execution_testing.base_types import Account, Address, Hash
 from execution_testing.client_clis.cli_types import Result
 from execution_testing.evm_tools.t8n.evm_trace.bal_witness import (
     BalWitness,
@@ -19,6 +19,7 @@ from execution_testing.forks import Fork
 from execution_testing.test_types import Alloc, Transaction
 from execution_testing.test_types.block_access_list import (
     BalAccountChange,
+    BalCodeChange,
     BlockAccessList,
 )
 from execution_testing.vm import Op
@@ -270,6 +271,17 @@ def _check_changes(
         previous = value
 
 
+def _code_hash(change: BalCodeChange) -> Hash:
+    """
+    Return the hash of the code a recorded change leaves in the account.
+
+    An EIP-8298 adoption records that hash and no bytecode.
+    """
+    if change.new_code_hash is not None:
+        return change.new_code_hash
+    return change.new_code.keccak256()
+
+
 def check_bal_against_state_diff(
     pre_alloc: Alloc,
     post_alloc: Alloc,
@@ -280,9 +292,11 @@ def check_bal_against_state_diff(
 
     Every changed balance, nonce, code or storage value has an entry, the
     entry at the last index equals the post-state, and no entry repeats
-    the value before it. Storage is skipped for an account that starts
-    with storage but no code and no nonce and ends with none: deleting it
-    wipes the storage, which the BAL has no way to record.
+    the value before it. Code is compared by its hash, the one form both
+    a bytecode entry and an EIP-8298 adoption give. Storage is skipped for
+    an account that starts with storage but no code and no nonce and ends
+    with none: deleting it wipes the storage, which the BAL has no way to
+    record.
     """
     if block_access_list is None:
         return
@@ -309,10 +323,10 @@ def check_bal_against_state_diff(
                 int(post.nonce),
                 [int(c.post_nonce) for c in entry.nonce_changes],
             ),
-            "code": (
-                bytes(pre.code),
-                bytes(post.code),
-                [bytes(c.new_code) for c in entry.code_changes],
+            "code hash": (
+                pre.code.keccak256().hex(),
+                post.code.keccak256().hex(),
+                [_code_hash(c).hex() for c in entry.code_changes],
             ),
         }
         pre_storage = {int(k): int(v) for k, v in pre.storage.root.items()}
