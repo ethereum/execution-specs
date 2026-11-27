@@ -40,28 +40,9 @@ These tests are located under `./tests/benchmark/compute`.
 
 **Note:** Benchmark tests are now only available starting from the `Prague` fork. Tests targeting earlier forks (`Cancun` or prior) are not supported in benchmark mode.
 
-## Benchmark Modes
+## Worst-Case Mode
 
-### Fixed Opcode Count Mode
-
-In this mode, users either:
-
-- First generate an opcode-count configuration mapping file via `uv run benchmark_parser`, then run the benchmark test with the `--fixed-opcode-count` flag **without parameters**, or
-- Specify the opcode count directly via a CLI flag (e.g., `--fixed-opcode-count N`)
-
-The benchmark test wrapper then constructs a test that executes approximately `N × 1000` opcode invocations during execution, allowing for up to ±5% deviation in the final opcode count.
-
-This mode is primarily used for gas repricing analysis, where it enables:
-
-- Controlled executed opcode/precompile counts.
-- Measurement of execution time as a function of opcode count.
-- Derivation of regression models between opcode frequency and execution time.
-
-**Note:** Flag ordering matters: if `--fixed-opcode-count` is followed immediately by another flag, that flag may be incorrectly interpreted as its parameter.
-
-### Worst-Case Mode
-
-In worst-case mode, users specify a target block gas limit instead of an opcode count.
+In worst-case mode, users specify a target block gas limit.
 By providing `--gas-benchmark-values N` (where N denotes the gas limit in millions), the benchmark construction process packs each block with as many instances as possible of the selected operation.
 
 This mode is designed for gas limit testing, and gas repricing, where it enables:
@@ -69,10 +50,7 @@ This mode is designed for gas limit testing, and gas repricing, where it enables
 - Evaluate execution-layer performance under extreme, worst-case conditions given certain operations.
 - Identify bottlenecks that may only surface at high gas utilization levels
 
-**Note:** For both benchmark modes, users may supply multiple values in a single invocation. For example:
-
-- `--gas-benchmark-values 1,2,3` runs the test with 1M, 2M, and 3M block gas limits
-- `--fixed-opcode-count 4,5` runs the test with approximately 4K and 5K opcode executions
+**Note:** Users may supply multiple values in a single invocation. For example, `--gas-benchmark-values 1,2,3` runs the test with 1M, 2M, and 3M block gas limits.
 
 **Output layout with gas benchmark values:** When `--gas-benchmark-values` is provided and benchmark tests are filled, fixtures are written into per‑fork, per‑gas‑limit subdirectories under each format directory:
 
@@ -91,18 +69,6 @@ This mode is designed for gas limit testing, and gas repricing, where it enables
 ```
 
 The subdirectory name follows the pattern `for_{fork}_at_{gas}M` (see [Fixture Output Directory Structure](../running_tests/releases.md#fixture-output-directory-structure) for details). Non-benchmark (consensus) fixtures use `for_{fork}` without the gas limit suffix.
-
-**Output layout with fixed opcode counts:** When `--fixed-opcode-count` is provided, the subdirectory name uses the opcode count instead of the gas limit (`for_{fork}_at_opcount_{N}K`):
-
-```text
-<output>/
-  blockchain_tests/
-    for_osaka_at_opcount_10K/...
-    for_osaka_at_opcount_20K/...
-  blockchain_tests_engine/
-    for_osaka_at_opcount_10K/...
-    for_osaka_at_opcount_20K/...
-```
 
 ## Developing Benchmarks
 
@@ -326,28 +292,11 @@ Based on experimental results, `ExtCallGenerator` is often more optimized than `
 
 **Note:** Users must provide exactly one parameter, either `tx`, `block` or `code_generator` to `BenchmarkTest`, more than one of these inputs simultaneously is not allowed.
 
-##### Fixed Opcode Count Test Construction
-
-The fixed-opcode-count feature is currently limited to benchmark tests that:
-
-1. Use the `BenchmarkTest` wrapper, and
-2. Use a code generator (`JumpLoopGenerator` or `ExtCallGenerator`)
-
-If one of the condition is not met, the benchmark does not support fixed-opcode-count mode and the test will be ignored during the test-selection phase.
-
-As a result, the test construction logic for fixed-opcode-count mode **differs** from the general code-generation behavior described above.
-
-In fixed-opcode-count mode, both `ExtCallGenerator` and `JumpLoopGenerator` always constructs target contract and loop contract. The target contract executes the `attack_block` exactly 1000 times, while the loop contract repeatedly calls into the target contract N times.
-
-As a result, the total opcode execution count is `1000 * N`, which matches the semantics of the `--fixed-opcode-count N` flag.
-
 ## Validating Benchmarks
 
 ### Setting Expected Gas Usage
 
 In benchmark mode, set the expected gas consumption using the `expected_benchmark_gas_used` field, if the test do not need to consume the full gas limit. Developer could calculate and specify the expected usage. If `expected_benchmark_gas_used` is not available, the setting will fall back to using `gas_benchmark_value` as the expected value.
-
-This feature is primarily used in `worst-case` benchmark mode.
 
 ```python
 @pytest.mark.valid_from("Prague")
@@ -372,7 +321,7 @@ However, in cases where it is difficult to determine the total gas usage, or if 
 
 ### Setting Target Operation
 
-For `fixed-opcode-count` mode, specify which opcode to target using the `target_opcode` parameter. The benchmark will compare the opcode count of `target_opcode` from test execution to the expected count for verification.
+Specify which opcode to target using the `target_opcode` parameter. When `expected_opcode_count` is also set, the benchmark compares the executed count of `target_opcode` against it and fails on a deviation above 5%.
 
 Opcode counts are recorded in a fixture's `_info.metadata` only for benchmark tests (tests under `tests/benchmark`, tests using `benchmark_test`, or any test filled with gas benchmark values). Pass `--count-opcodes` to `fill` to record them for every test.
 

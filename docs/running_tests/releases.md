@@ -133,19 +133,6 @@ fixtures/
         └── benchmark/compute/...
 ```
 
-When filling with `--fixed-opcode-count`, the opcode count replaces the
-gas limit in the subdirectory name (`for_{fork}_at_opcount_{N}K`, where
-`{N}` is in thousands and may include decimals):
-
-```text
-fixtures/
-└── blockchain_tests/
-    ├── for_osaka_at_opcount_10K/     # 10K opcodes
-    │   └── benchmark/compute/...
-    └── for_osaka_at_opcount_20K/     # 20K opcodes
-        └── benchmark/compute/...
-```
-
 ## Pinning Guidance
 
 Mapped to a typical client CI setup:
