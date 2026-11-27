@@ -77,6 +77,15 @@ generate release notes.
 
 ## Publishing to PyPI
 
-See the [Python Packaging User Guide][ppug].
+The default branch also holds the forks still under development. A release ships only the forks up to and including the fork it is for, in fork order. Build the archives from the release tag, naming the last fork to ship:
+
+```bash
+git checkout v2.21.0              # The release tag.
+just build-spec-release amsterdam
+```
+
+The recipe exports the committed tree to a temporary directory, removes the later forks from it and from the packages list in `pyproject.toml`, and builds the sdist and wheel into `.just/spec-release/`. It checks that both archives contain exactly the forks up to the named one, then installs the wheel alone in a clean environment and imports every module in it. A fork that imports from a fork left out fails this check. The checkout is not modified.
+
+Upload the two archives in `.just/spec-release/` as described in the [Python Packaging User Guide][ppug].
 
 [ppug]: https://packaging.python.org/en/latest/tutorials/packaging-projects/#generating-distribution-archives

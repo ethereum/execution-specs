@@ -397,6 +397,21 @@ test-packaging: check-testing-imports build-wheels
         "$dist"/ethereum_execution-*.whl
     "$work/spec-venv/bin/python" .github/scripts/import_check.py
 
+# Build the spec sdist and wheel for PyPI, leaving out the forks after `until`, then import-check the wheel alone
+[group('packaging')]
+build-spec-release until:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dist="{{ output_dir }}/spec-release"
+    venv="{{ output_dir }}/spec-release-venv"
+    uv run python .github/scripts/build_spec_release.py \
+        --until "{{ until }}" --out-dir "$dist"
+    rm -rf "$venv"
+    uv venv "$venv"
+    uv pip install --python "$venv/bin/python" "$dist"/ethereum_execution-*.whl
+    "$venv/bin/python" .github/scripts/import_check.py
+    echo "Release archives in $dist"
+
 # --- Benchmarks ---
 
 # test_return_revert is excluded: its max-size INVALID-padded callees make
