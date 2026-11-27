@@ -56,7 +56,7 @@ stdout MUST carry only the results: a JSON array with one object per fixture. Ev
 `buildtest` results also carry two keys ([JSON schema](client_runner_schemas.md#build-test-results)):
 
 - `built` is the number of payloads the client built. A fixture whose payloads are all expected to be invalid builds none and passes, so a harness can tell it from one that was checked.
-- `mismatches` has one entry per field of a built payload that differs from the fixture's, in fixture order, and is `[]` when none does.
+- `mismatches` has one entry per field of a fixture's payload in which the built payload differs, in fixture order, and is `[]` when none does.
     - `index` is the payload's position in `engineNewPayloads`, from 0.
     - `field` is the field's name as in the payload JSON, such as `stateRoot`, or `executionRequests`.
     - `expected` is the fixture's value and `got` the built one, both as they appear in the payload JSON.

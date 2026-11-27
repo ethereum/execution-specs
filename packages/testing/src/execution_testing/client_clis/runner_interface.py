@@ -71,7 +71,7 @@ class RunnerResults(EthereumTestRootModel[List[FixtureResult]]):
 
 
 class Mismatch(RunnerModel):
-    """A field of a built payload that differs from the fixture's."""
+    """A field of a fixture's payload in which the built payload differs."""
 
     index: int = Field(
         ge=0,
@@ -100,8 +100,8 @@ class BuildFixtureResult(FixtureResult):
     )
     mismatches: List[Mismatch] = Field(
         description=(
-            "Every field of a built payload that differs from the "
-            "fixture's, in fixture order."
+            "Every field of a fixture's payload in which the built "
+            "payload differs, in fixture order."
         ),
     )
 
