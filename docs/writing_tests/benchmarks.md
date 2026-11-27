@@ -40,17 +40,14 @@ These tests are located under `./tests/benchmark/compute`.
 
 **Note:** Benchmark tests are now only available starting from the `Prague` fork. Tests targeting earlier forks (`Cancun` or prior) are not supported in benchmark mode.
 
-## Worst-Case Mode
+## Gas Benchmark Values
 
-In worst-case mode, users specify a target block gas limit.
-By providing `--gas-benchmark-values N` (where N denotes the gas limit in millions), the benchmark construction process packs each block with as many instances as possible of the selected operation.
-
-This mode is designed for gas limit testing, and gas repricing, where it enables:
+Benchmark tests pack each block with as many instances of the selected operation as fit within the block gas limit. This supports gas limit testing and gas repricing, where it enables:
 
 - Evaluate execution-layer performance under extreme, worst-case conditions given certain operations.
 - Identify bottlenecks that may only surface at high gas utilization levels
 
-**Note:** Users may supply multiple values in a single invocation. For example, `--gas-benchmark-values 1,2,3` runs the test with 1M, 2M, and 3M block gas limits.
+Set the block gas limit with `--gas-benchmark-values N`, where `N` is the gas limit in millions. Supply several values to run each test once per value; for example, `--gas-benchmark-values 1,2,3` runs the test with 1M, 2M, and 3M block gas limits. Without the flag, each test runs once at the default block gas limit and its fixtures are written under `for_{fork}/`.
 
 **Output layout with gas benchmark values:** When `--gas-benchmark-values` is provided and benchmark tests are filled, fixtures are written into per‑fork, per‑gas‑limit subdirectories under each format directory:
 
