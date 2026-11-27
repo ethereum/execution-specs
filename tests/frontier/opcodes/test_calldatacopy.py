@@ -5,7 +5,6 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
-    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -172,7 +171,6 @@ from execution_testing import (
 def test_calldatacopy(
     state_test: StateTestFiller,
     code: Bytecode,
-    fork: Fork,
     tx_data: bytes,
     pre: Alloc,
     code_address_storage: Account,
@@ -205,7 +203,6 @@ def test_calldatacopy(
 
     tx = Transaction(
         data=tx_data,
-        protected=fork.supports_protected_txs(),
         sender=pre.fund_eoa(),
         to=to,
         value=0x01,

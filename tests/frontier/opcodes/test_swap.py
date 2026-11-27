@@ -6,7 +6,6 @@ blob/develop/src/GeneralStateTestsFiller/VMTests/vmTests/swapFiller.yml.
 
 import pytest  # noqa: I001
 
-from execution_testing import Fork
 from execution_testing import (
     Account,
     Alloc,
@@ -38,7 +37,7 @@ from execution_testing import (
 )
 @pytest.mark.valid_from("Frontier")
 def test_swap(
-    state_test: StateTestFiller, fork: Fork, pre: Alloc, swap_opcode: Op
+    state_test: StateTestFiller, pre: Alloc, swap_opcode: Op
 ) -> None:
     """
     The set of `SWAP*` opcodes swaps the top of the stack with a specific
@@ -74,7 +73,6 @@ def test_swap(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract_address,
-        protected=fork.supports_protected_txs(),
     )
 
     # Calculate expected storage values after SWAP and storage operations
@@ -110,7 +108,6 @@ def test_swap(
 @pytest.mark.eels_base_coverage
 def test_stack_underflow(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
     swap_opcode: Op,
 ) -> None:
@@ -144,7 +141,6 @@ def test_stack_underflow(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract,
-        protected=fork.supports_protected_txs(),
     )
 
     # Define the expected post-state.

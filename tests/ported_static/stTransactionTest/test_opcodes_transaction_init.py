@@ -612,7 +612,6 @@ def test_opcodes_transaction_init(
         to=None,
         data=init_code,
         value=TX_VALUE,
-        protected=fork.supports_protected_txs(),
     )
 
     post: dict[Address, Account | None] = {sender: Account(nonce=1)}

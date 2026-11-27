@@ -13,7 +13,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -32,7 +31,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_delegatecall_emptycontract(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """DELEGATECALL to a codeless account succeeds (returns 1)."""
     # A DELEGATECALL to an account with no code runs nothing and returns 1.
@@ -51,12 +49,9 @@ def test_delegatecall_emptycontract(
         + Op.STOP,
     )
 
-    # DELEGATECALL predates EIP-155, so the tx must go unprotected on
-    # pre-SpuriousDragon forks or it fails signature validation.
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=caller,
-        protected=fork.supports_protected_txs(),
     )
 
     # DELEGATECALL carries no value, so it must not create (or even touch)

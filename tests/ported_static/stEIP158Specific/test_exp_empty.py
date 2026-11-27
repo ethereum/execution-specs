@@ -80,7 +80,6 @@ def test_exp_empty(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=target,
-        protected=fork.supports_protected_txs(),
     )
 
     post = {target: Account(storage=storage)}

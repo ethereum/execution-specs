@@ -167,7 +167,6 @@ def test_sstore_combinations_initial(
         to=None,
         data=initcode,
         value=1,
-        protected=fork.supports_protected_txs(),
     )
 
     post = {
@@ -228,7 +227,6 @@ def test_sstore_combinations_initial_staticcall_only(
         to=None,
         data=initcode,
         value=1,
-        protected=fork.supports_protected_txs(),
     )
 
     post = {

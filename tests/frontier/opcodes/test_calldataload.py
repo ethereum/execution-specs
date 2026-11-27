@@ -4,7 +4,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -58,7 +57,6 @@ def test_calldataload(
     state_test: StateTestFiller,
     calldata: bytes,
     calldata_offset: int,
-    fork: Fork,
     pre: Alloc,
     expected_storage: int,
     calldata_source: str,
@@ -102,7 +100,6 @@ def test_calldataload(
 
         tx = Transaction(
             data=calldata,
-            protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=to,
         )
@@ -110,7 +107,6 @@ def test_calldataload(
     else:
         tx = Transaction(
             data=calldata,
-            protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=contract_address,
         )

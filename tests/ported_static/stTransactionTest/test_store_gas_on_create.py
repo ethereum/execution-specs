@@ -86,7 +86,6 @@ def test_store_gas_on_create(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=entry,
-        protected=fork.supports_protected_txs(),
         # Charge state gas to the frames, so an EIP-8037 CREATE's own
         # cost comes out of the budget above rather than a reservoir.
         state_gas_reservoir=0,

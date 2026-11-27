@@ -15,7 +15,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -54,7 +53,6 @@ TX_DATA = bytes(range(1, 33))
 def test_copy_offset(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     copy_op: Op,
 ) -> None:
     """Copying from an out-of-bounds source offset yields zeros."""
@@ -69,7 +67,6 @@ def test_copy_offset(
         sender=pre.fund_eoa(),
         to=contract,
         data=TX_DATA,
-        protected=fork.supports_protected_txs(),
     )
 
     post = {contract: Account(storage={0: EXPECTED})}

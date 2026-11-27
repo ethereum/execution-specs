@@ -1030,7 +1030,6 @@ def test_precompiles(
     tx = Transaction(
         to=account,
         sender=pre.fund_eoa(),
-        protected=fork.supports_protected_txs(),
     )
 
     post = {
@@ -1141,7 +1140,6 @@ def test_repeated_underfunded_calls(
         to=caller,
         data=signature,
         sender=pre.fund_eoa(),
-        protected=fork.supports_protected_txs(),
     )
 
     post = {

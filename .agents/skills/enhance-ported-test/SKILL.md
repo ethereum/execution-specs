@@ -684,14 +684,17 @@ lowering, never a true removal.
   (EIP-161)** — earlier forks start contract nonces at 0, so Frontier/Homestead/
   TangerineWhistle fail on the nonce, not the gas. Read *what* the sweep's
   earliest-passing fork is gated on; it is not always a gas-schedule change.
-- **A `bad v` / `INVALID_SIGNATURE_VRS` failure is a signature floor, not a
-  real one — don't raise `valid_from` for it.** The default `Transaction` is
-  EIP-155-protected, which pre-SpuriousDragon forks reject. Instead set
-  `protected=fork.supports_protected_txs()` (add `fork: Fork`): it goes
-  unprotected on Frontier/Homestead/TangerineWhistle and protected from
-  SpuriousDragon on. This keeps the floor at the *behavior's* real EIP (e.g.
-  Homestead for `DELEGATECALL`) instead of masking it at SpuriousDragon.
-  Validated on `test_delegatecall_emptycontract`.
+- **EIP-155 protection is not a floor — leave `protected` unset.** The
+  fillers sign each legacy `Transaction` for the fork: one that leaves
+  `protected` unset goes unprotected on Frontier/Homestead/TangerineWhistle
+  and protected from SpuriousDragon on, so the floor stays at the
+  *behavior's* real EIP (e.g. Homestead for `DELEGATECALL`). Drop any
+  `protected=fork.supports_protected_txs()` left in a ported test, and set
+  `protected=` only when protection itself is the subject. A test that
+  signs a transaction itself must pass the fork:
+  `tx.with_signature_and_sender(fork=fork)`. A `bad v` /
+  `INVALID_SIGNATURE_VRS` failure on an early fork means a transaction was
+  signed without it.
 
 ## Re-pinning expected values
 

@@ -1240,7 +1240,7 @@ class BlockchainTest(BaseTest):
                 )
                 for tx in txs
             ]
-        txs = [tx.with_signature_and_sender() for tx in txs]
+        txs = [tx.with_signature_and_sender(fork=fork) for tx in txs]
 
         if (failing_tx_count := len([tx for tx in txs if tx.error])) > 0:
             if failing_tx_count > 1:

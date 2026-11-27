@@ -209,7 +209,6 @@ def caller_tx(sender: EOA, caller_address: Address, fork: Fork) -> Transaction:
         value=1,
         gas_limit=gas_limit,
         sender=sender,
-        protected=fork.supports_protected_txs(),
     )
 
 

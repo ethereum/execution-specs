@@ -46,7 +46,6 @@ def tx_validity(fork: Fork) -> Generator[ParameterSet, None, None]:
 @pytest.mark.parametrize_by_fork("valid", tx_validity)
 def test_eip1559_tx_validity(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
     valid: bool,
 ) -> None:
@@ -64,7 +63,6 @@ def test_eip1559_tx_validity(
         sender=sender,
         gas_limit=100_000,
         max_priority_fee_per_gas=1,
-        protected=fork.supports_protected_txs(),
         error=TransactionException.TYPE_2_TX_PRE_FORK if not valid else None,
     )
 

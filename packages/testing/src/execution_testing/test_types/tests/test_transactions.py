@@ -14,7 +14,13 @@ from execution_testing.base_types import (
     Hash,
     Signer,
 )
-from execution_testing.forks import Bogota
+from execution_testing.forks import (
+    Bogota,
+    Fork,
+    Frontier,
+    Homestead,
+    SpuriousDragon,
+)
 from execution_testing.vm import Op
 
 from .. import transaction_types
@@ -323,6 +329,62 @@ def test_transaction_signing(
     assert tx.sender is not None
     assert tx.sender.hex() == expected_sender
     assert (tx.rlp().hex()) == expected_serialized
+
+
+@pytest.mark.parametrize(
+    "fork", [Frontier, Homestead, SpuriousDragon, Bogota], ids=str
+)
+def test_unset_protected_follows_fork(fork: Fork) -> None:
+    """Test that signing for a fork applies its EIP-155 support."""
+    tx = Transaction(ty=0, gas_limit=21_000, gas_price=1)
+    signed = tx.with_signature_and_sender(fork=fork)
+    assert signed.protected == fork.supports_protected_txs()
+    # A protected `v` encodes the chain ID; an unprotected one is 27 or 28.
+    assert (signed.v >= 35) == fork.supports_protected_txs()
+
+
+@pytest.mark.parametrize("protected", [True, False])
+@pytest.mark.parametrize("fork", [Frontier, Bogota], ids=str)
+def test_explicit_protected_is_kept(fork: Fork, protected: bool) -> None:
+    """Test that signing for a fork keeps an explicit `protected` value."""
+    tx = Transaction(ty=0, gas_limit=21_000, gas_price=1, protected=protected)
+    signed = tx.with_signature_and_sender(fork=fork)
+    assert signed.protected == protected
+    assert (signed.v >= 35) == protected
+
+
+def test_unset_protected_without_fork_is_protected() -> None:
+    """Test that signing without a fork keeps the protected default."""
+    signed = Transaction(
+        ty=0, gas_limit=21_000, gas_price=1
+    ).with_signature_and_sender()
+    assert signed.protected
+    assert signed.v >= 35
+
+
+def test_signed_transaction_is_not_resigned_for_fork() -> None:
+    """Test that a fork does not change an existing signature."""
+    signed = Transaction(
+        ty=0, gas_limit=21_000, gas_price=1
+    ).with_signature_and_sender()
+    resigned = signed.with_signature_and_sender(fork=Frontier)
+    assert (resigned.v, resigned.r, resigned.s) == (
+        signed.v,
+        signed.r,
+        signed.s,
+    )
+    # `signature_bytes` decodes `v` by `protected`, so it also catches a
+    # fork flipping the protection of a transaction it did not re-sign.
+    assert resigned.signature_bytes == signed.signature_bytes
+
+
+@pytest.mark.parametrize("fork", [Frontier, Bogota], ids=str)
+def test_typed_transaction_ignores_fork_protection(fork: Fork) -> None:
+    """Test that only legacy transactions take protection from the fork."""
+    tx = Transaction(ty=2, gas_limit=21_000)
+    assert tx.with_signature_and_sender(fork=fork).rlp() == (
+        tx.with_signature_and_sender().rlp()
+    )
 
 
 def test_gas_limit_none_is_unset() -> None:

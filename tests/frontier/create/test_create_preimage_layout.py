@@ -9,7 +9,6 @@ from execution_testing import (
     Conditional,
     CreatePreimageLayout,
     Environment,
-    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -25,7 +24,6 @@ from execution_testing import (
 @pytest.mark.valid_from("Osaka")
 def test_create_preimage_layout_address(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
     nonce: int,
 ) -> None:
@@ -51,7 +49,6 @@ def test_create_preimage_layout_address(
         sender=sender,
         to=contract,
         data=nonce.to_bytes(32, "big"),
-        protected=fork.supports_protected_txs(),
     )
 
     expected_address = compute_create_address(address=sender, nonce=nonce)
@@ -68,7 +65,6 @@ DYNAMIC_NONCE_COUNT = 16
 @pytest.mark.valid_from("Osaka")
 def test_create_preimage_layout_increment_nonce(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
 ) -> None:
     """
@@ -96,7 +92,6 @@ def test_create_preimage_layout_increment_nonce(
         sender=sender,
         to=contract,
         data=(1).to_bytes(32, "big"),
-        protected=fork.supports_protected_txs(),
     )
 
     expected_storage = {

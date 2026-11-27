@@ -9,9 +9,7 @@ state_tests/stSolidityTest/TestContractInteractionFiller.json
 CODECOPY offset is a `data_placeholder` resolved from the section
 lengths, so the two contracts can be edited without hand-maintaining
 offsets. The original Solidity was recovered from the filler. The
-ported `valid_from` was lowered from Cancun to Frontier; the tx needs
-`protected=fork.supports_protected_txs()` to reach the pre-EIP-155
-forks, so do not drop it.
+ported `valid_from` was lowered from Cancun to Frontier.
 """
 
 import pytest
@@ -21,7 +19,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -35,7 +32,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_test_contract_interaction(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """Create a child contract and interact with it in one transaction."""
     sender = pre.fund_eoa()
@@ -336,7 +332,6 @@ def test_test_contract_interaction(
         to=target,
         data=run_selector.to_bytes(length=4),
         value=1,
-        protected=fork.supports_protected_txs(),
     )
 
     post = {target: Account(storage={0: 1}, nonce=2)}

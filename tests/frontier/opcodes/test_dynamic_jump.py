@@ -9,7 +9,6 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
-    Fork,
     Hash,
     Op,
     StateTestFiller,
@@ -82,7 +81,6 @@ LEGACY_VM_TESTS = (
 def test_dynamic_jump_invalid_destination(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     opcode: Op,
     condition: Tuple[int, ...],
     dest_source: str,
@@ -147,7 +145,6 @@ def test_dynamic_jump_invalid_destination(
         }[dest_source],
         gas_limit=GAS_LIMIT,
         expected_receipt=TransactionReceipt(cumulative_gas_used=GAS_LIMIT),
-        protected=fork.supports_protected_txs(),
     )
 
     state_test(
@@ -168,7 +165,6 @@ def test_dynamic_jump_invalid_destination(
 def test_jumpi_not_taken_invalid_destination(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     dest: int,
 ) -> None:
     """
@@ -194,7 +190,6 @@ def test_jumpi_not_taken_invalid_destination(
         sender=pre.fund_eoa(),
         to=contract,
         data=Hash(0),
-        protected=fork.supports_protected_txs(),
     )
 
     state_test(pre=pre, post={contract: Account(storage=storage)}, tx=tx)

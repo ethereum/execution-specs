@@ -126,7 +126,6 @@ def setup_selfdestruct_test(
         sender=alice,
         to=caller,
         gas_limit=500_000,
-        protected=fork.supports_protected_txs(),
         access_list=access_list,
     )
 
@@ -1002,7 +1001,6 @@ def test_selfdestruct_to_self(
         sender=alice,
         to=caller,
         gas_limit=500_000,
-        protected=fork.supports_protected_txs(),
     )
 
     # Build BAL expectations
@@ -1177,7 +1175,6 @@ def test_initcode_selfdestruct_to_self(
         sender=alice,
         to=caller,
         gas_limit=500_000,
-        protected=fork.supports_protected_txs(),
     )
 
     # Build BAL expectations
@@ -1278,7 +1275,6 @@ def test_selfdestruct_send_to_sender(
         to=victim,
         gas_limit=gas_limit,
         gas_price=gas_price,
-        protected=fork.supports_protected_txs(),
     )
 
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(

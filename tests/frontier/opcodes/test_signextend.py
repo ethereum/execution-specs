@@ -5,7 +5,6 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
-    Fork,
     Op,
     StateTestFiller,
     Storage,
@@ -37,7 +36,6 @@ def signextend(byte_index: int, value: int) -> int:
 def test_signextend(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     value: int,
 ) -> None:
     """
@@ -63,6 +61,5 @@ def test_signextend(
         tx=Transaction(
             sender=pre.fund_eoa(),
             to=contract,
-            protected=fork.supports_protected_txs(),
         ),
     )

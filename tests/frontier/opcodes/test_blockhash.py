@@ -9,7 +9,6 @@ from execution_testing import (
     Op,
     Transaction,
 )
-from execution_testing.forks.helpers import Fork
 
 
 @pytest.mark.valid_from("Frontier")
@@ -29,7 +28,6 @@ from execution_testing.forks.helpers import Fork
 def test_genesis_hash_available(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
     setup_blocks_num: int,
     setup_blocks_empty: bool,
 ) -> None:
@@ -62,7 +60,6 @@ def test_genesis_hash_available(
                     Transaction(
                         sender=sender,
                         to=contract,
-                        protected=fork.supports_protected_txs(),
                     )
                 ]
                 if not setup_blocks_empty
@@ -77,7 +74,6 @@ def test_genesis_hash_available(
                     Transaction(
                         sender=sender,
                         to=contract,
-                        protected=fork.supports_protected_txs(),
                     )
                 ]
             )

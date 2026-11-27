@@ -15,7 +15,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -40,7 +39,6 @@ OVERSIZED_GAS_ASK = 2**256 - 20
 def test_make_money(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """Value forwards tx -> caller -> callee; the callee records ORIGIN."""
     # Callee stores a sentinel and the transaction origin, proving its code
@@ -61,7 +59,6 @@ def test_make_money(
         sender=sender,
         to=caller,
         value=TX_VALUE,
-        protected=fork.supports_protected_txs(),
     )
 
     post = {
