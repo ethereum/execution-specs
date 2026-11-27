@@ -25,6 +25,10 @@ inputs:
   evm_ref:
     description: "Override the t8n tool branch / tag / commit"
     default: ""
+outputs:
+  evm-impl:
+    description: "The EVM implementation the fixtures were filled with"
+    value: ${{ steps.evm-builder.outputs.impl }}
 runs:
   using: "composite"
   steps:
@@ -73,18 +77,6 @@ runs:
         # Every fork range in the matrix contains tests, so any non-zero
         # exit (including 5, NO_TESTS_COLLECTED) fails the build.
         just fill-release $EVM_ARGS ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }}
-    - name: Validate blockchain fixtures with EELS
-      if: inputs.split_label != '' && steps.evm-builder.outputs.impl == 'eels'
-      shell: bash
-      env:
-        PYTEST_XDIST_AUTO_NUM_WORKERS: ${{ steps.evm-builder.outputs.xdist }}
-      run: |
-        FIXTURES="fixtures_${{ inputs.release_name }}/blockchain_tests"
-        if [ ! -d "$FIXTURES" ]; then
-          echo "No blockchain_tests fixtures to validate."
-          exit 0
-        fi
-        just validate-blocks "$FIXTURES" --no-cov
     - name: Generate Benchmark Genesis Files
       if: inputs.split_label == '' && contains(inputs.release_name, 'benchmark')
       uses: ./.github/actions/build-benchmark-genesis

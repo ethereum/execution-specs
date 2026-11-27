@@ -206,7 +206,7 @@ optimized = [
 test = [
     "pytest>=8,<9",
     "pytest-cov>=4.1.0,<5",
-    "pytest-xdist>=3.3.1,<4",
+    "pytest-xdist>=3.8.0,<4",
     "GitPython>=3.1.0,<3.2",
     "filelock>=3.15.1,<4",
     "requests",
