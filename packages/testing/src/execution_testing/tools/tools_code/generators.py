@@ -194,6 +194,12 @@ class CodeGasMeasure(Bytecode):
 class Conditional(Bytecode):
     """Helper class used to generate conditional bytecode."""
 
+    _true_path_: Bytecode
+    """Code the conditional runs when the condition holds."""
+
+    _false_path_: Bytecode
+    """Code the conditional runs when the condition does not hold."""
+
     def __new__(
         cls,
         *,
@@ -202,9 +208,26 @@ class Conditional(Bytecode):
         if_false: Bytecode | Op | None = None,
     ) -> Self:
         """
-        Assemble the conditional bytecode by generating the necessary jump and
-        jumpdest opcodes surrounding the condition and the two possible
-        execution paths.
+        Assemble the conditional bytecode.
+
+        The branches are laid out one after the other, and two jumps pick
+        which one runs:
+
+            condition_jump   condition
+                             JUMPI ----------+  taken if the condition holds
+            false_branch     if_false        |
+                             JUMP -------+   |  always taken
+            true_branch      JUMPDEST <--|---+
+                             if_true     |
+            join             JUMPDEST <--+
+
+        A run therefore executes one of two paths, which `branch()`
+        returns:
+
+            condition holds:  condition JUMPI  JUMPDEST if_true  [JUMPDEST]
+            condition fails:  condition JUMPI  if_false  [JUMP  JUMPDEST]
+
+        The bracketed tail runs only if that branch does not terminate.
 
         In the future, PC usage should be replaced by using RJUMP and RJUMPI
         """
@@ -213,22 +236,38 @@ class Conditional(Bytecode):
         if if_false is None:
             if_false = Bytecode()
 
-        # First we append a jumpdest to the start of the true branch
-        if_true = Op.JUMPDEST + if_true
+        # Each jump is `PUSH1 n, PC, ADD, JUMP(I)`, landing on `PC + n`:
+        #
+        #   offset:  p-2      p    p+1  p+2      p+3
+        #            PUSH1 n  PC   ADD  JUMP(I)  <skipped code>  JUMPDEST
+        #
+        # so `n = len(skipped code) + 3`.
+        true_branch = Op.JUMPDEST + if_true
+        skip_true = Op.JUMP(Op.ADD(Op.PC, len(true_branch) + 3))
+        false_branch = if_false + skip_true
+        condition_jump = Op.JUMPI(
+            Op.ADD(Op.PC, len(false_branch) + 3), condition
+        )
+        join = Op.JUMPDEST
 
-        # Then we append the unconditional jump to the end of the false
-        # branch, used to skip the true branch
-        if_false += Op.JUMP(Op.ADD(Op.PC, len(if_true) + 3))
+        instance = super().__new__(
+            cls, condition_jump + false_branch + true_branch + join
+        )
 
-        # Then we need to do the conditional jump by skipping the false
-        # branch
-        condition = Op.JUMPI(Op.ADD(Op.PC, len(if_false) + 3), condition)
+        # A branch that terminates never reaches the code that rejoins.
+        instance._true_path_ = condition_jump + true_branch
+        if not if_true.terminating:
+            instance._true_path_ += join
+        instance._false_path_ = condition_jump + if_false
+        if not if_false.terminating:
+            instance._false_path_ += skip_true + join
+        return instance
 
-        # Finally we append the condition, false and true branches, plus
-        # the jumpdest at the very end
-        bytecode = condition + if_false + if_true + Op.JUMPDEST
-
-        return super().__new__(cls, bytecode)
+    def branch(self, *, condition: bool) -> Bytecode:
+        """
+        Return the code this conditional runs for `condition`.
+        """
+        return self._true_path_ if condition else self._false_path_
 
 
 class While(Bytecode):
@@ -511,6 +550,15 @@ class Switch(Bytecode):
     evaluates to a non-zero value is the one that is executed.
     """
 
+    _condition_paths_: List[Bytecode]
+    """Code testing each case's condition, in the order they are tested."""
+
+    _case_paths_: List[Bytecode]
+    """Code each case runs once its condition holds."""
+
+    _default_path_: Bytecode
+    """Code the switch runs when no case's condition holds."""
+
     def __new__(
         cls,
         *,
@@ -557,27 +605,66 @@ class Switch(Bytecode):
         # + JUMPI(case[n-1].condition) + default_action + JUMP() + JUMPDEST +
         # case[n-1].action + JUMP() + ... + JUMPDEST + case[1].action + JUMP()
         # + JUMPDEST + case[0].action + JUMP()
+        # A terminating action never reaches the jump that rejoins the
+        # cases, nor the jumpdest they rejoin at, so the code a case
+        # runs is recorded apart from the code the switch holds.
+        default_body = (
+            default_action if default_action is not None else Bytecode()
+        )
+        default_path = default_body
+        if not default_body.terminating:
+            default_path = bytecode + Op.JUMPDEST
+
+        condition_paths: List[Bytecode] = []
+        case_paths: List[Bytecode] = []
         for case in reversed(cases):
             action = case.action
             action_jump_length -= len(action) + 6
+            case_path = Op.JUMPDEST + action
             action = (
                 Op.JUMPDEST
                 + action
                 + Op.JUMP(Op.ADD(Op.PC, action_jump_length))
             )
+            if not case.is_terminating:
+                case_path = action + Op.JUMPDEST
             condition = Op.JUMPI(
                 Op.ADD(Op.PC, condition_jump_length), case.condition
             )
             # wrap the current case around the onion as its next layer
             bytecode = condition + bytecode + action
             condition_jump_length += len(condition) + len(action)
+            condition_paths.append(condition)
+            case_paths.append(case_path)
 
         bytecode += Op.JUMPDEST
 
         instance = super().__new__(cls, bytecode)
         instance.default_action = default_action
         instance.cases = cases
+        instance._condition_paths_ = list(reversed(condition_paths))
+        instance._case_paths_ = list(reversed(case_paths))
+        instance._default_path_ = default_path
         return instance
+
+    def branch(self, *, case: int | None = None) -> Bytecode:
+        """
+        Return the code this switch runs when `case` is the first case
+        whose condition holds, or `None` for the default action.
+
+        Only one case runs, so the whole bytecode's cost prices no
+        path through the switch; price the branch this returns
+        instead.
+        """
+        if case is None:
+            tested, body = self._condition_paths_, self._default_path_
+        else:
+            tested = self._condition_paths_[: case + 1]
+            body = self._case_paths_[case]
+        path = Bytecode()
+        for condition in tested:
+            path += condition
+        return path + body
 
 
 class Create2PreimageLayout(Bytecode):

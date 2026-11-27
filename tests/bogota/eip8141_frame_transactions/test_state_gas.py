@@ -20,12 +20,14 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    CalldataCase,
     Conditional,
     Fork,
     Frame,
     FrameOutcome,
     Op,
     StateTestFiller,
+    Switch,
     Transaction,
     TransactionException,
 )
@@ -135,8 +137,6 @@ def test_same_frame_refill(
 
     tx = Transaction(
         sender=sender,
-        # The clearing write refunds execution gas this test does not
-        # price, so the transaction total is left unpinned.
         frames=[
             Frame.verify(),
             Frame.default(
@@ -145,7 +145,12 @@ def test_same_frame_refill(
                 state_gas_used=observe_pool.state_cost(fork),
             ),
         ],
-    ).resolve_frames(fork, pin_total_gas=False)
+    ).resolve_frames(
+        fork,
+        # The state half of the refund is already priced by the
+        # frames' state gas; only the execution half settles here.
+        refund=clear.refund(fork) - clear.state_refund(fork),
+    )
 
     state_test(
         pre=pre,
@@ -218,19 +223,29 @@ def test_cross_frame_refill(
             # charge at settlement.
             Frame.default(
                 target=worker,
-                pin_gas=False,
+                execution_gas=worker_code.branch(
+                    condition=True
+                ).execution_cost(fork),
                 state_gas_used=0,
             ),
             # The refilling frame pays only for its three fresh
             # recording slots; the refill credits it nothing.
             Frame.default(
                 target=worker,
+                warm=True,
                 data=b"\x01",
-                pin_gas=False,
+                execution_gas=worker_code.branch(
+                    condition=False
+                ).execution_cost(fork),
                 state_gas_used=3 * fresh_write_state_cost,
             ),
         ],
-    ).resolve_frames(fork)
+    ).resolve_frames(
+        fork,
+        # The state half of the refund is already priced by the
+        # frames' state gas; only the execution half settles here.
+        refund=refill.refund(fork) - refill.state_refund(fork),
+    )
 
     state_test(
         pre=pre,
@@ -428,14 +443,12 @@ def test_refill_after_intermediate_modification(
         SLOT_USED_AFTER,
         Op.ADD(1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED)),
     )
-    worker_code = Conditional(
-        condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
-        if_false=Conditional(
-            condition=Op.EQ(Op.CALLDATALOAD(0), 1),
-            if_true=modify + Op.STOP,
-            if_false=clear + observe_owner + Op.STOP,
-        ),
+    worker_code = Switch(
+        cases=[
+            CalldataCase(value=0, action=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP),
+            CalldataCase(value=1, action=modify + Op.STOP),
+        ],
+        default_action=clear + observe_owner + Op.STOP,
     )
     worker = pre.deploy_contract(code=worker_code)
 
@@ -449,15 +462,16 @@ def test_refill_after_intermediate_modification(
             # at settlement.
             Frame.default(
                 target=worker,
-                pin_gas=False,
+                execution_gas=worker_code.branch(case=0).execution_cost(fork),
                 state_gas_used=0,
             ),
             # Frame 2: modify the dirty slot (1 -> 2), which charges no
             # state gas.
             Frame.default(
                 target=worker,
+                warm=True,
                 data=(1).to_bytes(32, "big"),
-                pin_gas=False,
+                execution_gas=worker_code.branch(case=1).execution_cost(fork),
                 state_gas_used=0,
             ),
             # Frame 3: return the slot to its start value (2 -> 0) and
@@ -465,12 +479,20 @@ def test_refill_after_intermediate_modification(
             # charged; the refill credits the owner, not this frame.
             Frame.default(
                 target=worker,
+                warm=True,
                 data=(2).to_bytes(32, "big"),
-                pin_gas=False,
+                execution_gas=worker_code.branch(case=None).execution_cost(
+                    fork
+                ),
                 state_gas_used=fresh_write_state_cost,
             ),
         ],
-    ).resolve_frames(fork)
+    ).resolve_frames(
+        fork,
+        # The state half of the refund is already priced by the
+        # frames' state gas; only the execution half settles here.
+        refund=clear.refund(fork) - clear.state_refund(fork),
+    )
 
     state_test(
         pre=pre,
@@ -516,19 +538,18 @@ def test_batch_unroll_restores_refilled_receipt(
         current_value=2,
         new_value=0,
     )
-    worker_code = Conditional(
-        condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
-        if_false=Conditional(
-            condition=Op.EQ(Op.CALLDATALOAD(0), 1),
-            if_true=modify + Op.STOP,
-            if_false=clear + Op.STOP,
-        ),
+    worker_code = Switch(
+        cases=[
+            CalldataCase(value=0, action=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP),
+            CalldataCase(value=1, action=modify + Op.STOP),
+        ],
+        default_action=clear + Op.STOP,
     )
     worker = pre.deploy_contract(code=worker_code)
-    reverter = pre.deploy_contract(code=Op.REVERT(0, 0))
-    probe = pre.deploy_contract(
-        code=Op.SSTORE(
+    reverter_code = Op.REVERT(0, 0)
+    reverter = pre.deploy_contract(code=reverter_code)
+    probe_code = (
+        Op.SSTORE(
             SLOT_OWNER_USED,
             Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED),
         )
@@ -542,6 +563,7 @@ def test_batch_unroll_restores_refilled_receipt(
         )
         + Op.STOP
     )
+    probe = pre.deploy_contract(code=probe_code)
 
     tx = Transaction(
         sender=sender,
@@ -552,14 +574,15 @@ def test_batch_unroll_restores_refilled_receipt(
             # the refill the batch frame applied to this receipt.
             Frame.default(
                 target=worker,
-                pin_gas=False,
+                execution_gas=worker_code.branch(case=0).execution_cost(fork),
                 state_gas_used=fresh_write_state_cost,
             ),
             # Frame 2: modify the dirty slot (1 -> 2).
             Frame.default(
                 target=worker,
+                warm=True,
                 data=(1).to_bytes(32, "big"),
-                pin_gas=False,
+                execution_gas=worker_code.branch(case=1).execution_cost(fork),
                 state_gas_used=0,
             ),
             # Frame 3: open the batch and return the slot to its
@@ -567,21 +590,24 @@ def test_batch_unroll_restores_refilled_receipt(
             Frame.default(
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 target=worker,
+                warm=True,
                 data=(2).to_bytes(32, "big"),
                 outcome=FrameOutcome.UNROLLED,
-                pin_gas=False,
+                execution_gas=worker_code.branch(case=None).execution_cost(
+                    fork
+                ),
             ),
             # Frame 4: terminate the batch with a revert, unrolling it.
             Frame.default(
                 target=reverter,
+                code=reverter_code,
                 outcome=FrameOutcome.REVERT,
-                pin_gas=False,
             ),
             # Frame 5: record frame 1's and frame 3's attributions and
             # frame 4's status after the unroll.
             Frame.default(
                 target=probe,
-                pin_gas=False,
+                code=probe_code,
                 state_gas_used=3 * fresh_write_state_cost,
             ),
         ],
@@ -635,8 +661,8 @@ def test_frame_revert_restores_refilled_receipt(
         if_false=clear + Op.REVERT(0, 0),
     )
     worker = pre.deploy_contract(code=worker_code)
-    probe = pre.deploy_contract(
-        code=Op.SSTORE(
+    probe_code = (
+        Op.SSTORE(
             SLOT_OWNER_USED,
             Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED),
         )
@@ -650,6 +676,7 @@ def test_frame_revert_restores_refilled_receipt(
         )
         + Op.STOP
     )
+    probe = pre.deploy_contract(code=probe_code)
 
     tx = Transaction(
         sender=sender,
@@ -660,22 +687,27 @@ def test_frame_revert_restores_refilled_receipt(
             # the refill the failing frame applied to this receipt.
             Frame.default(
                 target=worker,
-                pin_gas=False,
+                execution_gas=worker_code.branch(
+                    condition=True
+                ).execution_cost(fork),
                 state_gas_used=fresh_write_state_cost,
             ),
             # Frame 2: return the slot to its start value (1 -> 0),
             # refilling frame 1's receipt, then revert.
             Frame.default(
                 target=worker,
+                warm=True,
                 data=b"\x01",
                 outcome=FrameOutcome.REVERT,
-                pin_gas=False,
+                execution_gas=worker_code.branch(
+                    condition=False
+                ).execution_cost(fork),
             ),
             # Frame 3: record frame 1's and frame 2's attributions and
             # frame 2's status after the revert.
             Frame.default(
                 target=probe,
-                pin_gas=False,
+                code=probe_code,
                 state_gas_used=3 * fresh_write_state_cost,
             ),
         ],
@@ -725,26 +757,28 @@ def test_call_revert_restores_refilled_receipt(
         current_value=1,
         new_value=0,
     )
-    worker_code = Conditional(
-        condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
-        if_false=Conditional(
-            condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+    worker_code = Switch(
+        cases=[
+            CalldataCase(value=0, action=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP),
             # Call this contract to clear the slot and revert, then
             # create a second slot.
-            if_true=Op.MSTORE(0, 2)
-            + Op.POP(
-                Op.CALL(
-                    gas=Op.GAS,
-                    address=Op.ADDRESS,
-                    args_offset=0,
-                    args_size=32,
+            CalldataCase(
+                value=1,
+                action=Op.MSTORE(0, 2, new_memory_size=32)
+                + Op.POP(
+                    Op.CALL(
+                        gas=Op.GAS,
+                        address=Op.ADDRESS,
+                        args_offset=0,
+                        args_size=32,
+                        address_warm=True,
+                    )
                 )
-            )
-            + Op.SSTORE(SLOT_SECOND, 1)
-            + Op.STOP,
-            if_false=clear + Op.REVERT(0, 0),
-        ),
+                + Op.SSTORE(SLOT_SECOND, 1)
+                + Op.STOP,
+            ),
+        ],
+        default_action=clear + Op.REVERT(0, 0),
     )
     worker = pre.deploy_contract(code=worker_code)
 
@@ -757,7 +791,7 @@ def test_call_revert_restores_refilled_receipt(
             # restored the refill it applied to this receipt.
             Frame.default(
                 target=worker,
-                pin_gas=False,
+                execution_gas=worker_code.branch(case=0).execution_cost(fork),
                 state_gas_used=fresh_write_state_cost,
             ),
             # Frame 2: a call returns the slot to its start value
@@ -765,9 +799,12 @@ def test_call_revert_restores_refilled_receipt(
             # frame then creates a second slot from its own pool.
             Frame.default(
                 target=worker,
+                warm=True,
                 state_gas_limit=fresh_write_state_cost,
                 data=(1).to_bytes(32, "big"),
-                pin_gas=False,
+                # The branch calls back into the worker's default one.
+                execution_gas=worker_code.branch(case=1).execution_cost(fork)
+                + worker_code.branch(case=None).execution_cost(fork),
                 state_gas_used=fresh_write_state_cost,
             ),
         ],
@@ -818,59 +855,64 @@ def test_reversion_restores_charge_ownership(
         current_value=1,
         new_value=0,
     )
-    worker_code = Conditional(
-        condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
-        if_false=Conditional(
-            condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+    worker_code = Switch(
+        cases=[
+            CalldataCase(value=0, action=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP),
             # Clear the slot for good and create a second one.
-            if_true=clear + Op.SSTORE(SLOT_SECOND, 1) + Op.STOP,
-            if_false=Conditional(
-                condition=Op.EQ(Op.CALLDATALOAD(0), 2),
-                # Clear the slot and revert.
-                if_true=clear + Op.REVERT(0, 0),
-                if_false=Conditional(
-                    condition=Op.EQ(Op.CALLDATALOAD(0), 3),
-                    # Clear the slot and return.
-                    if_true=clear + Op.STOP,
-                    # Call this contract to clear the slot and revert.
-                    if_false=Op.MSTORE(0, 2)
-                    + Op.POP(
-                        Op.CALL(
-                            gas=Op.GAS,
-                            address=Op.ADDRESS,
-                            args_offset=0,
-                            args_size=32,
-                        )
-                    )
-                    + Op.STOP,
-                ),
+            CalldataCase(
+                value=1, action=clear + Op.SSTORE(SLOT_SECOND, 1) + Op.STOP
             ),
-        ),
+            # Clear the slot and revert.
+            CalldataCase(value=2, action=clear + Op.REVERT(0, 0)),
+            # Clear the slot and return.
+            CalldataCase(value=3, action=clear + Op.STOP),
+        ],
+        # Call this contract to clear the slot and revert.
+        default_action=Op.MSTORE(0, 2, new_memory_size=32)
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=Op.ADDRESS,
+                args_offset=0,
+                args_size=32,
+                address_warm=True,
+            )
+        )
+        + Op.STOP,
     )
     worker = pre.deploy_contract(code=worker_code)
-    reverter = pre.deploy_contract(code=Op.REVERT(0, 0))
+    reverter_code = Op.REVERT(0, 0)
+    reverter = pre.deploy_contract(code=reverter_code)
 
     def worker_frame(selector: int, **overrides: Any) -> Frame:
+        execution_gas = worker_code.branch(
+            case=selector if selector < 4 else None
+        ).execution_cost(fork)
+        if selector == 4:
+            # That branch calls back into the worker to clear.
+            execution_gas += worker_code.branch(case=2).execution_cost(fork)
         return Frame.default(
             target=worker,
             data=selector.to_bytes(32, "big"),
-            pin_gas=False,
+            execution_gas=execution_gas,
             **overrides,
         )
 
     if reversion == "reverted_call":
         reverting_frames = [
-            worker_frame(4, state_gas_limit=0, state_gas_used=0)
+            worker_frame(4, warm=True, state_gas_limit=0, state_gas_used=0)
         ]
     elif reversion == "reverted_frame":
         reverting_frames = [
-            worker_frame(2, state_gas_limit=0, outcome=FrameOutcome.REVERT)
+            worker_frame(
+                2, warm=True, state_gas_limit=0, outcome=FrameOutcome.REVERT
+            )
         ]
     else:
         reverting_frames = [
             worker_frame(
                 3,
+                warm=True,
                 flags=Spec.ATOMIC_BATCH_FLAG,
                 state_gas_limit=0,
                 outcome=FrameOutcome.UNROLLED,
@@ -878,8 +920,8 @@ def test_reversion_restores_charge_ownership(
             # Terminate the batch with a revert, unrolling it.
             Frame.default(
                 target=reverter,
+                code=reverter_code,
                 outcome=FrameOutcome.REVERT,
-                pin_gas=False,
             ),
         ]
 
@@ -897,11 +939,17 @@ def test_reversion_restores_charge_ownership(
             # second slot from exactly one slot creation of budget.
             worker_frame(
                 1,
+                warm=True,
                 state_gas_limit=fresh_write_state_cost,
                 state_gas_used=fresh_write_state_cost,
             ),
         ],
-    ).resolve_frames(fork)
+    ).resolve_frames(
+        fork,
+        # The state half of the refund is already priced by the
+        # frames' state gas; only the execution half settles here.
+        refund=clear.refund(fork) - clear.state_refund(fork),
+    )
 
     state_test(
         pre=pre,
