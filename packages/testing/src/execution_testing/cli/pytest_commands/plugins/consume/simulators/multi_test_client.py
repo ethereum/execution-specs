@@ -28,6 +28,7 @@ from .client_start_pipeline import (
     pipeline_client_start,
     queued_items,
 )
+from .helpers.chain_config import chain_config_environment
 from .helpers.ruleset import ruleset
 from .helpers.test_tracker import (
     PreAllocGroupTestTracker,
@@ -58,12 +59,16 @@ class MultiTestClientManager:
     def __init__(self) -> None:
         """Initialize the multi-test client manager."""
         self.clients: dict[str, Client] = {}  # group_identifier -> Client
+        self.environments: dict[str, dict[str, str]] = {}
+        """The environment each group's client was started with."""
         self.pending_start: tuple[str, Future[Client]] | None = None
         """
         The one client started ahead of its group, with the group's
         identifier, until a test of the group claims it (see
         `start_ahead`).
         """
+        self.pending_environment: dict[str, str] | None = None
+        """The environment the client started ahead was given."""
         self._starter = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="client-start"
         )
@@ -85,18 +90,23 @@ class MultiTestClientManager:
         logger.debug("Test tracker registered with MultiTestClientManager")
 
     def start_ahead(
-        self, group_identifier: str, start: Callable[[], Client]
+        self,
+        group_identifier: str,
+        start: Callable[[], Client],
+        environment: dict[str, str] | None = None,
     ) -> None:
         """
         Start a group's client on a background thread, ahead of its tests.
 
         At most one client is started ahead at a time; the group's first
         test claims it through `get_client`, waiting for the start to
-        finish if it has not yet.
+        finish if it has not yet. `environment` is what `start` gives
+        the client, recorded with it once it is claimed.
         """
         assert self.pending_start is None, "a client is already started ahead"
         logger.info(f"⏩ Starting client ahead for group {group_identifier}")
         self.pending_start = (group_identifier, self._starter.submit(start))
+        self.pending_environment = environment
 
     def _claim_pending_start(self, group_identifier: str) -> None:
         """
@@ -112,37 +122,67 @@ class MultiTestClientManager:
         identifier, future = self.pending_start
         if identifier != group_identifier:
             return
+        environment = self.pending_environment
         wait_start = time.perf_counter()
         try:
             client = future.result()
         except Exception as e:
             self.pending_start = None
+            self.pending_environment = None
             logger.warning(
                 f"Starting the client ahead for group {group_identifier} "
                 f"failed: {e!r}"
             )
             return
         self.pending_start = None
+        self.pending_environment = None
         logger.info(
             f"⏱ phase=client_start_wait group={group_identifier} "
             f"ms={(time.perf_counter() - wait_start) * 1000:.1f}"
         )
-        self.register_client(group_identifier, client)
+        self.register_client(group_identifier, client, environment)
 
-    def get_client(self, group_identifier: str) -> Client | None:
+    def get_client(
+        self,
+        group_identifier: str,
+        environment: dict[str, str] | None = None,
+    ) -> Client | None:
         """
         Get the client instance for a group.
 
+        A client started with another `environment` is discarded and
+        `None` returned, so the caller starts one with the test's own.
+        Tests of a pre-allocation group can differ in chain
+        configuration the group does not key on, such as the EIP-8253
+        zero-nonce storage accounts, and a client started ahead of its
+        group is given none of it.
         """
         self._claim_pending_start(group_identifier)
         if group_identifier in self.clients:
+            started_with = self.environments.get(group_identifier)
+            if (
+                environment is not None
+                and started_with is not None
+                and started_with != environment
+            ):
+                logger.info(
+                    f"Group {group_identifier} needs another client "
+                    "environment; replacing its client"
+                )
+                self.discard_client(group_identifier)
+                return None
             logger.debug(f"Found existing client for group {group_identifier}")
             return self.clients[group_identifier]
 
         logger.debug(f"No existing client for group {group_identifier}")
         return None
 
-    def register_client(self, group_identifier: str, client: Client) -> None:
+    def register_client(
+        self,
+        group_identifier: str,
+        client: Client,
+        environment: dict[str, str] | None = None,
+    ) -> None:
         """
         Register a newly started client for a group.
 
@@ -153,6 +193,8 @@ class MultiTestClientManager:
             )
 
         self.clients[group_identifier] = client
+        if environment is not None:
+            self.environments[group_identifier] = environment
         logger.info(f"Registered client for group {group_identifier}")
 
     def discard_client(self, group_identifier: str) -> None:
@@ -165,6 +207,7 @@ class MultiTestClientManager:
         call is the one stopped when the group completes.
         """
         client = self.clients.pop(group_identifier, None)
+        self.environments.pop(group_identifier, None)
         if client is None:
             return
         logger.info(f"🛑 Discarding client for group {group_identifier}")
@@ -226,6 +269,7 @@ class MultiTestClientManager:
                 finally:
                     # Always remove from tracking, even if stop failed
                     del self.clients[group_identifier]
+                    self.environments.pop(group_identifier, None)
                     self._notify_stopped(client)
 
     def stop_all_clients(self) -> None:
@@ -249,6 +293,7 @@ class MultiTestClientManager:
             self._notify_stopped(client)
 
         self.clients.clear()
+        self.environments.clear()
         logger.info("All clients stopped")
 
 
@@ -457,11 +502,17 @@ def environment(
 
     Parallel to single_test_client.environment but uses
     PreAllocGroup. Use caching to avoid redundant computation
-    for tests sharing the same pre_hash.
+    for tests sharing the same pre_hash. The fixture's chain
+    configuration is added on top of the group's cached environment,
+    which must stay unmodified.
     """
-    return build_environment(
+    group_environment = build_environment(
         fixture.pre_hash, pre_alloc_group, check_live_port, environment_cache
     )
+    chain_config = chain_config_environment(fixture.config)
+    if not chain_config:
+        return group_environment
+    return {**group_environment, **chain_config}
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -514,7 +565,8 @@ def _start_next_group_client(
     turns it off), and only when no client is already started ahead.
     The next group's environment is this test's with the group-specific
     part swapped, so it keeps what a simulator adds to the environment
-    fixture (as wirex does).
+    fixture (as wirex does). This test's chain configuration is its
+    own, so it is left out.
     """
     del client  # requested only so this runs once the client is ready
     if not pipeline_client_start(request.config):
@@ -537,7 +589,10 @@ def _start_next_group_client(
             pre_hash, fixtures_source, pre_alloc_group_cache
         )
         genesis = build_client_genesis(pre_hash, group, client_genesis_cache)
-        current_base = environment_cache[fixture.pre_hash]
+        current_base = {
+            **environment_cache[fixture.pre_hash],
+            **chain_config_environment(fixture.config),
+        }
         next_environment = {
             **build_environment(
                 pre_hash, group, check_live_port, environment_cache
@@ -561,6 +616,7 @@ def _start_next_group_client(
             next_environment,
             genesis,
         ),
+        next_environment,
     )
 
 
@@ -645,7 +701,9 @@ def boot_managed_client(
     except Exception:
         request.getfixturevalue("hive_test")
         raise
-    multi_test_client_manager.register_client(identifier, resolved_client)
+    multi_test_client_manager.register_client(
+        identifier, resolved_client, environment
+    )
     return resolved_client
 
 
@@ -667,7 +725,9 @@ def group_client(
     group_identifier = group_identifier_of(request.node)
     test_id = request.node.nodeid
 
-    resolved_client = multi_test_client_manager.get_client(group_identifier)
+    resolved_client = multi_test_client_manager.get_client(
+        group_identifier, environment
+    )
     if resolved_client is not None:
         logger.info(f"♻️  Reusing client for group {group_identifier}")
     else:

@@ -140,7 +140,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
                 )
             )
 
-        fork = transition_tool_data.fork
+        fork = transition_tool_data.active_fork
         count_tracer = None
         # The invariant checks excuse an ether or nonce shortfall only
         # when SELFDESTRUCT ran, and only on forks where it can cause one.

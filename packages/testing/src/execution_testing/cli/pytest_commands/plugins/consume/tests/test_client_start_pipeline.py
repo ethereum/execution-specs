@@ -8,6 +8,8 @@ from typing import Any, Iterator, List, cast
 import pytest
 from hive.client import Client
 
+from execution_testing.base_types import Address
+from execution_testing.fixtures.blockchain import FixtureConfig
 from execution_testing.forks import Osaka, Prague
 
 from ..simulators import multi_test_client
@@ -17,6 +19,7 @@ from ..simulators.client_start_pipeline import (
     next_group_item,
     queued_items,
 )
+from ..simulators.helpers.chain_config import chain_config_environment
 from ..simulators.helpers.test_tracker import PreAllocGroupTestTracker
 from ..simulators.multi_test_client import MultiTestClientManager
 from .direct_calls import fixture_body
@@ -42,6 +45,16 @@ def _manager(counts: dict[str, int]) -> MultiTestClientManager:
         tracker.set_group_test_count(group, count)
     manager.set_test_tracker(tracker)
     return manager
+
+
+GROUP_ONLY = {"HIVE_FORK": "Bogota"}
+"""A client environment with no test's chain configuration."""
+
+WITH_CHAIN_CONFIG = {
+    **GROUP_ONLY,
+    "HIVE_ZERO_NONCE_STORAGE_ACCOUNTS": "0x" + "aa" * 20,
+}
+"""The same environment for a test that names zero-nonce storage accounts."""
 
 
 class TestStartAhead:
@@ -123,6 +136,44 @@ class TestStartAhead:
         manager.start_ahead("next", lambda: cast(Client, stub))
         manager.stop_all_clients()
         assert stub.stopped
+
+    def test_a_test_with_the_same_environment_claims_the_client(self) -> None:
+        """
+        The client started ahead is recorded with the environment it was
+        given, and a first test asking with that environment keeps it.
+        """
+        manager = _manager({"next": 2})
+        stub = _StubClient()
+        manager.start_ahead("next", lambda: cast(Client, stub), GROUP_ONLY)
+        assert manager.get_client("next", dict(GROUP_ONLY)) is stub
+        assert manager.environments == {"next": GROUP_ONLY}
+        assert manager.pending_environment is None
+        assert not stub.stopped
+
+    def test_a_test_with_another_environment_replaces_the_client(self) -> None:
+        """
+        A client is started ahead without any test's chain configuration,
+        so a first test that has one stops it and starts its own.
+        """
+        manager = _manager({"next": 2})
+        stub = _StubClient()
+        manager.start_ahead("next", lambda: cast(Client, stub), GROUP_ONLY)
+        assert manager.get_client("next", WITH_CHAIN_CONFIG) is None
+        assert stub.stopped
+        assert manager.pending_start is None
+        assert manager.environments == {}
+
+    def test_a_failed_start_forgets_its_environment(self) -> None:
+        """A dropped start leaves no environment for a later start."""
+        manager = _manager({"next": 1})
+
+        def start() -> Client:
+            raise RuntimeError("hive refused the client")
+
+        manager.start_ahead("next", start, GROUP_ONLY)
+        assert manager.get_client("next", GROUP_ONLY) is None
+        assert manager.pending_environment is None
+        assert manager.environments == {}
 
 
 class _Node:
@@ -348,16 +399,24 @@ class _QueuedItem:
         yield SimpleNamespace(kwargs={"name": self.group})
 
 
+SIMULATOR_ADDITIONS = {
+    "HIVE_SYNC_LOOP_INTERVAL_MS": "100",
+    "HIVE_NODETYPE": "archive",
+}
+"""What a simulator adds to the environment fixture, or overrides in it."""
+
+
 class TestStartNextGroupClient:
     """The next group's client starts with that group's environment."""
 
-    def test_simulator_additions_carry_over(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    @staticmethod
+    def _started_ahead(
+        monkeypatch: pytest.MonkeyPatch, config: FixtureConfig
+    ) -> tuple[str, dict[str, str], dict[str, Any]]:
         """
-        What a simulator adds to the environment fixture (wirex's sync
-        loop interval) or overrides in it is kept for the next group,
-        while the group-specific part comes from the next group.
+        Run the fixture after a test with the chain configuration `config`
+        and the simulator's additions, and return the group whose client
+        it starts ahead, with that client's environment and genesis.
         """
         cache: dict[Any, dict] = {}
         current_base = multi_test_client.build_environment(
@@ -368,8 +427,8 @@ class TestStartNextGroupClient:
         )
         environment = {
             **current_base,
-            "HIVE_SYNC_LOOP_INTERVAL_MS": "100",
-            "HIVE_NODETYPE": "archive",
+            **chain_config_environment(config),
+            **SIMULATOR_ADDITIONS,
         }
         current = _QueuedItem("current", "0xcurrent")
         following = _QueuedItem("next", "0xnext")
@@ -381,7 +440,7 @@ class TestStartNextGroupClient:
         monkeypatch.setattr(
             manager,
             "start_ahead",
-            lambda group, start: started.append((group, start)),
+            lambda *arguments: started.append(arguments),
         )
         request = SimpleNamespace(
             config=SimpleNamespace(
@@ -393,7 +452,7 @@ class TestStartNextGroupClient:
             client=None,
             multi_test_hive_test=None,
             multi_test_client_manager=manager,
-            fixture=SimpleNamespace(pre_hash="0xcurrent"),
+            fixture=SimpleNamespace(pre_hash="0xcurrent", config=config),
             fixtures_source=None,
             environment=environment,
             check_live_port=8551,
@@ -402,10 +461,40 @@ class TestStartNextGroupClient:
             environment_cache=cache,
             request=request,
         )
-        ((group, start),) = started
-        next_environment, genesis = start.args[3], start.args[4]
+        ((group, start, recorded),) = started
+        # The manager is told the environment the client starts with.
+        assert recorded == start.args[3]
+        return group, start.args[3], start.args[4]
+
+    def test_simulator_additions_carry_over(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        What a simulator adds to the environment fixture (wirex's sync
+        loop interval) or overrides in it is kept for the next group,
+        while the group-specific part comes from the next group.
+        """
+        group, next_environment, genesis = self._started_ahead(
+            monkeypatch, FixtureConfig(fork=Prague)
+        )
         assert group == "next"
         assert genesis == {"genesis": "next"}
         assert next_environment["HIVE_SYNC_LOOP_INTERVAL_MS"] == "100"
         assert next_environment["HIVE_NODETYPE"] == "archive"
         assert next_environment["HIVE_FORK"] == Osaka.name()
+
+    def test_the_chain_configuration_stays_behind(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        A test's chain configuration, such as its EIP-8253 zero-nonce
+        storage accounts, is its own: the next group's client starts
+        without it, and still with what the simulator adds.
+        """
+        config = FixtureConfig(
+            fork=Prague, zero_nonce_storage_accounts=[Address(0x1000)]
+        )
+        assert chain_config_environment(config), "the test needs a variable"
+        _, next_environment, _ = self._started_ahead(monkeypatch, config)
+        assert not chain_config_environment(config).keys() & next_environment
+        assert SIMULATOR_ADDITIONS.items() <= next_environment.items()
