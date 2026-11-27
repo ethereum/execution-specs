@@ -1645,7 +1645,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         test_case_description: str,
         fixture_source_url: str,
         gas_benchmark_value: int,
-        fixed_opcode_count: int | None,
         optimistic_pre_alloc_grouping_disabled: bool,
         is_tx_gas_heavy_test: bool,
         is_exception_test: bool,
@@ -1663,7 +1662,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         When parametrize, indirect must be used along with the fixture format
         as value.
         """
-        del fixed_opcode_count
         assert isinstance(fixture_format, LabeledFixtureFormat) or issubclass(
             fixture_format, BaseFixture
         )
