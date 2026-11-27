@@ -197,13 +197,24 @@ def test_sender_frame_before_approval(
     """
     Reject a frame transaction whose `SENDER` frame runs before any
     frame has approved execution.
+
+    The `SENDER` frame follows an atomic batch frame, the one position
+    where only execution can tell: it would have been skipped had the
+    batch's first frame reverted. Everywhere else the frames alone
+    decide, which `test_static_validity.py` covers.
     """
     sender = pre.fund_eoa()
     target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
+    batch_opener = pre.deploy_contract(code=Op.STOP)
 
     tx = Transaction(
         sender=sender,
         frames=[
+            Frame.default(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=batch_opener,
+                gas_limit=200_000,
+            ),
             Frame.sender(target=target, gas_limit=200_000),
             Frame.verify(),
         ],
