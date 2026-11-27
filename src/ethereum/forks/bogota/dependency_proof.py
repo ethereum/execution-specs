@@ -340,6 +340,14 @@ def validate_dependency_proof(
             raise InvalidBlock("dependency proof without dependencies")
         return frozenset()
 
+    # Every claim charges its full `gas_limit` to its transaction, so a
+    # valid block never needs more verifier gas than its gas limit. Check
+    # this before running any verifier.
+    if sum(dependency.gas_limit for dependency in dependencies) > (
+        header.gas_limit
+    ):
+        raise InvalidBlock("dependency verification exceeds block gas limit")
+
     if dependency_proof[:1] != DEPENDENCY_PROOF_VERSION_RAW:
         raise InvalidBlock("unknown dependency proof version")
     try:
