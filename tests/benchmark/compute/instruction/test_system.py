@@ -56,7 +56,6 @@ def test_contract_calling_many_addresses(
     opcode: Op,
     access_warm: bool,
     gas_benchmark_value: int,
-    fixed_opcode_count: float | None,
 ) -> None:
     """Benchmark a contract that calls many distinct addresses."""
     start_addr = 2**80 - 1
@@ -139,14 +138,11 @@ def test_contract_calling_many_addresses(
         )
         return gas_benchmark_value * per_iteration // (per_iteration - stipend)
 
-    if fixed_opcode_count is not None:
-        total_iterations = int(fixed_opcode_count * 1000)
-    else:
-        total_iterations = sum(
-            code.tx_iterations_by_gas_limit(
-                fork=fork, gas_limit=packing_budget(), **tx_kwargs
-            )
+    total_iterations = sum(
+        code.tx_iterations_by_gas_limit(
+            fork=fork, gas_limit=packing_budget(), **tx_kwargs
         )
+    )
 
     def block_gas(iterations: int) -> int:
         """Return the block gas the iterations land, per gas dimension."""
@@ -484,7 +480,6 @@ def test_create(
     non_zero_data: bool,
     value: int,
     gas_benchmark_value: int,
-    fixed_opcode_count: float | None,
 ) -> None:
     """Benchmark CREATE and CREATE2 instructions."""
     max_code_size = fork.max_code_size()
@@ -575,16 +570,12 @@ def test_create(
         index_end = iteration_count + start_iteration - 1
         return Hash(start_iteration) + Hash(index_end)
 
-    num_contracts = (
-        sum(
-            code.tx_iterations_by_gas_limit(
-                fork=fork,
-                gas_limit=gas_benchmark_value,
-                calldata=calldata,
-            )
+    num_contracts = sum(
+        code.tx_iterations_by_gas_limit(
+            fork=fork,
+            gas_limit=gas_benchmark_value,
+            calldata=calldata,
         )
-        if fixed_opcode_count is None
-        else int(fixed_opcode_count * 1000)
     )
 
     if num_contracts == 0:
@@ -594,26 +585,15 @@ def test_create(
 
     with TestPhaseManager.execution():
         sender = pre.fund_eoa()
-        if fixed_opcode_count is not None:
-            exec_txs = list(
-                code.transactions_by_total_iteration_count(
-                    fork=fork,
-                    total_iterations=num_contracts,
-                    sender=sender,
-                    to=contract_address,
-                    calldata=calldata,
-                )
+        exec_txs = list(
+            code.transactions_by_gas_limit(
+                fork=fork,
+                gas_limit=gas_benchmark_value,
+                sender=sender,
+                to=contract_address,
+                calldata=calldata,
             )
-        else:
-            exec_txs = list(
-                code.transactions_by_gas_limit(
-                    fork=fork,
-                    gas_limit=gas_benchmark_value,
-                    sender=sender,
-                    to=contract_address,
-                    calldata=calldata,
-                )
-            )
+        )
         total_gas_cost = sum(tx.gas_cost for tx in exec_txs)
 
     post = {
@@ -649,7 +629,6 @@ def test_creates_collisions(
     fork: Fork,
     opcode: Op,
     gas_benchmark_value: int,
-    fixed_opcode_count: float | None,
 ) -> None:
     """Benchmark CREATE and CREATE2 instructions with collisions."""
     # We deploy a "proxy contract" which is the contract that will be called in
@@ -707,11 +686,7 @@ def test_creates_collisions(
         pre.deploy_contract(address=addr, code=Op.INVALID)
     else:
         creation_cost = proxy_contract_code.execution_cost(fork)
-        max_contract_count = (
-            2 * gas_benchmark_value // creation_cost
-            if fixed_opcode_count is None
-            else int(fixed_opcode_count * 1000)
-        )
+        max_contract_count = 2 * gas_benchmark_value // creation_cost
         for nonce in range(max_contract_count):
             addr = compute_create_address(address=proxy_contract, nonce=nonce)
             pre.deploy_contract(address=addr, code=Op.INVALID)

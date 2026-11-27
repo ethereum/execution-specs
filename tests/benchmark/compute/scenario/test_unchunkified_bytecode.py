@@ -45,7 +45,6 @@ def test_unchunkified_bytecode(
     fork: Fork,
     opcode: Op,
     gas_benchmark_value: int,
-    fixed_opcode_count: float | None,
 ) -> None:
     """Benchmark scenario of accessing max-code size bytecode."""
     # The attack gas limit represents the transaction gas limit cap or
@@ -121,18 +120,13 @@ def test_unchunkified_bytecode(
     attack_address = pre.deploy_contract(code=attack_code)
 
     # Calculate the number of contracts to be targeted.
-    if fixed_opcode_count is not None:
-        # Fixed opcode count mode
-        num_contracts = int(fixed_opcode_count * 1000)
-    else:
-        # Gas limit mode
-        num_contracts = sum(
-            attack_code.tx_iterations_by_gas_limit(
-                fork=fork,
-                gas_limit=attack_gas_limit,
-                calldata=calldata,
-            )
+    num_contracts = sum(
+        attack_code.tx_iterations_by_gas_limit(
+            fork=fork,
+            gas_limit=attack_gas_limit,
+            calldata=calldata,
         )
+    )
 
     # Deploy num_contracts via multiple txs (each capped by tx gas limit).
     post = {}
@@ -160,27 +154,15 @@ def test_unchunkified_bytecode(
 
     with TestPhaseManager.execution():
         attack_sender = pre.fund_eoa()
-        if fixed_opcode_count is not None:
-            # Fixed opcode count mode.
-            attack_txs = list(
-                attack_code.transactions_by_total_iteration_count(
-                    fork=fork,
-                    total_iterations=int(fixed_opcode_count * 1000),
-                    sender=attack_sender,
-                    to=attack_address,
-                    calldata=calldata,
-                )
+        attack_txs = list(
+            attack_code.transactions_by_gas_limit(
+                fork=fork,
+                gas_limit=attack_gas_limit,
+                sender=attack_sender,
+                to=attack_address,
+                calldata=calldata,
             )
-        else:
-            attack_txs = list(
-                attack_code.transactions_by_gas_limit(
-                    fork=fork,
-                    gas_limit=attack_gas_limit,
-                    sender=attack_sender,
-                    to=attack_address,
-                    calldata=calldata,
-                )
-            )
+        )
         total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
 
     benchmark_test(

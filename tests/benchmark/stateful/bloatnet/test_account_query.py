@@ -152,7 +152,6 @@ def test_account_access(
     opcode: Op,
     value_sent: int,
     gas_benchmark_value: int,
-    fixed_opcode_count: int | None,
     account_mode: AccountMode,
     overhead_baseline: bool,
     cache_strategy: CacheStrategy,
@@ -269,9 +268,7 @@ def test_account_access(
         target_opcode = Op.SHA3
 
     total_iterations = None
-    if fixed_opcode_count is not None:
-        total_iterations = int(fixed_opcode_count * 1000)
-    elif overhead_baseline:
+    if overhead_baseline:
         total_iterations = sum(
             attack_code.tx_iterations_by_gas_limit(
                 fork=fork,
