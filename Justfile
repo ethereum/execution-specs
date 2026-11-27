@@ -410,7 +410,7 @@ test-packaging: check-testing-imports build-wheels
 fill-benchmark *args: (_tmp-logs "fill-benchmark")
     uv run fill \
         --gas-benchmark-values 1 \
-        --fork "{{ latest_fork }}" \
+        --fork "{{ benchmark_fork }}" \
         -m "not slow" \
         --primary-format-only \
         -k "not test_return_revert" \
