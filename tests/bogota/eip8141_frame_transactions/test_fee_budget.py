@@ -16,6 +16,8 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Bytes,
+    Conditional,
     Environment,
     Fork,
     Frame,
@@ -26,10 +28,12 @@ from execution_testing import (
     Transaction,
     TransactionException,
     add_kzg_version,
+    create_op,
 )
 
 from ...cancun.eip4844_blobs.spec import SpecHelpers as BlobSpecHelpers
 from .helpers import (
+    APPROVE_ALL,
     BASE_FEE,
     PRIORITY_FEE,
     fee_budget,
@@ -408,4 +412,83 @@ def test_gasprice(
         pre=pre,
         tx=tx,
         post={probe: Account(storage={0: gas_price})},
+    )
+
+
+@pytest.mark.with_all_create_opcodes
+def test_gasprice_is_the_same_in_every_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Test that `GASPRICE` returns `base_fee_per_gas + max_priority_fee //
+    max_gas` in a `VERIFY`, a `SENDER` and a `DEFAULT` frame, in a call
+    nested in a frame and in initcode a frame creates.
+    """
+    # The budget pays half the full tip, so `GASPRICE` is neither the
+    # base fee nor the base fee plus `max_priority_fee_per_gas`.
+    half_tip_per_gas = PRIORITY_FEE // 2
+    gas_price = BASE_FEE + half_tip_per_gas
+    # Each position checks `GASPRICE` where it runs. A mismatch reverts up
+    # to the frame, so its receipt no longer matches, or, in the sender's
+    # `VERIFY` frame, the transaction is invalid.
+    check = Conditional(
+        condition=Op.EQ(Op.GASPRICE, gas_price),
+        if_true=Op.STOP,
+        if_false=Op.REVERT(0, 0),
+    )
+    checker = pre.deploy_contract(code=check)
+    caller = pre.deploy_contract(
+        code=Conditional(
+            condition=Op.CALL(gas=Op.GAS, address=checker),
+            if_true=Op.STOP,
+            if_false=Op.REVERT(0, 0),
+        )
+    )
+    # The frame's data holds the initcode.
+    factory_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Conditional(
+        condition=create_op(create_opcode, size=Op.CALLDATASIZE),
+        if_true=Op.STOP,
+        if_false=Op.REVERT(0, 0),
+    )
+    factory = pre.deploy_contract(code=factory_code)
+    sender_code = Conditional(
+        condition=Op.EQ(Op.GASPRICE, gas_price),
+        if_true=APPROVE_ALL,
+        if_false=Op.REVERT(0, 0),
+    )
+    sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
+
+    frames = [
+        Frame.verify(pin_gas=False),
+        Frame.sender(target=checker, pin_gas=False),
+        Frame.default(target=checker, pin_gas=False),
+        Frame.default(target=caller, pin_gas=False),
+        Frame.default(
+            target=factory,
+            data=Bytes(bytes(check)),
+            pin_gas=False,
+            # The creation's new account.
+            state_gas_used=factory_code.state_cost(fork),
+        ),
+    ]
+    fees = fee_budget(fork, sender, frames)
+    max_gas, required_max_fee = fees.max_gas, fees.required_max_fee
+    max_fee = required_max_fee + PRIORITY_FEE * max_gas // 2
+
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        max_fee=max_fee,
+        max_priority_fee_per_gas=PRIORITY_FEE,
+        frames=frames,
+    ).resolve_frames(fork)
+
+    state_test(
+        env=Environment(base_fee_per_gas=BASE_FEE),
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce_change=1)},
     )

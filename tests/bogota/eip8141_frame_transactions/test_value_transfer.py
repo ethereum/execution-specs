@@ -26,6 +26,7 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Transaction,
+    TransactionLog,
 )
 
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
@@ -98,6 +99,47 @@ def test_value_transfer(
     state_test(pre=pre, tx=tx, post=post)
 
 
+def test_transfer_log_precedes_target_logs(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test that a `SENDER` frame sending value to a contract that emits a
+    log lists the EIP-7708 transfer log first in its receipt, then the
+    contract's log.
+    """
+    sender = pre.fund_eoa()
+    topic = 1
+    target_code = Op.LOG1(0, 0, topic) + Op.STOP
+    target = pre.deploy_contract(code=target_code)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            Frame.verify(),
+            Frame.sender(
+                target=target,
+                value=TRANSFER_VALUE,
+                code=target_code,
+                logs=[
+                    transfer_log(sender, target, TRANSFER_VALUE),
+                    TransactionLog(address=target, topics=[topic]),
+                ],
+            ),
+        ],
+    ).resolve_frames(fork)
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce_change=1),
+            target: Account(balance_change=TRANSFER_VALUE),
+        },
+    )
+
+
 def transfer_exceeding_balance(
     pre: Alloc, fork: Fork, recipient: Address
 ) -> Tuple[Transaction, Dict[Address, Account]]:
@@ -167,6 +209,50 @@ def test_value_transfer_exceeding_balance(
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations=bal_accounts
         ),
+    )
+
+
+@pytest.mark.parametrize(
+    "explicit_target",
+    [
+        pytest.param(False, id="empty_target"),
+        pytest.param(True, id="sender_as_target"),
+    ],
+)
+def test_self_transfer_exceeding_balance_reverts(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    explicit_target: bool,
+) -> None:
+    """
+    Test that a `SENDER` frame sending the sender one wei more than it
+    holds, to itself, reverts on the balance check, although the
+    transfer would leave every balance unchanged.
+    """
+    # A sponsor pays, so the sender's balance alone sets the shortfall.
+    sender_balance = 1
+    sender = pre.fund_eoa(amount=sender_balance)
+    payer = pre.fund_eoa()
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            Frame.verify(flags=Spec.APPROVE_EXECUTION),
+            Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
+            Frame.sender(
+                target=sender if explicit_target else None,
+                value=sender_balance + 1,
+                outcome=FrameOutcome.REVERT,
+            ),
+        ],
+        signatures=[sender, payer],
+    ).resolve_frames(fork, payer=payer)
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce_change=1, balance_change=0)},
     )
 
 
