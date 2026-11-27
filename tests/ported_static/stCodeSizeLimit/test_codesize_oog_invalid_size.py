@@ -3,6 +3,8 @@ Test_codesize_oog_invalid_size.
 
 Ported from:
 state_tests/stCodeSizeLimit/codesizeOOGInvalidSizeFiller.json
+
+@manually-enhanced: Do not overwrite. Runs from Frontier.
 """
 
 import pytest
@@ -21,11 +23,19 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+LEGACY_URL = (
+    "https://github.com/ethereum/legacytests/blob/master/src/LegacyTests"
+    "/Constantinople/GeneralStateTestsFiller/stCodeSizeLimit"
+)
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stCodeSizeLimit/codesizeOOGInvalidSizeFiller.json"],
+    [
+        "state_tests/stCodeSizeLimit/codesizeOOGInvalidSizeFiller.json",
+        f"{LEGACY_URL}/codesizeOOGInvalidSizeFiller.json",
+    ],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -55,7 +65,8 @@ def test_codesize_oog_invalid_size(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
-    env = Environment(
+    env = Environment.for_fork(
+        fork,
         fee_recipient=coinbase,
         number=1,
         timestamp=1000,
@@ -86,10 +97,16 @@ def test_codesize_oog_invalid_size(
         data=tx_data[d],
         gas_limit=tx_gas[g],
         value=tx_value[v],
+        protected=fork.supports_protected_txs(),
     )
 
+    # Before EIP-170 there is no limit and the contract is created.
+    created = compute_create_address(address=sender, nonce=0)
+    code = bytes(tx_data[d])[0xD:].ljust([size_d0, size_d1][d], b"\0")
     post = {
-        compute_create_address(address=sender, nonce=0): Account.NONEXISTENT
+        created: Account.NONEXISTENT
+        if fork.is_eip_enabled(170)
+        else Account(balance=1, code=code)
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
