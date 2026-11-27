@@ -52,6 +52,7 @@ from execution_testing.base_types import (
 from execution_testing.exceptions import TransactionException
 from execution_testing.forks import Fork
 from execution_testing.forks.forks.eips.bogota.eip_8141 import (
+    ENTRY_POINT_ADDRESS,
     EXPIRY_VERIFIER_ADDRESS,
 )
 from execution_testing.logging import (
@@ -485,6 +486,16 @@ class Frame(FrameGeneric[HexNumber]):
         overrides.setdefault("state_gas_limit", 0)
         overrides.setdefault("data", (2**64 - 1).to_bytes(8, "big"))
         return cls(**overrides)
+
+    @staticmethod
+    def caller(mode: FrameMode, sender: Address) -> Address:
+        """
+        Return the `caller` of a frame in `mode`: `sender` in a `SENDER`
+        frame, the entry point otherwise.
+        """
+        if mode == FrameMode.SENDER:
+            return sender
+        return Address(ENTRY_POINT_ADDRESS)
 
     def entry_gas(self, fork: Fork) -> int:
         """Return the access the frame is charged at entry."""

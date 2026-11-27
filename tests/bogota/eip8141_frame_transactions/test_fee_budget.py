@@ -28,17 +28,15 @@ from execution_testing import (
     Transaction,
     TransactionException,
     add_kzg_version,
+    create_op,
 )
 
 from ...cancun.eip4844_blobs.spec import SpecHelpers as BlobSpecHelpers
 from .helpers import (
     APPROVE_ALL,
     BASE_FEE,
-    CURRENT_FRAME_INDEX,
     PRIORITY_FEE,
-    created_address,
     fee_budget,
-    frame_data_create_code,
 )
 from .spec import Spec, ref_spec_8141
 
@@ -433,16 +431,29 @@ def test_gasprice_is_the_same_in_every_frame(
     # base fee nor the base fee plus `max_priority_fee_per_gas`.
     half_tip_per_gas = PRIORITY_FEE // 2
     gas_price = BASE_FEE + half_tip_per_gas
-    record = Op.SSTORE(CURRENT_FRAME_INDEX, Op.GASPRICE) + Op.STOP
-    recorder = pre.deploy_contract(code=record)
-    caller = pre.deploy_contract(
-        code=Op.POP(Op.CALL(gas=Op.GAS, address=recorder)) + Op.STOP
+    # Each position checks `GASPRICE` where it runs. A mismatch reverts up
+    # to the frame, so its receipt no longer matches, or, in the sender's
+    # `VERIFY` frame, the transaction is invalid.
+    check = Conditional(
+        condition=Op.EQ(Op.GASPRICE, gas_price),
+        if_true=Op.STOP,
+        if_false=Op.REVERT(0, 0),
     )
-    factory_code = frame_data_create_code(create_opcode, record)
+    checker = pre.deploy_contract(code=check)
+    caller = pre.deploy_contract(
+        code=Conditional(
+            condition=Op.CALL(gas=Op.GAS, address=checker),
+            if_true=Op.STOP,
+            if_false=Op.REVERT(0, 0),
+        )
+    )
+    # The frame's data holds the initcode.
+    factory_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Conditional(
+        condition=create_op(create_opcode, size=Op.CALLDATASIZE),
+        if_true=Op.STOP,
+        if_false=Op.REVERT(0, 0),
+    )
     factory = pre.deploy_contract(code=factory_code)
-    created = created_address(factory, create_opcode, record)
-    # A `VERIFY` frame cannot write storage, so the sender approves only
-    # if it reads the expected value.
     sender_code = Conditional(
         condition=Op.EQ(Op.GASPRICE, gas_price),
         if_true=APPROVE_ALL,
@@ -450,18 +461,17 @@ def test_gasprice_is_the_same_in_every_frame(
     )
     sender = pre.deploy_contract(code=sender_code, balance=FUNDS)
 
-    slot_gas = record.state_cost(fork)
     frames = [
         Frame.verify(pin_gas=False),
-        Frame.sender(target=recorder, pin_gas=False, state_gas_used=slot_gas),
-        Frame.default(target=recorder, pin_gas=False, state_gas_used=slot_gas),
-        Frame.default(target=caller, pin_gas=False, state_gas_used=slot_gas),
+        Frame.sender(target=checker, pin_gas=False),
+        Frame.default(target=checker, pin_gas=False),
+        Frame.default(target=caller, pin_gas=False),
         Frame.default(
             target=factory,
-            data=Bytes(bytes(record)),
+            data=Bytes(bytes(check)),
             pin_gas=False,
-            # The creation's new account and the initcode's write.
-            state_gas_used=factory_code.state_cost(fork) + slot_gas,
+            # The creation's new account.
+            state_gas_used=factory_code.state_cost(fork),
         ),
     ]
     fees = fee_budget(fork, sender, frames)
@@ -480,11 +490,5 @@ def test_gasprice_is_the_same_in_every_frame(
         env=Environment(base_fee_per_gas=BASE_FEE),
         pre=pre,
         tx=tx,
-        post={
-            sender: Account(nonce_change=1),
-            recorder: Account(
-                storage={1: gas_price, 2: gas_price, 3: gas_price}
-            ),
-            created: Account(storage={4: gas_price}),
-        },
+        post={sender: Account(nonce_change=1)},
     )

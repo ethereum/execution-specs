@@ -12,27 +12,25 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Conditional,
     Fork,
     Frame,
+    Hash,
     Op,
     StateTestFiller,
-    Storage,
     Transaction,
     TransactionLog,
 )
 
 from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
-from .helpers import CURRENT_FRAME_INDEX
+from .helpers import CALL_VALUE
 from .spec import ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
-
-FRAME_VALUE = 10**9
-"""Value carried by the value-bearing `SENDER` frames."""
 
 
 def test_callvalue_is_the_frame_value(
@@ -46,26 +44,30 @@ def test_callvalue_is_the_frame_value(
     frame.
     """
     sender = pre.fund_eoa()
-    record = Op.SSTORE(CURRENT_FRAME_INDEX, Op.CALLVALUE) + Op.STOP
-    storage = Storage()
-    storage[1] = FRAME_VALUE
-    storage[2] = 0
-    # The `DEFAULT` frame's slot starts nonzero, so a zero recorded there
-    # is told apart from a slot never written.
-    recorder = pre.deploy_contract(code=record, storage=storage.canary())
+    # Each frame's data holds the `CALLVALUE` its target expects; on a
+    # mismatch the frame reverts and its receipt no longer matches.
+    checker = pre.deploy_contract(
+        code=Conditional(
+            condition=Op.EQ(Op.CALLVALUE, Op.CALLDATALOAD(0)),
+            if_true=Op.STOP,
+            if_false=Op.REVERT(0, 0),
+        )
+    )
 
     tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
             Frame.sender(
-                target=recorder,
-                value=FRAME_VALUE,
+                target=checker,
+                value=CALL_VALUE,
+                data=Hash(CALL_VALUE),
                 pin_gas=False,
-                state_gas_used=record.state_cost(fork),
-                logs=[transfer_log(sender, recorder, FRAME_VALUE)],
+                logs=[transfer_log(sender, checker, CALL_VALUE)],
             ),
-            Frame.default(target=recorder, pin_gas=False, logs=[]),
+            Frame.default(
+                target=checker, data=Hash(0), pin_gas=False, logs=[]
+            ),
         ],
     ).resolve_frames(fork)
 
@@ -74,7 +76,7 @@ def test_callvalue_is_the_frame_value(
         tx=tx,
         post={
             sender: Account(nonce_change=1),
-            recorder: Account(balance_change=FRAME_VALUE, storage=storage),
+            checker: Account(balance_change=CALL_VALUE),
         },
     )
 
@@ -89,35 +91,22 @@ def test_frame_receipt_drops_logs_of_reverted_calls(
     log of a call inside the frame that reverted.
     """
     sender = pre.fund_eoa()
-    first = pre.deploy_contract(code=Op.LOG1(0, 0, 1) + Op.STOP)
-    second = pre.deploy_contract(code=Op.LOG1(0, 0, 2) + Op.STOP)
-    reverting = pre.deploy_contract(code=Op.LOG1(0, 0, 3) + Op.REVERT(0, 0))
-    third = pre.deploy_contract(
-        code=Op.POP(Op.CALL(gas=Op.GAS, address=reverting))
-        + Op.LOG1(0, 0, 4)
-        + Op.STOP
-    )
+    reverting = pre.deploy_contract(code=Op.LOG1(0, 0, 0) + Op.REVERT(0, 0))
+    frames = [Frame.verify(logs=[])]
+    for topic in [1, 2, 3]:
+        target = pre.deploy_contract(
+            code=Op.POP(Op.CALL(gas=Op.GAS, address=reverting))
+            + Op.LOG1(0, 0, topic)
+            + Op.STOP
+        )
+        frames.append(
+            Frame.default(
+                target=target,
+                pin_gas=False,
+                logs=[TransactionLog(address=target, topics=[topic])],
+            )
+        )
 
-    tx = Transaction(
-        sender=sender,
-        frames=[
-            Frame.verify(logs=[]),
-            Frame.default(
-                target=first,
-                pin_gas=False,
-                logs=[TransactionLog(address=first, topics=[1])],
-            ),
-            Frame.default(
-                target=second,
-                pin_gas=False,
-                logs=[TransactionLog(address=second, topics=[2])],
-            ),
-            Frame.default(
-                target=third,
-                pin_gas=False,
-                logs=[TransactionLog(address=third, topics=[4])],
-            ),
-        ],
-    ).resolve_frames(fork)
+    tx = Transaction(sender=sender, frames=frames).resolve_frames(fork)
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce_change=1)})

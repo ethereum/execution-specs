@@ -10,13 +10,10 @@ from typing import (
 from execution_testing import (
     EOA,
     Address,
-    Bytecode,
     Fork,
     Frame,
     FrameSignature,
     Op,
-    compute_create_address,
-    create_op,
 )
 
 from .signature_helpers import canonical_entry
@@ -142,41 +139,3 @@ def fee_budget(
         max_fee = required_max_fee + full_tip
     max_cost = required_max_fee + min(full_tip, max_fee - required_max_fee)
     return FeeBudget(max_gas, required_max_fee, max_cost)
-
-
-def frame_data_create_code(create_opcode: Op, init_code: Bytecode) -> Bytecode:
-    """
-    Return factory code creating a contract with `create_opcode` from
-    the frame's data, which holds `init_code`.
-    """
-    size = len(init_code)
-    return (
-        Op.CALLDATACOPY(
-            0, 0, Op.CALLDATASIZE, data_size=size, new_memory_size=size
-        )
-        + Op.POP(
-            create_op(
-                create_opcode,
-                size=Op.CALLDATASIZE,
-                init_code_size=size,
-            )
-        )
-        + Op.STOP
-    )
-
-
-def created_address(
-    factory: Address, create_opcode: Op, init_code: Bytecode
-) -> Address:
-    """
-    Return the address a pre-state contract's first `create_opcode`
-    creation from `init_code` lands at.
-    """
-    # A contract deployed in the pre-state starts at nonce one.
-    return compute_create_address(
-        address=factory,
-        nonce=1,
-        salt=0,
-        initcode=init_code,
-        opcode=create_opcode,
-    )
