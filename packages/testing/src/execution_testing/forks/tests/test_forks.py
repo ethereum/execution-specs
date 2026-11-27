@@ -416,12 +416,13 @@ def test_precompiles() -> None:  # noqa: D103
 def test_system_contract_request_types(fork: Fork) -> None:
     """
     Every request type is a request class whose system contract is one of
-    the fork's system contracts.
+    the fork's system contracts, and the highest one is the fork's maximum.
+    The types need not be contiguous, since an EIP can leave one to another.
     """
     request_classes = fork.system_contract_request_types()
-    assert sorted(cls.type for cls in request_classes) == list(
-        range(0, fork.max_request_type() + 1)
-    )
+    types = [cls.type for cls in request_classes]
+    assert len(set(types)) == len(types)
+    assert max(types, default=-1) == fork.max_request_type()
     assert {cls.system_contract_address for cls in request_classes} <= set(
         fork.system_contracts()
     )

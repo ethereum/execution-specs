@@ -29,6 +29,8 @@ from execution_testing import (
     Header,
     Op,
     ParameterSet,
+    PQBuilderRegistrationRequest,
+    PQRegistrationRequest,
     Requests,
     Storage,
     SystemContractInteractionContract,
@@ -75,6 +77,8 @@ REQUEST_TYPES: List[type[SystemContractRequest]] = [
     ConsolidationRequest,
     BuilderDepositRequest,
     BuilderExitRequest,
+    PQRegistrationRequest,
+    PQBuilderRegistrationRequest,
 ]
 REQUEST_TYPE_BY_ADDRESS = {
     rt.system_contract_address: rt for rt in REQUEST_TYPES
@@ -82,6 +86,14 @@ REQUEST_TYPE_BY_ADDRESS = {
 # Number of requests used for request types that have no per-block cap (e.g.
 # deposits), to exercise "many in a single block".
 UNCAPPED_REQUEST_SAMPLE = 18
+# Request types left out of the over-cap case. One more than the cap of
+# validator PQ registrations is more calldata than a transaction can carry,
+# and more state gas than the block has.
+OVER_CAP_EXCLUDED_REQUEST_TYPES = [PQRegistrationRequest]
+# Up to this many request types, the tests try every order of them. Past it
+# the number of orders grows too fast, so they try each rotation and its
+# reverse, which puts every type first and last.
+MAX_FULLY_PERMUTED_REQUEST_TYPES = 5
 
 
 def request_type_to_id_str(ty: type[SystemContractRequest]) -> str:
@@ -91,11 +103,27 @@ def request_type_to_id_str(ty: type[SystemContractRequest]) -> str:
 
 def request_types_from_fork(fork: Fork) -> List[type[SystemContractRequest]]:
     """Return the types of system contract requests for a given fork."""
-    assert len(REQUEST_TYPES) > fork.max_request_type(), (
-        f"Request type {fork.max_request_type()} not in REQUEST_TYPES. "
-        "Test needs update"
+    missing = set(fork.system_contract_request_types()) - set(REQUEST_TYPES)
+    assert not missing, (
+        f"Request types {missing} not in REQUEST_TYPES. Test needs update"
     )
-    return REQUEST_TYPES[: fork.max_request_type() + 1]
+    return [rt for rt in REQUEST_TYPES if rt.type <= fork.max_request_type()]
+
+
+def request_type_orders(
+    request_types: List[type[SystemContractRequest]],
+) -> List[Tuple[type[SystemContractRequest], ...]]:
+    """
+    Return the orders of `request_types` to test: all of them for a few
+    types, and each rotation and its reverse for more.
+    """
+    if len(request_types) <= MAX_FULLY_PERMUTED_REQUEST_TYPES:
+        return list(permutations(request_types))
+    rotations = [
+        tuple(request_types[i:] + request_types[:i])
+        for i in range(len(request_types))
+    ]
+    return rotations + [rotation[::-1] for rotation in rotations]
 
 
 def eoa_interaction(
@@ -119,16 +147,17 @@ def contract_interaction(
 def get_fork_permutations(fork: Fork) -> Generator[ParameterSet, None, None]:
     """Get request permutations for a given fork."""
     request_types = request_types_from_fork(fork)
+    orders = request_type_orders(request_types)
 
     # EOA permutations
-    for perm in permutations(request_types):
+    for perm in orders:
         perm_id = "+".join(
             [f"{request_type_to_id_str(rt)}_from_eoa" for rt in perm]
         )
         yield pytest.param([eoa_interaction(rt) for rt in perm], id=perm_id)
 
     # Contract permutations
-    for perm in permutations(request_types):
+    for perm in orders:
         perm_id = "+".join(
             [f"{request_type_to_id_str(rt)}_from_contract" for rt in perm]
         )
@@ -137,7 +166,7 @@ def get_fork_permutations(fork: Fork) -> Generator[ParameterSet, None, None]:
         )
 
     # Multiple request types from same transaction
-    for perm in permutations(request_types):
+    for perm in orders:
         yield pytest.param(
             [
                 SystemContractInteractionContract(
@@ -157,6 +186,8 @@ def get_fork_permutations(fork: Fork) -> Generator[ParameterSet, None, None]:
     over_cap_interactions: List[SystemContractInteractionContract] = []
     ids: List[str] = []
     for rt in request_types:
+        if rt in OVER_CAP_EXCLUDED_REQUEST_TYPES:
+            continue
         if issubclass(rt, FeeSystemContractRequest):
             cap = rt.max_per_block
         else:
@@ -172,7 +203,9 @@ def get_fork_permutations(fork: Fork) -> Generator[ParameterSet, None, None]:
 
 @pytest.mark.parametrize_by_fork("requests", get_fork_permutations)
 @pytest.mark.eels_base_coverage
-@EIPChecklist.ExecutionLayerRequest.Test.CrossRequestType.Update(eip=[8282])
+@EIPChecklist.ExecutionLayerRequest.Test.CrossRequestType.Update(
+    eip=[8282, 8483]
+)
 def test_valid_multi_type_requests(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

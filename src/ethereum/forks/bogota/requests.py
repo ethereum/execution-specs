@@ -7,11 +7,14 @@ typed requests.
 
 Each request is a type byte (see [`DEPOSIT_REQUEST_TYPE`][dt],
 [`WITHDRAWAL_REQUEST_TYPE`][wt], [`CONSOLIDATION_REQUEST_TYPE`][ct],
-[`BUILDER_DEPOSIT_REQUEST_TYPE`][bd], and [`BUILDER_EXIT_REQUEST_TYPE`][be])
-followed by an opaque payload. Deposit requests are discovered by scanning
-transaction receipts for logs emitted by the deposit contract; withdrawal,
-consolidation, and builder deposit/exit requests ([EIP-8282]) are produced by
-the corresponding system contracts during block processing.
+[`BUILDER_DEPOSIT_REQUEST_TYPE`][bd], [`BUILDER_EXIT_REQUEST_TYPE`][be],
+[`PQ_REGISTRATION_REQUEST_TYPE`][pq], and
+[`PQ_BUILDER_REGISTRATION_REQUEST_TYPE`][pqb]) followed by an opaque payload.
+Deposit requests are discovered by scanning transaction receipts for logs
+emitted by the deposit contract; withdrawal, consolidation, builder
+deposit/exit ([EIP-8282]), and post-quantum registration ([EIP-8483])
+requests are produced by the corresponding system contracts during block
+processing.
 
 See [`parse_deposit_requests`][pd] for how deposit logs become request data,
 [`compute_requests_hash`][crh] for how the list is hashed for inclusion in the
@@ -21,12 +24,15 @@ processed.
 [EIP-4895]: https://eips.ethereum.org/EIPS/eip-4895
 [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
 [EIP-8282]: https://eips.ethereum.org/EIPS/eip-8282
+[EIP-8483]: https://eips.ethereum.org/EIPS/eip-8483
 [rh]: ref:ethereum.forks.bogota.blocks.Header.requests_hash
 [dt]: ref:ethereum.forks.bogota.requests.DEPOSIT_REQUEST_TYPE
 [wt]: ref:ethereum.forks.bogota.requests.WITHDRAWAL_REQUEST_TYPE
 [ct]: ref:ethereum.forks.bogota.requests.CONSOLIDATION_REQUEST_TYPE
 [bd]: ref:ethereum.forks.bogota.requests.BUILDER_DEPOSIT_REQUEST_TYPE
 [be]: ref:ethereum.forks.bogota.requests.BUILDER_EXIT_REQUEST_TYPE
+[pq]: ref:ethereum.forks.bogota.requests.PQ_REGISTRATION_REQUEST_TYPE
+[pqb]: ref:ethereum.forks.bogota.requests.PQ_BUILDER_REGISTRATION_REQUEST_TYPE
 [pd]: ref:ethereum.forks.bogota.requests.parse_deposit_requests
 [crh]: ref:ethereum.forks.bogota.requests.compute_requests_hash
 [pgpr]: ref:ethereum.forks.bogota.fork.process_general_purpose_requests
@@ -102,6 +108,22 @@ BUILDER_EXIT_REQUEST_TYPE = b"\x04"
 Request type byte identifying a builder exit request, per [EIP-8282].
 
 [EIP-8282]: https://eips.ethereum.org/EIPS/eip-8282
+"""
+
+PQ_REGISTRATION_REQUEST_TYPE = b"\x06"
+"""
+Request type byte identifying a validator's post-quantum registration
+request, per [EIP-8483].
+
+[EIP-8483]: https://eips.ethereum.org/EIPS/eip-8483
+"""
+
+PQ_BUILDER_REGISTRATION_REQUEST_TYPE = b"\x07"
+"""
+Request type byte identifying a builder's post-quantum registration request,
+per [EIP-8483].
+
+[EIP-8483]: https://eips.ethereum.org/EIPS/eip-8483
 """
 
 

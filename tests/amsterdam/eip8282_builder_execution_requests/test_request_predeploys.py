@@ -4,7 +4,8 @@ Request predeploy tests for
 
 The builder deposit and exit contracts reuse the queue design of the
 EIP-7002 withdrawal and EIP-7251 consolidation contracts, so every test
-here runs against all four predeploys. Plain requests live in the deposit
+here runs against all four predeploys, and from Bogota against the two
+EIP-8483 registration predeploys too. Plain requests live in the deposit
 and exit modules.
 """
 
@@ -30,6 +31,7 @@ from execution_testing import (
     GasConsumer,
     Header,
     Op,
+    PQRegistrationRequest,
     Requests,
     Storage,
     SystemContractInteractionContract,
@@ -64,6 +66,17 @@ pytestmark = [
 
 CREATE2_SALT = 0x5A17
 
+# More EIP-8483 validator registrations than the target take more calldata
+# than one transaction can carry, and more than the per-block maximum take
+# more state gas than a block has. The tests that queue that many leave them
+# out.
+TOO_LARGE_FOR_ONE_TRANSACTION = (
+    "more validator registrations than the target don't fit a transaction"
+)
+TOO_LARGE_FOR_ONE_BLOCK = (
+    "more validator registrations than the maximum don't fit a block"
+)
+
 
 def queued_count_changes(
     request_class: Type[FeeSystemContractRequest],
@@ -91,6 +104,12 @@ def queued_count_changes(
         pytest.param(False, id="nothing_queued"),
         pytest.param(True, id="queued_beyond_target"),
     ],
+)
+@pytest.mark.filter_combinations(
+    lambda request_class, beyond_target, **_: not (
+        beyond_target and request_class is PQRegistrationRequest
+    ),
+    reason=TOO_LARGE_FOR_ONE_TRANSACTION,
 )
 @EIPChecklist.SystemContract.Test.InputLengths.Zero()
 def test_fee_getter(
@@ -235,6 +254,10 @@ def test_fee_getter(
     )
 
 
+@pytest.mark.filter_combinations(
+    lambda request_class, **_: request_class is not PQRegistrationRequest,
+    reason=TOO_LARGE_FOR_ONE_TRANSACTION,
+)
 def test_fee_decays_to_minimum(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -840,9 +863,11 @@ def test_request_gas_boundary(
 
     # Keep the boundary requests third and fourth: once the in-block count
     # passes `target_per_block` (two for exits), a request is priced on a
-    # higher count and takes a different path than the measured one.
+    # higher count and takes a different path than the measured one. They
+    # repeat the measured second request, since requests with other inputs
+    # can cost other gas, as the proofs of EIP-8483 registrations do.
     requests: List[FeeSystemContractRequest] = [
-        request_class.from_index(i).copy(fee=request_class.get_fee(0))
+        request_class.from_index(min(i, 1)).copy(fee=request_class.get_fee(0))
         for i in range(4)
     ]
     # Starved of gas by the relay contract.
@@ -931,6 +956,10 @@ def test_request_gas_boundary(
             True, id="one_more_transaction", marks=pytest.mark.exception_test
         ),
     ],
+)
+@pytest.mark.filter_combinations(
+    lambda request_class, **_: request_class is not PQRegistrationRequest,
+    reason=TOO_LARGE_FOR_ONE_BLOCK,
 )
 @EIPChecklist.SystemContract.Test.ExcessiveGas.BlockGas()
 def test_requests_exhaust_block_gas(

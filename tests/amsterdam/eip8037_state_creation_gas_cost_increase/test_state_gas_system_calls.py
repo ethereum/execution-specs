@@ -1,5 +1,7 @@
 """Test the independent gas budgets of EIP-8037 protocol system calls."""
 
+from typing import List, Tuple
+
 import pytest
 from execution_testing import (
     Account,
@@ -17,6 +19,8 @@ from execution_testing import (
     Fork,
     Header,
     Op,
+    PQBuilderRegistrationRequest,
+    PQRegistrationRequest,
     WithdrawalRequest,
 )
 
@@ -34,17 +38,46 @@ pytestmark = [
     pytest.mark.pre_alloc_mutable,
 ]
 
-SYSTEM_CONTRACTS = [
-    (BeaconSpec.BEACON_ROOTS_ADDRESS, False, "beacon"),
-    (HistorySpec.HISTORY_STORAGE_ADDRESS, False, "history"),
-    (WithdrawalRequest.system_contract_address, True, "withdrawals"),
-    (ConsolidationRequest.system_contract_address, True, "consolidations"),
-    (BuilderDepositRequest.system_contract_address, True, "builder_deposit"),
-    (BuilderExitRequest.system_contract_address, True, "builder_exit"),
+# The EIP-8483 predeploys are only called from Bogota.
+FROM_BOGOTA = pytest.mark.valid_from("Bogota")
+SYSTEM_CONTRACTS: List[
+    Tuple[object, bool, str, Tuple[pytest.MarkDecorator, ...]]
+] = [
+    (BeaconSpec.BEACON_ROOTS_ADDRESS, False, "beacon", ()),
+    (HistorySpec.HISTORY_STORAGE_ADDRESS, False, "history", ()),
+    (WithdrawalRequest.system_contract_address, True, "withdrawals", ()),
+    (
+        ConsolidationRequest.system_contract_address,
+        True,
+        "consolidations",
+        (),
+    ),
+    (
+        BuilderDepositRequest.system_contract_address,
+        True,
+        "builder_deposit",
+        (),
+    ),
+    (BuilderExitRequest.system_contract_address, True, "builder_exit", ()),
+    (
+        PQRegistrationRequest.system_contract_address,
+        True,
+        "pq_registration",
+        (FROM_BOGOTA,),
+    ),
+    (
+        PQBuilderRegistrationRequest.system_contract_address,
+        True,
+        "pq_builder_registration",
+        (FROM_BOGOTA,),
+    ),
 ]
 system_contract_cases = pytest.mark.parametrize(
     "system_contract",
-    [pytest.param(address, id=name) for address, _, name in SYSTEM_CONTRACTS],
+    [
+        pytest.param(address, id=name, marks=marks)
+        for address, _, name, marks in SYSTEM_CONTRACTS
+    ],
 )
 
 
@@ -152,9 +185,12 @@ def execution_boundary_code(fork: Fork) -> Bytecode:
             checked,
             extra,
             id=f"{name}-{'one_over' if extra else 'exact'}",
-            marks=pytest.mark.exception_test if checked and extra else (),
+            marks=[
+                *([pytest.mark.exception_test] if checked and extra else []),
+                *marks,
+            ],
         )
-        for address, checked, name in SYSTEM_CONTRACTS
+        for address, checked, name, marks in SYSTEM_CONTRACTS
         for extra in (0, 1)
     ],
 )
