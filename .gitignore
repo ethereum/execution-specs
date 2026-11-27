@@ -106,3 +106,4 @@ docs/tests/
 docs/getting_started/contributing.md
 docs/getting_started/security.md
 docs/filling_tests/filling_tests_command_line_options.md
+docs/running_tests/consume/client_runner_schemas.md
