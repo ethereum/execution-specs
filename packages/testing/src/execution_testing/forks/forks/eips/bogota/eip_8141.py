@@ -8,17 +8,23 @@ https://eips.ethereum.org/EIPS/eip-8141
 """
 
 from dataclasses import replace
-from typing import Callable, Dict, List, Mapping, Sequence
+from typing import Callable, Dict, List, Mapping, Sequence, Tuple
 
-from execution_testing.base_types import Bytes
+from execution_testing.base_types import (
+    LEANSPHINCS_VERIFIER,
+    P256_VERIFIER,
+    SECP256K1_VERIFIER,
+    Address,
+    Bytes,
+)
 from execution_testing.base_types.conversions import BytesConvertible
 from execution_testing.vm import OpcodeBase, Opcodes
 
 from ....base_fork import (
     BaseFork,
+    ClaimGasInfo,
     FrameEntryGasCalculator,
     FrameGasInfo,
-    FrameSignatureGasInfo,
     FrameTransactionDataFloorCostCalculator,
     FrameTransactionIntrinsicCostCalculator,
 )
@@ -63,8 +69,7 @@ class EIP8141(BaseFork):
             Opcodes.FRAMEDATALOAD,
             Opcodes.FRAMEDATACOPY,
             Opcodes.FRAMEPARAM,
-            Opcodes.SIGPARAM,
-            Opcodes.SIGDATACOPY,
+            Opcodes.HASCLAIM,
         ] + super(EIP8141, cls).valid_opcodes()
 
     @classmethod
@@ -74,10 +79,15 @@ class EIP8141(BaseFork):
             super(EIP8141, cls).gas_costs(),
             TX_FRAME_INTRINSIC=12_000,
             TX_PER_FRAME=475,
-            FRAME_SIGNATURE_SCHEME_ARBITRARY=100,
-            FRAME_SIGNATURE_SCHEME_SECP256K1=2_800,
-            FRAME_SIGNATURE_SCHEME_P256=6_700,
+            SECP256K1_VERIFICATION=2_800,
+            P256_VERIFICATION=6_700,
+            LEANSPHINCS_VERIFICATION=13_200,
         )
+
+    @classmethod
+    def header_dependency_proof_required(cls) -> bool:
+        """The header commits to the block's dependency proof."""
+        return True
 
     @classmethod
     def opcode_gas_map(
@@ -86,10 +96,10 @@ class EIP8141(BaseFork):
         """
         Add the frame instruction gas costs.
 
-        `FRAMEDATACOPY` and `SIGDATACOPY` follow the `CALLDATACOPY`
-        shape: the opcode instance must carry copy-size and memory-size
-        metadata. `APPROVE` follows the `REVERT` shape: only its
-        return-data region's memory expansion is charged.
+        `FRAMEDATACOPY` follows the `CALLDATACOPY` shape: the opcode
+        instance must carry copy-size and memory-size metadata. `APPROVE`
+        follows the `REVERT` shape: only its return-data region's memory
+        expansion is charged.
         """
         gas_costs = cls.gas_costs()
         memory_expansion_calculator = cls.memory_expansion_gas_calculator()
@@ -99,12 +109,8 @@ class EIP8141(BaseFork):
             Opcodes.TXPARAM: gas_costs.BASE,
             Opcodes.FRAMEDATALOAD: gas_costs.VERY_LOW,
             Opcodes.FRAMEPARAM: gas_costs.BASE,
-            Opcodes.SIGPARAM: gas_costs.BASE,
+            Opcodes.HASCLAIM: gas_costs.VERY_LOW,
             Opcodes.FRAMEDATACOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.VERY_LOW, gas_costs),
-                memory_expansion_calculator,
-            ),
-            Opcodes.SIGDATACOPY: cls._with_memory_expansion(
                 cls._with_data_copy(gas_costs.VERY_LOW, gas_costs),
                 memory_expansion_calculator,
             ),
@@ -114,29 +120,53 @@ class EIP8141(BaseFork):
         }
 
     @classmethod
+    def _protocol_verifiers(cls) -> Dict[Address, Tuple[int, int]]:
+        """
+        Return the fixed verification gas and witness length of each
+        protocol verifier.
+        """
+        gas_costs = cls.gas_costs()
+        return {
+            SECP256K1_VERIFIER: (gas_costs.SECP256K1_VERIFICATION, 65),
+            P256_VERIFIER: (gas_costs.P256_VERIFICATION, 128),
+            LEANSPHINCS_VERIFIER: (gas_costs.LEANSPHINCS_VERIFICATION, 7740),
+        }
+
+    @classmethod
+    def _claim_gas_and_witness_length(
+        cls, claim: ClaimGasInfo
+    ) -> Tuple[int, int]:
+        """
+        Return a claim's resolved verification gas and witness length:
+        fixed for a protocol verifier, declared for a custom one.
+        """
+        fixed = cls._protocol_verifiers().get(Address(claim.verifier))
+        if fixed is not None:
+            return fixed
+        return int(claim.gas_limit), int(claim.witness_len)
+
+    @classmethod
     def _frame_transaction_charged_bytes(
         cls,
         frames: Sequence[FrameGasInfo],
-        signatures: Sequence[FrameSignatureGasInfo],
+        claims: Sequence[ClaimGasInfo],
     ) -> List[Bytes]:
         """
         Return the transaction's byte fields priced as calldata: the
-        `data` of each frame and the `signer`, `msg`, and `signature`
-        bytes of each signature entry.
+        `data` of each frame, the `verifier`, `key`, and `msg` bytes of
+        each claim, and each claim's witness.
 
-        The canonical signature hash commits only to the length of an
-        empty-`msg` entry's `signature` bytes, so they stand in as that
-        many non-zero bytes, and the entry need not be signed yet.
+        A witness is not part of the transaction, so it stands in as as
+        many non-zero bytes as its resolved length.
         """
         charged_bytes = [Bytes(frame.data) for frame in frames]
-        for signature in signatures:
-            raw_signature = Bytes(signature.signature)
-            if len(Bytes(signature.msg)) == 0:
-                raw_signature = Bytes(b"\xff" * signature.signature_length)
+        for claim in claims:
+            _, witness_length = cls._claim_gas_and_witness_length(claim)
             charged_bytes += [
-                Bytes(signature.signer),
-                Bytes(signature.msg),
-                raw_signature,
+                Bytes(claim.verifier),
+                Bytes(claim.key),
+                Bytes(claim.msg),
+                Bytes(b"\xff" * witness_length),
             ]
         return charged_bytes
 
@@ -156,22 +186,17 @@ class EIP8141(BaseFork):
     def _frame_transaction_base_cost(
         cls,
         frames: Sequence[FrameGasInfo],
-        signatures: Sequence[FrameSignatureGasInfo],
+        claims: Sequence[ClaimGasInfo],
         sender: BytesConvertible | None,
     ) -> int:
         """
         Return the costs a frame transaction always pays regardless of
         execution: the base cost, the per-frame cost, the verification
-        cost of each signature entry, and the value transfer cost of
-        each value-bearing frame whose explicit target differs from the
+        cost of each claim, and the value transfer cost of each
+        value-bearing frame whose explicit target differs from the
         sender.
         """
         gas_costs = cls.gas_costs()
-        scheme_gas = {
-            0: gas_costs.FRAME_SIGNATURE_SCHEME_ARBITRARY,
-            1: gas_costs.FRAME_SIGNATURE_SCHEME_SECP256K1,
-            2: gas_costs.FRAME_SIGNATURE_SCHEME_P256,
-        }
         value_transfer_cost = 0
         for frame in frames:
             if int(frame.value) == 0 or frame.target is None:
@@ -185,7 +210,9 @@ class EIP8141(BaseFork):
         return (
             gas_costs.TX_FRAME_INTRINSIC
             + len(frames) * gas_costs.TX_PER_FRAME
-            + sum(scheme_gas[int(sig.scheme)] for sig in signatures)
+            + sum(
+                cls._claim_gas_and_witness_length(claim)[0] for claim in claims
+            )
             + value_transfer_cost
         )
 
@@ -205,18 +232,18 @@ class EIP8141(BaseFork):
         def fn(
             *,
             frames: Sequence[FrameGasInfo] | int,
-            signatures: Sequence[FrameSignatureGasInfo] = (),
+            claims: Sequence[ClaimGasInfo] = (),
             sender: BytesConvertible | None = None,
         ) -> int:
             frame_list = cls._frame_list(frames)
             data_length = sum(
                 len(data)
                 for data in cls._frame_transaction_charged_bytes(
-                    frame_list, signatures
+                    frame_list, claims
                 )
             )
             return cls._frame_transaction_base_cost(
-                frame_list, signatures, sender
+                frame_list, claims, sender
             ) + (
                 data_length
                 * gas_costs.TX_DATA_TOKEN_STANDARD
@@ -269,7 +296,7 @@ class EIP8141(BaseFork):
         Frame transaction intrinsic cost is introduced.
 
         The intrinsic cost is the base cost, the per-frame cost, the
-        verification cost of each signature entry, the value transfer
+        verification cost of each claim, the value transfer
         cost of each qualifying value-bearing frame, and the calldata
         cost of the charged byte fields. The transaction's derived gas
         limit is the larger of the intrinsic cost plus the frame gas
@@ -284,17 +311,17 @@ class EIP8141(BaseFork):
         def fn(
             *,
             frames: Sequence[FrameGasInfo] | int,
-            signatures: Sequence[FrameSignatureGasInfo] = (),
+            claims: Sequence[ClaimGasInfo] = (),
             sender: BytesConvertible | None = None,
             return_cost_deducted_prior_execution: bool = False,
         ) -> int:
             frame_list = cls._frame_list(frames)
             intrinsic_cost = cls._frame_transaction_base_cost(
-                frame_list, signatures, sender
+                frame_list, claims, sender
             ) + sum(
                 calldata_gas_calculator(data=data)
                 for data in cls._frame_transaction_charged_bytes(
-                    frame_list, signatures
+                    frame_list, claims
                 )
             )
 
@@ -312,7 +339,7 @@ class EIP8141(BaseFork):
             return max(
                 standard_gas_limit,
                 floor_cost_calculator(
-                    frames=frame_list, signatures=signatures, sender=sender
+                    frames=frame_list, claims=claims, sender=sender
                 )
                 + total_state_gas,
             )

@@ -66,6 +66,7 @@ from execution_testing.exceptions import (
 )
 from execution_testing.forks import (
     Amsterdam,
+    Bogota,
     Cancun,
     Fork,
     Paris,
@@ -75,6 +76,7 @@ from execution_testing.forks import (
     ssz_schema_fork_key,
 )
 from execution_testing.test_types import (
+    EMPTY_DEPENDENCY_PROOF_HASH,
     AllocGroupHash,
     BlockAccessList,
     Environment,
@@ -93,8 +95,8 @@ from .base import BaseFixture, FixtureFillingPhase
 from .common import (
     FixtureAuthorizationTuple,
     FixtureBlobSchedule,
+    FixtureClaim,
     FixtureFrame,
-    FixtureFrameSignature,
     FixtureTransactionReceipt,
 )
 
@@ -244,6 +246,15 @@ class FixtureHeader(CamelModel):
         Annotated[ZeroPaddedHexNumber, HeaderForkRequirement("slot_number")]
         | None
     ) = Field(None)
+    dependency_proof_hash: (
+        Annotated[Hash, HeaderForkRequirement("dependency_proof")] | None
+    ) = Field(None)
+
+    dependency_proof: Bytes | None = Field(None, exclude=True)
+    """
+    The EIP-8141 dependency proof the header commits to. It travels in the
+    execution payload, never in the header or body RLP.
+    """
 
     fork: Fork | None = Field(None, exclude=True)
 
@@ -296,9 +307,9 @@ class FixtureHeader(CamelModel):
     @cached_property
     def rlp_encode_list(self) -> List:
         """Compute the RLP of the header."""
-        header_list = []
+        header_list: List[Any] = []
         for field in self.__class__.model_fields:
-            if field == "fork":
+            if field in ("fork", "dependency_proof"):
                 continue
             value = getattr(self, field)
             if value is not None:
@@ -413,6 +424,8 @@ class FixtureHeader(CamelModel):
             extras["slot_number"] = (
                 int(env.slot_number) if env.slot_number is not None else 0
             )
+        if fork.header_dependency_proof_required():
+            extras["dependency_proof_hash"] = EMPTY_DEPENDENCY_PROOF_HASH
         return cls(**environment_values, **extras)
 
 
@@ -430,6 +443,9 @@ MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
 
 # TODO: EIP-8146 defines this as 2**23 for RLP-encoded block access
 # lists; revisit once the value is finalized and verified.
+MAX_DEPENDENCY_PROOF_BYTES = 2**23
+"""EIP-8141 `MAX_DEPENDENCY_PROOF_BYTES`, the SSZ bound of the proof."""
+
 MAX_BLOCK_ACCESS_LIST_BYTES = 2**23
 """Placeholder cap for the RLP-encoded block access list byte list."""
 
@@ -503,6 +519,9 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
         Annotated[Bytes, byte_list(MAX_BLOCK_ACCESS_LIST_BYTES)] | None
     ) = Field(None, description="RLP-serialized EIP-7928 Block Access List")
     slot_number: Uint64 | None = Field(None)
+    dependency_proof: (
+        Annotated[Bytes, byte_list(MAX_DEPENDENCY_PROOF_BYTES)] | None
+    ) = Field(None, description="EIP-8141 dependency proof")
 
     __ssz_schema__ = SSZForkSchema(
         base_fork=Paris,
@@ -526,6 +545,7 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
             Shanghai: ("withdrawals",),
             Cancun: ("blob_gas_used", "excess_blob_gas"),
             Amsterdam: ("block_access_list", "slot_number"),
+            Bogota: ("dependency_proof",),
         },
     )
 
@@ -542,7 +562,14 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
         transactions, a list of withdrawals, and an optional block access list.
         """
         return cls(
-            **header.model_dump(exclude_none=True),
+            **header.model_dump(
+                exclude_none=True, exclude={"dependency_proof_hash"}
+            ),
+            dependency_proof=(
+                header.dependency_proof
+                if header.dependency_proof_hash is not None
+                else None
+            ),
             transactions=[tx.rlp() for tx in transactions],
             withdrawals=withdrawals,
             block_access_list=block_access_list,
@@ -567,6 +594,7 @@ class FixtureExecutionPayloadModifier(CamelModel):
 
     block_access_list: Removable | Bytes | None = None
     slot_number: Removable | HexNumber | None = None
+    dependency_proof: Removable | Bytes | None = None
     block_hash: Hash | None = None
     parent_hash: Hash | None = None
 
@@ -910,7 +938,8 @@ class FixtureTransaction(
 
     authorization_list: List[FixtureAuthorizationTuple] | None = None
     frames: List[FixtureFrame] | None = None
-    signatures: List[FixtureFrameSignature] | None = None
+    claims: List[FixtureClaim] | None = None
+    witnesses: List[Bytes] | None = None
 
     @classmethod
     def from_transaction(cls, tx: Transaction) -> Self:
@@ -1003,6 +1032,13 @@ class FixtureBlockBase(CamelModel):
     block_access_list: BlockAccessList | None = Field(
         None, description="EIP-7928 Block Access List"
     )
+    dependency_proof: Bytes | None = Field(
+        None,
+        description=(
+            "EIP-8141 dependency proof. Not part of the block RLP: a "
+            "client receives it in the execution payload."
+        ),
+    )
     fork: Fork | None = Field(None, exclude=True)
 
     @computed_field(alias="blocknumber")  # type: ignore[prop-decorator]
@@ -1054,6 +1090,13 @@ class InvalidFixtureBlock(CamelModel):
     rlp: Bytes
     expect_exception: ExceptionInstanceOrList
     rlp_decoded: FixtureBlockBase | None = Field(None, alias="rlp_decoded")
+    dependency_proof: Bytes | None = Field(
+        None,
+        description=(
+            "EIP-8141 dependency proof delivered with the block, outside "
+            "its RLP."
+        ),
+    )
 
 
 @post_state_validator()

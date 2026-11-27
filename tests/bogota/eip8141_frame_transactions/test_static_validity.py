@@ -31,34 +31,20 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
+    Claim,
     Fork,
     Frame,
-    FrameSignature,
     Hash,
     Op,
     StateTestFiller,
     Transaction,
     TransactionException,
     TransactionTestFiller,
-    keccak256,
 )
 from execution_testing.test_types import TransactionDefaults
 
+from .claim_helpers import DIGEST, signed_digest_claim
 from .helpers import fee_budget
-from .signature_helpers import (
-    DIGEST,
-    P256_S,
-    P256_SIGNATURE,
-    P256_SIGNER,
-    SECP256K1N,
-    SECP256R1N,
-    high_s_complement,
-    p256_entry,
-    resized_signature,
-    signed_digest_entry,
-    valid_p256_entry,
-    with_tampered_components,
-)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -780,171 +766,147 @@ def test_expiry_verifier_constraints_transaction(
     transaction_test(pre=pre, tx=tx)
 
 
-SIGNATURE_CASES = [
-    # secp256k1 entries, built from a valid signature over an
-    # explicit digest and tampered in a single component.
+CUSTOM_VERIFIER_CODE = Op.STOP
+"""
+Code of a custom contract verifier accepting every witness, deployed for
+the cases a claim on it is statically valid in.
+"""
+
+
+def custom_claim(verifier: Address, **overrides: Any) -> Claim:
+    """
+    Return a claim of the custom contract `verifier` over `DIGEST` with
+    an empty witness and room for the verifier's cold access, overridden
+    field by field.
+    """
+    fields: Dict[str, Any] = dict(
+        verifier=verifier,
+        msg=Bytes(DIGEST),
+        gas_limit=10_000,
+        witness=Bytes(b""),
+    )
+    fields.update(overrides)
+    return Claim(**fields)
+
+
+CLAIM_CASES = [
     pytest.param(
-        lambda _pre, sender: [signed_digest_entry(sender.key)],
+        lambda _pre, sender: [signed_digest_claim(sender.key)],
         None,
-        id="secp256k1_digest_entry",
+        id="secp256k1_digest_claim",
     ),
+    # Keys. An empty key resolves to the sender; a 20-byte key is an
+    # address; a 32-byte key is used as is.
     pytest.param(
         lambda _pre, sender: [
-            resized_signature(signed_digest_entry(sender.key), 64)
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="secp256k1_signature_too_short",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        lambda _pre, sender: [
-            resized_signature(signed_digest_entry(sender.key), 66)
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="secp256k1_signature_too_long",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        lambda _pre, sender: [
-            resized_signature(signed_digest_entry(sender.key), 0)
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="secp256k1_signature_empty",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        lambda _pre, sender: [
-            with_tampered_components(signed_digest_entry(sender.key), v=2)
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="secp256k1_v_2",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        # The legacy transaction v encoding is not valid here.
-        lambda _pre, sender: [
-            with_tampered_components(signed_digest_entry(sender.key), v=27)
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="secp256k1_v_27",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        lambda _pre, sender: [
-            with_tampered_components(signed_digest_entry(sender.key), r=0)
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="secp256k1_r_zero",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        lambda _pre, sender: [
-            with_tampered_components(
-                signed_digest_entry(sender.key), r=SECP256K1N
+            signed_digest_claim(
+                sender.key, key=Bytes(bytes(12) + bytes(sender))
             )
         ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="secp256k1_r_at_curve_order",
-        marks=pytest.mark.exception_test,
+        None,
+        id="secp256k1_address_as_32_byte_key",
     ),
     pytest.param(
         lambda _pre, sender: [
-            with_tampered_components(
-                signed_digest_entry(sender.key), r=SECP256K1N - 1
-            )
+            signed_digest_claim(sender.key, key=Bytes(b"\x01" * 19))
         ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="secp256k1_r_not_on_curve",
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="key_19_bytes",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
         lambda _pre, sender: [
-            with_tampered_components(
-                signed_digest_entry(sender.key), r=SECP256K1N - 2
+            signed_digest_claim(sender.key, key=Bytes(b"\x01" * 21))
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="key_21_bytes",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        lambda pre, _sender: [
+            custom_claim(
+                pre.deploy_contract(code=CUSTOM_VERIFIER_CODE),
+                key=Bytes(b"\x01" * 33),
             )
         ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="secp256k1_r_recovers_stranger",
+        id="key_33_bytes",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
         lambda _pre, sender: [
-            with_tampered_components(signed_digest_entry(sender.key), s=0)
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="secp256k1_s_zero",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        lambda _pre, sender: [
-            high_s_complement(signed_digest_entry(sender.key))
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="secp256k1_high_s",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        # A valid signature whose explicit signer is a different
-        # address than the signature recovers to.
-        lambda _pre, sender: [
-            signed_digest_entry(sender.key, signer=Bytes(FOREIGN_TARGET))
+            signed_digest_claim(sender.key, key=Bytes(bytes(20)))
         ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="secp256k1_signer_mismatch",
+        id="key_zero_address",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        # An empty signer resolves to the sender, but the entry is
-        # signed with an unrelated key.
-        lambda _pre, _sender: [signed_digest_entry(Hash(1))],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="secp256k1_wrong_key",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        # Signature validation repeats the signer length check and
-        # reports an invalid signature; the expected format error
-        # assumes the static constraint is checked first.
-        lambda _pre, sender: [
-            signed_digest_entry(sender.key, signer=Bytes(b"\x01" * 19))
+        lambda pre, _sender: [
+            custom_claim(
+                pre.deploy_contract(code=CUSTOM_VERIFIER_CODE),
+                key=Bytes(bytes(32)),
+            )
         ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="signer_too_short",
+        id="key_zero_word",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        # As above, the expected format error assumes the static
-        # constraint is checked first.
+        # A secp256k1 or P-256 key is an address: its resolved key leaves
+        # the upper 12 bytes clear.
         lambda _pre, sender: [
-            signed_digest_entry(sender.key, signer=Bytes(b"\x01" * 21))
+            signed_digest_claim(
+                sender.key, key=Bytes(b"\x01" + bytes(11) + bytes(sender))
+            )
         ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="signer_too_long",
+        id="secp256k1_key_not_an_address",
         marks=pytest.mark.exception_test,
     ),
-    # Message shape rules, checked before any scheme dispatch, so
-    # an `ARBITRARY` entry keeps each case to a single violation.
     pytest.param(
-        [FrameSignature(scheme=Spec.SCHEME_ARBITRARY, msg=Bytes(b"\x01"))],
+        [
+            Claim(
+                verifier=Spec.P256_VERIFIER,
+                key=Bytes(b"\x01" * 32),
+                msg=Bytes(DIGEST),
+            )
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="p256_key_not_an_address",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # Only the address-keyed protocol verifiers restrict the key.
+        lambda pre, _sender: [
+            custom_claim(
+                pre.deploy_contract(code=CUSTOM_VERIFIER_CODE),
+                key=Bytes(b"\x01" * 32),
+            )
+        ],
+        None,
+        id="custom_verifier_32_byte_key",
+    ),
+    # Messages.
+    pytest.param(
+        lambda _pre, sender: [
+            signed_digest_claim(sender.key, msg=Bytes(b"\x01"))
+        ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="msg_single_byte",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_ARBITRARY, msg=Bytes(b"\x01" * 31)
-            )
+        lambda _pre, sender: [
+            signed_digest_claim(sender.key, msg=Bytes(b"\x01" * 31))
         ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="msg_too_short",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_ARBITRARY, msg=Bytes(b"\x01" * 33)
-            )
+        lambda _pre, sender: [
+            signed_digest_claim(sender.key, msg=Bytes(b"\x01" * 33))
         ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="msg_too_long",
@@ -953,188 +915,150 @@ SIGNATURE_CASES = [
     pytest.param(
         # The all-zero digest is reserved as the EVM-visible
         # representation of the canonical-hash case.
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_ARBITRARY, msg=Bytes(b"\x00" * 32)
-            )
+        lambda _pre, sender: [
+            signed_digest_claim(sender.key, msg=Bytes(bytes(32)))
         ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="msg_all_zeros",
         marks=pytest.mark.exception_test,
     ),
-    # ARBITRARY entries.
+    # Gas limit and witness length: fixed for protocol verifiers,
+    # declared for custom ones.
+    pytest.param(
+        lambda _pre, sender: [signed_digest_claim(sender.key, gas_limit=1)],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="protocol_verifier_with_gas_limit",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        lambda _pre, sender: [signed_digest_claim(sender.key, witness_len=65)],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="protocol_verifier_with_witness_len",
+        marks=pytest.mark.exception_test,
+    ),
     pytest.param(
         [
-            FrameSignature(
-                scheme=Spec.SCHEME_ARBITRARY,
-                signature=Bytes(b"\xab" * 5),
+            Claim(
+                verifier=Spec.LEANSPHINCS_VERIFIER,
+                key=Bytes(b"\x01" * 32),
+                gas_limit=Spec.LEANSPHINCS_VERIFICATION_GAS,
             )
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="leansphincs_verifier_with_gas_limit",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        lambda pre, _sender: [
+            custom_claim(
+                pre.deploy_contract(code=CUSTOM_VERIFIER_CODE), gas_limit=0
+            )
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="custom_verifier_without_gas",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The witness cap sits above what the transaction gas cap can
+        # pay for, so the cap rejects the claim too.
+        lambda pre, _sender: [
+            custom_claim(
+                pre.deploy_contract(code=CUSTOM_VERIFIER_CODE),
+                witness_len=Spec.MAX_CLAIM_WITNESS_BYTES + 1,
+                witness=Bytes(bytes(Spec.MAX_CLAIM_WITNESS_BYTES + 1)),
+            )
+        ],
+        [
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
+        ],
+        id="custom_witness_len_above_max",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The total claim gas must fit in 64 bits; it also exceeds the
+        # transaction gas cap.
+        lambda pre, _sender: [
+            custom_claim(
+                pre.deploy_contract(code=CUSTOM_VERIFIER_CODE),
+                gas_limit=2**63,
+            ),
+            custom_claim(
+                pre.deploy_contract(code=CUSTOM_VERIFIER_CODE),
+                gas_limit=2**63,
+            ),
+        ],
+        [
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
+        ],
+        id="total_claim_gas_overflow",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The largest total claim gas, the sender's claim included,
+        # which only the transaction gas cap rejects.
+        lambda pre, _sender: [
+            custom_claim(
+                pre.deploy_contract(code=CUSTOM_VERIFIER_CODE),
+                gas_limit=2**64 - 1 - Spec.SECP256K1_VERIFICATION_GAS,
+            ),
+        ],
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
+        id="total_claim_gas_at_max",
+        marks=pytest.mark.exception_test,
+    ),
+    # Claim count.
+    pytest.param(
+        lambda _pre, sender: [
+            signed_digest_claim(sender.key) for _ in range(Spec.MAX_CLAIMS - 1)
         ],
         None,
-        id="arbitrary_entry",
+        id="claim_count_at_max",
     ),
     pytest.param(
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_ARBITRARY,
-                signer=Bytes(FOREIGN_TARGET),
-            )
+        lambda _pre, sender: [
+            signed_digest_claim(sender.key) for _ in range(Spec.MAX_CLAIMS)
         ],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="arbitrary_with_signer",
-        marks=pytest.mark.exception_test,
-    ),
-    # P256 entries.
-    pytest.param(
-        [FrameSignature(signer=P256_SIGNER, msg=Bytes(DIGEST))],
-        None,
-        id="p256_valid_entry",
-    ),
-    pytest.param(
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_P256,
-                msg=Bytes(DIGEST),
-                signer=Bytes(P256_SIGNER),
-                signature=Bytes(P256_SIGNATURE[:127]),
-            )
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="p256_signature_too_short",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_P256,
-                msg=Bytes(DIGEST),
-                signer=Bytes(P256_SIGNER),
-                signature=Bytes(P256_SIGNATURE + b"\x00"),
-            )
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="p256_signature_too_long",
-        marks=pytest.mark.exception_test,
-    ),
-    # Each entry below keeps the valid public key words and the signer
-    # they hash to, so only the rule on the tampered component is broken
-    # and a client checking the signer first rejects it the same way.
-    pytest.param(
-        [valid_p256_entry(r=0)],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="p256_r_zero",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        [valid_p256_entry(r=SECP256R1N)],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="p256_r_at_curve_order",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        [valid_p256_entry(s=0)],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="p256_s_zero",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        # The high-`s` complement is algebraically valid but rejected
-        # by the canonical-encoding rule, as for secp256k1.
-        [valid_p256_entry(s=SECP256R1N - P256_S)],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="p256_high_s",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        # The empty signer resolves to the sender, which never
-        # matches the hash of the entry's public key words.
-        [p256_entry(r=1, s=1)],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="p256_signer_mismatch",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        # The signer matches the public key words, but (0, 0) is
-        # not a point on the P-256 curve.
-        [
-            p256_entry(
-                r=1,
-                s=1,
-                signer=Bytes(keccak256(b"\x00" * 64)[12:]),
-            )
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="p256_not_on_curve",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        # A well-formed signature over a different digest than the
-        # entry's msg fails cryptographic verification.
-        [
-            FrameSignature(
-                scheme=Spec.SCHEME_P256,
-                msg=Bytes(b"\x02" * 32),
-                signer=Bytes(P256_SIGNER),
-                signature=Bytes(P256_SIGNATURE),
-            )
-        ],
-        TransactionException.TYPE_6_INVALID_SIGNATURE,
-        id="p256_signature_over_different_digest",
-        marks=pytest.mark.exception_test,
-    ),
-    # Decode-time rejections: a signature scheme outside the
-    # defined set never constructs, so the transaction never
-    # decodes.
-    pytest.param(
-        [FrameSignature(scheme=3)],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="undefined_signature_scheme",
-        marks=pytest.mark.exception_test,
-    ),
-    pytest.param(
-        [FrameSignature(scheme=255)],
-        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-        id="undefined_signature_scheme_high",
+        id="claim_count_above_max",
         marks=pytest.mark.exception_test,
     ),
 ]
 """
-Variations of a single signature entry, appended after the canonical
-entry consumed by the sender's default code, each with the exception
-it must be rejected with, or `None` where the variation is the
-nearest-valid counterpart of a rejected case.
+Variations of the claims of a minimal frame transaction, appended after
+the sender's claim consumed by its default code, each with the exception
+the transaction must be rejected with, or `None` where the variation is
+the nearest-valid counterpart of a rejected case. Every rule here is
+decidable from the transaction body; the rules its witnesses must
+satisfy are in `test_claims.py`.
 """
 
+ClaimCase = Union[List[Claim], Callable[[Alloc, EOA], List[Claim]]]
 
-@pytest.mark.parametrize("entries,error", SIGNATURE_CASES)
-def test_signature_constraints(
+
+@pytest.mark.parametrize("claims,error", CLAIM_CASES)
+def test_claim_constraints(
     state_test: StateTestFiller,
     pre: Alloc,
-    entries: Union[
-        List[FrameSignature],
-        Callable[[Alloc, EOA], List[FrameSignature]],
-    ],
-    error: Optional[TransactionException],
+    claims: ClaimCase,
+    error: Optional[TransactionException | List[TransactionException]],
 ) -> None:
     """
-    Vary a single signature entry of a minimal frame transaction and
-    check that the protocol's structural and cryptographic entry
-    validation rejects the transaction, or accepts the nearest-valid
-    variant.
+    Vary the claims of a minimal frame transaction and check that the
+    static claim rules reject the transaction, or accept the
+    nearest-valid variant.
 
-    The varied entry is appended after the canonical entry consumed by
-    the sender's default code, so every case differs from a valid
-    transaction only in the appended entry.
+    The varied claims are appended after the sender's claim consumed by
+    its default code, so every case differs from a valid transaction
+    only in the appended claims.
     """
     sender = pre.fund_eoa()
-    case_entries = entries(pre, sender) if callable(entries) else entries
+    case_claims = claims(pre, sender) if callable(claims) else claims
     tx = Transaction(
         sender=sender,
         frames=[Frame.verify()],
-        signatures=[
-            sender,
-            *case_entries,
-        ],
+        claims=[sender, *case_claims],
         error=error,
     )
 
@@ -1147,31 +1071,24 @@ def test_signature_constraints(
     )
 
 
-@pytest.mark.parametrize("entries,error", SIGNATURE_CASES)
-def test_signature_constraints_transaction(
+@pytest.mark.parametrize("claims,error", CLAIM_CASES)
+def test_claim_constraints_transaction(
     transaction_test: TransactionTestFiller,
     pre: Alloc,
-    entries: Union[
-        List[FrameSignature],
-        Callable[[Alloc, EOA], List[FrameSignature]],
-    ],
-    error: Optional[TransactionException],
+    claims: ClaimCase,
+    error: Optional[TransactionException | List[TransactionException]],
 ) -> None:
     """
-    Assert the same signature entry rules as
-    `test_signature_constraints` on the transaction itself rather than
-    on a block containing it; see the module docstring for why every
-    static case fills both formats.
+    Assert the same claim rules as `test_claim_constraints` on the
+    transaction itself rather than on a block containing it; see the
+    module docstring for why every static case fills both formats.
     """
     sender = pre.fund_eoa()
-    case_entries = entries(pre, sender) if callable(entries) else entries
+    case_claims = claims(pre, sender) if callable(claims) else claims
     tx = Transaction(
         sender=sender,
         frames=[Frame.verify()],
-        signatures=[
-            sender,
-            *case_entries,
-        ],
+        claims=[sender, *case_claims],
         error=error,
     )
 
@@ -1179,7 +1096,7 @@ def test_signature_constraints_transaction(
 
 
 # The gas boundary tests use a contract sender: contract senders carry
-# no signature entries, so the transaction's intrinsic cost reduces to
+# no claims, so the transaction's intrinsic cost reduces to
 # the base and per-frame constants plus its data tokens, keeping the
 # boundary arithmetic exact and content-independent.
 
@@ -1216,7 +1133,7 @@ def test_gas_limit_cap_from_frame_gas(
         code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
         balance=10**18,
     )
-    # A contract sender carries no signature entries and the frame no
+    # A contract sender carries no claims and the frame no
     # data, so a frame count prices the intrinsic cost exactly.
     intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
         frames=1,

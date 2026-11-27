@@ -181,3 +181,16 @@ class BlockException(ExceptionBase):
     """
     Block access list exceeds the gas limit constraint (EIP-7928).
     """
+    # --- Frame transaction dependency proof (EIP-8141) --- #
+    INVALID_DEPENDENCY_PROOF_HASH = auto()
+    """
+    Block header's `dependency_proof_hash` is not the Keccak-256 hash of the
+    dependency proof received with the block.
+    """
+    INVALID_DEPENDENCY_PROOF = auto()
+    """
+    The dependency proof received with the block exceeds
+    `MAX_DEPENDENCY_PROOF_BYTES`, is malformed, carries a witness count
+    other than the number of the block's dependencies, or carries a
+    witness that does not satisfy its dependency.
+    """

@@ -58,18 +58,15 @@ class TransactionTest(BaseTest):
         """Return the intrinsic gas of the transaction under test."""
         if self.tx.frames is not None:
             # EIP-8141: a frame transaction is priced from its frames
-            # and its signature entries, whose raw bytes are part of
-            # the price, so price it signed.
-            signed = self.tx.with_signature_and_sender()
-            assert signed.frames is not None
-            assert signed.signatures is not None
+            # and its claims alone.
+            assert self.tx.claims is not None
             frame_intrinsic_gas_cost_calculator = (
                 fork.frame_transaction_intrinsic_cost_calculator()
             )
             return frame_intrinsic_gas_cost_calculator(
-                frames=signed.frames,
-                signatures=signed.signatures,
-                sender=signed.sender,
+                frames=self.tx.frames,
+                claims=self.tx.claims,
+                sender=self.tx.sender,
                 return_cost_deducted_prior_execution=True,
             )
         intrinsic_gas_cost_calculator = (

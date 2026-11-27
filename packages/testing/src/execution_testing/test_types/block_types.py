@@ -50,6 +50,17 @@ carry, keyed by the fork predicate that admits each one.
 """
 
 
+EMPTY_DEPENDENCY_PROOF_HASH = Hash(
+    bytes.fromhex(
+        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+    )
+)
+"""
+EIP-8141 `dependency_proof_hash` of a block whose frame transactions
+declare no claims: `keccak256(b"")`.
+"""
+
+
 @dataclass
 class EnvironmentDefaults:
     """Default environment values."""

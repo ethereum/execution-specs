@@ -13,7 +13,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass, field, replace
-from typing import Dict, List, Optional, Set, Tuple, final
+from typing import Dict, FrozenSet, List, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import slotted_freezable
@@ -39,6 +39,7 @@ from ..state_tracker import (
 from ..transactions import LegacyTransaction
 from ..transactions.frame_transaction import (
     APPROVE_SCOPE_MASK,
+    Dependency,
     FrameFlag,
     FrameTransaction,
     resolve_frame_target,
@@ -81,6 +82,12 @@ class BlockEnvironment:
     parent_beacon_block_root: Hash32
     block_access_list_builder: BlockAccessListBuilder
     slot_number: U64
+    verified_dependencies: FrozenSet[Dependency] = frozenset()
+    """
+    The dependencies of the block's frame transactions that a witness in
+    the block's dependency proof satisfied. A frame transaction is
+    admitted only if every claim it declares resolves to one of them.
+    """
 
 
 @final
@@ -202,12 +209,6 @@ class FrameContext:
     The transaction's canonical signature hash.
     """
 
-    resolved_signers: Tuple[Optional[Address], ...]
-    """
-    The signer each signature entry resolved to; `None` for
-    `ARBITRARY` entries, to which the protocol assigns no signer.
-    """
-
     standard_gas_limit: Uint
     """
     Settlement anchor: the transaction's intrinsic cost plus the sum
@@ -305,6 +306,13 @@ class TransactionEnvironment:
     """
     Present iff this is a frame transaction. The frame-only opcodes
     exceptionally halt when this is `None`.
+    """
+
+    is_pure: bool = False
+    """
+    Whether the environment verifies a claim with a custom contract
+    verifier: its code runs in the pure context, which halts on every
+    instruction that reads anything but its own input and code.
     """
 
 

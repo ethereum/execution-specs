@@ -86,7 +86,7 @@ TransactionLoad.json_to_blob_versioned_hashes
 TransactionLoad.json_to_sender
 TransactionLoad.json_to_fees
 TransactionLoad.json_to_frames
-TransactionLoad.json_to_signatures
+TransactionLoad.json_to_claims
 TransactionLoad.json_to_v
 TransactionLoad.json_to_y_parity
 TransactionLoad.json_to_r

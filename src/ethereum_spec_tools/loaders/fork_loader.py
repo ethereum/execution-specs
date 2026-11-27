@@ -317,16 +317,38 @@ class ForkLoad:
         return self._module("transactions.frame_transaction").FrameFlag
 
     @property
-    def FrameSignature(self) -> Any:
-        """Frame signature class of the fork."""
-        return self._module("transactions.frame_transaction").FrameSignature
+    def Claim(self) -> Any:
+        """Frame transaction claim class of the fork."""
+        return self._module("transactions.frame_transaction").Claim
 
     @property
-    def FrameSignatureScheme(self) -> Any:
-        """Frame signature scheme enum of the fork."""
-        return self._module(
-            "transactions.frame_transaction"
-        ).FrameSignatureScheme
+    def has_dependency_proof(self) -> bool:
+        """Check if the fork carries a dependency proof (EIP-8141)."""
+        try:
+            self._module("dependency_proof")
+        except ModuleNotFoundError:
+            return False
+        return True
+
+    @property
+    def transaction_dependencies(self) -> Any:
+        """transaction_dependencies function of the fork."""
+        return self._module("dependency_proof").transaction_dependencies
+
+    @property
+    def block_dependencies(self) -> Any:
+        """block_dependencies function of the fork."""
+        return self._module("dependency_proof").block_dependencies
+
+    @property
+    def verify_dependency(self) -> Any:
+        """verify_dependency function of the fork."""
+        return self._module("dependency_proof").verify_dependency
+
+    @property
+    def encode_dependency_proof(self) -> Any:
+        """encode_dependency_proof function of the fork."""
+        return self._module("dependency_proof").encode_dependency_proof
 
     @property
     def Withdrawal(self) -> Any:

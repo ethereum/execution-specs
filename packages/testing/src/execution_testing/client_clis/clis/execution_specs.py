@@ -302,6 +302,10 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
             "Block access list exceeds gas limit"
         ),
+        BlockException.INVALID_DEPENDENCY_PROOF_HASH: (
+            "dependency proof hash mismatch"
+        ),
+        BlockException.INVALID_DEPENDENCY_PROOF: "dependency proof",
         TransactionException.LOG_MISMATCH: "LogMismatchError",
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
             "InvalidFrameError"
@@ -357,6 +361,6 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         # reject as they are constructed (undefined modes, flags, or
         # schemes), which on a real client fail to decode.
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
-            r"FrameCountError|invalid frame (signature )?field"
+            r"FrameCountError|invalid frame (claim )?field"
         ),
     }

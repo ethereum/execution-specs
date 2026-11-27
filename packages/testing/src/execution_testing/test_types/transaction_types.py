@@ -33,11 +33,13 @@ from pydantic import (
 from spec256k1 import PrivateKey, PublicKey
 
 from execution_testing.base_types import (
+    LEANSPHINCS_VERIFIER,
+    P256_VERIFIER,
+    SECP256K1_VERIFIER,
     AccessList,
     Address,
     Bytes,
     CamelModel,
-    FrameSignatureScheme,
     Hash,
     HexNumber,
     NumberBoundTypeVar,
@@ -579,118 +581,98 @@ class Frame(FrameGeneric[HexNumber]):
         )
 
 
-class FrameSignatureGeneric(
-    CamelModel, Generic[NumberBoundTypeVar], RLPSerializable
-):
+PROTOCOL_VERIFIER_WITNESS_LENGTHS: Dict[Address, int] = {
+    SECP256K1_VERIFIER: 65,
+    P256_VERIFIER: 128,
+    LEANSPHINCS_VERIFIER: 7740,
+}
+"""
+Fixed witness length of each EIP-8141 protocol verifier, whose claims
+carry a zero `witness_len`.
+"""
+
+
+class ClaimGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
     """
-    Signature entry within an
-    [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) frame transaction.
+    Claim within an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction: `[verifier, key, msg, gas_limit, witness_len]`.
     """
 
-    scheme: NumberBoundTypeVar = Field(0)  # type: ignore
-    signer: Bytes = Field(Bytes(b""))
+    verifier: Address = Field(SECP256K1_VERIFIER)
+    key: Bytes = Field(Bytes(b""))
     msg: Bytes = Field(Bytes(b""))
-    signature: Bytes = Field(Bytes(b""))
+    gas_limit: NumberBoundTypeVar = Field(0)  # type: ignore
+    witness_len: NumberBoundTypeVar = Field(0)  # type: ignore
 
     rlp_fields: ClassVar[List[str]] = [
-        "scheme",
-        "signer",
+        "verifier",
+        "key",
         "msg",
-        "signature",
+        "gas_limit",
+        "witness_len",
     ]
 
     @property
-    def signature_length(self) -> int:
-        """Return the length of the raw signature bytes."""
-        return len(self.signature)
+    def witness_length(self) -> int:
+        """
+        Return the length of the claim's witness: fixed for a protocol
+        verifier, `witness_len` for a custom one.
+        """
+        fixed_length = PROTOCOL_VERIFIER_WITNESS_LENGTHS.get(
+            Address(self.verifier)
+        )
+        if fixed_length is not None:
+            return fixed_length
+        return int(self.witness_len)
 
 
-class FrameSignature(FrameSignatureGeneric[HexNumber]):
+class Claim(ClaimGeneric[HexNumber]):
     """
-    Signature entry within an EIP-8141 frame transaction (test authoring).
+    Claim within an EIP-8141 frame transaction (test authoring).
 
-    When the entry has a `signed_by` signer and no `signature` bytes, the
-    raw `signature` bytes are filled in automatically: entries with an
-    explicit 32-byte `msg` sign that digest as soon as they are built,
-    while entries with an empty `msg` sign the canonical transaction
-    signature hash when the transaction is signed. Until then, the
-    `signature_length` of an unsigned entry is its signer's.
+    The claim's witness is not part of the transaction: it is filled in
+    when the transaction is signed, from `witness` when set, or else by
+    `signed_by` signing the claim's message — its explicit `msg`, or the
+    transaction's canonical signature hash when `msg` is empty.
 
-    `signer` also accepts a `Signer`, which becomes `signed_by`, while the
-    `signer` field keeps the bytes written in the entry: `bytes(signer)`,
-    or empty for `ARBITRARY` entries. Without an explicit `scheme`, the
-    signer's preferred scheme is used. Pass `signed_by` and `signer`
-    separately for entries whose bytes differ from the signer's.
+    `signer` accepts a `Signer`, which becomes `signed_by`: the claim's
+    verifier defaults to the signer's protocol verifier and its key to
+    `bytes(signer)`. Pass `signed_by`, `verifier` and `key` separately for
+    claims whose fields differ from the signer's.
     """
 
+    signer: InstanceOf[Signer] | None = Field(None, exclude=True)
     signed_by: InstanceOf[Signer] | None = Field(None, exclude=True)
+    witness: Bytes | None = Field(None, exclude=True)
 
     @model_validator(mode="before")
     @classmethod
     def split_signer(cls, data: Any) -> Any:
         """
-        Split a `Signer` passed as `signer` into `signed_by`.
-
-        The scheme defaults to the signer's own, or to `ARBITRARY` for a
-        signer no scheme verifies natively. An explicit scheme must be the
-        signer's own or `ARBITRARY`, which any signer can sign for.
+        Copy a `Signer` passed as `signer` into `signed_by`, and default
+        the verifier and key to the signer's.
         """
         if not isinstance(data, dict):
             return data
         signer = data.get("signer")
-        if not isinstance(signer, Signer):
+        if signer is None:
             return data
         data = dict(data)
         data.setdefault("signed_by", signer)
-        native_scheme = signer.signature_scheme
-        if data.get("scheme") is None:
-            data["scheme"] = (
-                native_scheme
-                if native_scheme is not None
-                else FrameSignatureScheme.ARBITRARY
+        if data.get("verifier") is None:
+            assert signer.claim_verifier is not None, (
+                f"{type(signer).__name__} has no protocol verifier: pass "
+                "the claim's `verifier`"
             )
-        elif data["scheme"] not in (
-            native_scheme,
-            FrameSignatureScheme.ARBITRARY,
-        ):
-            raise ValueError(
-                f"{type(signer).__name__} cannot sign scheme "
-                f"{data['scheme']}: it signs "
-                f"{native_scheme!r} or ARBITRARY entries"
-            )
-        if data["scheme"] == FrameSignatureScheme.ARBITRARY:
-            data["signer"] = Bytes(b"")
-        else:
-            data["signer"] = Bytes(bytes(signer))
+            data["verifier"] = signer.claim_verifier
+        data.setdefault("key", Bytes(bytes(signer)))
         return data
 
-    @model_validator(mode="after")
-    def sign_explicit_digest(self) -> Self:
-        """
-        Sign an explicit 32-byte `msg` right away, since its signature does
-        not depend on the transaction and is priced by its content.
-        """
-        if (
-            self.signed_by is not None
-            and len(self.msg) == 32
-            and len(self.signature) == 0
-        ):
-            self.signed_over(Hash(self.msg), self.signed_by)
-        return self
-
-    @property
-    def signature_length(self) -> int:
-        """
-        Return the length of the raw signature bytes, or of the bytes its
-        signer will produce while the entry is unsigned.
-        """
-        if len(self.signature) == 0 and self.signed_by is not None:
-            return self.signed_by.signature_length
-        return len(self.signature)
-
-    def signed_over(self, digest: Hash, signer: Signer) -> None:
-        """Fill the raw signature bytes by signing `digest` with `signer`."""
-        self.signature = signer.sign_message(digest)
+    def message(self, sig_hash: Hash) -> Hash:
+        """Return the message the claim's witness signs."""
+        if len(self.msg) == 0:
+            return sig_hash
+        return Hash(self.msg)
 
 
 class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
@@ -882,26 +864,26 @@ class Transaction(
                 data.pop("hash", None)
         return data
 
-    @field_validator("signatures", mode="before")
+    @field_validator("claims", mode="before")
     @classmethod
-    def signers_to_frame_signatures(cls, signatures: Any) -> Any:
+    def signers_to_claims(cls, claims: Any) -> Any:
         """
-        Turn each `Signer` in the signature list into an entry signed by it
-        over the canonical signature hash.
+        Turn each `Signer` in the claim list into a claim of its protocol
+        verifier over the canonical signature hash, signed by it.
 
-        Entries are copied, since signing fills in their raw bytes and must
-        not modify entries shared with the caller.
+        Claims are copied, so that a claim shared with the caller is never
+        modified.
         """
-        if signatures is None:
+        if claims is None:
             return None
         entries = []
-        for sig in signatures:
-            if isinstance(sig, Signer):
-                entries.append(FrameSignature(signer=sig))
-            elif isinstance(sig, FrameSignature):
-                entries.append(sig.model_copy())
+        for claim in claims:
+            if isinstance(claim, Signer):
+                entries.append(Claim(signer=claim))
+            elif isinstance(claim, Claim):
+                entries.append(claim.model_copy())
             else:
-                entries.append(sig)
+                entries.append(claim)
         return entries
 
     @field_validator("frames", mode="before")
@@ -924,8 +906,8 @@ class Transaction(
         validated.
 
         Frame transactions are not supported: the copy is rebuilt from the
-        serialized fields, which leave out each signature entry's signer
-        and each frame's expectations, so the copy would never be signed.
+        serialized fields, which leave out each claim's signer and each
+        frame's expectations, so the copy would never be signed.
         """
         if self.frames is not None:
             raise NotImplementedError(
@@ -955,7 +937,8 @@ class Transaction(
     authorization_list: List[AuthorizationTuple] | None = None
 
     frames: List[Frame] | None = None
-    signatures: List[FrameSignature] | None = None
+    claims: List[Claim] | None = None
+    witnesses: List[Bytes] | None = None
 
     secret_key: Hash | None = None
     error: List[TransactionException] | TransactionException | None = Field(
@@ -1080,18 +1063,23 @@ class Transaction(
 
         if self.frames is not None:
             # EIP-8141: Frame transactions carry an explicit sender and
-            # a signature list instead of a single v/r/s signature.
+            # a claim list instead of a single v/r/s signature.
             assert self.sender is not None, (
                 "frame transactions require an explicit sender"
             )
-            if self.signatures is None:
-                # A sender holding a key signs the canonical signature
-                # hash, as consumed by the default code; the entry stays
-                # unsigned until the transaction is signed. Contract
-                # senders authorize via their code; no protocol-validated
-                # signature is required.
-                self.signatures = (
-                    [FrameSignature(signer=self.sender)]
+            if self.claims is None:
+                # A sender holding a key claims a secp256k1 signature over
+                # the canonical signature hash, keyed by the sender, as
+                # the default code consumes; its witness is signed with
+                # the transaction. Contract senders authorize via their
+                # code; no claim is required.
+                self.claims = (
+                    [
+                        Claim(
+                            verifier=SECP256K1_VERIFIER,
+                            signed_by=self.sender,
+                        )
+                    ]
                     if self.sender.key is not None
                     else []
                 )
@@ -1174,7 +1162,8 @@ class Transaction(
 
         if self.ty != TransactionType.FRAME:
             assert self.frames is None, "frames must be None"
-            assert self.signatures is None, "signatures must be None"
+            assert self.claims is None, "claims must be None"
+            assert self.witnesses is None, "witnesses must be None"
 
         if "nonce" not in self.model_fields_set and self.sender is not None:
             self.nonce = HexNumber(self.sender.get_nonce())
@@ -1216,24 +1205,6 @@ class Transaction(
         assert self.max_priority_fee_per_gas is not None
         return [self.max_fee, self.max_priority_fee_per_gas]
 
-    @property
-    def signing_signatures(self) -> List[FrameSignature]:
-        """
-        Return the signature entries as included in the canonical frame
-        transaction signature hash: entries with an empty `msg` have
-        their raw `signature` bytes replaced by their length, encoded as
-        an unsigned integer.
-        """
-        assert self.signatures is not None
-        return [
-            sig.model_copy(
-                update={"signature": Bytes(int_to_bytes(len(sig.signature)))}
-            )
-            if len(sig.msg) == 0
-            else sig
-            for sig in self.signatures
-        ]
-
     def frame_settlement(
         self, fork: Fork, *, refund: int = 0
     ) -> FrameSettlement:
@@ -1247,7 +1218,7 @@ class Transaction(
         execution gas must be pinned.
         """
         assert self.frames is not None, "not a frame transaction"
-        assert self.signatures is not None
+        assert self.claims is not None
         assert all(frame.resolved for frame in self.frames), (
             "call `resolve_frames` before settling the transaction's gas"
         )
@@ -1258,7 +1229,7 @@ class Transaction(
         )
         anchors: Dict[str, Any] = dict(
             frames=self.frames,
-            signatures=self.signatures,
+            claims=self.claims,
             sender=self.sender,
         )
         intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
@@ -1360,17 +1331,18 @@ class Transaction(
                 if isinstance(attribute, cached_property):
                     self.__dict__.pop(name, None)
 
-    def _sign_frame_signatures(self) -> None:
+    def _sign_claims(self) -> None:
         """
-        Fill in the raw signature bytes of the frame transaction's
-        signature entries.
+        Fill in the frame transaction's witnesses, one per claim, unless
+        the transaction sets them explicitly.
 
-        Entries with an explicit 32-byte `msg` were signed when built, so
-        their raw bytes are in place before the canonical hash commits to
-        them.
+        A claim's witness is its `witness` when set, or else its signer's
+        signature over the claim's message, or else empty. The canonical
+        signature hash does not cover the witnesses, so signing one never
+        invalidates another.
         """
         assert self.frames is not None
-        assert self.signatures is not None
+        assert self.claims is not None
         assert all(
             frame.resolved or not frame.requires_resolution
             for frame in self.frames
@@ -1378,34 +1350,31 @@ class Transaction(
             "the frames' expectations only take effect once resolved: call "
             "`resolve_frames` before encoding the transaction"
         )
-
-        # Explicit-digest entries are already signed, as they are built.
-        # The canonical signature hash commits to the length of each
-        # empty-msg entry's raw bytes, so reserve the signature's length
-        # before hashing.
-        empty_msg_entries = []
-        for sig in self.signatures:
-            if len(sig.msg) != 0 or len(sig.signature) != 0:
-                continue
-            signer = sig.signed_by
-            if signer is not None:
-                sig.signature = Bytes(bytes(signer.signature_length))
-                empty_msg_entries.append((sig, signer))
+        if self.witnesses is not None:
+            return
 
         sig_hash = self.rlp_signing_bytes().keccak256()
-        for sig, signer in empty_msg_entries:
-            sig.signed_over(sig_hash, signer)
+        witnesses = []
+        for claim in self.claims:
+            if claim.witness is not None:
+                witnesses.append(claim.witness)
+            elif claim.signed_by is not None:
+                witnesses.append(
+                    claim.signed_by.sign_message(claim.message(sig_hash))
+                )
+            else:
+                witnesses.append(Bytes(b""))
+        self.witnesses = witnesses
 
     def sign(self: "Transaction") -> None:
         """
         Sign the transaction.
 
         Set `v`, `r` and `s` from `secret_key` or the sender's key. For a
-        frame transaction, fill in the raw bytes of its unsigned signature
-        entries instead.
+        frame transaction, fill in the witnesses of its claims instead.
         """
         if self.frames is not None:
-            self._sign_frame_signatures()
+            self._sign_claims()
             return
         needs_signature = (
             "v" not in self.model_fields_set
@@ -1600,24 +1569,15 @@ class Transaction(
         updated_values: Dict[str, Any] = {}
 
         if self.frames is not None:
-            # EIP-8141: The sender is explicit; fill in the signature
-            # entries instead of v/r/s. Sign a copy, as the other types
-            # return one: the entries are signed in place, so signing
-            # `self` would also sign a transaction the caller keeps. The
-            # copy is shallow, like the other types', so the entries are
-            # copied too. It also carries over any hash or encoding the
-            # caller cached before signing, which signing makes stale.
-            signed = self.model_copy(
-                update={
-                    "signatures": (
-                        None
-                        if self.signatures is None
-                        else [sig.model_copy() for sig in self.signatures]
-                    )
-                }
-            )
+            # EIP-8141: The sender is explicit; fill in the claims'
+            # witnesses instead of v/r/s. Sign a copy, as the other types
+            # return one: the witnesses are set in place, so signing
+            # `self` would also sign a transaction the caller keeps. It
+            # also carries over any hash or encoding the caller cached
+            # before signing, which signing makes stale.
+            signed = self.model_copy()
             signed._drop_cached_properties()
-            signed._sign_frame_signatures()
+            signed._sign_claims()
             return signed
 
         if (
@@ -1701,8 +1661,8 @@ class Transaction(
                 "chain_id",
                 "nonce",
                 "sender",
+                "claims",
                 "frames",
-                "signing_signatures",
                 "fees",
                 "blob_versioned_hashes",
             ]
@@ -1791,12 +1751,9 @@ class Transaction(
         """
         fields = self.get_rlp_signing_fields()
         if self.ty == TransactionType.FRAME and self.frames is not None:
-            # EIP-8141: The transaction is not wrapped in a signature;
-            # the full encoding carries the raw signature entries.
-            return [
-                "signatures" if field == "signing_signatures" else field
-                for field in fields
-            ]
+            # EIP-8141: The transaction is not wrapped in a signature,
+            # and its witnesses are segregated from it.
+            return fields
         if self.ty == 0 and self.protected:
             fields = fields[:-3]
         return fields + ["v", "r", "s"]
@@ -1814,7 +1771,12 @@ class Transaction(
         """
         Return the transaction type as bytes to be appended at the beginning of
         the serialized transaction signing envelope if type is not 0.
+
+        An EIP-8141 frame transaction's canonical signature hash follows the
+        type with a `0x00` byte, separating it from the transaction hash.
         """
+        if self.ty == TransactionType.FRAME and self.frames is not None:
+            return bytes([self.ty, 0x00])
         if self.ty > 0:
             return bytes([self.ty])
         return b""
@@ -2061,6 +2023,12 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
 
     >= Osaka: rlp([tx_payload_body, wrapper_version,  blobs, commitments,
                    cell_proofs])
+
+    An [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) frame
+    transaction carries its claims' witnesses too, and nests its sidecar:
+    rlp([tx_payload_body, wrapper_version, witnesses, blob_sidecar]), where
+    the sidecar is `[blobs, commitments, cell_proofs]`, or empty without
+    blobs.
     """
 
     tx: Transaction
@@ -2107,6 +2075,22 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
 
         return cells
 
+    @property
+    def witnesses(self) -> List[Bytes]:
+        """Return the witnesses of a frame transaction's claims."""
+        return list(self.tx.witnesses or [])
+
+    @property
+    def blob_sidecar(self) -> List[Sequence[Bytes]]:
+        """
+        Return a frame transaction's blob sidecar: its blobs, commitments
+        and cell proofs, or nothing without blobs.
+        """
+        if not self.blob_objects:
+            return []
+        assert self.cell_proofs is not None
+        return [self.blobs, self.commitments, self.cell_proofs]
+
     def get_rlp_fields(self) -> List[str]:
         """
         Return an ordered list of field names to be included in RLP
@@ -2119,6 +2103,9 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
         The list can be nested list up to one extra level to represent nested
         fields.
         """
+        if self.tx.frames is not None:
+            return ["tx", "wrapper_version", "witnesses", "blob_sidecar"]
+
         # only put a wrapper_version field for >=osaka (value 1), otherwise
         # omit field
         wrapper = []

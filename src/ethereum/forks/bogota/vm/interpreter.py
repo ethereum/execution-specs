@@ -12,7 +12,7 @@ A straightforward interpreter that executes EVM code.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Set, Tuple, final
+from typing import Final, FrozenSet, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint, ulen
@@ -79,6 +79,7 @@ from .exceptions import (
     InvalidContractPrefix,
     InvalidOpcode,
     OutOfGasError,
+    PureContextViolation,
     Revert,
     StackDepthLimitError,
 )
@@ -88,6 +89,49 @@ from .runtime import get_valid_jump_destinations
 STACK_DEPTH_LIMIT = Uint(1024)
 MAX_CODE_SIZE = 0x10000
 MAX_INIT_CODE_SIZE = 2 * MAX_CODE_SIZE
+
+PURE_CONTEXT_FORBIDDEN_OPS: Final[FrozenSet[Ops]] = frozenset(
+    {
+        Ops.ADDRESS,
+        Ops.BALANCE,
+        Ops.ORIGIN,
+        Ops.CALLER,
+        Ops.GASPRICE,
+        Ops.EXTCODESIZE,
+        Ops.EXTCODECOPY,
+        Ops.EXTCODEHASH,
+        Ops.BLOCKHASH,
+        Ops.COINBASE,
+        Ops.TIMESTAMP,
+        Ops.NUMBER,
+        Ops.PREVRANDAO,
+        Ops.GASLIMIT,
+        Ops.CHAINID,
+        Ops.SELFBALANCE,
+        Ops.BASEFEE,
+        Ops.BLOBHASH,
+        Ops.BLOBBASEFEE,
+        Ops.SLOTNUM,
+        Ops.SLOAD,
+        Ops.TLOAD,
+        Ops.APPROVE,
+        Ops.TXPARAM,
+        Ops.FRAMEDATALOAD,
+        Ops.FRAMEDATACOPY,
+        Ops.FRAMEPARAM,
+        Ops.HASCLAIM,
+        Ops.CALL,
+        Ops.CALLCODE,
+        Ops.DELEGATECALL,
+    }
+)
+"""
+Instructions that halt exceptionally in the pure context a custom claim
+verifier runs in, on top of the restrictions of a static call: those
+that read the call's context, other accounts, the chain, the block, or
+the transaction, and the calls other than `STATICCALL`. `STATICCALL`
+halts too unless its target is an active precompile.
+"""
 
 
 @final
@@ -475,6 +519,9 @@ def process_call(evm: Evm) -> Evm:
                     op = Ops(evm.code[evm.pc])
                 except ValueError as e:
                     raise InvalidOpcode(evm.code[evm.pc]) from e
+
+                if evm.tx_env.is_pure and op in PURE_CONTEXT_FORBIDDEN_OPS:
+                    raise PureContextViolation
 
                 evm_trace(evm, OpStart(op))
                 op_implementation[op](evm)

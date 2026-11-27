@@ -33,14 +33,12 @@ from pydantic import Field, PrivateAttr, model_validator
 from spec256k1 import PrivateKey
 
 from execution_testing.base_types import (
-    Account as BaseAccount,
-)
-from execution_testing.base_types import (
+    P256_VERIFIER,
+    SECP256K1_VERIFIER,
     Address,
     Bytes,
     CamelModel,
     FixedSizeBytes,
-    FrameSignatureScheme,
     Hash,
     HashInt,
     Number,
@@ -49,6 +47,9 @@ from execution_testing.base_types import (
     Storage,
     StorageRootType,
     ZeroPaddedHexNumber,
+)
+from execution_testing.base_types import (
+    Account as BaseAccount,
 )
 from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.base_types.conversions import (
@@ -90,9 +91,7 @@ class EOA(Address, Signer):
     private key.
     """
 
-    signature_scheme: ClassVar[FrameSignatureScheme] = (
-        FrameSignatureScheme.SECP256K1
-    )
+    claim_verifier: ClassVar[Address] = SECP256K1_VERIFIER
     signature_length: ClassVar[int] = 65
     """Length of a secp256k1 signature: `v || r || s`."""
 
@@ -150,14 +149,12 @@ class P256Signer(Address, Signer):
     A NIST P-256 (secp256r1) private key, identified by the address its
     public key hashes to: `keccak256(qx || qy)[12:]`.
 
-    Signs EIP-8141 `P256` signature entries. A P256 key cannot authorize a
-    transaction through the default code, so an account using it needs
-    code of its own.
+    Signs the witnesses of EIP-8141 `P256_VERIFIER` claims. A P256 key
+    cannot authorize a transaction through the default code, so an account
+    using it needs code of its own.
     """
 
-    signature_scheme: ClassVar[FrameSignatureScheme] = (
-        FrameSignatureScheme.P256
-    )
+    claim_verifier: ClassVar[Address] = P256_VERIFIER
     signature_length: ClassVar[int] = 128
     """Length of a P256 signature: `r || s || qx || qy`."""
 

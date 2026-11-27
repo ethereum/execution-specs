@@ -2,10 +2,10 @@
 Blob-carrying frame transactions submitted in their network wrapper, for
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
 
-A frame transaction with non-empty `blob_versioned_hashes` travels with its
-blob sidecar exactly as an EIP-4844 transaction does, wrapped per EIP-7594 as
-`rlp([tx_payload_body, wrapper_version, blobs, commitments, cell_proofs])`,
-while a block body carries its plain payload. These tests submit such
+A frame transaction travels in its pooled wrapper,
+`rlp([tx_payload_body, wrapper_version, witnesses, blob_sidecar])`, whose
+sidecar carries the transaction's blobs, commitments and cell proofs per
+EIP-7594, while a block body carries its plain payload. These tests submit such
 transactions through `eth_sendRawTransaction` and check that the client serves
 their blobs through `engine_getBlobsV*`, and check that a block carrying the
 wrapper instead of the plain payload is rejected.
@@ -41,6 +41,13 @@ def network_wrapped(
     tx: Transaction, blobs: List[Blob], fork: Fork
 ) -> NetworkWrappedTransaction:
     """Return `tx` wrapped with the sidecar of `blobs`."""
+    if tx.frames is not None:
+        # The witnesses of the claims travel in the wrapper.
+        return NetworkWrappedTransaction(
+            tx=tx.with_signature_and_sender(),
+            blob_objects=blobs,
+            wrapper_version=Spec.POOLED_WRAPPER_VERSION,
+        )
     return NetworkWrappedTransaction(
         tx=tx,
         blob_objects=blobs,
@@ -53,7 +60,7 @@ def frame_tx_with_blobs(pre: Alloc, blobs: List[Blob]) -> Transaction:
     Return a frame transaction from a fresh EOA carrying `blobs`.
 
     The `VERIFY` frame approves execution and payment against the sender's
-    default code. Its execution budget leaves room for the signature
+    default code. Its execution budget leaves room for the claim
     verification that counts against the same `MAX_VERIFY_GAS`, so the
     transaction is admissible to a public mempool.
     """

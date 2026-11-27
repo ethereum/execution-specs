@@ -270,6 +270,9 @@ def add_genesis_block(
     if has_field(hardfork.Header, "slot_number"):
         fields["slot_number"] = U64(0)
 
+    if has_field(hardfork.Header, "dependency_proof_hash"):
+        fields["dependency_proof_hash"] = keccak256(b"")
+
     genesis_header = hardfork.Header(**fields)
 
     block_fields = {

@@ -174,6 +174,10 @@ def build_result(
         arguments["block_access_list_hash"] = t8n.fork.hash_block_access_list(
             block_output.block_access_list
         )
+    if t8n.fork.has_dependency_proof:
+        dependency_proof = t8n.dependency_proof()
+        arguments["dependency_proof"] = dependency_proof
+        arguments["dependency_proof_hash"] = keccak256(dependency_proof)
 
     context: Optional[Dict[str, Any]] = None
     if t8n.exception_mapper is not None:

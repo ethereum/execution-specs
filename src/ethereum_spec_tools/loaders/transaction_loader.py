@@ -180,37 +180,42 @@ class TransactionLoad:
             frames.append(frame)
         return tuple(frames)
 
-    def json_to_signatures(self) -> Any:
-        """Get the signature entries of a frame transaction."""
-        signatures = []
-        for sig_data in self.raw.get("signatures", []):
-            msg = hex_to_bytes(sig_data.get("msg", "0x"))
-            message: Any
-            if len(msg) == 0:
-                message = Bytes0(b"")
-            elif len(msg) == 32:
-                message = Bytes32(msg)
+    def json_to_claims(self) -> Any:
+        """Get the claims of a frame transaction."""
+        claims = []
+        for claim_data in self.raw.get("claims", []):
+            raw_msg = hex_to_bytes(claim_data.get("msg", "0x"))
+            msg: Any
+            if len(raw_msg) == 0:
+                msg = Bytes0(b"")
+            elif len(raw_msg) == 32:
+                msg = Bytes32(raw_msg)
             else:
-                message = msg
+                msg = raw_msg
             try:
-                signature = self.fork.FrameSignature(
-                    scheme=self.fork.FrameSignatureScheme(
-                        parse_hex_or_int(sig_data.get("scheme", 0), Uint)
+                claim = self.fork.Claim(
+                    verifier=self.fork.hex_to_address(
+                        claim_data.get("verifier")
                     ),
-                    signer=hex_to_bytes(sig_data.get("signer", "0x")),
-                    message=message,
-                    signature=hex_to_bytes(sig_data.get("signature", "0x")),
+                    key=hex_to_bytes(claim_data.get("key", "0x")),
+                    msg=msg,
+                    gas_limit=parse_hex_or_int(
+                        claim_data.get("gasLimit", 0), U64
+                    ),
+                    witness_len=parse_hex_or_int(
+                        claim_data.get("witnessLen", 0), U64
+                    ),
                 )
             except (ValueError, OverflowError) as e:
                 # A field value the transaction types reject as they
-                # are constructed — notably an undefined signature
-                # scheme. Such a transaction never decodes, so reject
-                # it instead of crashing.
+                # are constructed — notably an overflowing gas limit.
+                # Such a transaction never decodes, so reject it
+                # instead of crashing.
                 raise UnsupportedTxError(
-                    None, f"invalid frame signature field: {e}"
+                    None, f"invalid frame claim field: {e}"
                 ) from e
-            signatures.append(signature)
-        return tuple(signatures)
+            claims.append(claim)
+        return tuple(claims)
 
     def json_to_v(self) -> U256:
         """Get the v value of the transaction."""

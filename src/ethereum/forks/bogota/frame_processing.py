@@ -17,6 +17,7 @@ from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 
+from ethereum.exceptions import InvalidSignatureError
 from ethereum.merkle_patricia_trie import trie_set
 from ethereum.state import Address
 
@@ -64,10 +65,11 @@ def check_frame_transaction(
     several ways reports the earliest failure.
 
     Unlike the regular flow, the sender needs no recovery — it is an
-    explicit field, authenticated by the signature entries during
-    static validation — and no balance or EOA check: payment is
-    collected from the payer during execution, when a frame `APPROVE`s
-    it.
+    explicit field, authenticated by the frames, typically through a
+    claim — and no balance or EOA check: payment is collected from the
+    payer during execution, when a frame `APPROVE`s it. Every claim
+    must resolve to a dependency the block's dependency proof
+    satisfied.
 
     Parameters
     ----------
@@ -90,10 +92,9 @@ def check_frame_transaction(
     InvalidBlock :
         If the transaction is not includable.
     InvalidSignatureError :
-        If a signature entry is cryptographically invalid.
+        If a claim is not satisfied by the block's dependency proof.
     InvalidFrameError :
-        If the frames or signature entries violate a structural
-        constraint.
+        If the frames or claims violate a structural constraint.
     TransactionGasLimitExceededError :
         If the derived gas limit exceeds the maximum allowed for a
         transaction.
@@ -110,6 +111,9 @@ def check_frame_transaction(
 
     """
     validation = validate_frame_transaction(tx)
+    for dependency in validation.dependencies:
+        if dependency not in block_env.verified_dependencies:
+            raise InvalidSignatureError("unsatisfied claim")
     tx_state = TransactionState(parent=block_env.state)
 
     # The frames' total gas budget in each dimension. The execution
@@ -166,7 +170,6 @@ def check_frame_transaction(
         frame_context=vm.FrameContext(
             tx=tx,
             signature_hash=validation.signature_hash,
-            resolved_signers=validation.resolved_signers,
             standard_gas_limit=validation.standard_gas_limit,
             max_cost=max_cost,
             current_frame_index=Uint(0),

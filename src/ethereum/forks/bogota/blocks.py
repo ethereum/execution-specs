@@ -269,6 +269,19 @@ class Header:
     [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
     """
 
+    dependency_proof_hash: Hash32
+    """
+    [`keccak256`] of the block's dependency proof, which carries the
+    witnesses of the claims of the block's frame transactions. The proof
+    travels in the execution payload, in neither the header nor the
+    body. Introduced in [EIP-8141]. See
+    [`validate_dependency_proof`][vdp].
+
+    [`keccak256`]: ref:ethereum.crypto.hash.keccak256
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+    [vdp]: ref:ethereum.forks.bogota.dependency_proof.validate_dependency_proof
+    """  # noqa: E501
+
 
 @final
 @slotted_freezable

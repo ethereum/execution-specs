@@ -354,7 +354,7 @@ def test_bal_sponsored_payer_and_sender(
                 gas_limit=WRITE_FRAME_GAS,
             ),
         ],
-        signatures=[sender, payer],
+        claims=[sender, payer],
     ).resolve_frames(fork, payer=payer)
     payer_post_balance = (
         start_balance
@@ -415,19 +415,19 @@ def test_bal_sponsored_payer_and_sender(
     )
 
 
-def test_bal_omits_signature_validation_precompiles(
+def test_bal_omits_claim_verification_precompiles(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Signature validation must leave no trace in the block access list.
+    Protocol-verifier claim verification must leave no trace in the block
+    access list.
 
-    A frame transaction's protocol-validated signatures are checked before
+    A frame transaction's protocol-verifier claims are checked before
     execution, outside the EVM, so `ecrecover` and `P256VERIFY` are never
-    *called* by the transaction: "since the signature validation does not
-    happen in EVM execution, the related precompiles `ecrecover` and
-    `P256VERIFY` must not be added to the block-level access list."
+    *called* by the transaction: neither the verifier address nor any
+    underlying precompile is added to the block-level access list.
 
     The distinction is invisible in state -- a precompile has no storage,
     balance or nonce to change -- but the BAL is committed to in the block
@@ -437,8 +437,9 @@ def test_bal_omits_signature_validation_precompiles(
     else in the transaction's result differs, which is what makes this worth
     pinning.
 
-    The transaction carries one signature of each protocol-validated scheme
-    so both precompiles are exercised, and asserts each is absent.
+    The transaction carries one claim of each of these protocol verifiers so
+    both precompiles are exercised, and asserts each, and each verifier
+    address, is absent.
     """
     sender = pre.fund_eoa()
     target = pre.deploy_contract(code=Op.STOP)
@@ -449,11 +450,11 @@ def test_bal_omits_signature_validation_precompiles(
             Frame.verify(),
             Frame.sender(target=target),
         ],
-        signatures=[
-            # Index 0 authorizes the default code, and is validated with
-            # `ecrecover`.
+        claims=[
+            # Authorizes the default code, and is verified as `ecrecover`
+            # would.
             sender,
-            # Carried only to exercise `P256VERIFY`; no frame references it.
+            # Carried only to exercise `P256VERIFY`; no frame checks it.
             P256Signer(1),
         ],
     ).resolve_frames(fork)
@@ -466,6 +467,8 @@ def test_bal_omits_signature_validation_precompiles(
                 # list, because neither was reached from EVM execution.
                 ECRECOVER_ADDRESS: None,
                 P256VERIFY_ADDRESS: None,
+                Spec.SECP256K1_VERIFIER: None,
+                Spec.P256_VERIFIER: None,
             },
         ),
     )

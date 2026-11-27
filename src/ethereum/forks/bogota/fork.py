@@ -40,6 +40,7 @@ from .block_access_lists import (
 )
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
+from .dependency_proof import validate_dependency_proof
 from .exceptions import WrongChainIdError
 from .fork_types import Authorization, BlockAccessIndex, ExecutionGas, StateGas
 from .frame_processing import process_frame_transaction
@@ -227,7 +228,11 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def state_transition(chain: BlockChain, block: Block) -> None:
+def state_transition(
+    chain: BlockChain,
+    block: Block,
+    dependency_proof: Bytes = b"",
+) -> None:
     """
     Attempts to apply a block to an existing block chain.
 
@@ -248,6 +253,11 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         History and current state.
     block :
         Block to apply to `chain`.
+    dependency_proof :
+        The [EIP-8141] dependency proof received with the block in its
+        execution payload.
+
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
 
     """
     chain_context = ChainContext(
@@ -256,7 +266,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_header=chain.blocks[-1].header,
     )
 
-    block_diff = execute_block(block, chain.state, chain_context)
+    block_diff = execute_block(
+        block, chain.state, chain_context, dependency_proof
+    )
 
     apply_changes_to_state(chain.state, block_diff)
     chain.blocks.append(block)
@@ -270,6 +282,7 @@ def execute_block(
     block: Block,
     pre_state: State,
     chain_context: ChainContext,
+    dependency_proof: Bytes = b"",
 ) -> BlockDiff:
     """
     Execute a block and validate the resulting roots against the header.
@@ -284,6 +297,11 @@ def execute_block(
         Pre-execution state provider.
     chain_context :
         Chain context that the block may need during execution.
+    dependency_proof :
+        The [EIP-8141] dependency proof received with the block, which
+        is verified against `pre_state` before any transaction executes.
+
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
 
     Returns
     -------
@@ -316,6 +334,13 @@ def execute_block(
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
         slot_number=block.header.slot_number,
+    )
+
+    block_env.verified_dependencies = validate_dependency_proof(
+        block_env,
+        block.header,
+        tuple(map(decode_transaction, block.transactions)),
+        dependency_proof,
     )
 
     block_output = apply_body(

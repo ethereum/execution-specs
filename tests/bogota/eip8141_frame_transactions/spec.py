@@ -3,10 +3,12 @@
 from dataclasses import dataclass
 
 from execution_testing import (
+    LEANSPHINCS_VERIFIER,
+    P256_VERIFIER,
+    SECP256K1_VERIFIER,
     Address,
     FrameFlag,
     FrameMode,
-    FrameSignatureScheme,
     FrameStatus,
     TransactionType,
 )
@@ -24,7 +26,7 @@ class ReferenceSpec:
 
 
 ref_spec_8141 = ReferenceSpec(
-    "EIPS/eip-8141.md", "9bc38a368881fa52e1a1a9970274e6511874d13f"
+    "EIPS/eip-8141.md", "03a1e136bdcdb40e83c01ce5f81474769cae61be"
 )
 
 
@@ -40,9 +42,26 @@ class Spec:
     EXPIRY_VERIFIER = Address(EXPIRY_VERIFIER_ADDRESS)
     EXPIRY_DATA_LENGTH = 8
     MAX_FRAMES = 64
+    MAX_CLAIMS = 64
+    MAX_CLAIM_WITNESS_BYTES = 1_048_576
+    MAX_DEPENDENCY_PROOF_BYTES = 8_388_608
+    DEPENDENCY_PROOF_VERSION_RAW = b"\x00"
+    POOLED_WRAPPER_VERSION = 0
 
-    # Frame modes, flags, signature schemes and receipt statuses are the
-    # framework's enums, named here as the EIP names them.
+    # Claim-only protocol verifiers. The EIP leaves their addresses to be
+    # assigned; these are placeholders.
+    SECP256K1_VERIFIER = SECP256K1_VERIFIER
+    P256_VERIFIER = P256_VERIFIER
+    LEANSPHINCS_VERIFIER = LEANSPHINCS_VERIFIER
+    SECP256K1_VERIFICATION_GAS = 2_800
+    P256_VERIFICATION_GAS = 6_700
+    LEANSPHINCS_VERIFICATION_GAS = 13_200
+    SECP256K1_WITNESS_LENGTH = 65
+    P256_WITNESS_LENGTH = 128
+    LEANSPHINCS_SIGNATURE_SIZE = 7_740
+
+    # Frame modes, flags and receipt statuses are the framework's enums,
+    # named here as the EIP names them.
     MODE_DEFAULT = FrameMode.DEFAULT
     MODE_VERIFY = FrameMode.VERIFY
     MODE_SENDER = FrameMode.SENDER
@@ -54,10 +73,6 @@ class Spec:
         FrameFlag.APPROVE_EXECUTION | FrameFlag.APPROVE_PAYMENT
     )
     ATOMIC_BATCH_FLAG = FrameFlag.ATOMIC_BATCH
-
-    SCHEME_ARBITRARY = FrameSignatureScheme.ARBITRARY
-    SCHEME_SECP256K1 = FrameSignatureScheme.SECP256K1
-    SCHEME_P256 = FrameSignatureScheme.P256
 
     STATUS_FAILURE = FrameStatus.FAILURE
     STATUS_SUCCESS = FrameStatus.SUCCESS
@@ -73,7 +88,6 @@ class Spec:
     TXPARAM_SIG_HASH = 0x08
     TXPARAM_FRAME_COUNT = 0x09
     TXPARAM_CURRENT_FRAME_INDEX = 0x0A
-    TXPARAM_SIGNATURE_COUNT = 0x0B
     TXPARAM_STATE_GAS_LEFT = 0x0C
 
     # FRAMEPARAM selectors
@@ -89,12 +103,6 @@ class Spec:
     FRAMEPARAM_STATE_GAS_LIMIT = 0x09
     FRAMEPARAM_EXECUTION_GAS_USED = 0x0A
     FRAMEPARAM_STATE_GAS_USED = 0x0B
-
-    # SIGPARAM selectors
-    SIGPARAM_RESOLVED_SIGNER = 0x00
-    SIGPARAM_SCHEME = 0x01
-    SIGPARAM_MSG = 0x02
-    SIGPARAM_SIGNATURE_LENGTH = 0x03
 
     # Public mempool
     MAX_VERIFY_GAS = 100_000
