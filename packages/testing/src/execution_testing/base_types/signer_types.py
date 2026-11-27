@@ -1,20 +1,25 @@
-"""Signature schemes and the interface of accounts that sign messages."""
+"""Claim verifiers and the interface of accounts that sign messages."""
 
-from enum import IntEnum
 from typing import Optional, Protocol, SupportsBytes, runtime_checkable
 
-from .base_types import Bytes, Hash
+from .base_types import Address, Bytes, Hash
 
+SECP256K1_VERIFIER = Address(0x81A1)
+"""
+Placeholder address of the EIP-8141 claim-only secp256k1 protocol
+verifier, which the EIP leaves to be assigned.
+"""
 
-class FrameSignatureScheme(IntEnum):
-    """
-    Scheme of a signature entry of an
-    [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) frame transaction.
-    """
+P256_VERIFIER = Address(0x81A2)
+"""
+Placeholder address of the EIP-8141 claim-only P-256 protocol verifier.
+"""
 
-    ARBITRARY = 0
-    SECP256K1 = 1
-    P256 = 2
+LEANSPHINCS_VERIFIER = Address(0x81A3)
+"""
+Placeholder address of the EIP-8141 claim-only leanSPHINCS protocol
+verifier.
+"""
 
 
 @runtime_checkable
@@ -22,20 +27,19 @@ class Signer(SupportsBytes, Protocol):
     """
     An account able to sign messages.
 
-    `bytes()` of a signer gives the bytes that identify it in a frame
-    transaction signature entry, i.e. its address for the `SECP256K1` and
-    `P256` schemes.
+    `bytes()` of a signer gives the key that identifies it in an
+    [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) claim, i.e. its
+    address for the secp256k1 and P-256 protocol verifiers.
     """
 
     @property
-    def signature_scheme(self) -> Optional[FrameSignatureScheme]:
+    def claim_verifier(self) -> Optional[Address]:
         """
-        Return the frame transaction signature scheme that verifies this
-        signer's signatures natively, or `None` if no scheme does.
+        Return the protocol verifier that checks this signer's signatures
+        natively, or `None` if none does.
 
-        A signature scheme the protocol does not verify natively, either
-        in any fork or only before the fork that introduces it, can still
-        sign `ARBITRARY` entries, which the account's code verifies.
+        A signature scheme the protocol does not verify natively can still
+        back a claim of a custom contract verifier.
         """
         ...
 

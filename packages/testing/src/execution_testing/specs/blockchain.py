@@ -307,6 +307,7 @@ class Header(CamelModel):
     requests_hash: Removable | Hash | None = None
     block_access_list_hash: Removable | Hash | None = None
     slot_number: Removable | HexNumber | None = None
+    dependency_proof_hash: Removable | Hash | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -453,6 +454,13 @@ class Block(Header):
     """Override only the engine payload blockHash (a hash mismatch)."""
     engine_new_payload_parent_hash: Hash | None = None
     """Override only the engine payload parentHash."""
+    dependency_proof: Bytes | None = None
+    """
+    EIP-8141: replace the dependency proof delivered with the block, both
+    beside the blockchain fixture's RLP and in the engine payload. The
+    header keeps committing to the proof the block was built with, unless
+    `rlp_modifier` changes `dependency_proof_hash` too.
+    """
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
 
@@ -680,6 +688,11 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list
             if self.block_access_list
             else None,
+            dependency_proof=(
+                self.header.dependency_proof
+                if self.header.dependency_proof_hash is not None
+                else None
+            ),
             fork=self.fork,
         ).with_rlp(txs=self.txs)
 
@@ -687,11 +700,15 @@ class BuiltBlock(CamelModel):
             return InvalidFixtureBlock(
                 rlp=fixture_block.rlp,
                 expect_exception=self.expected_exception,
+                dependency_proof=fixture_block.dependency_proof,
                 rlp_decoded=(
                     None
                     if BlockException.RLP_STRUCTURES_ENCODING
                     in self.expected_exception
-                    else fixture_block.without_rlp()
+                    # The proof is carried once, beside the block's RLP.
+                    else fixture_block.without_rlp().model_copy(
+                        update={"dependency_proof": None}
+                    )
                 ),
             )
 
@@ -1450,6 +1467,13 @@ class BlockchainTest(BaseTest):
             # transition tool processing.
             header = block.rlp_modifier.apply(header)
             header.fork = fork  # Deleted during `apply` because `exclude=True`
+            # Excluded from the dump `apply` rebuilds the header from.
+            header.dependency_proof = (
+                transition_tool_output.result.dependency_proof
+            )
+
+        if block.dependency_proof is not None:
+            header.dependency_proof = block.dependency_proof
 
         # Process block access list - apply transformer if present for invalid
         # tests
@@ -1583,6 +1607,7 @@ class BlockchainTest(BaseTest):
                 and block.engine_new_payload_slot_number is None
                 and block.engine_new_payload_block_hash is None
                 and block.engine_new_payload_parent_hash is None
+                and block.dependency_proof is None
                 and not block.sets_block_access_list()
             ):
                 # Only verify block level exception if: - No transaction

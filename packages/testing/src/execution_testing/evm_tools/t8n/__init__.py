@@ -136,6 +136,8 @@ class T8N(Load):
     env: "TestingEnvironment"
     txs: List["TestingTransaction"]
     included_txs: List[Any]
+    input_dependencies: List[Any]
+    dependency_witnesses: Dict[Any, Bytes]
     ommers: List[Ommer]
     rejected_transactions: List[Any]
     body: Bytes
@@ -240,6 +242,8 @@ class T8N(Load):
         self.env = t8n_data.env
         self.txs = list(t8n_data.txs)
         self.included_txs = []
+        self.input_dependencies = []
+        self.dependency_witnesses = {}
         self.ommers = list(ommers)
         self.body = Bytes()
         self.rejected_transactions = []
@@ -311,6 +315,61 @@ class T8N(Load):
         raw.setdefault("type", "0x" + format(int(tx.ty), "02x"))
         return TransactionLoad(raw, self.fork).read()
 
+    def verify_dependencies(self, block_env: Any) -> None:
+        """
+        Verify the claims of the input frame transactions against the
+        witnesses they carry, before any transaction executes, and admit
+        the dependencies a witness satisfies to ``block_env``.
+
+        A real block carries one witness per dependency in its dependency
+        proof. The transition tool builds the block instead, so it takes
+        the witnesses from the transactions. A frame transaction with a
+        claim no witness satisfies is rejected when it is processed.
+        """
+        if not self.fork.has_dependency_proof:
+            return
+        verified: Dict[Any, Bytes] = {}
+        for testing_tx in self.txs:
+            if testing_tx.claims is None:
+                continue
+            try:
+                fork_tx = self.convert_transaction(testing_tx)
+                dependencies = self.fork.transaction_dependencies(fork_tx)
+            except (EthereumException, UnsupportedTxError):
+                # Rejected again, and reported, when it is processed.
+                continue
+            self.input_dependencies.extend(dependencies)
+            witnesses = testing_tx.witnesses or []
+            for index, dependency in enumerate(dependencies):
+                witness = (
+                    Bytes(witnesses[index])
+                    if index < len(witnesses)
+                    else Bytes(b"")
+                )
+                self.dependency_witnesses.setdefault(dependency, witness)
+                if dependency in verified:
+                    continue
+                if self.fork.verify_dependency(block_env, dependency, witness):
+                    verified[dependency] = witness
+        self.dependency_witnesses.update(verified)
+        block_env.verified_dependencies = frozenset(verified)
+
+    def dependency_proof(self) -> Bytes:
+        """
+        Return the dependency proof of the block the input transactions
+        form: the witnesses of their deduplicated, sorted dependencies.
+
+        A transaction the transition tool rejects stays in the block a
+        test expects to be invalid, so its dependencies keep their
+        witnesses in the proof: a client rejecting the block then meets
+        the witness the transaction carries, a satisfying one when
+        another transaction supplied it.
+        """
+        dependencies = self.fork.block_dependencies(self.input_dependencies)
+        return self.fork.encode_dependency_proof(
+            [self.dependency_witnesses[d] for d in dependencies]
+        )
+
     def pay_block_rewards(self, block_reward: U256, block_env: Any) -> None:
         """Apply the block rewards to the block coinbase."""
         ommer_count = U256(len(self.ommers))
@@ -381,6 +440,7 @@ class T8N(Load):
         """
         self._block_env = self.block_environment()
         self._block_output = self.fork.BlockOutput()
+        self.verify_dependencies(self._block_env)
 
         if len(self.txs) > 0:
             testing_tx = self.txs[0]
@@ -413,6 +473,10 @@ class T8N(Load):
         )
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
+        # EIP-8141: claims are verified against the pre-state, before the
+        # system transactions.
+        self.verify_dependencies(block_env)
+
         # Same order as the fork's `apply_body`: beacon roots, then history.
         if self.fork.has_beacon_roots_address:
             self.fork.process_unchecked_system_transaction(

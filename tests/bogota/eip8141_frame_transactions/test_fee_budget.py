@@ -19,7 +19,6 @@ from execution_testing import (
     Environment,
     Fork,
     Frame,
-    FrameSignature,
     Hash,
     Op,
     StateTestFiller,
@@ -29,6 +28,7 @@ from execution_testing import (
 )
 
 from ...cancun.eip4844_blobs.spec import SpecHelpers as BlobSpecHelpers
+from .claim_helpers import sender_claim
 from .helpers import (
     BASE_FEE,
     PRIORITY_FEE,
@@ -278,18 +278,18 @@ def test_tip_settlement(
     }[budget]
     escrow = required_max_fee + min(full_tip, max_fee - required_max_fee)
 
-    signature = FrameSignature(signer=sender)
+    claim = sender_claim(sender)
     execution_gas = (
         fork.frame_transaction_intrinsic_cost_calculator()(
             frames=frames,
-            signatures=[signature],
+            claims=[claim],
             return_cost_deducted_prior_execution=True,
         )
         + verify_gas
         + target_gas
     )
     calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
-        frames=frames, signatures=[signature]
+        frames=frames, claims=[claim]
     )
     assert execution_gas > calldata_floor
     gas_used = execution_gas

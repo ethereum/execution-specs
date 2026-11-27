@@ -27,8 +27,8 @@ from execution_testing.test_types.receipt_types import (
 )
 from execution_testing.test_types.transaction_types import (
     AuthorizationTupleGeneric,
+    ClaimGeneric,
     FrameGeneric,
-    FrameSignatureGeneric,
     Transaction,
 )
 
@@ -114,11 +114,11 @@ class FixtureFrame(FrameGeneric[ZeroPaddedHexNumber]):
     model_config = CamelModel.model_config | {"extra": "ignore"}
 
 
-class FixtureFrameSignature(FrameSignatureGeneric[ZeroPaddedHexNumber]):
-    """Fixture variant of the EIP-8141 signature entry type."""
+class FixtureClaim(ClaimGeneric[ZeroPaddedHexNumber]):
+    """Fixture variant of the EIP-8141 claim type."""
 
-    # Allow extra fields: FixtureFrameSignature is constructed from
-    # FrameSignature via model_dump(), which may include extra fields.
+    # Allow extra fields: FixtureClaim is constructed from Claim via
+    # model_dump(), which may include extra fields.
     model_config = CamelModel.model_config | {"extra": "ignore"}
 
 

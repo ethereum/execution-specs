@@ -101,7 +101,7 @@ def test_eoa_paymaster(
                 code=target_code,
             ),
         ],
-        signatures=[sender, payer],
+        claims=[sender, payer],
     ).resolve_frames(fork, payer=payer)
 
     state_test(

@@ -52,7 +52,9 @@ from .serialization import (
     encoded_size,
 )
 from .signer_types import (
-    FrameSignatureScheme,
+    LEANSPHINCS_VERIFIER,
+    P256_VERIFIER,
+    SECP256K1_VERIFIER,
     Signer,
 )
 from .typing_utils import unwrap_annotation
@@ -77,7 +79,6 @@ __all__ = (
     "EthereumTestBaseModel",
     "EthereumTestRootModel",
     "FixedSizeBytes",
-    "FrameSignatureScheme",
     "ForkBlobSchedule",
     "ForkHash",
     "Hash",
@@ -91,6 +92,9 @@ __all__ = (
     "RLPSerializable",
     "SignableRLPSerializable",
     "Signer",
+    "LEANSPHINCS_VERIFIER",
+    "P256_VERIFIER",
+    "SECP256K1_VERIFIER",
     "encoded_prefixed_size",
     "encoded_size",
     "StateCommitment",

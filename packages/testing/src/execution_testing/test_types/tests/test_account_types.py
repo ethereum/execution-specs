@@ -12,8 +12,8 @@ from ethereum_types.bytes import Bytes20, Bytes32
 from ethereum_types.numeric import U256, Uint
 
 from execution_testing.base_types import (
+    P256_VERIFIER,
     Address,
-    FrameSignatureScheme,
     Hash,
     StateCommitment,
     Storage,
@@ -21,7 +21,7 @@ from execution_testing.base_types import (
 
 from ..account_types import Account, Alloc, P256Signer
 from ..p256 import SECP256R1N
-from ..transaction_types import FrameSignature
+from ..transaction_types import Claim
 from ..utils import keccak256
 
 STORAGE_WRITES: dict[str, Callable[[Storage], object]] = {
@@ -231,13 +231,13 @@ def test_p256_signer_sign_message(message_byte: int) -> None:
     )
 
 
-def test_p256_signer_frame_signature_entry() -> None:
-    """A P256 signer builds a `P256` entry naming its address."""
+def test_p256_signer_claim() -> None:
+    """A P256 signer builds a `P256_VERIFIER` claim keyed by its address."""
     signer = P256Signer(1)
-    entry = FrameSignature(signer=signer)
-    assert entry.scheme == FrameSignatureScheme.P256
-    assert entry.signer == bytes(signer)
-    assert entry.signed_by is signer
+    claim = Claim(signer=signer)
+    assert claim.verifier == P256_VERIFIER
+    assert claim.key == bytes(signer)
+    assert claim.signed_by is signer
 
 
 @pytest.mark.parametrize(

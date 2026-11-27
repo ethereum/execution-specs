@@ -10,13 +10,13 @@ from typing import (
 from execution_testing import (
     EOA,
     Address,
+    Claim,
     Fork,
     Frame,
-    FrameSignature,
     Op,
 )
 
-from .signature_helpers import canonical_entry
+from .claim_helpers import sender_claim
 from .spec import Spec
 
 MAX_FLOOR_PADDING = 1 << 16
@@ -105,7 +105,7 @@ def fee_budget(
     fork: Fork,
     sender: EOA | Address,
     frames: Sequence[Frame],
-    signatures: Optional[Sequence[FrameSignature]] = None,
+    claims: Optional[Sequence[Claim]] = None,
     *,
     max_priority_fee_per_gas: int = 0,
     max_fee: Optional[int] = None,
@@ -114,20 +114,19 @@ def fee_budget(
 ) -> FeeBudget:
     """
     Return the fee budget of `sender`'s transaction with `frames` and
-    `signatures` at `BASE_FEE`, pricing unsigned entries at their signer's
-    signature length. `signatures` defaults to the sender's canonical
-    entry (none for a contract sender), `max_fee` to room for the full
+    `claims` at `BASE_FEE`. `claims` defaults to the sender's default
+    claim (none for a contract sender), `max_fee` to room for the full
     tip. Pass resolved frames, such as `tx.frames` after
     `resolve_frames`.
     """
-    if signatures is None:
-        signatures = (
-            [canonical_entry(sender)]
+    if claims is None:
+        claims = (
+            [sender_claim(sender)]
             if isinstance(sender, EOA) and sender.key is not None
             else []
         )
     max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=frames, signatures=signatures, sender=sender
+        frames=frames, claims=claims, sender=sender
     )
     blob_gas = blob_count * fork.blob_gas_per_blob()
     blob_base_fee = fork.blob_gas_price_calculator()(

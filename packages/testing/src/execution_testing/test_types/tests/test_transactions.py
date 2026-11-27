@@ -7,10 +7,10 @@ from pydantic import ValidationError
 from spec256k1 import PublicKey
 
 from execution_testing.base_types import (
+    SECP256K1_VERIFIER,
     AccessList,
     Address,
     Bytes,
-    FrameSignatureScheme,
     Hash,
     Signer,
 )
@@ -20,10 +20,10 @@ from execution_testing.vm import Op
 from .. import transaction_types
 from ..account_types import EOA, P256Signer
 from ..transaction_types import (
+    Claim,
     Frame,
     FrameOutcome,
     FrameSettlement,
-    FrameSignature,
     Transaction,
 )
 from ..utils import keccak256
@@ -461,7 +461,7 @@ def test_frame_tx_copy_unsupported(
 ) -> None:
     """
     Copying a frame transaction raises instead of returning a copy whose
-    signature entries have lost their signers.
+    claims have lost their signers.
     """
     tx = Transaction(sender=EOA(key=SIGNING_KEY), frames=[Frame()])
     with pytest.raises(NotImplementedError, match="frame transaction"):
@@ -601,11 +601,11 @@ def test_frame_tx_resolved_budget_is_signed() -> None:
     assert resolved.frames is not None
     assert resolved.frames[1].gas_limit != Frame().gas_limit
     assert resolved.rlp() != placeholder.rlp()
-    assert resolved.signatures is not None
-    assert placeholder.signatures is not None
-    assert (
-        resolved.signatures[0].signature != placeholder.signatures[0].signature
-    )
+    resolved_witnesses = resolved.with_signature_and_sender().witnesses
+    placeholder_witnesses = placeholder.with_signature_and_sender().witnesses
+    assert resolved_witnesses is not None
+    assert placeholder_witnesses is not None
+    assert resolved_witnesses[0] != placeholder_witnesses[0]
 
 
 def test_frame_receipt_requires_resolution() -> None:
@@ -635,71 +635,50 @@ SIGNERS = [
 
 
 @pytest.mark.parametrize("signer", SIGNERS)
-def test_frame_signature_defaults_to_signer_scheme(signer: Any) -> None:
+def test_claim_defaults_to_signer_verifier(signer: Any) -> None:
     """
-    An entry built from a signer defaults to the scheme that verifies the
-    signer natively, and identifies the signer by its bytes.
+    A claim built from a signer defaults to the protocol verifier that
+    checks the signer natively, keyed by the signer's bytes.
     """
-    entry = FrameSignature(signer=signer)
-    assert entry.scheme == signer.signature_scheme
-    assert entry.signer == Bytes(bytes(signer))
-    assert entry.signed_by is signer
+    claim = Claim(signer=signer)
+    assert claim.verifier == signer.claim_verifier
+    assert claim.key == Bytes(bytes(signer))
+    assert claim.signed_by is signer
 
 
 @pytest.mark.parametrize("signer", SIGNERS)
-def test_frame_signature_arbitrary_scheme_accepted(signer: Any) -> None:
+def test_claim_custom_verifier_accepted(signer: Any) -> None:
     """
-    Any signer can sign an `ARBITRARY` entry, which leaves the signer
-    bytes empty for the account's code to verify.
+    Any signer can sign the witness of a custom verifier's claim, keyed
+    by the signer's bytes unless the claim says otherwise.
     """
-    entry = FrameSignature(
-        signer=signer, scheme=FrameSignatureScheme.ARBITRARY
-    )
-    assert entry.scheme == FrameSignatureScheme.ARBITRARY
-    assert entry.signer == Bytes(b"")
-    assert entry.signed_by is signer
+    verifier = Address(0x1234)
+    claim = Claim(signer=signer, verifier=verifier)
+    assert claim.verifier == verifier
+    assert claim.key == Bytes(bytes(signer))
+    assert claim.signed_by is signer
 
 
-@pytest.mark.parametrize(
-    "signer,scheme",
-    [
-        pytest.param(
-            EOA(key=SIGNING_KEY), FrameSignatureScheme.P256, id="eoa_as_p256"
-        ),
-        pytest.param(
-            P256Signer(1), FrameSignatureScheme.SECP256K1, id="p256_as_k1"
-        ),
-    ],
-)
-def test_frame_signature_foreign_scheme_rejected(
-    signer: Any, scheme: FrameSignatureScheme
-) -> None:
-    """A signer cannot sign an entry of another native scheme."""
-    with pytest.raises(ValidationError, match="cannot sign scheme"):
-        FrameSignature(signer=signer, scheme=scheme)
-
-
-def test_frame_signature_without_native_scheme_defaults_to_arbitrary() -> None:
+def test_claim_without_protocol_verifier_needs_verifier() -> None:
     """
-    A signer no scheme verifies natively signs `ARBITRARY` entries by
-    default, and no other scheme.
+    A signer no protocol verifier checks natively names no verifier, so
+    its claims must.
     """
 
     class CodeVerifiedSigner(Address):
         """A signer whose signatures only account code can verify."""
 
-        signature_scheme = None
+        claim_verifier = None
         signature_length = 32
 
         def sign_message(self, message: Hash) -> Bytes:
             return Bytes(bytes(message))
 
     signer = CodeVerifiedSigner(0x1234)
-    entry = FrameSignature(signer=signer)
-    assert entry.scheme == FrameSignatureScheme.ARBITRARY
-    assert entry.signer == Bytes(b"")
-    with pytest.raises(ValidationError, match="cannot sign scheme"):
-        FrameSignature(signer=signer, scheme=FrameSignatureScheme.SECP256K1)
+    with pytest.raises(ValidationError, match="no protocol verifier"):
+        Claim(signer=signer)
+    verifier = Address(0x5678)
+    assert Claim(signer=signer, verifier=verifier).verifier == verifier
 
 
 def test_expiry_frame_target_fixed() -> None:
@@ -873,65 +852,84 @@ def test_frame_settlement_unpinned_without_total() -> None:
 # Signers in the signature list
 
 
-def test_frame_tx_default_signature_from_sender() -> None:
+def test_frame_tx_default_claim_from_sender() -> None:
     """
-    A frame transaction without signatures gets one canonical-hash entry
-    signed by its sender, or none for a sender without a key.
+    A frame transaction without claims gets the sender's secp256k1 claim
+    over the canonical hash, with an empty key, or none for a sender
+    without a key.
     """
     sender = EOA(key=SIGNING_KEY)
     tx = Transaction(sender=sender, frames=[Frame.verify()])
-    assert tx.signatures is not None
-    assert len(tx.signatures) == 1
-    assert tx.signatures[0].signed_by is sender
-    assert tx.signatures[0].msg == Bytes(b"")
+    assert tx.claims is not None
+    assert len(tx.claims) == 1
+    assert tx.claims[0].verifier == SECP256K1_VERIFIER
+    assert tx.claims[0].key == Bytes(b"")
+    assert tx.claims[0].signed_by is sender
+    assert tx.claims[0].msg == Bytes(b"")
 
     keyless = Transaction(sender=EOA(Address(0x1234)), frames=[Frame.verify()])
-    assert keyless.signatures == []
+    assert keyless.claims == []
 
 
-def test_frame_tx_signers_become_signed_entries() -> None:
+def test_frame_tx_signers_become_signed_claims() -> None:
     """
-    Signers in the signature list become canonical-hash entries of their
-    own scheme, signed with their own key when the transaction is.
+    Signers in the claim list become claims of their own protocol
+    verifier over the canonical hash, whose witnesses they sign when the
+    transaction is signed.
     """
     sender = EOA(key=SIGNING_KEY)
     payer = EOA(key=OTHER_KEY)
     signers: List[Signer] = [sender, payer, P256Signer(1)]
-    tx = Transaction(
-        sender=sender, frames=[Frame.verify()], signatures=signers
-    )
-    assert tx.signatures is not None
-    assert [entry.signed_by for entry in tx.signatures] == signers
-    assert all(len(entry.signature) == 0 for entry in tx.signatures)
-    tx.rlp()
-    for entry, signer in zip(tx.signatures, signers, strict=True):
-        assert entry.scheme == signer.signature_scheme
-        assert entry.signer == Bytes(bytes(signer))
-        assert entry.msg == Bytes(b"")
-        assert len(entry.signature) == signer.signature_length
+    tx = Transaction(sender=sender, frames=[Frame.verify()], claims=signers)
+    assert tx.claims is not None
+    assert [claim.signed_by for claim in tx.claims] == signers
+    assert tx.witnesses is None
+    signed = tx.with_signature_and_sender()
+    assert signed.witnesses is not None
+    for claim, witness, signer in zip(
+        tx.claims, signed.witnesses, signers, strict=True
+    ):
+        assert claim.verifier == signer.claim_verifier
+        assert claim.key == Bytes(bytes(signer))
+        assert claim.msg == Bytes(b"")
+        assert len(witness) == signer.signature_length
 
 
-def test_frame_tx_signature_entries_copied() -> None:
+def test_frame_tx_witnesses_exclude_from_encoding() -> None:
     """
-    Entries passed in are copied, so signing a transaction never modifies
-    an entry shared with the caller or another transaction.
+    The witnesses are segregated: the transaction's encoding, its hash
+    and its canonical signature hash are the same before and after
+    signing.
+    """
+    tx = Transaction(sender=EOA(key=SIGNING_KEY), frames=[Frame.verify()])
+    unsigned_rlp = tx.rlp()
+    signed = tx.with_signature_and_sender()
+    assert signed.witnesses
+    assert signed.rlp() == unsigned_rlp
+    assert signed.rlp_signing_bytes()[:2] == bytes([6, 0])
+    assert signed.rlp_signing_bytes()[2:] == unsigned_rlp[1:]
+
+
+def test_frame_tx_claims_copied() -> None:
+    """
+    Claims passed in are copied, so signing a transaction never modifies a
+    claim shared with the caller or another transaction.
     """
     sender = EOA(key=SIGNING_KEY)
-    entry = FrameSignature(signer=sender)
-    first = Transaction(
-        sender=sender, frames=[Frame.verify()], signatures=[entry]
-    )
+    claim = Claim(signer=sender)
+    first = Transaction(sender=sender, frames=[Frame.verify()], claims=[claim])
     second = Transaction(
         sender=sender,
         frames=[Frame.verify(), Frame.default()],
-        signatures=[entry, EOA(key=OTHER_KEY)],
+        claims=[claim, EOA(key=OTHER_KEY)],
     )
-    first.rlp()
-    second.rlp()
-    assert first.signatures is not None and second.signatures is not None
-    assert first.signatures[0] is not entry
-    assert len(entry.signature) == 0
-    assert first.signatures[0].signature != second.signatures[0].signature
+    first_witnesses = first.with_signature_and_sender().witnesses
+    second_witnesses = second.with_signature_and_sender().witnesses
+    assert first.claims is not None
+    assert first.claims[0] is not claim
+    assert claim.witness is None
+    assert first_witnesses is not None and second_witnesses is not None
+    assert first_witnesses[0] != second_witnesses[0]
 
 
 @pytest.mark.parametrize(

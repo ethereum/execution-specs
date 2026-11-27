@@ -118,7 +118,7 @@ def transfer_exceeding_balance(
                 outcome=FrameOutcome.REVERT,
             ),
         ],
-        signatures=[sender, payer],
+        claims=[sender, payer],
     ).resolve_frames(fork, payer=payer)
     post = {
         sender: Account(nonce=1, balance_change=0),

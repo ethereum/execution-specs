@@ -134,9 +134,9 @@ def _required_max_fee(fork: Fork) -> int:
     counterpart of the intrinsic gas.
     """
     tx = _tx(fork, 6)
-    assert tx.frames is not None and tx.signatures is not None
+    assert tx.frames is not None and tx.claims is not None
     max_gas = fork.frame_transaction_intrinsic_cost_calculator()(
-        frames=tx.frames, signatures=tx.signatures, sender=tx.sender
+        frames=tx.frames, claims=tx.claims, sender=tx.sender
     )
     return max_gas * BASE_FEE_PER_GAS
 

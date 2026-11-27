@@ -22,12 +22,12 @@ from execution_testing import (
     TransactionException,
 )
 
+from .claim_helpers import canonical_claim
 from .helpers import (
     BASE_FEE,
     PRIORITY_FEE,
     fee_budget,
 )
-from .signature_helpers import canonical_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -101,7 +101,6 @@ def test_sender_balance_covers_max_cost(
     tx = Transaction(
         sender=sender,
         frames=frames,
-        signatures=[canonical_entry(sender)],
         max_fee=max_fee,
         max_priority_fee_per_gas=priority_fee,
         error=(
@@ -155,14 +154,14 @@ def test_payer_balance_covers_max_cost(
         Frame.verify(flags=Spec.APPROVE_EXECUTION),
         Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
     ]
-    signatures = [canonical_entry(sender), canonical_entry(payer)]
-    max_cost = fee_budget(fork, sender, frames, signatures).max_cost
+    claims = [canonical_claim(sender), canonical_claim(payer)]
+    max_cost = fee_budget(fork, sender, frames, claims).max_cost
     pre.fund_address(payer, max_cost + balance_delta)
 
     tx = Transaction(
         sender=sender,
         frames=frames,
-        signatures=signatures,
+        claims=claims,
         error=(
             TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
             if balance_delta
@@ -211,8 +210,7 @@ def test_payment_approval_reads_balance_after_transfer(
     """
     Test that a payment approval reads the sender's balance after an
     earlier `SENDER` frame's transfer: what is left must cover
-    `max_cost`. The sender's entry is given twice, since the
-    payment-only frame reads index 1.
+    `max_cost`.
     """
     sender = pre.fund_eoa(amount=0)
     recipient = pre.deploy_contract(code=Op.STOP)
@@ -222,14 +220,14 @@ def test_payment_approval_reads_balance_after_transfer(
         Frame.sender(target=recipient, value=transfer_value, code=Op.STOP),
         Frame.verify(flags=Spec.APPROVE_PAYMENT),
     ]
-    signatures = [canonical_entry(sender), canonical_entry(sender)]
-    max_cost = fee_budget(fork, sender, frames, signatures).max_cost
+    claims = [canonical_claim(sender)]
+    max_cost = fee_budget(fork, sender, frames, claims).max_cost
     pre.fund_address(sender, transfer_value + max_cost + balance_delta)
 
     tx = Transaction(
         sender=sender,
         frames=frames,
-        signatures=signatures,
+        claims=claims,
         error=(
             TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
             if balance_delta
@@ -299,14 +297,14 @@ def test_payment_approval_reads_balance_after_top_up(
         # The donor's `CALL` has already accessed the payer.
         Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer, warm=True),
     ]
-    signatures = [canonical_entry(sender), canonical_entry(payer)]
-    max_cost = fee_budget(fork, sender, frames, signatures).max_cost
+    claims = [canonical_claim(sender), canonical_claim(payer)]
+    max_cost = fee_budget(fork, sender, frames, claims).max_cost
     pre.fund_address(payer, max_cost - 1)
 
     tx = Transaction(
         sender=sender,
         frames=frames,
-        signatures=signatures,
+        claims=claims,
         error=(
             None
             if top_up

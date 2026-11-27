@@ -16,12 +16,12 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
+    Claim,
     CodeGasMeasure,
     Conditional,
     Environment,
     Fork,
     Frame,
-    FrameSignature,
     GasFee,
     Op,
     Opcode,
@@ -30,13 +30,13 @@ from execution_testing import (
     TransactionException,
 )
 
+from .claim_helpers import canonical_claim, signed_digest_claim
 from .helpers import (
     APPROVE_ALL,
     BASE_FEE,
     PRIORITY_FEE,
     fee_budget,
 )
-from .signature_helpers import canonical_entry, signed_digest_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -49,14 +49,6 @@ FUNDS = 10**18
 
 FRAME_GAS = 400_000
 """Execution gas budget of the frames whose code makes nested calls."""
-
-PLACEHOLDER_ENTRY = FrameSignature(
-    scheme=Spec.SCHEME_ARBITRARY, signature=Bytes(b"\x01")
-)
-"""
-Entry 0 of a contract sender's sponsored transaction: only the payer's
-entry 1 is read, and an `ARBITRARY` entry needs no validation.
-"""
 
 
 @pytest.mark.parametrize(
@@ -235,10 +227,10 @@ def test_split_approval_order(
         sender=sender,
         nonce=1,
         frames=frames,
-        # Both cases carry the same entries, so only the approval order
+        # Both cases carry the same claims, so only the approval order
         # differs; `execution_then_payment` has no sponsor frame and
-        # never reads entry 1.
-        signatures=[PLACEHOLDER_ENTRY, canonical_entry(payer)],
+        # never checks the payer's claim.
+        claims=[canonical_claim(payer)],
     ).resolve_frames(fork, payer=sender if execution_first else payer)
 
     state_test(
@@ -289,12 +281,12 @@ def test_second_payment_approval_refused(
         state_gas_used=record.state_cost(fork),
     )
 
-    signatures = [canonical_entry(sender)]
+    claims = [canonical_claim(sender)]
     if sponsor_pays_first:
-        # A codeless sponsor approves through default code, which reads
-        # the entry at index 1.
+        # A codeless sponsor approves through default code, which checks
+        # for its claim.
         first_payer = pre.fund_eoa(amount=FUNDS)
-        signatures.append(canonical_entry(first_payer))
+        claims.append(canonical_claim(first_payer))
         frames = [
             Frame.verify(flags=Spec.APPROVE_EXECUTION),
             Frame.verify(flags=Spec.APPROVE_PAYMENT, target=first_payer),
@@ -307,7 +299,7 @@ def test_second_payment_approval_refused(
     tx = Transaction(
         sender=sender,
         frames=frames,
-        signatures=signatures,
+        claims=claims,
     ).resolve_frames(fork, payer=first_payer)
 
     state_test(
@@ -373,7 +365,7 @@ def test_execution_approval_refused_once_granted(
             ),
             Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
         ],
-        signatures=[PLACEHOLDER_ENTRY, canonical_entry(payer)],
+        claims=[canonical_claim(payer)],
     ).resolve_frames(fork, payer=payer)
 
     state_test(
@@ -485,7 +477,7 @@ def test_scope_beyond_frame_flags_refused(
         sender=sender,
         nonce=1,
         frames=frames,
-        signatures=[PLACEHOLDER_ENTRY, canonical_entry(payer)],
+        claims=[canonical_claim(payer)],
     ).resolve_frames(fork, payer=payer if execution_first else sender)
 
     state_test(
@@ -566,14 +558,14 @@ def test_default_code_approval_refusals(
         else Frame.verify(flags=scope)
         for scope in scopes
     ]
-    signatures = [canonical_entry(sender)]
+    claims = [canonical_claim(sender)]
     if Spec.APPROVE_PAYMENT in scopes:
-        # The payer's default code reads the entry at index 1.
-        signatures.append(canonical_entry(payer))
+        # The payer's default code checks for the payer's claim.
+        claims.append(canonical_claim(payer))
     tx = Transaction(
         sender=sender,
         frames=frames,
-        signatures=signatures,
+        claims=claims,
         error=(
             TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
             if refused
@@ -608,48 +600,46 @@ def test_default_code_approval_refusals(
         ),
     ],
 )
-def test_default_code_refuses_explicit_digest_entry(
+def test_default_code_refuses_explicit_digest_claim(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     scope: int,
 ) -> None:
     """
-    Test that default code refuses an authorizing entry signed over an
-    explicit digest rather than the canonical signature hash. The entry
-    is a valid secp256k1 signature from the frame's target, so only its
+    Test that default code refuses a claim over an explicit digest rather
+    than the canonical signature hash. The claim is a satisfied
+    `SECP256K1_VERIFIER` claim keyed by the frame's target, so only its
     `msg` sets it apart from an authorizing one.
     """
     sender = pre.fund_eoa(amount=FUNDS)
     payer = pre.fund_eoa(amount=FUNDS)
 
-    def digest_entry(account: EOA) -> FrameSignature:
-        """Return an entry from `account` over an explicit digest."""
+    def digest_claim(account: EOA) -> Claim:
+        """Return a claim by `account` over an explicit digest."""
         assert account.key is not None
-        return signed_digest_entry(account.key, signer=Bytes(account))
+        return signed_digest_claim(account.key)
 
     sponsored = [
         Frame.verify(flags=Spec.APPROVE_EXECUTION),
         Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
     ]
     if scope == Spec.APPROVE_EXECUTION:
-        # The sender's default code reads the entry at index 0.
         frames = sponsored
-        signatures = [digest_entry(sender), canonical_entry(payer)]
+        claims = [digest_claim(sender), canonical_claim(payer)]
     elif scope == Spec.APPROVE_PAYMENT:
-        # The payer's default code reads the entry at index 1.
         frames = sponsored
-        signatures = [canonical_entry(sender), digest_entry(payer)]
+        claims = [canonical_claim(sender), digest_claim(payer)]
     elif scope == Spec.APPROVE_EXECUTION_AND_PAYMENT:
         frames = [Frame.verify()]
-        signatures = [digest_entry(sender)]
+        claims = [digest_claim(sender)]
     else:
         raise ValueError(f"unknown scope: {scope}")
 
     tx = Transaction(
         sender=sender,
         frames=frames,
-        signatures=signatures,
+        claims=claims,
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     ).resolve_frames(fork, payer=payer if frames is sponsored else sender)
 
@@ -853,7 +843,7 @@ def test_default_code_approves_only_in_verify_frame(
             Frame.verify(flags=Spec.APPROVE_EXECUTION),
             Frame(mode=mode, flags=Spec.APPROVE_PAYMENT, target=payer),
         ],
-        signatures=[canonical_entry(sender), canonical_entry(payer)],
+        claims=[canonical_claim(sender), canonical_claim(payer)],
         error=(
             None
             if approves
@@ -895,15 +885,15 @@ def test_max_cost_collected_at_payment_approval(
                 state_gas_used=probe_code.state_cost(fork),
             ),
         ],
-        signatures=[canonical_entry(sender), canonical_entry(payer)],
+        claims=[canonical_claim(sender), canonical_claim(payer)],
     ).resolve_frames(fork, payer=payer)
-    assert tx.frames is not None and tx.signatures is not None
+    assert tx.frames is not None and tx.claims is not None
     assert tx.max_fee is not None
     max_cost = fee_budget(
         fork,
         sender,
         tx.frames,
-        tx.signatures,
+        tx.claims,
         max_priority_fee_per_gas=PRIORITY_FEE,
         max_fee=int(tx.max_fee),
     ).max_cost
@@ -957,13 +947,13 @@ def test_max_cost_collected_within_approving_frame(
             ),
         ],
     ).resolve_frames(fork)
-    assert tx.frames is not None and tx.signatures is not None
+    assert tx.frames is not None and tx.claims is not None
     assert tx.max_fee is not None
     max_cost = fee_budget(
         fork,
         sender,
         tx.frames,
-        tx.signatures,
+        tx.claims,
         max_priority_fee_per_gas=PRIORITY_FEE,
         max_fee=int(tx.max_fee),
     ).max_cost
@@ -1037,7 +1027,7 @@ def test_sender_creation_shortfall_halts_payment_approval(
                 state_gas_used=new_account_gas,
             ),
         ],
-        signatures=[canonical_entry(sender), canonical_entry(second_payer)],
+        claims=[canonical_claim(sender), canonical_claim(second_payer)],
     ).resolve_frames(fork, payer=second_payer)
 
     state_test(

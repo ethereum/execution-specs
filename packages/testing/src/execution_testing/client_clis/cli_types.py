@@ -552,6 +552,8 @@ class Result(CamelModel):
     requests: List[Bytes] | None = None
     block_access_list: Bytes | None = None
     block_access_list_hash: Hash | None = None
+    dependency_proof_hash: Hash | None = None
+    dependency_proof: Bytes | None = None
     # Header fields a block builder may choose itself. A transition tool
     # uses the values it is given and leaves these unset; a client that
     # seals the block reports what it chose, and the hash it sealed.

@@ -6140,71 +6140,38 @@ class Opcodes(Opcode, Enum):
     Gas: 2
     """
 
-    SIGPARAM = Opcode(
+    HASCLAIM = Opcode(
         0xB4,
-        popped_stack_items=2,
+        popped_stack_items=3,
         pushed_stack_items=1,
-        kwargs=["signature_index", "param"],
+        kwargs=["verifier", "key", "msg"],
     )
     """
-    SIGPARAM(signature_index, param)
+    HASCLAIM(verifier, key, msg)
     ----
 
     Description
     ----
-    Push signature-scoped metadata of the chosen signature entry of the
-    executing EIP-8141 frame transaction (effective signer, scheme,
-    msg, signature length — the last for ARBITRARY entries only).
+    Push 1 if the executing EIP-8141 frame transaction declares a claim
+    by `verifier` whose resolved key is `key` and whose message is
+    `msg`, where a zero `msg` matches claims over the canonical
+    signature hash; push 0 otherwise.
 
     Inputs
     ----
-    - signature_index: index of the signature entry
-    - param: parameter selector (0x00-0x03)
+    - verifier: verifier address, left-padded to 32 bytes
+    - key: resolved key of the claim
+    - msg: explicit message of the claim, or 0 for the signature hash
 
     Outputs
     ----
-    - value: the requested signature parameter
+    - matched: 1 if a matching claim exists, 0 otherwise
 
     Fork
     ----
     Bogota
 
-    Gas: 2
-    """
-
-    SIGDATACOPY = Opcode(
-        0xB5,
-        popped_stack_items=4,
-        pushed_stack_items=0,
-        kwargs=["dest_offset", "offset", "size", "signature_index"],
-        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
-    )
-    """
-    SIGDATACOPY(dest_offset, offset, size, signature_index)
-    ----
-
-    Description
-    ----
-    Copy an ARBITRARY signature entry's raw signature bytes into memory
-    with CALLDATACOPY semantics (EIP-8141). Exceptionally halts for a
-    protocol-validated entry or an out-of-bounds index.
-
-    Inputs
-    ----
-    - dest_offset: byte offset in memory to copy to
-    - offset: byte offset in the signature bytes to copy from
-    - size: number of bytes to copy
-    - signature_index: index of the signature entry
-
-    Outputs
-    ----
-    None
-
-    Fork
-    ----
-    Bogota
-
-    Gas: 3 + 3 * ceil(size / 32) (plus memory expansion)
+    Gas: 3
     """
 
 

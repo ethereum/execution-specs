@@ -74,7 +74,7 @@ SPECIAL_CASED = {Op.REVERT}
 # transaction. This test's legacy transaction halts them before they
 # touch memory, so the success flag observes nothing; the frame
 # transaction suite prices them.
-FRAME_TRANSACTION_ONLY = {Op.APPROVE, Op.FRAMEDATACOPY, Op.SIGDATACOPY}
+FRAME_TRANSACTION_ONLY = {Op.APPROVE, Op.FRAMEDATACOPY}
 
 
 def operations_by_fork(fork: Fork) -> Generator[str, None, None]:

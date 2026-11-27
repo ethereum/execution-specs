@@ -209,22 +209,25 @@ class FrameGasInfo(Protocol):
         ...
 
 
-class FrameSignatureGasInfo(Protocol):
+class ClaimGasInfo(Protocol):
     """
-    Structural view of an EIP-8141 signature entry's contribution to
-    the transaction's intrinsic gas. The test ``FrameSignature``
-    satisfies it via its ``scheme``, ``signer``, ``msg``, and
-    ``signature`` fields.
+    Structural view of an EIP-8141 claim's contribution to the
+    transaction's intrinsic gas. The test ``Claim`` satisfies it via its
+    ``verifier``, ``key``, ``msg``, ``gas_limit`` and ``witness_len``
+    fields.
     """
 
     @property
-    def scheme(self) -> int:
-        """Return the signature scheme, charged per its verification."""
+    def verifier(self) -> BytesConvertible:
+        """
+        Return the verifier address, priced as calldata and deciding the
+        verification gas and witness length of a protocol verifier.
+        """
         ...
 
     @property
-    def signer(self) -> BytesConvertible:
-        """Return the signer bytes, priced as calldata."""
+    def key(self) -> BytesConvertible:
+        """Return the key bytes, priced as calldata."""
         ...
 
     @property
@@ -233,19 +236,13 @@ class FrameSignatureGasInfo(Protocol):
         ...
 
     @property
-    def signature(self) -> BytesConvertible:
-        """
-        Return the raw signature bytes, priced as calldata when `msg` is
-        not empty.
-        """
+    def gas_limit(self) -> int:
+        """Return the verification gas of a custom verifier."""
         ...
 
     @property
-    def signature_length(self) -> int:
-        """
-        Return the length of the raw signature bytes, which prices an
-        empty-`msg` entry and is known before the entry is signed.
-        """
+    def witness_len(self) -> int:
+        """Return the witness length of a custom verifier."""
         ...
 
 
@@ -260,13 +257,13 @@ class FrameTransactionIntrinsicCostCalculator(Protocol):
         self,
         *,
         frames: Sequence[FrameGasInfo] | int,
-        signatures: Sequence[FrameSignatureGasInfo] = (),
+        claims: Sequence[ClaimGasInfo] = (),
         sender: BytesConvertible | None = None,
         return_cost_deducted_prior_execution: bool = False,
     ) -> int:
         """
         Return the intrinsic gas cost of a frame transaction given its
-        frames and signature entries.
+        frames and claims.
 
         Args:
           frames: The transaction's frames; their `data` is priced as
@@ -276,10 +273,9 @@ class FrameTransactionIntrinsicCostCalculator(Protocol):
                   An integer stands for that many frames carrying no
                   data, no value and, for the derived gas limit, no
                   frame gas.
-          signatures: The transaction's signature entries as included
-                      on the wire. For an exact cost the raw
-                      `signature` bytes must already be filled in, so
-                      sign the transaction first.
+          claims: The transaction's claims. Their witnesses are priced
+                  by their resolved length alone, so the transaction
+                  need not be signed.
           sender: The transaction's sender; a value-bearing frame is
                   charged the value transfer cost only when its
                   explicit target differs from the sender. May be
@@ -320,13 +316,13 @@ class FrameTransactionDataFloorCostCalculator(Protocol):
         self,
         *,
         frames: Sequence[FrameGasInfo] | int,
-        signatures: Sequence[FrameSignatureGasInfo] = (),
+        claims: Sequence[ClaimGasInfo] = (),
         sender: BytesConvertible | None = None,
     ) -> int:
         """
         Return the calldata floor anchor of a frame transaction given
-        its frames and signature entries: every charged byte — frame
-        `data` and signature entry bytes — is counted uniformly at the
+        its frames and claims: every charged byte — frame `data`, claim
+        fields and witness bytes — is counted uniformly at the
         floor price on top of the costs the transaction always pays
         regardless of execution, including the value transfer cost of
         each value-bearing frame whose explicit target differs from
@@ -788,6 +784,15 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @abstractmethod
     def header_slot_number_required(cls) -> bool:
         """Return true if the header must contain slot number (EIP-7843)."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def header_dependency_proof_required(cls) -> bool:
+        """
+        Return true if the header must commit to a dependency proof
+        (EIP-8141).
+        """
         pass
 
     # Gas related abstract methods

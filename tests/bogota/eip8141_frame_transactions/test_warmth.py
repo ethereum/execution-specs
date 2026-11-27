@@ -346,7 +346,7 @@ def test_payer_warm_after_default_code_payment_approval(
             Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
             probe_frame(probe_address, probe),
         ],
-        signatures=[sender, payer],
+        claims=[sender, payer],
     ).resolve_frames(fork, payer=payer)
 
     state_test(

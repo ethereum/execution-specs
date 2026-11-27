@@ -118,18 +118,6 @@ from ..helpers import Fork
             + Bogota.memory_expansion_gas_calculator()(new_bytes=32),
             id="framedatacopy_one_word",
         ),
-        pytest.param(
-            Bogota,
-            Op.SIGDATACOPY(
-                data_size=64, new_memory_size=64, old_memory_size=32
-            ),
-            Bogota.gas_costs().VERY_LOW
-            + Bogota.gas_costs().OPCODE_COPY_PER_WORD * 2
-            + Bogota.memory_expansion_gas_calculator()(
-                new_bytes=64, previous_bytes=32
-            ),
-            id="sigdatacopy_expansion",
-        ),
         # CODECOPY tests
         pytest.param(
             Osaka,

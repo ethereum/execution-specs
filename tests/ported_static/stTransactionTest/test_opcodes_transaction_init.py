@@ -512,15 +512,8 @@ CASES: dict[Opcodes, Case] = {
         terminates=True,
         discarded=True,
     ),
-    Op.SIGPARAM: Case(
-        Op.SIGPARAM(signature_index=0x0, param=0x0),
-        terminates=True,
-        discarded=True,
-    ),
-    Op.SIGDATACOPY: Case(
-        Op.SIGDATACOPY(
-            dest_offset=0x0, offset=0x0, size=0x0, signature_index=0x0
-        ),
+    Op.HASCLAIM: Case(
+        Op.HASCLAIM(verifier=0x0, key=0x0, msg=0x0),
         terminates=True,
         discarded=True,
     ),

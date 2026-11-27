@@ -2,9 +2,10 @@
 Tests for the introspection instructions of
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
 
-`TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY`, `FRAMEPARAM`, `SIGPARAM`
-and `SIGDATACOPY` are exercised from a `DEFAULT` frame that stores what
-it reads, so the post state pins the value each selector returns.
+`TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY` and `FRAMEPARAM` are
+exercised from a `DEFAULT` frame that stores what it reads, so the post
+state pins the value each selector returns. `HASCLAIM` is covered in
+`test_claims.py`.
 """
 
 from typing import List
@@ -19,9 +20,9 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Bytes,
+    Claim,
     Fork,
     Frame,
-    FrameSignature,
     Op,
     Signer,
     StateTestFiller,
@@ -53,13 +54,11 @@ default so a probe reading its own frame's budget pins the right one.
 MAX_PRIORITY_FEE = 7
 MAX_FEE = 1_000_000_000
 
-ARBITRARY_WITNESS = Bytes(b"\xab" * 5)
-
 
 def probe_transaction(
     sender: EOA,
     probe: Address,
-    signatures: List[FrameSignature | Signer] | None = None,
+    claims: List[Claim | Signer] | None = None,
 ) -> Transaction:
     """
     Return a two frame transaction: a `VERIFY` frame approving through
@@ -79,7 +78,7 @@ def probe_transaction(
                 data=PROBE_FRAME_DATA,
             ),
         ],
-        signatures=signatures,
+        claims=claims,
     )
 
 
@@ -97,7 +96,6 @@ def probe_transaction(
         pytest.param(Spec.TXPARAM_BLOB_COUNT, 0, id="blob_count"),
         pytest.param(Spec.TXPARAM_FRAME_COUNT, 2, id="frame_count"),
         pytest.param(Spec.TXPARAM_CURRENT_FRAME_INDEX, 1, id="frame_index"),
-        pytest.param(Spec.TXPARAM_SIGNATURE_COUNT, 1, id="signature_count"),
     ],
 )
 def test_txparam(
@@ -126,43 +124,30 @@ def test_txparam_sender_and_sig_hash(
     """
     Read the sender and the canonical signature hash through `TXPARAM`.
 
-    The canonical hash covers the raw signature bytes of the entry
-    signing it, so its value is not known when the test is authored and
-    the probe can only pin that it reads back nonzero. The `msg`
-    readback of an explicit-digest entry, by contrast, is pinned to the
-    exact digest the entry was verified over.
+    The transaction carries no witness bytes, so the canonical hash is
+    known before any claim is signed: `keccak(0x06 || 0x00 || rlp(tx))`,
+    which differs from the transaction hash by the `0x00` byte.
     """
-    explicit_msg = Bytes(b"\x5a" * 32)
     sender = pre.fund_eoa()
     probe = pre.deploy_contract(
         code=Op.SSTORE(SLOT_RESULT, Op.TXPARAM(Spec.TXPARAM_SENDER))
-        + Op.SSTORE(
-            SLOT_RESULT + 1,
-            Op.ISZERO(Op.TXPARAM(Spec.TXPARAM_SIG_HASH)),
-        )
-        + Op.SSTORE(SLOT_RESULT + 2, Op.SIGPARAM(1, Spec.SIGPARAM_MSG))
+        + Op.SSTORE(SLOT_RESULT + 1, Op.TXPARAM(Spec.TXPARAM_SIG_HASH))
         + Op.STOP
     )
+    tx = probe_transaction(sender, probe)
+    sig_hash = Bytes(
+        bytes([Spec.FRAME_TX_TYPE, 0x00]) + tx.rlp()[1:]
+    ).keccak256()
+    assert sig_hash != tx.hash
 
     state_test(
         pre=pre,
-        tx=probe_transaction(
-            sender,
-            probe,
-            signatures=[
-                sender,
-                FrameSignature(
-                    signer=sender,
-                    msg=explicit_msg,
-                ),
-            ],
-        ),
+        tx=tx,
         post={
             probe: Account(
                 storage={
                     SLOT_RESULT: sender,
-                    SLOT_RESULT + 1: 0,
-                    SLOT_RESULT + 2: int.from_bytes(explicit_msg, "big"),
+                    SLOT_RESULT + 1: int.from_bytes(sig_hash, "big"),
                 }
             )
         },
@@ -502,25 +487,17 @@ def test_frameparam_halts(
             Op.POP(Op.TXPARAM(0x06)),
             id="txparam_removed_max_cost",
         ),
+        # The signature count selector was removed with the signature
+        # list.
         pytest.param(
-            Op.POP(Op.SIGPARAM(0, 0x04)),
-            id="sigparam_undefined_copy_param",
+            Op.POP(Op.TXPARAM(0x0B)),
+            id="txparam_removed_signature_count",
         ),
+        # `SIGDATACOPY` was removed with the signature list, and no
+        # instruction took its opcode.
         pytest.param(
-            Op.POP(Op.SIGPARAM(0, 0x05)),
-            id="sigparam_undefined_param",
-        ),
-        pytest.param(
-            Op.POP(Op.SIGPARAM(0, Spec.SIGPARAM_SIGNATURE_LENGTH)),
-            id="sigparam_length_of_protocol_validated_entry",
-        ),
-        pytest.param(
-            Op.POP(Op.SIGPARAM(1, Spec.SIGPARAM_SCHEME)),
-            id="sigparam_signature_index_out_of_bounds",
-        ),
-        pytest.param(
-            Op.SIGDATACOPY(0, 0, 32, 1),
-            id="sigdatacopy_signature_index_out_of_bounds",
+            Bytecode(b"\xb5", popped_stack_items=0, pushed_stack_items=0),
+            id="removed_sigdatacopy",
         ),
         pytest.param(
             Op.POP(Op.FRAMEDATALOAD(0, 2)),
@@ -538,18 +515,14 @@ def test_introspection_halts(
     halting_read: Bytecode,
 ) -> None:
     """
-    `TXPARAM`, `SIGPARAM`, `SIGDATACOPY`, `FRAMEDATALOAD` and
-    `FRAMEDATACOPY` halt exceptionally on undefined selectors, out of
-    bounds indices, and the signature length of a protocol-validated
-    entry — the raw signature bytes the protocol validates are not
-    introspectable, their length included. `SIGPARAM`'s former copy
-    selector (`0x04`) is undefined. The halt fails the frame without
+    `TXPARAM`, `FRAMEDATALOAD` and `FRAMEDATACOPY` halt exceptionally on
+    undefined selectors and out of bounds indices, and the opcode of the
+    removed `SIGDATACOPY` is undefined. The halt fails the frame without
     invalidating the transaction, because the frame does not run in
     `VERIFY` mode.
 
-    The probe transaction carries two frames and one protocol-validated
-    signature entry, so frame index 2 and signature index 1 are the
-    first indices out of bounds. The probe writes a marker before the
+    The probe transaction carries two frames, so frame index 2 is the
+    first index out of bounds. The probe writes a marker before the
     halting read, so a read that returned a value instead of halting
     would leave the marker behind.
     """
@@ -637,180 +610,5 @@ def test_framedatacopy(
                     ),
                 }
             )
-        },
-    )
-
-
-@pytest.mark.parametrize(
-    "signature_index,param,expected",
-    [
-        pytest.param(
-            0,
-            Spec.SIGPARAM_SCHEME,
-            Spec.SCHEME_SECP256K1,
-            id="secp256k1_scheme",
-        ),
-        pytest.param(0, Spec.SIGPARAM_MSG, 0, id="canonical_hash_msg"),
-        pytest.param(
-            1,
-            Spec.SIGPARAM_SCHEME,
-            Spec.SCHEME_ARBITRARY,
-            id="arbitrary_scheme",
-        ),
-        pytest.param(
-            1,
-            Spec.SIGPARAM_SIGNATURE_LENGTH,
-            len(ARBITRARY_WITNESS),
-            id="arbitrary_length",
-        ),
-    ],
-)
-def test_sigparam(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    signature_index: int,
-    param: int,
-    expected: int,
-) -> None:
-    """Read signature scoped metadata through `SIGPARAM`."""
-    sender = pre.fund_eoa()
-    probe = pre.deploy_contract(
-        code=Op.SSTORE(SLOT_RESULT, Op.SIGPARAM(signature_index, param))
-        + Op.STOP
-    )
-
-    state_test(
-        pre=pre,
-        tx=probe_transaction(
-            sender,
-            probe,
-            signatures=[
-                sender,
-                FrameSignature(
-                    scheme=Spec.SCHEME_ARBITRARY, signature=ARBITRARY_WITNESS
-                ),
-            ],
-        ),
-        post={probe: Account(storage={SLOT_RESULT: expected})},
-    )
-
-
-def test_sigparam_resolved_signer(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Read the resolved signer of a protocol-validated entry through
-    `SIGPARAM`, and check the same read against an `ARBITRARY` entry
-    halts the frame instead: the protocol assigns no signer to bytes
-    it does not validate.
-
-    The refused probe writes a marker before the halting read, so a
-    read that returned a value instead of halting would leave the
-    marker behind.
-    """
-    sender = pre.fund_eoa()
-    resolved = pre.deploy_contract(
-        code=Op.SSTORE(
-            SLOT_RESULT, Op.SIGPARAM(0, Spec.SIGPARAM_RESOLVED_SIGNER)
-        )
-        + Op.STOP
-    )
-    refused = pre.deploy_contract(
-        code=Op.SSTORE(SLOT_RESULT, 0xFF)
-        + Op.POP(Op.SIGPARAM(1, Spec.SIGPARAM_RESOLVED_SIGNER))
-        + Op.STOP
-    )
-
-    tx = Transaction(
-        sender=sender,
-        max_priority_fee_per_gas=MAX_PRIORITY_FEE,
-        max_fee=MAX_FEE,
-        frames=[
-            Frame.verify(),
-            Frame.default(
-                target=resolved,
-                gas_limit=PROBE_FRAME_GAS,
-            ),
-            Frame.default(
-                target=refused,
-                gas_limit=PROBE_FRAME_GAS,
-            ),
-        ],
-        signatures=[
-            sender,
-            FrameSignature(
-                scheme=Spec.SCHEME_ARBITRARY, signature=ARBITRARY_WITNESS
-            ),
-        ],
-    )
-
-    state_test(
-        pre=pre,
-        tx=tx,
-        post={
-            resolved: Account(storage={SLOT_RESULT: sender}),
-            refused: Account(storage={SLOT_RESULT: 0}),
-        },
-    )
-
-
-def test_sigdatacopy(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Copy an `ARBITRARY` entry's raw signature bytes into memory
-    through `SIGDATACOPY`, including the zero fill past the end of the
-    signature, and check that the same copy against a protocol
-    validated entry halts the frame instead.
-    """
-    sender = pre.fund_eoa()
-    copied = pre.deploy_contract(
-        code=Op.SIGDATACOPY(0, 0, 32, 1)
-        + Op.SSTORE(SLOT_RESULT, Op.MLOAD(0))
-        + Op.STOP
-    )
-    refused = pre.deploy_contract(
-        code=Op.SIGDATACOPY(0, 0, 32, 0) + Op.SSTORE(SLOT_RESULT, 1) + Op.STOP
-    )
-
-    signatures = [
-        sender,
-        FrameSignature(
-            scheme=Spec.SCHEME_ARBITRARY, signature=ARBITRARY_WITNESS
-        ),
-    ]
-
-    tx = Transaction(
-        sender=sender,
-        max_priority_fee_per_gas=MAX_PRIORITY_FEE,
-        max_fee=MAX_FEE,
-        frames=[
-            Frame.verify(),
-            Frame.default(
-                target=copied,
-                gas_limit=PROBE_FRAME_GAS,
-            ),
-            Frame.default(
-                target=refused,
-                gas_limit=PROBE_FRAME_GAS,
-            ),
-        ],
-        signatures=signatures,
-    )
-
-    state_test(
-        pre=pre,
-        tx=tx,
-        post={
-            copied: Account(
-                storage={
-                    SLOT_RESULT: int.from_bytes(
-                        bytes(ARBITRARY_WITNESS).ljust(32, b"\x00"), "big"
-                    )
-                }
-            ),
-            refused: Account(storage={SLOT_RESULT: 0}),
         },
     )

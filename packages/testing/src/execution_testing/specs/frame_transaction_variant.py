@@ -79,7 +79,7 @@ FRAME_INTRINSIC_HEADROOM = 150_000
 """
 Execution gas reserved out of the EIP-7825 cap for everything beyond
 the ``SENDER`` frame's budget and the calldata cost: the VERIFY
-frame's budget and the base, per-frame, and signature intrinsic
+frame's budget and the base, per-frame, and claim intrinsic
 charges.
 """
 
@@ -225,7 +225,7 @@ def as_frame_transaction(
 
     The rewrite builds a fresh ``Transaction`` rather than copying:
     a model copy round-trips through serialization and loses the
-    sender's private key, which the frame signature derivation needs.
+    sender's private key, which signing the claim witness needs.
     """
     if int(tx.ty) == FRAME_TRANSACTION_TYPE:
         skip_frame_variant("the transaction is already a frame transaction")
@@ -244,7 +244,7 @@ def as_frame_transaction(
     if tx.error is not None:
         skip_frame_variant("transaction-validity errors do not carry over")
     if tx.sender is None or tx.sender.key is None:
-        skip_frame_variant("frame signatures need the sender's key")
+        skip_frame_variant("frame claims need the sender's key")
     if "state_gas_reservoir" in tx.model_fields_set:
         skip_frame_variant("frame budgets replace the state gas reservoir")
     if pre is not None:

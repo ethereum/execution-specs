@@ -502,7 +502,7 @@ def test_default_code_entry_gas_shortfall(
                 gas_limit_delta=0 if affordable else -1,
             ),
         ],
-        signatures=[sender, payer],
+        claims=[sender, payer],
         error=(
             None
             if affordable

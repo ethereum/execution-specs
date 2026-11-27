@@ -80,9 +80,9 @@ class GasCosts:
     # transactions are introduced.
     TX_FRAME_INTRINSIC: int = 0
     TX_PER_FRAME: int = 0
-    FRAME_SIGNATURE_SCHEME_ARBITRARY: int = 0
-    FRAME_SIGNATURE_SCHEME_SECP256K1: int = 0
-    FRAME_SIGNATURE_SCHEME_P256: int = 0
+    SECP256K1_VERIFICATION: int = 0
+    P256_VERIFICATION: int = 0
+    LEANSPHINCS_VERIFICATION: int = 0
 
     # Refunds
     REFUND_STORAGE_CLEAR: int
