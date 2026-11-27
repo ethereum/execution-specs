@@ -19,10 +19,9 @@ from execution_testing.forks.helpers import Fork
         pytest.param(0, True, id="no_blocks"),
         pytest.param(1, False, id="one_block_with_tx"),
         pytest.param(1, True, id="one_empty_block"),
-        pytest.param(256, True, id="256_empty_blocks"),
+        pytest.param(256, True, id="256_empty_blocks", marks=pytest.mark.slow),
     ],
 )
-@pytest.mark.slow()
 @pytest.mark.execute(
     pytest.mark.skip(reason="Requires a controlled chain starting at genesis")
 )
