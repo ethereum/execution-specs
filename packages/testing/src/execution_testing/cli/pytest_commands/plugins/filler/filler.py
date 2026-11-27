@@ -171,6 +171,7 @@ class FillingSession:
 
     fixture_output: FixtureOutput
     filling_phase: FixtureFillingPhase
+    formats: List[str] | None = None
     # Generate only each test's primary fixture format.
     primary_format_only: bool = False
     pre_alloc_groups: PreAllocGroups | None = None
@@ -196,9 +197,29 @@ class FillingSession:
             config: The pytest configuration object.
 
         """
+        formats_str = config.getoption("formats", None)
+
+        formats = None
+        if formats_str is not None:
+            formats = [f.strip() for f in formats_str.split(",") if f.strip()]
+            if not formats:
+                raise pytest.UsageError(
+                    "No valid fixture formats specified in --formats."
+                )
+
+            invalid_formats = set(formats) - set(BaseFixture.formats.keys())
+            if invalid_formats:
+                invalids = ", ".join(invalid_formats)
+                valids = ", ".join(BaseFixture.formats.keys())
+                raise pytest.UsageError(
+                    f"Invalid fixture format(s) specified: {invalids}. "
+                    f"Valid formats are: {valids}"
+                )
+
         return cls(
             fixture_output=FixtureOutput.from_config(config),
             filling_phase=cls.filling_phase_from_config(config),
+            formats=formats,
             primary_format_only=config.getoption("primary_format_only", False),
             pre_alloc_groups=None,
         )
@@ -281,6 +302,11 @@ class FillingSession:
             True if the format should be generated.
 
         """
+        if (
+            self.formats is not None
+            and fixture_format.format_name not in self.formats
+        ):
+            return False
         return self.filling_phase in fixture_format.format_phases
 
     def get_pre_alloc_group(
@@ -608,6 +634,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     test_group.addoption(
+        "--formats",
+        action="store",
+        dest="formats",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated list of fixture formats to generate. "
+            "Example: --formats=blockchain_test,blockchain_test_engine"
         "--primary-format-only",
         action="store_true",
         dest="primary_format_only",
