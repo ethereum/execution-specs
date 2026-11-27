@@ -215,8 +215,7 @@ class Ops(enum.Enum):
     FRAMEDATALOAD = 0xB1
     FRAMEDATACOPY = 0xB2
     FRAMEPARAM = 0xB3
-    SIGPARAM = 0xB4
-    SIGDATACOPY = 0xB5
+    HASCLAIM = 0xB4
 
     # System Operations
     CREATE = 0xF0
@@ -380,8 +379,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.FRAMEDATALOAD: frame_instructions.framedataload,
     Ops.FRAMEDATACOPY: frame_instructions.framedatacopy,
     Ops.FRAMEPARAM: frame_instructions.frameparam,
-    Ops.SIGPARAM: frame_instructions.sigparam,
-    Ops.SIGDATACOPY: frame_instructions.sigdatacopy,
+    Ops.HASCLAIM: frame_instructions.hasclaim,
     Ops.CREATE: system_instructions.create,
     Ops.RETURN: system_instructions.return_,
     Ops.CALL: system_instructions.call,

@@ -36,7 +36,12 @@ from ...utils.address import (
 )
 from ...vm.eoa_delegation import calculate_delegation_cost
 from .. import CALL_SUCCESS, Evm, emit_transfer_log, incorporate_child
-from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
+from ..exceptions import (
+    OutOfGasError,
+    PureContextViolation,
+    Revert,
+    WriteInStaticContext,
+)
 from ..gas import (
     GasCosts,
     GasMeter,
@@ -54,6 +59,7 @@ from ..gas import (
     withhold_create_gas,
 )
 from ..memory import memory_read_bytes, memory_write
+from ..precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from ..stack import pop, push
 
 
@@ -915,6 +921,11 @@ def staticcall(evm: Evm) -> None:
     memory_input_size = pop(evm.stack)
     memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
+
+    # In the pure context, the only accounts a verifier may call are
+    # the active precompiles.
+    if evm.tx_env.is_pure and to not in PRE_COMPILED_CONTRACTS:
+        raise PureContextViolation
 
     # GAS (STATE-INDEPENDENT)
     # Price what is computable without touching state, and check it is

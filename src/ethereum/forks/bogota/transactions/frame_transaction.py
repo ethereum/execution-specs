@@ -3,18 +3,20 @@ Frame transactions, the transaction type introduced in [EIP-8141].
 
 A frame transaction expresses validity conditions, gas payment, and
 execution as an explicit list of [`Frame`]s, each a unit of execution
-with its own mode, target, and gas limit. Signatures are carried
-alongside the frames in a list of [`FrameSignature`] entries that the
-protocol validates before any frame executes.
+with its own mode, target, and gas limit. Next to the frames, a list of
+declarative [`Claim`]s names what must have been verified before any
+frame executes. The witnesses that satisfy the claims are segregated:
+they are not part of the transaction, but travel in the block's
+dependency proof.
 
 [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
 [`Frame`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Frame
-[`FrameSignature`]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignature
+[`Claim`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Claim
 """  # noqa: E501
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from enum import STRICT
-from typing import TYPE_CHECKING, Final, Optional, Tuple, assert_never, final
+from typing import TYPE_CHECKING, Final, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -22,14 +24,8 @@ from ethereum_types.enum import UintEnum, UintFlag
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
-from ethereum.crypto.elliptic_curve import (
-    SECP256K1N,
-    SECP256R1N,
-    secp256k1_recover,
-    secp256r1_verify,
-)
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.exceptions import InvalidSignatureError, NonceOverflowError
+from ethereum.exceptions import NonceOverflowError
 from ethereum.state import Address
 
 from ..exceptions import (
@@ -51,6 +47,81 @@ Maximum number of [`Frame`]s allowed per [`FrameTransaction`][ftx].
 
 [`Frame`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Frame
 [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
+"""  # noqa: E501
+
+MAX_CLAIMS_PER_TX: Final[Uint] = Uint(64)
+"""
+Maximum number of [`Claim`]s allowed per [`FrameTransaction`][ftx].
+
+[`Claim`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Claim
+[ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
+"""  # noqa: E501
+
+MAX_CLAIM_WITNESS_BYTES: Final[Uint] = Uint(1048576)
+"""
+Maximum `witness_len` of a [`Claim`] verified by a custom contract
+verifier.
+
+[`Claim`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Claim
+"""  # noqa: E501
+
+SECP256K1_VERIFIER: Final[Address] = Address(
+    bytes.fromhex("00000000000000000000000000000000000081a1")
+)
+"""
+Reserved address of the claim-only protocol verifier of secp256k1
+signatures. Its witness is `v || r || s`.
+
+The address is not a callable precompile: calling it from EVM code
+behaves as calling an account without code. [EIP-8141] leaves it to be
+assigned; this placeholder lies outside the active precompile range
+and the range reserved for RIPs.
+
+[EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+"""
+
+P256_VERIFIER: Final[Address] = Address(
+    bytes.fromhex("00000000000000000000000000000000000081a2")
+)
+"""
+Reserved address of the claim-only protocol verifier of NIST P-256
+signatures. Its witness is `r || s || qx || qy`. Placeholder address,
+as for [`SECP256K1_VERIFIER`][k1].
+
+[k1]: ref:ethereum.forks.bogota.transactions.frame_transaction.SECP256K1_VERIFIER
+"""  # noqa: E501
+
+LEANSPHINCS_VERIFIER: Final[Address] = Address(
+    bytes.fromhex("00000000000000000000000000000000000081a3")
+)
+"""
+Reserved address of the claim-only protocol verifier of leanSPHINCS
+signatures. Its witness is the signature itself. Placeholder address,
+as for [`SECP256K1_VERIFIER`][k1].
+
+[k1]: ref:ethereum.forks.bogota.transactions.frame_transaction.SECP256K1_VERIFIER
+"""  # noqa: E501
+
+SECP256K1_WITNESS_LENGTH: Final[Uint] = Uint(65)
+"""
+Length of a [`SECP256K1_VERIFIER`][k1] witness: `v || r || s`.
+
+[k1]: ref:ethereum.forks.bogota.transactions.frame_transaction.SECP256K1_VERIFIER
+"""  # noqa: E501
+
+P256_WITNESS_LENGTH: Final[Uint] = Uint(128)
+"""
+Length of a [`P256_VERIFIER`][p] witness: `r || s || qx || qy`.
+
+[p]: ref:ethereum.forks.bogota.transactions.frame_transaction.P256_VERIFIER
+"""  # noqa: E501
+
+LEANSPHINCS_SIGNATURE_SIZE: Final[Uint] = Uint(7740)
+"""
+Length of a leanSPHINCS signature, the
+[`LEANSPHINCS_VERIFIER`][l] witness.
+
+[l]: ref:ethereum.forks.bogota.transactions.frame_transaction.LEANSPHINCS_VERIFIER
 """  # noqa: E501
 
 EXPIRY_VERIFIER: Final[Address] = Address(
@@ -268,76 +339,93 @@ class Frame:
 
 
 @final
-class FrameSignatureScheme(UintEnum, boundary=STRICT):
+@slotted_freezable
+@dataclass
+class Claim:
     """
-    Algorithm used to authenticate [`FrameSignature`][fs]s.
+    A declarative claim of a [`FrameTransaction`][ftx]: the verifier at
+    `verifier` attests that the resolved key authorizes the resolved
+    message.
 
-    The strict boundary rejects values other than the schemes defined here
-    as the enum is constructed — notably while decoding a transaction — so
-    a signature using a reserved scheme never decodes and no separate
-    validity check is required.
+    Every claim must be satisfied by its segregated witness before any
+    frame executes. Frames test for a claim with the `HASCLAIM`
+    instruction; the witness bytes are never readable by EVM code.
 
-    [fs]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignature
+    [ftx]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameTransaction
     """  # noqa: E501
 
-    ARBITRARY = Uint(0)
+    verifier: Address
     """
-    Arbitrary bytes that the protocol does not cryptographically validate.
-    """
-
-    SECP256K1 = Uint(1)
-    """
-    ECDSA signature over the secp256k1 curve, as used by other transaction
-    types.
+    The verifier that checks the claim's witness: a reserved protocol
+    verifier, an active precompile, or a deployed non-delegated
+    contract.
     """
 
-    P256 = Uint(2)
+    key: Bytes
     """
-    Signature over the NIST P-256 (secp256r1) curve.
+    The signing key or proven program. Empty resolves to the
+    transaction's sender; a non-zero 20-byte value is left-padded to 32
+    bytes; a non-zero 32-byte value is used directly.
+    """
+
+    msg: Bytes0 | Bytes32
+    """
+    Either empty, indicating the canonical transaction signature hash, or
+    an explicit non-zero 32-byte digest.
+    """
+
+    gas_limit: U64
+    """
+    Execution gas a custom contract verifier is given, charged in full.
+    Zero for protocol verifiers, whose gas is fixed.
+    """
+
+    witness_len: U64
+    """
+    Exact length of the witness of a custom contract verifier. Zero for
+    protocol verifiers, whose witness length is fixed.
     """
 
 
 @final
-@slotted_freezable
-@dataclass
-class FrameSignature:
+@dataclass(frozen=True, order=True)
+class Dependency:
     """
-    A signature entry available to the transaction's frames.
+    A [`Claim`] resolved against its transaction: the tuple a witness
+    must satisfy.
 
-    Entries are validated before any frame executes and may be
-    referenced by [`VERIFY`][v] frames and by ordinary EVM execution,
-    through the signature introspection instructions.
+    Dependencies are what a block's dependency proof carries witnesses
+    for. They are compared as tuples, so two claims with the same
+    resolved fields share one witness.
 
-    [v]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameMode.VERIFY
+    [`Claim`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Claim
     """  # noqa: E501
 
-    scheme: FrameSignatureScheme
+    verifier: Address
     """
-    Algorithm used to construct the signature.
-    """
-
-    signer: Bytes
-    """
-    Scheme-dependent signer metadata.
-
-    For [`SECP256K1`] and [`P256`], this is a 20-byte address.
-
-    [`SECP256K1`]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.SECP256K1
-    [`P256`]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.P256
-    """  # noqa: E501
-
-    message: Bytes0 | Bytes32
-    """
-    Either empty, indicating the canonical transaction signature hash, or an
-    explicit 32-byte digest.
+    The verifier that checks the witness.
     """
 
-    signature: Bytes
+    key: Bytes32
     """
-    Raw signature bytes, to be interpreted according to [`scheme`].
+    The resolved key.
+    """
 
-    [`scheme`]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignature.scheme
-    """  # noqa: E501
+    msg: Hash32
+    """
+    The resolved message: the explicit digest, or the transaction's
+    canonical signature hash.
+    """
+
+    gas_limit: Uint
+    """
+    The resolved verification gas.
+    """
+
+    witness_len: Uint
+    """
+    The resolved witness length.
+    """
 
 
 @final
@@ -395,23 +483,18 @@ class FrameTransaction:
     Address of the account intended to be the sender of the transaction.
     """
 
+    claims: Tuple[Claim, ...]
+    """
+    Declarative claims whose segregated witnesses must verify before any
+    [`Frame`] executes.
+
+    [`Frame`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Frame
+    """  # noqa: E501
+
     frames: Tuple[Frame, ...]
     """
     List of frames to execute.
     """
-
-    signatures: Tuple[FrameSignature, ...]
-    """
-    Validated signatures available to the transaction.
-
-    The `signatures` list contains signatures that may be referenced by
-    [`VERIFY`][v] frames and by ordinary EVM execution. Every signature in the
-    list must validate successfully before any [`Frame`] is executed. If any
-    signature is malformed or invalid, the whole transaction is invalid.
-
-    [v]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameMode.VERIFY
-    [`Frame`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Frame
-    """  # noqa: E501
 
     fees: TransactionFees
     """
@@ -439,131 +522,116 @@ def compute_frame_signature_hash(tx: FrameTransaction) -> Hash32:
     """
     Compute the canonical signature hash of a frame transaction.
 
-    The raw `signature` bytes of every entry with an empty `msg` are
-    replaced by their length, encoded as an unsigned integer, before
-    hashing. A signature over the canonical hash cannot commit to its
-    own bytes, but committing to their length fixes what the payer is
-    charged for them.
+    The transaction carries no witness bytes, so the hash covers it
+    whole. The `0x00` byte after the type separates it from the
+    transaction hash, so a signature over the transaction hash cannot be
+    replayed as an authorization of the transaction.
     """
-    elided_signatures = []
-    for signature in tx.signatures:
-        if len(signature.message) == 0:
-            length = ulen(signature.signature).to_be_bytes()
-            elided_signatures.append(replace(signature, signature=length))
-        else:
-            elided_signatures.append(signature)
-
-    elided_tx = replace(tx, signatures=tuple(elided_signatures))
-    return keccak256(b"\x06" + rlp.encode(elided_tx))
+    return keccak256(b"\x06\x00" + rlp.encode(tx))
 
 
-def validate_signature(
-    frame_signature: FrameSignature, sender: Address, sig_hash: Hash32
-) -> Optional[Address]:
+def protocol_verifier_parameters(
+    verifier: Address,
+) -> Optional[Tuple[ExecutionGas, Uint]]:
     """
-    Validate a single [`FrameSignature`] entry and return the signer
-    it resolved to.
+    Return the fixed verification gas and witness length of a protocol
+    verifier, or `None` when `verifier` is not one.
+    """
+    from ..vm.gas import GasCosts
 
-    The entry's `message` selects what the signature authorizes: empty
-    means the canonical signature hash `sig_hash` (see
-    [`compute_frame_signature_hash`][csh]), while a 32-byte value is an
-    explicit digest. The all-zero digest is invalid, reserving the zero
-    stack value as the EVM-visible representation of the canonical-hash
-    case.
+    if verifier == SECP256K1_VERIFIER:
+        return GasCosts.SECP256K1_VERIFICATION, SECP256K1_WITNESS_LENGTH
+    if verifier == P256_VERIFIER:
+        return GasCosts.P256_VERIFICATION, P256_WITNESS_LENGTH
+    if verifier == LEANSPHINCS_VERIFIER:
+        return GasCosts.LEANSPHINCS_VERIFICATION, LEANSPHINCS_SIGNATURE_SIZE
+    return None
 
-    An empty `signer` resolves to `sender`. For the protocol-validated
-    schemes ([`SECP256K1`][k1] and [`P256`][p256]) the raw signature
-    bytes must be canonical — one unique encoding per signature, with
-    low-`s` — and must authenticate the resolved signer. The protocol
-    does not cryptographically validate [`ARBITRARY`][arb] entries and
-    assigns them no resolved signer — `None` is returned — so their
-    `signer` must be empty.
 
-    [`FrameSignature`]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignature
-    [csh]: ref:ethereum.forks.bogota.transactions.frame_transaction.compute_frame_signature_hash
-    [k1]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.SECP256K1
-    [p256]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.P256
-    [arb]: ref:ethereum.forks.bogota.transactions.frame_transaction.FrameSignatureScheme.ARBITRARY
+def resolve_claim_key(claim: Claim, sender: Address) -> Bytes32:
+    """
+    Resolve a claim's `key` to 32 bytes: empty resolves to `sender`, a
+    20-byte key is left-padded, and a 32-byte key is used directly. A
+    zero key, or a key of any other length, is invalid.
+    """
+    if len(claim.key) == 0:
+        return Bytes32(sender.rjust(32, b"\x00"))
+    if len(claim.key) == Address.LENGTH:
+        if claim.key == b"\x00" * Address.LENGTH:
+            raise InvalidFrameError("claim key cannot be zero")
+        return Bytes32(claim.key.rjust(32, b"\x00"))
+    if len(claim.key) == 32:
+        if claim.key == b"\x00" * 32:
+            raise InvalidFrameError("claim key cannot be zero")
+        return Bytes32(claim.key)
+    raise InvalidFrameError("invalid claim key length")
+
+
+def resolve_claim_gas(claim: Claim) -> ExecutionGas:
+    """
+    Return the gas charged for verifying a claim: fixed for a protocol
+    verifier, the claim's `gas_limit` for a custom one.
+    """
+    parameters = protocol_verifier_parameters(claim.verifier)
+    if parameters is not None:
+        return parameters[0]
+    return ExecutionGas(Uint(claim.gas_limit))
+
+
+def resolve_witness_length(claim: Claim) -> Uint:
+    """
+    Return the length of a claim's witness: fixed for a protocol
+    verifier, the claim's `witness_len` for a custom one.
+    """
+    parameters = protocol_verifier_parameters(claim.verifier)
+    if parameters is not None:
+        return parameters[1]
+    return Uint(claim.witness_len)
+
+
+def resolve_dependency(
+    claim: Claim, sender: Address, sig_hash: Hash32
+) -> Dependency:
+    """
+    Resolve a claim into the [`Dependency`] its witness must satisfy. An
+    empty `msg` resolves to the canonical signature hash `sig_hash`.
+
+    [`Dependency`]: ref:ethereum.forks.bogota.transactions.frame_transaction.Dependency
     """  # noqa: E501
-    signature_scheme = frame_signature.scheme
-    signer = frame_signature.signer
-    signature = frame_signature.signature
-
-    if len(frame_signature.message) == 0:
-        message = sig_hash
-    elif len(frame_signature.message) == 32:
-        if frame_signature.message == b"\0" * 32:
-            raise InvalidFrameError(
-                "frame signature message cannot be all zeros"
-            )
-        message = Hash32(frame_signature.message)
+    if len(claim.msg) == 0:
+        msg = sig_hash
+    elif len(claim.msg) == 32:
+        msg = Hash32(claim.msg)
     else:
-        raise InvalidFrameError("Invalid signature message length")
+        raise InvalidFrameError("invalid claim msg length")
+    return Dependency(
+        verifier=claim.verifier,
+        key=resolve_claim_key(claim, sender),
+        msg=msg,
+        gas_limit=Uint(resolve_claim_gas(claim)),
+        witness_len=resolve_witness_length(claim),
+    )
 
-    if len(signer) not in [0, Address.LENGTH]:
-        raise InvalidFrameError("invalid frame signer length")
-    resolved_signer: Bytes
-    if len(signer) == 0:
-        resolved_signer = sender
-    else:
-        resolved_signer = signer
 
-    match signature_scheme:
-        case FrameSignatureScheme.SECP256K1:
-            if len(signature) != 65:
-                raise InvalidSignatureError(
-                    "SECP256K1 signature must be 65 bytes"
-                )
-
-            v = U256(signature[0])
-            r = U256.from_be_bytes(signature[1:33])
-            s = U256.from_be_bytes(signature[33:65])
-            if v not in (U256(0), U256(1)):
-                raise InvalidSignatureError("bad v in secp256k1 scheme")
-            if U256(0) >= r or r >= SECP256K1N:
-                raise InvalidSignatureError("bad r in secp256k1 scheme")
-            if U256(0) >= s or s > SECP256K1N // U256(2):
-                raise InvalidSignatureError("bad s in secp256k1 scheme")
-
-            public_key = secp256k1_recover(r, s, v, message)
-
-            if resolved_signer != keccak256(public_key)[12:]:
-                raise InvalidFrameError(
-                    "signer does not match in secp256k1 scheme"
-                )
-
-            return Address(resolved_signer)
-
-        case FrameSignatureScheme.P256:
-            if len(signature) != 128:
-                raise InvalidSignatureError("P256 signature must be 128 bytes")
-
-            r = U256.from_be_bytes(signature[0:32])
-            s = U256.from_be_bytes(signature[32:64])
-            qx = U256.from_be_bytes(signature[64:96])
-            qy = U256.from_be_bytes(signature[96:128])
-
-            if U256(0) >= r or r >= SECP256R1N:
-                raise InvalidSignatureError("bad r in p256 scheme")
-            if U256(0) >= s or s > SECP256R1N // U256(2):
-                raise InvalidSignatureError("bad s in p256 scheme")
-            if resolved_signer != keccak256(signature[64:128])[12:]:
-                raise InvalidFrameError("signer does not match in p256 scheme")
-            try:
-                secp256r1_verify(r, s, qx, qy, message)
-            except ValueError as e:
-                raise InvalidSignatureError("invalid p256 public key") from e
-
-            return Address(resolved_signer)
-
-        case FrameSignatureScheme.ARBITRARY:
-            if len(signer) != 0:
-                raise InvalidFrameError(
-                    "signer length should be zero for arbitrary schemes"
-                )
-            return None
-        case _ as unreachable:
-            assert_never(unreachable)
+def has_claim(
+    tx: FrameTransaction, verifier: Address, key: Bytes32, msg: Bytes32
+) -> bool:
+    """
+    Check whether the transaction declares a claim by `verifier` whose
+    resolved key is `key` and whose message is `msg`, where a zero `msg`
+    stands for the canonical signature hash, i.e. an empty claim `msg`.
+    """
+    for claim in tx.claims:
+        if claim.verifier != verifier:
+            continue
+        if resolve_claim_key(claim, tx.sender) != key:
+            continue
+        if msg == b"\x00" * 32:
+            if len(claim.msg) == 0:
+                return True
+        elif claim.msg == msg:
+            return True
+    return False
 
 
 @final
@@ -571,8 +639,9 @@ def validate_signature(
 class FrameTransactionValidation:
     """
     Everything the static validation of a frame transaction
-    establishes: its intrinsic gas cost, its two gas anchors, and the
-    signature artifacts retained for execution.
+    establishes: its intrinsic gas cost, its two gas anchors, its
+    canonical signature hash, and the dependencies its claims resolve
+    to.
     """
 
     intrinsic: "IntrinsicGasCost"
@@ -597,10 +666,9 @@ class FrameTransactionValidation:
     The transaction's canonical signature hash.
     """
 
-    resolved_signers: Tuple[Optional[Address], ...]
+    dependencies: Tuple[Dependency, ...]
     """
-    The signer each signature entry resolved to; `None` for
-    `ARBITRARY` entries, to which the protocol assigns no signer.
+    The dependency each claim resolved to, in claim order.
     """
 
 
@@ -611,8 +679,8 @@ def validate_frame_transaction(
     Check the statically determinable validity constraints of a frame
     transaction and derive its gas anchors.
 
-    Constraints on individual fields — frame modes and flags, signature
-    schemes, and field lengths — are mostly enforced by their types
+    Constraints on individual fields — frame modes and flags, and
+    field lengths — are mostly enforced by their types
     while the transaction is decoded. Checked here instead are the
     nonce and fee-cap upper bounds, which are tighter than the decoded
     types enforce, and the constraints that span several fields.
@@ -649,10 +717,40 @@ def validate_frame_transaction(
     if frame_count < Uint(1) or frame_count > MAX_FRAMES_PER_TX:
         raise FrameCountError(actual=frame_count, maximum=MAX_FRAMES_PER_TX)
 
+    if ulen(tx.claims) > MAX_CLAIMS_PER_TX:
+        raise InvalidFrameError("too many claims")
+
     signature_hash = compute_frame_signature_hash(tx)
-    resolved_signers = tuple(
-        validate_signature(signature, tx.sender, signature_hash)
-        for signature in tx.signatures
+    total_claim_gas = Uint(0)
+    for claim in tx.claims:
+        resolved_key = resolve_claim_key(claim, tx.sender)
+        if claim.verifier in (SECP256K1_VERIFIER, P256_VERIFIER):
+            if resolved_key[:12] != b"\x00" * 12:
+                raise InvalidFrameError("claim key must be an address")
+        if len(claim.msg) == 32:
+            if claim.msg == b"\x00" * 32:
+                raise InvalidFrameError("claim msg cannot be zero")
+        elif len(claim.msg) != 0:
+            raise InvalidFrameError("invalid claim msg length")
+
+        if protocol_verifier_parameters(claim.verifier) is not None:
+            if claim.gas_limit != U64(0) or claim.witness_len != U64(0):
+                raise InvalidFrameError(
+                    "protocol verifier claim with gas limit or witness length"
+                )
+        else:
+            if claim.gas_limit == U64(0):
+                raise InvalidFrameError("custom verifier claim without gas")
+            if Uint(claim.witness_len) > MAX_CLAIM_WITNESS_BYTES:
+                raise InvalidFrameError("claim witness too long")
+
+        total_claim_gas += Uint(resolve_claim_gas(claim))
+        if total_claim_gas > Uint(U64.MAX_VALUE):
+            raise InvalidFrameError("total claim gas overflows")
+
+    dependencies = tuple(
+        resolve_dependency(claim, tx.sender, signature_hash)
+        for claim in tx.claims
     )
 
     has_expiry_verifier_frame = False
@@ -745,25 +843,8 @@ def validate_frame_transaction(
         standard_gas_limit=standard_gas_limit,
         max_gas=max_gas,
         signature_hash=signature_hash,
-        resolved_signers=resolved_signers,
+        dependencies=dependencies,
     )
-
-
-def signature_verification_gas(signature: FrameSignature) -> ExecutionGas:
-    """
-    Return the gas charged for validating a single signature entry.
-    """
-    from ..vm.gas import GasCosts
-
-    match signature.scheme:
-        case FrameSignatureScheme.SECP256K1:
-            return GasCosts.FRAME_SIGNATURE_SCHEME_SECP256K1
-        case FrameSignatureScheme.P256:
-            return GasCosts.FRAME_SIGNATURE_SCHEME_P256
-        case FrameSignatureScheme.ARBITRARY:
-            return GasCosts.FRAME_SIGNATURE_SCHEME_ARBITRARY
-        case _ as unreachable:
-            assert_never(unreachable)
 
 
 def calculate_frame_transaction_intrinsic_cost(
@@ -775,20 +856,19 @@ def calculate_frame_transaction_intrinsic_cost(
 
     The intrinsic cost is the base cost, the per-frame cost, the calldata
     cost of the byte fields priced as calldata — the `data` of each frame
-    and the `signer`, `message`, and `signature` bytes of each signature
-    entry — the signature verification cost, and the value transfer cost
-    of each value-bearing frame with an explicit target other than the
-    sender, covering the recipient balance write and transfer log. The
-    `signature` bytes of an entry with an empty `message` are priced as
-    if all non-zero, since the canonical signature hash commits only to
-    their length.
+    and the `verifier`, `key`, and `msg` bytes of each claim — the claim
+    verification cost, the witness cost, and the value transfer cost of
+    each value-bearing frame with an explicit target other than the
+    sender, covering the recipient balance write and transfer log.
+    Witnesses are not part of the transaction, so they are priced by
+    their resolved length, as calldata whose bytes are all non-zero.
     Unlike other transaction types, there is no recipient component:
     target access is paid during frame execution from each frame's own
     execution gas budget.
 
     The calldata floor of [EIP-7976] counts every charged byte uniformly
     and is anchored on the costs the transaction always pays regardless
-    of execution — the base cost, the per-frame cost, the signature
+    of execution — the base cost, the per-frame cost, the claim
     verification cost, and the value transfer cost — so it never
     undercuts the transaction's own intrinsic base.
 
@@ -810,18 +890,15 @@ def calculate_frame_transaction_intrinsic_cost(
         ):
             value_transfer_gas += GasCosts.TX_VALUE_COST
 
-    signature_gas = Uint(0)
-    for signature in tx.signatures:
-        signature_gas += signature_verification_gas(signature)
-        for data in (signature.signer, signature.message):
+    claim_gas = Uint(0)
+    for claim in tx.claims:
+        claim_gas += resolve_claim_gas(claim)
+        for data in (claim.verifier, claim.key, claim.msg):
             tokens += count_tokens_in_data(data)
             data_length += ulen(data)
-        signature_length = ulen(signature.signature)
-        if len(signature.message) == 0:
-            tokens += signature_length * Uint(4)
-        else:
-            tokens += count_tokens_in_data(signature.signature)
-        data_length += signature_length
+        witness_length = resolve_witness_length(claim)
+        tokens += witness_length * Uint(4)
+        data_length += witness_length
 
     # EIP-7976 floor tokens: all charged bytes count uniformly.
     floor_tokens = data_length * Uint(4)
@@ -829,7 +906,7 @@ def calculate_frame_transaction_intrinsic_cost(
     base_execution_gas = (
         GasCosts.TX_FRAME_INTRINSIC
         + ulen(tx.frames) * GasCosts.TX_PER_FRAME
-        + signature_gas
+        + claim_gas
         + value_transfer_gas
     )
 

@@ -32,11 +32,12 @@ from ..state_tracker import (
 )
 from ..transactions.frame_transaction import (
     APPROVE_SCOPE_MASK,
+    SECP256K1_VERIFIER,
     Frame,
     FrameFlag,
     FrameMode,
-    FrameSignatureScheme,
     FrameStatus,
+    has_claim,
     resolve_frame_target,
 )
 from . import (
@@ -333,13 +334,15 @@ def execute_default_verify_code(
     frame exceptionally.
 
     The default code approves the scope allowed by the frame's flags,
-    provided the transaction carries an authorizing secp256k1
-    signature entry over the canonical signature hash whose resolved
-    signer is the frame's resolved target: the entry at index 0 for
-    frames allowed to approve execution, or at index 1 for
-    payment-only frames. Anything else reverts the frame — which, for
-    a `VERIFY` frame, invalidates the transaction.
-    """
+    provided the frame carries no data and the transaction declares a
+    [`SECP256K1_VERIFIER`][k1] claim over the canonical signature hash
+    whose resolved key is the frame's resolved target — the claim
+    `HASCLAIM(SECP256K1_VERIFIER, resolved_target, 0)` tests for.
+    Anything else reverts the frame — which, for a `VERIFY` frame,
+    invalidates the transaction.
+
+    [k1]: ref:ethereum.forks.bogota.transactions.frame_transaction.SECP256K1_VERIFIER
+    """  # noqa: E501
     frame_context = tx_env.frame_context
     assert frame_context is not None
     tx = frame_context.tx
@@ -350,24 +353,15 @@ def execute_default_verify_code(
     if not allowed_scope:
         return FrameStatus.FAILURE
 
-    if FrameFlag.APPROVE_EXECUTION in allowed_scope:
-        signature_index = 0
-    else:
-        signature_index = 1
+    if len(frame.data) != 0:
+        return FrameStatus.FAILURE
 
-    # There is no signature entry at the authorizing index.
-    if len(tx.signatures) <= signature_index:
-        return FrameStatus.FAILURE
-    signature = tx.signatures[signature_index]
-
-    # Only a protocol-validated secp256k1 signature authorizes.
-    if signature.scheme != FrameSignatureScheme.SECP256K1:
-        return FrameStatus.FAILURE
-    # The signature must cover the canonical signature hash.
-    if len(signature.message) != 0:
-        return FrameStatus.FAILURE
-    # The signature must come from the frame's resolved target.
-    if frame_context.resolved_signers[signature_index] != resolved_target:
+    if not has_claim(
+        tx,
+        SECP256K1_VERIFIER,
+        Bytes32(resolved_target.rjust(32, b"\x00")),
+        Bytes32(b"\x00" * 32),
+    ):
         return FrameStatus.FAILURE
 
     if not attempt_approval(tx_env, allowed_scope):

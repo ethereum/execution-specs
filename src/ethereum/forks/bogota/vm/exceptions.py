@@ -123,6 +123,16 @@ class InvalidContractPrefix(ExceptionalHalt):
     pass
 
 
+class PureContextViolation(ExceptionalHalt):
+    """
+    Raised when a claim verifier executing in the pure context runs an
+    instruction that reads anything but its input and its own code, or
+    calls an account other than an active precompile.
+    """
+
+    pass
+
+
 class AddressCollision(ExceptionalHalt):
     """
     Raised when the new contract address has a collision.

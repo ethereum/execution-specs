@@ -9,17 +9,18 @@ halt.
 
 from typing import final
 
-from ethereum_types.bytes import Bytes
+from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.enum import UintEnum
 from ethereum_types.numeric import U256, Uint
 
+from ethereum.state import Address
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import ExecutionGas
 from ...transactions.frame_transaction import (
     APPROVE_SCOPE_MASK,
     FrameFlag,
-    FrameSignatureScheme,
+    has_claim,
     resolve_frame_target,
 )
 from ...vm.memory import buffer_read, memory_read_bytes, memory_write
@@ -44,7 +45,6 @@ class TransactionParameter(UintEnum):
     SIG_HASH = Uint(0x08)
     FRAME_COUNT = Uint(0x09)
     CURRENT_FRAME_INDEX = Uint(0x0A)
-    SIGNATURE_COUNT = Uint(0x0B)
     STATE_GAS_LEFT = Uint(0x0C)
 
 
@@ -66,18 +66,6 @@ class FrameParameter(UintEnum):
     STATE_GAS_LIMIT = Uint(0x09)
     EXECUTION_GAS_USED = Uint(0x0A)
     STATE_GAS_USED = Uint(0x0B)
-
-
-@final
-class SignatureParameter(UintEnum):
-    """
-    Values of the `SIGPARAM` parameter operand.
-    """
-
-    RESOLVED_SIGNER = Uint(0x00)
-    SCHEME = Uint(0x01)
-    MSG = Uint(0x02)
-    SIGNATURE_LENGTH = Uint(0x03)
 
 
 def frame_transaction_context(evm: Evm) -> FrameContext:
@@ -173,8 +161,6 @@ def txparam(evm: Evm) -> None:
         value = U256(len(tx.frames))
     elif param == TransactionParameter.CURRENT_FRAME_INDEX:
         value = U256(frame_context.current_frame_index)
-    elif param == TransactionParameter.SIGNATURE_COUNT:
-        value = U256(len(tx.signatures))
     elif param == TransactionParameter.STATE_GAS_LEFT:
         # State gas remaining in the executing frame's pool.
         value = U256(frame_context.state_gas_left)
@@ -334,102 +320,44 @@ def frameparam(evm: Evm) -> None:
     evm.pc += Uint(1)
 
 
-def sigparam(evm: Evm) -> None:
+def hasclaim(evm: Evm) -> None:
     """
-    Push signature-scoped metadata of the chosen signature entry onto
-    the stack, selected by the parameter operand.
+    Push `1` if the executing frame transaction declares a claim
+    matching the verifier, key and message operands, and `0` otherwise.
 
-    Each scheme family withholds the metadata the protocol does not
-    define for it: the resolved signer is available only for
-    protocol-validated entries, to which the protocol assigns one, and
-    the signature byte length only for `ARBITRARY` entries — the raw
-    signature bytes of protocol-validated schemes, including their
-    length, are not introspectable.
+    The verifier operand is an address left-padded to 32 bytes: with
+    any of its upper 12 bytes set, no claim matches. The key operand is
+    compared against each claim's resolved key. A zero message operand
+    matches claims over the canonical signature hash — those with an
+    empty `msg` — and any other value matches claims with that explicit
+    `msg`. Every claim is verified before any frame executes, so a
+    match guarantees the claim holds; the witness bytes are never
+    exposed.
     """
     # STACK
-    signature_index = pop(evm.stack)
-    param = pop(evm.stack)
+    verifier = pop(evm.stack)
+    key = pop(evm.stack)
+    msg = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.OPCODE_SIGPARAM)
+    charge_gas(evm, GasCosts.OPCODE_HASCLAIM)
 
     # OPERATION
     frame_context = frame_transaction_context(evm)
-    signatures = frame_context.tx.signatures
-    if signature_index >= U256(len(signatures)):
-        raise InvalidParameter("signature index out of bounds")
-    signature = signatures[int(signature_index)]
-
-    if param == SignatureParameter.RESOLVED_SIGNER:
-        resolved_signer = frame_context.resolved_signers[int(signature_index)]
-        if resolved_signer is None:
-            raise InvalidParameter("resolved signer of an ARBITRARY entry")
-        value = U256.from_be_bytes(resolved_signer)
-    elif param == SignatureParameter.SCHEME:
-        value = U256(signature.scheme)
-    elif param == SignatureParameter.MSG:
-        if len(signature.message) == 0:
-            value = U256(0)
-        else:
-            value = U256.from_be_bytes(signature.message)
-    elif param == SignatureParameter.SIGNATURE_LENGTH:
-        if signature.scheme != FrameSignatureScheme.ARBITRARY:
-            raise InvalidParameter(
-                "signature length of a protocol-validated scheme"
-            )
-        value = U256(len(signature.signature))
+    verifier_bytes = verifier.to_be_bytes32()
+    if verifier_bytes[:12] != b"\x00" * 12:
+        value = U256(0)
+    elif has_claim(
+        frame_context.tx,
+        Address(verifier_bytes[12:]),
+        Bytes32(key.to_be_bytes32()),
+        Bytes32(msg.to_be_bytes32()),
+    ):
+        value = U256(1)
     else:
-        raise InvalidParameter("undefined SIGPARAM parameter")
+        value = U256(0)
 
     push(evm.stack, value)
-
-    # PROGRAM COUNTER
-    evm.pc += Uint(1)
-
-
-def sigdatacopy(evm: Evm) -> None:
-    """
-    Copy a portion of the chosen signature entry's raw signature bytes
-    to memory.
-
-    The copy is defined only for `ARBITRARY` entries, whose bytes the
-    protocol does not validate; the raw signature bytes of
-    protocol-validated schemes are intentionally not accessible. The
-    operation semantics and gas match `CALLDATACOPY`: bytes beyond the
-    end of the signature are copied as zeroes, and the memory is
-    expanded as needed.
-    """
-    # STACK
-    memory_offset = pop(evm.stack)
-    data_offset = pop(evm.stack)
-    length = pop(evm.stack)
-    signature_index = pop(evm.stack)
-
-    # GAS
-    words = ceil32(Uint(length)) // Uint(32)
-    copy_gas_cost = ExecutionGas(GasCosts.OPCODE_COPY_PER_WORD * words)
-    extend_memory = calculate_gas_extend_memory(
-        evm.memory, [(memory_offset, length)]
-    )
-    charge_gas(
-        evm,
-        GasCosts.OPCODE_SIGDATACOPY_BASE + copy_gas_cost + extend_memory.cost,
-    )
-
-    # OPERATION
-    frame_context = frame_transaction_context(evm)
-    signatures = frame_context.tx.signatures
-    if signature_index >= U256(len(signatures)):
-        raise InvalidParameter("signature index out of bounds")
-    signature = signatures[int(signature_index)]
-    if signature.scheme != FrameSignatureScheme.ARBITRARY:
-        raise InvalidParameter(
-            "signature bytes of a protocol-validated scheme"
-        )
-
-    evm.memory += b"\x00" * extend_memory.expand_by
-    signature_bytes = buffer_read(signature.signature, data_offset, length)
-    memory_write(evm.memory, memory_offset, signature_bytes)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
