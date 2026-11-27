@@ -24,7 +24,14 @@ from execution_testing.test_types import (
 )
 from execution_testing.vm import Bytecode, Op
 
-from ..tools_code import CalldataCase, Case, Conditional, Initcode, Switch
+from ..tools_code import (
+    CalldataCase,
+    Case,
+    Conditional,
+    Initcode,
+    Operands,
+    Switch,
+)
 
 
 @pytest.mark.parametrize(
@@ -768,3 +775,43 @@ def test_switch(
         t8n=default_t8n,
         fixture_format=BlockchainFixture,
     )
+
+
+def test_operands_push() -> None:
+    """Test that pushed operands are the values themselves, with no data."""
+    operands = Operands.push()
+    assert operands.source == Operands.Source.PUSH
+    assert operands(0x1234) == 0x1234
+    assert operands(7) == 7
+    assert operands.data == b""
+
+
+def test_operands_calldata() -> None:
+    """Test that calldata operands load successive 32-byte words."""
+    operands = Operands.calldata()
+    assert operands.source == Operands.Source.CALLDATA
+    assert operands(0x1234) == Op.CALLDATALOAD(0)
+    assert operands(7) == Op.CALLDATALOAD(32)
+    assert operands.data == (
+        (0x1234).to_bytes(32, "big") + (7).to_bytes(32, "big")
+    )
+
+
+def test_operands_calldata_negative_value() -> None:
+    """Test that a negative value is stored as its two's complement."""
+    operands = Operands.calldata()
+    operands(-1)
+    assert operands.data == b"\xff" * 32
+
+
+@pytest.mark.parametrize("source", list(Operands.Source), ids=str)
+def test_operands_build_the_same_operation(source: Operands.Source) -> None:
+    """Test that both sources feed the same values to an opcode."""
+    operands = Operands(source)
+    code = Op.SSTORE(0, Op.ADD(operands(2), operands(3)))
+    if source == Operands.Source.PUSH:
+        assert code == Op.SSTORE(0, Op.ADD(2, 3))
+    else:
+        assert code == Op.SSTORE(
+            0, Op.ADD(Op.CALLDATALOAD(0), Op.CALLDATALOAD(32))
+        )

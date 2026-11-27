@@ -1,12 +1,12 @@
 """Code generating classes and functions."""
 
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum, StrEnum, auto
 from typing import Any, Dict, Generator, List, Self, SupportsBytes, Tuple, Type
 
 from pydantic import Field
 
-from execution_testing.base_types import Address, Bytes
+from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.forks import Fork
 from execution_testing.test_types import EOA, Transaction, ceiling_division
 from execution_testing.vm import Bytecode, ForkOpcodeInterface, Op
@@ -482,6 +482,71 @@ class CalldataCase(Case):
         """Generate the condition base on `value` and `position`."""
         condition = Op.EQ(Op.CALLDATALOAD(position), value)
         super().__init__(condition=condition, **kwargs)
+
+
+class Operands:
+    """
+    Supply operands as PUSH immediates or as successive calldata words.
+
+    Build the code through an instance, then send `data` as the
+    transaction's calldata. `Operands.push()` pushes each value as an
+    immediate and leaves `data` empty. `Operands.calldata()` appends each
+    value to `data` as a 32-byte word and reads it back with a
+    `CALLDATALOAD`, in the order the values are requested. To run a test
+    with both, mark it `with_all_operands` and request the `operands`
+    fixture.
+
+    Pitfalls when the operands come from calldata:
+
+    - Each `CALLDATALOAD` offset is fixed when the code is built, counting
+      from the start of `data`. Send `data` exactly as built: a prefix,
+      such as a selector or an address word, shifts every word, so each
+      load reads the wrong value. Extra data may only be appended.
+    - `CALLDATALOAD` reads the calldata of the frame that runs it. If the
+      operands are used in code reached through a CALL-family opcode, the
+      caller must forward all of `data` as the call's input; init code run
+      by CREATE or CREATE2 has no calldata at all.
+    - Every call takes a new word, even for a repeated value, so use one
+      instance per transaction and build that transaction's code through it
+      only once.
+    - A value must fit in a 256-bit word. A negative value is stored as its
+      two's complement, as a PUSH of it would be.
+
+    The two sources encode a value at different sizes (a PUSH of it against
+    a `CALLDATALOAD`), so compute code offsets, such as jump targets, from
+    the code built for the source in use.
+    """
+
+    class Source(StrEnum):
+        """How operands reach the stack."""
+
+        PUSH = "push"
+        CALLDATA = "calldata"
+
+    def __init__(self, source: Source) -> None:
+        """Start with empty calldata."""
+        self.source = source
+        self.data = Bytes()
+
+    @classmethod
+    def push(cls) -> "Operands":
+        """Return an instance that pushes each value as an immediate."""
+        return cls(Operands.Source.PUSH)
+
+    @classmethod
+    def calldata(cls) -> "Operands":
+        """Return an instance that reads each value from calldata."""
+        return cls(Operands.Source.CALLDATA)
+
+    def __call__(self, value: int) -> int | Bytecode:
+        """Return `value` itself, or a load of it from fresh calldata."""
+        if self.source == Operands.Source.PUSH:
+            return value
+        if self.source == Operands.Source.CALLDATA:
+            offset = len(self.data)
+            self.data = Bytes(self.data + Hash(value))
+            return Op.CALLDATALOAD(offset)
+        raise ValueError(f"Unknown operand source: {self.source}")
 
 
 class Switch(Bytecode):

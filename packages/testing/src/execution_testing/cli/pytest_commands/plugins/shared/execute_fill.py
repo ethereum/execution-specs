@@ -15,6 +15,7 @@ from execution_testing.rpc import EthRPC
 from execution_testing.specs import BaseTest
 from execution_testing.specs.base import OpMode
 from execution_testing.test_types import EOA, Account, Alloc, ChainConfig
+from execution_testing.tools import Operands
 
 from ..shared.address_stubs import AddressStubs, StubEOA
 from ..shared.helpers import (
@@ -176,6 +177,11 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "execute: Markers to be added in execute mode only.",
+    )
+    config.addinivalue_line(
+        "markers",
+        "with_all_operands: Run the test once with each `Operands` source "
+        "(PUSH immediates and calldata) through the `operands` fixture.",
     )
     config.addinivalue_line(
         "markers",
@@ -344,6 +350,25 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         )
 
 
+@pytest.hookimpl(trylast=True, specname="pytest_generate_tests")
+def pytest_generate_operands_tests(metafunc: pytest.Metafunc) -> None:
+    """
+    Parametrize a test marked `with_all_operands` over every `Operands`
+    source, after the other parameters so its id segment comes last.
+    """
+    if not metafunc.definition.get_closest_marker("with_all_operands"):
+        return
+    if "operands" not in metafunc.fixturenames:
+        pytest.fail(
+            f"{metafunc.definition.nodeid} is marked `with_all_operands` "
+            "but does not request the `operands` fixture.",
+            pytrace=False,
+        )
+    metafunc.parametrize(
+        "operands", list(Operands.Source), ids=str, indirect=True
+    )
+
+
 def pytest_runtest_call(item: pytest.Item) -> None:
     """Pytest hook called in the context of test execution."""
     if isinstance(item, EIPSpecTestItem):
@@ -364,6 +389,24 @@ def pytest_runtest_call(item: pytest.Item) -> None:
             "A filler should only implement either a state test or a "
             "blockchain test; not both."
         )
+
+
+@pytest.fixture
+def operands(request: pytest.FixtureRequest) -> Operands:
+    """
+    Return an `Operands` builder for the source the test is parametrized
+    with by the `with_all_operands` marker.
+    """
+    source = getattr(request, "param", None)
+    if source is None:
+        pytest.fail(
+            f"{request.node.nodeid} requests the `operands` fixture without "
+            "the `with_all_operands` marker. Mark it to run with both "
+            "sources, or build one source with `Operands.push()` or "
+            "`Operands.calldata()`.",
+            pytrace=False,
+        )
+    return Operands(source)
 
 
 # Global `sender` fixture that can be overridden by tests.
