@@ -15,7 +15,6 @@ frame's target warm or cold, which the frame receipt's `gas_used`
 then pins.
 """
 
-from dataclasses import dataclass
 from typing import Any
 
 import pytest
@@ -41,72 +40,44 @@ REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
 
-SLOT_MEASURED_GAS = 0x00
-"""Storage slot the probe contract writes the measured gas into."""
-
-PROBE_FRAME_GAS = 500_000
-"""Execution gas budget of the probe frames."""
-
-PROBE_FRAME_STATE_GAS = 100_000
-"""
-State gas budget of the probe frames, covering the fresh storage slot
-the measurement write creates.
-"""
-
 TOUCH_FRAME_GAS = 200_000
 """Gas limit of the frames that warm the subject address."""
 
 
-@dataclass(frozen=True)
-class AccessGasProbe:
-    """A deployable gas probe and the post account pinning its result."""
-
-    code: Bytecode
-    """Code measuring the gas of an account access."""
-
-    post_account: Account
-    """Post account pinning the measured access cost."""
-
-
-def balance_probe(
-    subject: Address, fork: Fork, warm: bool = False
-) -> AccessGasProbe:
+class BalanceProbe:
     """
-    Build a probe measuring the gas of a `BALANCE` on `subject`.
+    A deployed contract measuring the gas of a `BALANCE` on a subject.
 
-    The measurement lands in storage slot `SLOT_MEASURED_GAS`, and the
-    probe's post account expects the warm or cold access cost there,
-    per `warm` — the access the probe is expected to perform. `warm`
-    also tags the measured `BALANCE`'s metadata, so the probe's code
-    prices the frame's actual execution.
+    The measurement lands in storage slot 0, where `CodeGasMeasure`
+    writes it, and the probe's post account expects the warm or cold
+    access cost there, per `warm`, the access the probe is expected to
+    perform. `warm` also tags the measured `BALANCE`'s metadata, so the
+    probe's code prices the frame's actual execution.
     """
-    access_gas = Op.BALANCE(address_warm=warm).gas_cost(fork)
-    measured = Op.BALANCE(address=subject, address_warm=warm)
-    code = CodeGasMeasure(
-        code=measured,
-        overhead_cost=measured.gas_cost(fork) - access_gas,
-        extra_stack_items=1,
-        sstore_key=SLOT_MEASURED_GAS,
-    )
-    return AccessGasProbe(
-        code=code,
-        post_account=Account(storage={SLOT_MEASURED_GAS: access_gas}),
-    )
 
+    def __init__(
+        self, pre: Alloc, subject: Address, fork: Fork, *, warm: bool = False
+    ) -> None:
+        """Deploy a probe measuring a `BALANCE` on `subject`."""
+        access_gas = Op.BALANCE(address_warm=warm).gas_cost(fork)
+        measured = Op.BALANCE(address=subject, address_warm=warm)
+        self.code = CodeGasMeasure(
+            code=measured,
+            overhead_cost=measured.gas_cost(fork) - access_gas,
+            extra_stack_items=1,
+        )
+        self.address = pre.deploy_contract(code=self.code)
+        self.post_account = Account(storage={0: access_gas})
 
-def probe_frame(target: Address, probe: AccessGasProbe) -> Frame:
-    """
-    Return a `DEFAULT` frame calling the probe contract.
+    def measure_frame(self) -> Frame:
+        """
+        Return a `DEFAULT` frame calling the probe.
 
-    The probe is always a fresh, untouched frame target, so its entry
-    access is cold.
-    """
-    return Frame.default(
-        target=target,
-        code=probe.code,
-        gas_limit=PROBE_FRAME_GAS,
-        state_gas_limit=PROBE_FRAME_STATE_GAS,
-    )
+        The probe is always a fresh, untouched frame target, so its
+        entry access is cold. The frame takes the default budgets,
+        since its receipt's gas follows from its code.
+        """
+        return Frame.default(target=self.address, code=self.code)
 
 
 def outcome_tail(outcome: FrameOutcome) -> Bytecode:
@@ -136,14 +107,13 @@ def test_sender_is_warm(
     other way.
     """
     sender = pre.fund_eoa()
-    probe = balance_probe(sender, fork, warm=True)
-    probe_address = pre.deploy_contract(code=probe.code)
+    probe = BalanceProbe(pre, sender, fork, warm=True)
 
     tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
-            probe_frame(probe_address, probe),
+            probe.measure_frame(),
         ],
     ).resolve_frames(fork)
 
@@ -152,7 +122,7 @@ def test_sender_is_warm(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            probe_address: probe.post_account,
+            probe.address: probe.post_account,
         },
     )
 
@@ -170,14 +140,13 @@ def test_coinbase_is_warm(
     is warm.
     """
     sender = pre.fund_eoa()
-    probe = balance_probe(env.fee_recipient, fork, warm=True)
-    probe_address = pre.deploy_contract(code=probe.code)
+    probe = BalanceProbe(pre, env.fee_recipient, fork, warm=True)
 
     tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(),
-            probe_frame(probe_address, probe),
+            probe.measure_frame(),
         ],
     ).resolve_frames(fork)
 
@@ -187,7 +156,7 @@ def test_coinbase_is_warm(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            probe_address: probe.post_account,
+            probe.address: probe.post_account,
         },
     )
 
@@ -292,8 +261,7 @@ def test_warmth_carry_to_next_frame(
     subject = pre.fund_eoa(amount=1)
     warmer_code = Op.POP(Op.BALANCE(subject)) + outcome_tail(outcome)
     warmer = pre.deploy_contract(code=warmer_code)
-    probe = balance_probe(subject, fork, warm=carries)
-    probe_address = pre.deploy_contract(code=probe.code)
+    probe = BalanceProbe(pre, subject, fork, warm=carries)
 
     tx = Transaction(
         sender=sender,
@@ -305,7 +273,7 @@ def test_warmth_carry_to_next_frame(
                 gas_limit=TOUCH_FRAME_GAS,
                 outcome=outcome,
             ),
-            probe_frame(probe_address, probe),
+            probe.measure_frame(),
         ],
     ).resolve_frames(fork)
 
@@ -314,7 +282,7 @@ def test_warmth_carry_to_next_frame(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            probe_address: probe.post_account,
+            probe.address: probe.post_account,
         },
     )
 
@@ -336,15 +304,14 @@ def test_payer_warm_after_default_code_payment_approval(
     """
     sender = pre.fund_eoa()
     payer = pre.fund_eoa()
-    probe = balance_probe(payer, fork, warm=True)
-    probe_address = pre.deploy_contract(code=probe.code)
+    probe = BalanceProbe(pre, payer, fork, warm=True)
 
     tx = Transaction(
         sender=sender,
         frames=[
             Frame.verify(flags=Spec.APPROVE_EXECUTION),
             Frame.verify(flags=Spec.APPROVE_PAYMENT, target=payer),
-            probe_frame(probe_address, probe),
+            probe.measure_frame(),
         ],
         signatures=[sender, payer],
     ).resolve_frames(fork, payer=payer)
@@ -354,7 +321,7 @@ def test_payer_warm_after_default_code_payment_approval(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            probe_address: probe.post_account,
+            probe.address: probe.post_account,
         },
     )
 
@@ -460,8 +427,7 @@ def test_warmth_from_inner_call(
         frame_outcome
     )
     outer = pre.deploy_contract(code=outer_code)
-    probe = balance_probe(subject, fork, warm=carries)
-    probe_address = pre.deploy_contract(code=probe.code)
+    probe = BalanceProbe(pre, subject, fork, warm=carries)
 
     tx = Transaction(
         sender=sender,
@@ -480,7 +446,7 @@ def test_warmth_from_inner_call(
                 # the code under test.
                 pin_gas=child_outcome is not FrameOutcome.HALT,
             ),
-            probe_frame(probe_address, probe),
+            probe.measure_frame(),
         ],
     ).resolve_frames(fork)
 
@@ -489,6 +455,6 @@ def test_warmth_from_inner_call(
         tx=tx,
         post={
             sender: Account(nonce=1),
-            probe_address: probe.post_account,
+            probe.address: probe.post_account,
         },
     )
