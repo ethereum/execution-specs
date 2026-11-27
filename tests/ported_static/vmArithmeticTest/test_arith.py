@@ -1,65 +1,98 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test a chain of arithmetic opcodes, each applied to the previous result.
+
+The original tests were written by Ori Pomerantz.
 
 Ported from:
 state_tests/VMTests/vmArithmeticTest/arithFiller.yml
+
+@manually-enhanced: Do not overwrite. Built from readable steps.
+
+The contract runs ADD, MUL, DIV, SDIV, SMOD and SUB in a chain, each on
+the previous result and a constant, and stores the end of the chain
+next to an independent `EXP(17, 9)`. The filler left the chain's result
+unobserved on the stack; it is now stored. The constants reach the
+stack from PUSH data (static) or calldata (dynamic), and every step's
+expected value is computed next to the code that performs it.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
+    Fork,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.vm import Op
 
+from tests.ported_static.helpers import Operands
+
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+pytestmark = [
+    pytest.mark.ported_from(
+        ["state_tests/VMTests/vmArithmeticTest/arithFiller.yml"],
+    ),
+    pytest.mark.valid_from("Frontier"),
+    pytest.mark.parametrize("operand_source", list(Operands.Source), ids=str),
+]
 
-@pytest.mark.ported_from(
-    ["state_tests/VMTests/vmArithmeticTest/arithFiller.yml"],
-)
-@pytest.mark.valid_from("Cancun")
+POWER_SLOT = 0
+CHAIN_SLOT = 1
+WORD_MODULUS = 2**256
+
+
+@pytest.fixture
+def operands(operand_source: Operands.Source) -> Operands:
+    """Return the operand supplier for the parametrized source."""
+    return Operands(operand_source)
+
+
 def test_arith(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
+    operands: Operands,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
+    """Store the end of an arithmetic chain and a power of 17."""
+    chain = Op.ADD(operands(1), operands(1))
+    expected_chain = 1 + 1
+    chain = Op.MUL(operands(7), chain)
+    expected_chain *= 7
+    chain = Op.ADD(operands(5), chain)
+    expected_chain += 5
+    chain = Op.DIV(chain, operands(2))
+    expected_chain //= 2
+    # SDIV and SMOD on non-negative operands match Python's `//` and `%`.
+    chain = Op.SDIV(chain, operands(33))
+    expected_chain //= 33
+    chain = Op.ADD(operands(23), chain)
+    expected_chain += 23
+    chain = Op.MUL(operands(3), chain)
+    expected_chain *= 3
+    chain = Op.SMOD(chain, operands(5))
+    expected_chain %= 5
+    # Wraps below zero.
+    chain = Op.SUB(operands(3), chain)
+    expected_chain = (3 - expected_chain) % WORD_MODULUS
 
-    # Source: raw
-    # 0x600160019001600702600501600290046004906021900560170160030260059007600303600960110A60005560086000F3  # noqa: E501
-    target = pre.deploy_contract(
-        code=Op.PUSH1[0x1] * 2
-        + Op.SWAP1
-        + Op.ADD(0x5, Op.MUL(0x7, Op.ADD))
-        + Op.PUSH1[0x2]
-        + Op.SWAP1
-        + Op.DIV
-        + Op.PUSH1[0x4]
-        + Op.SWAP1
-        + Op.PUSH1[0x21]
-        + Op.SWAP1
-        + Op.MUL(0x3, Op.ADD(0x17, Op.SDIV))
-        + Op.PUSH1[0x5]
-        + Op.SWAP1
-        + Op.SUB(0x3, Op.SMOD)
-        + Op.SSTORE(key=0x0, value=Op.EXP(0x11, 0x9))
-        + Op.RETURN(offset=0x0, size=0x8),
-        balance=0xBA1A9CE0BA1A9CE,
+    code = (
+        Op.SSTORE(POWER_SLOT, Op.EXP(operands(17), operands(9)))
+        + Op.SSTORE(CHAIN_SLOT, chain)
+        + Op.STOP
     )
-
+    contract = pre.deploy_contract(code=code)
     tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes("00"),
-        gas_limit=16777216,
-        value=1,
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=operands.calldata,
+        protected=fork.supports_protected_txs(),
     )
-
-    post = {target: Account(storage={0: 0x1B9C636491})}
-
+    post = {
+        contract: Account(
+            storage={POWER_SLOT: 17**9, CHAIN_SLOT: expected_chain}
+        )
+    }
     state_test(pre=pre, post=post, tx=tx)

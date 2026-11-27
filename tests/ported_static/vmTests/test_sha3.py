@@ -1,600 +1,172 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test SHA3 over memory ranges.
+
+The original tests were written by Ori Pomerantz.
 
 Ported from:
 state_tests/VMTests/vmTests/sha3Filler.yml
+
+@manually-enhanced: Do not overwrite. Built from readable parameters.
+
+The contract fills the first `PATTERN_WORDS` memory words with distinct
+values before hashing, so the hash depends on where the range starts and
+not only on its size, and the expected hash comes from a model of that
+memory. The offset and size reach the stack from PUSH data (static) or
+calldata (dynamic). `test_sha3` hashes ranges the transaction can pay for,
+including single bytes around word boundaries and a range running far
+past the pattern into zeros. `test_sha3_out_of_gas` hashes ranges whose
+memory expansion cannot be paid for, so the frame reverts and the
+sentinel stays.
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Bytes,
+    Bytecode,
     Environment,
-    Hash,
+    Fork,
+    Op,
     StateTestFiller,
     Transaction,
+    keccak256,
 )
-from execution_testing.forks import Fork
-from execution_testing.vm import Op
 
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
+from tests.ported_static.helpers import Memory, Operands
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+pytestmark = [
+    pytest.mark.ported_from(
+        ["state_tests/VMTests/vmTests/sha3Filler.yml"],
+    ),
+    pytest.mark.valid_from("Frontier"),
+    pytest.mark.parametrize("operand_source", list(Operands.Source), ids=str),
+]
 
-@pytest.mark.ported_from(
-    ["state_tests/VMTests/vmTests/sha3Filler.yml"],
-)
-@pytest.mark.valid_from("Cancun")
+RESULT_SLOT = 0
+SENTINEL = 0x0BAD
+MAX_UINT = 2**256 - 1
+# Covers every range of `test_sha3` except the one running past it.
+PATTERN_WORDS = 0x41
+
+
+def pattern_word(index: int) -> int:
+    """Return the distinct value stored in memory word `index`."""
+    return int.from_bytes(keccak256(index.to_bytes(32, "big")))
+
+
+@pytest.fixture
+def operands(operand_source: Operands.Source) -> Operands:
+    """Return the operand supplier for the parametrized source."""
+    return Operands(operand_source)
+
+
+@pytest.fixture
+def memory() -> Memory:
+    """Return a memory model holding the pattern the contract stores."""
+    memory = Memory()
+    for index in range(PATTERN_WORDS):
+        memory.store(index * 32, pattern_word(index))
+    return memory
+
+
+@pytest.fixture
+def fill_memory() -> Bytecode:
+    """Return the code writing the pattern to memory."""
+    code = Bytecode()
+    for index in range(PATTERN_WORDS):
+        code += Op.MSTORE(index * 32, pattern_word(index))
+    return code
+
+
 @pytest.mark.parametrize(
-    "d, g, v",
+    "offset, size",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="sha3_nodata",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="sha3_five_0s",
-        ),
-        pytest.param(
-            2,
-            0,
-            0,
-            id="sha3_ten_0s",
-        ),
-        pytest.param(
-            3,
-            0,
-            0,
-            id="sha3_0xFFFFF_0s",
-        ),
-        pytest.param(
-            4,
-            0,
-            0,
-            id="sha3_highmem",
-        ),
-        pytest.param(
-            5,
-            0,
-            0,
-            id="sha3_huge_buffer",
-        ),
-        pytest.param(
-            6,
-            0,
-            0,
-            id="sha3_neg1_neg1",
-        ),
-        pytest.param(
-            7,
-            0,
-            0,
-            id="sha3_neg1_2",
-        ),
-        pytest.param(
-            8,
-            0,
-            0,
-            id="sha3_0x1000000_2",
-        ),
-        pytest.param(
-            9,
-            0,
-            0,
-            id="sha3_960_1",
-        ),
-        pytest.param(
-            10,
-            0,
-            0,
-            id="sha3_992_1",
-        ),
-        pytest.param(
-            11,
-            0,
-            0,
-            id="sha3_1024_1",
-        ),
-        pytest.param(
-            12,
-            0,
-            0,
-            id="sha3_1984_1",
-        ),
-        pytest.param(
-            13,
-            0,
-            0,
-            id="sha3_2016_1",
-        ),
-        pytest.param(
-            14,
-            0,
-            0,
-            id="sha3_2016_32",
-        ),
-        pytest.param(
-            15,
-            0,
-            0,
-            id="sha3_2048_1",
-        ),
-        pytest.param(
-            16,
-            0,
-            0,
-            id="sha3_1024_0",
-        ),
+        pytest.param(0, 0, id="empty"),
+        pytest.param(4, 5, id="five_bytes"),
+        pytest.param(10, 10, id="ten_bytes"),
+        # Runs far past the pattern, into memory that reads as zero.
+        pytest.param(1000, 0xFFFFF, id="offset_1000_size_0xfffff"),
+        # Single bytes at the first byte of words 30, 31, 32, 62, 63 and
+        # 64, around memory sizes of 1024 and 2048 bytes.
+        pytest.param(960, 1, id="offset_960_size_1"),
+        pytest.param(992, 1, id="offset_992_size_1"),
+        pytest.param(1024, 1, id="offset_1024_size_1"),
+        pytest.param(1984, 1, id="offset_1984_size_1"),
+        pytest.param(2016, 1, id="offset_2016_size_1"),
+        pytest.param(2016, 32, id="offset_2016_size_32"),
+        pytest.param(2048, 1, id="offset_2048_size_1"),
+        pytest.param(1024, 0, id="offset_1024_size_0"),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_sha3(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    offset: int,
+    size: int,
+    operands: Operands,
+    memory: Memory,
+    fill_memory: Bytecode,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001000)
-    contract_1 = Address(0x0000000000000000000000000000000000001001)
-    contract_2 = Address(0x0000000000000000000000000000000000001002)
-    contract_3 = Address(0x0000000000000000000000000000000000001003)
-    contract_4 = Address(0x0000000000000000000000000000000000001004)
-    contract_5 = Address(0x0000000000000000000000000000000000001005)
-    contract_6 = Address(0x0000000000000000000000000000000000001006)
-    contract_7 = Address(0x0000000000000000000000000000000000001007)
-    contract_8 = Address(0x0000000000000000000000000000000000001008)
-    contract_9 = Address(0x0000000000000000000000000000000000001009)
-    contract_10 = Address(0x000000000000000000000000000000000000100A)
-    contract_11 = Address(0x000000000000000000000000000000000000100B)
-    contract_12 = Address(0x000000000000000000000000000000000000100C)
-    contract_13 = Address(0x000000000000000000000000000000000000100D)
-    contract_14 = Address(0x000000000000000000000000000000000000100E)
-    contract_15 = Address(0x000000000000000000000000000000000000100F)
-    contract_16 = Address(0x0000000000000000000000000000000000001010)
-    contract_17 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    pre[sender] = Account(balance=0x100000000000)
-    # Source: lll
-    # {
-    #     [[0]] (sha3 0 0)
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x0, size=0x0)) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     [[0]] (sha3 4 5)
-    # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x4, size=0x5)) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     [[0]] (sha3 10 10)
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0xA, size=0xA)) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     [[0]] (sha3 1000 0xFFFFF)
-    # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x3E8, size=0xFFFFF))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     ; The result here is zero, because we run out of gas
-    #     [[0]] (sha3 0xfffffffff  100)
-    # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0xFFFFFFFFF, size=0x64))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001004),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     ; The result here is zero, because we run out of gas
-    #     [[0]] (sha3 10000 0xfffffffff)
-    # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x2710, size=0xFFFFFFFFF))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001005),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     (def 'neg1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)  # noqa: E501
-    #     [[0]] (sha3 neg1 neg1)
-    # }
-    contract_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.SHA3(
-                offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-                size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-            ),
+    """Store the SHA3 of a range of the patterned memory."""
+    code = (
+        fill_memory
+        + Op.SSTORE(
+            RESULT_SLOT,
+            Op.SHA3(offset=operands(offset), size=operands(size)),
         )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001006),  # noqa: E501
+        + Op.STOP
     )
-    # Source: lll
-    # {
-    #     (def 'neg1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)  # noqa: E501
-    #     [[0]] (sha3 neg1 2)
-    # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.SHA3(
-                offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-                size=0x2,
-            ),
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001007),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     [[0]] (sha3 0x1000000 2)
-    # }
-    contract_8 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x1000000, size=0x2))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001008),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   [[ 0 ]] (sha3 960 1)
-    # }
-    contract_9 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x3C0, size=0x1))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001009),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   [[ 0 ]] (sha3 992 1)
-    # }
-    contract_10 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x3E0, size=0x1))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100A),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   [[ 0 ]] (sha3 1024 1)
-    # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x400, size=0x1))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100B),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   [[ 0 ]] (sha3 1984 1)
-    # }
-    contract_12 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x7C0, size=0x1))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100C),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   [[ 0 ]] (sha3 2016 1)
-    # }
-    contract_13 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x7E0, size=0x1))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100D),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   [[ 0 ]] (sha3 2048 1)
-    # }
-    contract_14 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x800, size=0x1))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100E),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   [[ 0 ]] (sha3 1024 0)
-    # }
-    contract_15 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x400, size=0x0))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000100F),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #   [[ 0 ]] (sha3 2016 32)
-    # }
-    contract_16 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=0x7E0, size=0x20))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001010),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     (call (- 0 1) (+ 0x1000 $4) 0
-    #        0x0F 0x10   ; arg offset and length to get the 0x1234...f0 value
-    #        0x20 0x40)  ; return offset and length
-    # }
-    contract_17 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
-            gas=Op.SUB(0x0, 0x1),
-            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
-            value=0x0,
-            args_offset=0xF,
-            args_size=0x10,
-            ret_offset=0x20,
-            ret_size=0x40,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
-    )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_1: Account(
-                    storage={
-                        0: 0xC41589E7559804EA4A2080DAD19D876A024CCB05117835447D72CE08C1D020EC,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_2: Account(
-                    storage={
-                        0: 0x6BD2DD6BD408CBEE33429358BF24FDC64612FBF8B1B4DB604518F40FFD34B607,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_3: Account(
-                    storage={
-                        0: 0xBE6F1B42B34644F918560A07F959D23E532DEA5338E4B9F63DB0CAEB608018FA,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_4: Account(storage={0: 0})},
-        },
-        {
-            "indexes": {"data": [5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_5: Account(storage={0: 0})},
-        },
-        {
-            "indexes": {"data": [6], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_6: Account(storage={0: 0})},
-        },
-        {
-            "indexes": {"data": [7], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_7: Account(storage={0: 0})},
-        },
-        {
-            "indexes": {"data": [8], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_8: Account(storage={0: 0})},
-        },
-        {
-            "indexes": {"data": [9], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_9: Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [10], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_10: Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [11], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_11: Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [12], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_12: Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [13], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_13: Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [15], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_14: Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [16], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_15: Account(
-                    storage={
-                        0: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [14], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_16: Account(
-                    storage={
-                        0: 0x290DECD9548B62A8D60345A988386FC84BA6BC95484008F6362F93160EF3E563,  # noqa: E501
-                    },
-                ),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x1),
-        Bytes("693c6139") + Hash(0x2),
-        Bytes("693c6139") + Hash(0x3),
-        Bytes("693c6139") + Hash(0x4),
-        Bytes("693c6139") + Hash(0x5),
-        Bytes("693c6139") + Hash(0x6),
-        Bytes("693c6139") + Hash(0x7),
-        Bytes("693c6139") + Hash(0x8),
-        Bytes("693c6139") + Hash(0x9),
-        Bytes("693c6139") + Hash(0xA),
-        Bytes("693c6139") + Hash(0xB),
-        Bytes("693c6139") + Hash(0xC),
-        Bytes("693c6139") + Hash(0xD),
-        Bytes("693c6139") + Hash(0x10),
-        Bytes("693c6139") + Hash(0xE),
-        Bytes("693c6139") + Hash(0xF),
-    ]
-    tx_gas = [16777216]
-    tx_value = [1]
-
+    contract = pre.deploy_contract(code=code, storage={RESULT_SLOT: SENTINEL})
     tx = Transaction(
-        sender=sender,
-        to=contract_17,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=operands.calldata,
+        protected=fork.supports_protected_txs(),
     )
+    expected = keccak256(memory.read(offset, size))
+    post = {contract: Account(storage={RESULT_SLOT: expected})}
+    state_test(pre=pre, post=post, tx=tx)
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+
+@pytest.mark.parametrize(
+    "offset, size",
+    [
+        pytest.param(0xFFFFFFFFF, 100, id="offset_0xfffffffff_size_100"),
+        pytest.param(10000, 0xFFFFFFFFF, id="offset_10000_size_0xfffffffff"),
+        pytest.param(MAX_UINT, MAX_UINT, id="offset_max_size_max"),
+        pytest.param(MAX_UINT, 2, id="offset_max_size_2"),
+        pytest.param(0x1000000, 2, id="offset_0x1000000_size_2"),
+    ],
+)
+def test_sha3_out_of_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    offset: int,
+    size: int,
+    operands: Operands,
+    fill_memory: Bytecode,
+) -> None:
+    """Revert the frame when SHA3 cannot pay for its memory expansion."""
+    sha3 = Op.SHA3(
+        offset=operands(offset),
+        size=operands(size),
+        data_size=size,
+        new_memory_size=offset + size,
+    )
+    code = fill_memory + Op.SSTORE(RESULT_SLOT, sha3) + Op.STOP
+    contract = pre.deploy_contract(code=code, storage={RESULT_SLOT: SENTINEL})
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=operands.calldata,
+        protected=fork.supports_protected_txs(),
+    )
+    # No transaction gets more gas than the block's gas limit.
+    assert sha3.gas_cost(fork) > Environment().gas_limit
+    post = {contract: Account(storage={RESULT_SLOT: SENTINEL})}
+    state_test(pre=pre, post=post, tx=tx)

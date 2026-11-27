@@ -1,15 +1,25 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test a Fibonacci sequence computed in storage.
+
+The original tests were written by Ori Pomerantz.
 
 Ported from:
 state_tests/VMTests/vmArithmeticTest/fibFiller.yml
+
+@manually-enhanced: Do not overwrite. Built from a loop over the index.
+
+The contract starts with the first two Fibonacci numbers in slots 0 and
+1, and stores each later one as the sum of the two slots before it, so
+every step reads back what the previous steps stored. The expected
+storage is the sequence computed in Python.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
+    Bytecode,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -18,115 +28,37 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+pytestmark = [
+    pytest.mark.ported_from(
+        ["state_tests/VMTests/vmArithmeticTest/fibFiller.yml"],
+    ),
+    pytest.mark.valid_from("Frontier"),
+]
 
-@pytest.mark.ported_from(
-    ["state_tests/VMTests/vmArithmeticTest/fibFiller.yml"],
-)
-@pytest.mark.valid_from("Cancun")
+FIRST_FIBONACCI_NUMBERS = [0, 1]
+LAST_INDEX = 10
+
+
 def test_fib(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE)
+    """Store each Fibonacci number as the sum of the two before it."""
+    fibonacci = list(FIRST_FIBONACCI_NUMBERS)
+    code = Bytecode()
+    for n in range(len(fibonacci), LAST_INDEX + 1):
+        code += Op.SSTORE(n, Op.ADD(Op.SLOAD(n - 1), Op.SLOAD(n - 2)))
+        fibonacci.append(fibonacci[n - 1] + fibonacci[n - 2])
+    code += Op.STOP
 
-    # Source: lll
-    # {
-    #    (def 'fib (n) [[n]] (+ @@(- n 1) @@(- n 2)))
-    #    (fib  2)
-    #    (fib  3)
-    #    (fib  4)
-    #    (fib  5)
-    #    (fib  6)
-    #    (fib  7)
-    #    (fib  8)
-    #    (fib  9)
-    #    (fib 10)
-    # }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(
-            key=0x2,
-            value=Op.ADD(
-                Op.SLOAD(key=Op.SUB(0x2, 0x1)), Op.SLOAD(key=Op.SUB(0x2, 0x2))
-            ),
-        )
-        + Op.SSTORE(
-            key=0x3,
-            value=Op.ADD(
-                Op.SLOAD(key=Op.SUB(0x3, 0x1)), Op.SLOAD(key=Op.SUB(0x3, 0x2))
-            ),
-        )
-        + Op.SSTORE(
-            key=0x4,
-            value=Op.ADD(
-                Op.SLOAD(key=Op.SUB(0x4, 0x1)), Op.SLOAD(key=Op.SUB(0x4, 0x2))
-            ),
-        )
-        + Op.SSTORE(
-            key=0x5,
-            value=Op.ADD(
-                Op.SLOAD(key=Op.SUB(0x5, 0x1)), Op.SLOAD(key=Op.SUB(0x5, 0x2))
-            ),
-        )
-        + Op.SSTORE(
-            key=0x6,
-            value=Op.ADD(
-                Op.SLOAD(key=Op.SUB(0x6, 0x1)), Op.SLOAD(key=Op.SUB(0x6, 0x2))
-            ),
-        )
-        + Op.SSTORE(
-            key=0x7,
-            value=Op.ADD(
-                Op.SLOAD(key=Op.SUB(0x7, 0x1)), Op.SLOAD(key=Op.SUB(0x7, 0x2))
-            ),
-        )
-        + Op.SSTORE(
-            key=0x8,
-            value=Op.ADD(
-                Op.SLOAD(key=Op.SUB(0x8, 0x1)), Op.SLOAD(key=Op.SUB(0x8, 0x2))
-            ),
-        )
-        + Op.SSTORE(
-            key=0x9,
-            value=Op.ADD(
-                Op.SLOAD(key=Op.SUB(0x9, 0x1)), Op.SLOAD(key=Op.SUB(0x9, 0x2))
-            ),
-        )
-        + Op.SSTORE(
-            key=0xA,
-            value=Op.ADD(
-                Op.SLOAD(key=Op.SUB(0xA, 0x1)), Op.SLOAD(key=Op.SUB(0xA, 0x2))
-            ),
-        )
-        + Op.STOP,
-        storage={0: 0, 1: 1},
-        balance=0xBA1A9CE0BA1A9CE,
+    contract = pre.deploy_contract(
+        code=code, storage=dict(enumerate(FIRST_FIBONACCI_NUMBERS))
     )
-
     tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes("01"),
-        gas_limit=16777216,
-        value=1,
+        sender=pre.fund_eoa(),
+        to=contract,
+        protected=fork.supports_protected_txs(),
     )
-
-    post = {
-        target: Account(
-            storage={
-                0: 0,
-                1: 1,
-                2: 1,
-                3: 2,
-                4: 3,
-                5: 5,
-                6: 8,
-                7: 13,
-                8: 21,
-                9: 34,
-                10: 55,
-            },
-        ),
-    }
-
+    post = {contract: Account(storage=dict(enumerate(fibonacci)))}
     state_test(pre=pre, post=post, tx=tx)

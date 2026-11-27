@@ -1,137 +1,145 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test a loop that grows the stack up to, and past, the stack limit.
+
+The original tests were written by Ori Pomerantz.
 
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/loop_stacklimitFiller.yml
+
+@manually-enhanced: Do not overwrite. The `looper` counts down from its
+call value and leaves one extra item on the stack per iteration, so a loop
+of `n` iterations peaks at `n + 4` items. The `caller` calls it with the
+iteration count as value and stores the call's success flag and the
+returned iteration counter. The filler's dispatcher passed the
+transaction's value of 1, so its `loop_1020` and `loop_1021` cases looped
+once and never reached the limit; here the counts come from the fork's
+stack limit, so one loop peaks exactly at the limit and succeeds, and the
+next overflows it and fails.
 """
+
+from enum import StrEnum
 
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
-    Bytes,
-    Hash,
+    Fork,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+pytestmark = [
+    pytest.mark.ported_from(
+        [
+            "state_tests/VMTests/vmIOandFlowOperations/loop_stacklimitFiller.yml"
+        ],
+    ),
+    pytest.mark.valid_from("Frontier"),
+]
 
-@pytest.mark.ported_from(
-    ["state_tests/VMTests/vmIOandFlowOperations/loop_stacklimitFiller.yml"],
-)
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="loop_1021",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="loop_1020",
-        ),
-    ],
-)
+SUCCESS_SLOT = 0
+COUNTER_SLOT = 1
+SENTINEL = 0x0BAD
+# How far the stack peaks above the iteration count.
+PEAK_ABOVE_ITERATIONS = 4
+# Explicit, so the call does not ask for more gas than is left before
+# EIP-150 lets it forward all but 1/64th.
+LOOPER_GAS = 0x100000
+
+
+class LoopLength(StrEnum):
+    """How many iterations the looper runs, relative to the stack limit."""
+
+    ONE_ITERATION = "one_iteration"
+    AT_STACK_LIMIT = "at_stack_limit"
+    OVER_STACK_LIMIT = "over_stack_limit"
+
+
+@pytest.fixture
+def looper(pre: Alloc) -> Address:
+    """
+    Deploy the filler's loop, returning its iteration counter.
+
+    The stack holds a leftover copy of each earlier countdown value below
+    the counter and the countdown value. Each iteration decrements the
+    countdown, increments the counter, and keeps a copy of the new
+    countdown value, so the stack grows by one item per iteration.
+    """
+    setup = Op.PUSH1[0] + Op.CALLVALUE
+    loop_start = len(setup)
+    code = (
+        setup
+        + Op.JUMPDEST
+        # countdown -= 1
+        + Op.PUSH1[1]
+        + Op.SWAP1
+        + Op.SUB
+        # counter += 1
+        + Op.SWAP1
+        + Op.PUSH1[1]
+        + Op.ADD
+        # Keep a copy of the countdown, and loop while it is non-zero.
+        + Op.DUP2
+        + Op.JUMPI(pc=loop_start, condition=Op.DUP1)
+        + Op.PUSH1[0]
+        + Op.MSTORE
+        # The counter is stored at offset 1, as in the filler.
+        + Op.PUSH1[1]
+        + Op.MSTORE
+        + Op.RETURN(1, 0x20)
+    )
+    return pre.deploy_contract(code=code)
+
+
+@pytest.mark.parametrize("loop_length", list(LoopLength), ids=str)
 def test_loop_stacklimit(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    looper: Address,
+    loop_length: LoopLength,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
-    sender = pre.fund_eoa(amount=0x100000000000)
+    """Run the loop and check whether it fits in the stack."""
+    at_limit = fork.max_stack_height() - PEAK_ABOVE_ITERATIONS
+    match loop_length:
+        case LoopLength.ONE_ITERATION:
+            iterations = 1
+        case LoopLength.AT_STACK_LIMIT:
+            iterations = at_limit
+        case LoopLength.OVER_STACK_LIMIT:
+            iterations = at_limit + 1
+    overflows = loop_length == LoopLength.OVER_STACK_LIMIT
 
-    # Source: lll
-    # {
-    #    (asm 0 CALLVALUE JUMPDEST 1 SWAP1 SUB SWAP1 1 ADD DUP2 DUP1 3 JUMPI 0 MSTORE 1 MSTORE 0 MSIZE RETURN)  # noqa: E501
-    # }
-    addr = pre.deploy_contract(
-        code=Op.PUSH1[0x0]
-        + Op.CALLVALUE
-        + Op.JUMPDEST
-        + Op.PUSH1[0x1]
-        + Op.SWAP1
-        + Op.SUB
-        + Op.SWAP1
-        + Op.PUSH1[0x1]
-        + Op.ADD
-        + Op.DUP2
-        + Op.JUMPI(pc=0x3, condition=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.MSTORE
-        + Op.PUSH1[0x1]
-        + Op.MSTORE
-        + Op.RETURN(offset=Op.MSIZE, size=0x0)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-    )
-    # Source: raw
-    # 0x6000345b60019003906001018180600357600052600152600059f300
-    addr_2 = pre.deploy_contract(
-        code=Op.PUSH1[0x0]
-        + Op.CALLVALUE
-        + Op.JUMPDEST
-        + Op.PUSH1[0x1]
-        + Op.SWAP1
-        + Op.SUB
-        + Op.SWAP1
-        + Op.PUSH1[0x1]
-        + Op.ADD
-        + Op.DUP2
-        + Op.JUMPI(pc=0x3, condition=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.MSTORE
-        + Op.PUSH1[0x1]
-        + Op.MSTORE
-        + Op.RETURN(offset=Op.MSIZE, size=0x0)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-    )
-    # Source: lll
-    # {
-    #     (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
-    # }
-    target = pre.deploy_contract(
-        code=Op.DELEGATECALL(
-            gas=Op.GAS,
-            address=Op.CALLDATALOAD(offset=0x4),
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
+    caller = pre.deploy_contract(
+        code=Op.SSTORE(
+            SUCCESS_SLOT,
+            Op.CALL(
+                gas=LOOPER_GAS,
+                address=looper,
+                value=iterations,
+                ret_offset=0,
+                ret_size=0x20,
+            ),
         )
+        + Op.SSTORE(COUNTER_SLOT, Op.MLOAD(0))
         + Op.STOP,
-        storage={0: 0},
-        balance=0xBA1A9CE0BA1A9CE,
+        storage={SUCCESS_SLOT: SENTINEL, COUNTER_SLOT: SENTINEL},
+        balance=iterations,
     )
-
-    tx_data = [
-        Bytes("693c6139") + Hash(addr, left_padding=True),
-        Bytes("693c6139") + Hash(addr_2, left_padding=True),
-    ]
-    tx_gas = [16777216]
-    tx_value = [1]
-
     tx = Transaction(
-        sender=sender,
-        to=target,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
+        sender=pre.fund_eoa(),
+        to=caller,
+        protected=fork.supports_protected_txs(),
     )
 
-    post = {target: Account(storage={0: 0})}
-
+    # A failed call returns nothing, leaving the return buffer empty.
+    storage = {SUCCESS_SLOT: 1, COUNTER_SLOT: iterations}
+    if overflows:
+        storage = {SUCCESS_SLOT: 0, COUNTER_SLOT: 0}
+    post = {caller: Account(storage=storage)}
     state_test(pre=pre, post=post, tx=tx)

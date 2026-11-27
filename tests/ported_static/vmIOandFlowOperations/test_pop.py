@@ -1,142 +1,134 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test POP.
+
+The original tests were written by Ori Pomerantz.
 
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/popFiller.yml
+
+@manually-enhanced: Do not overwrite. Built from readable parameters.
+
+Each contract pushes `stack_depth` distinct items with `PC`, so the
+item `n` places from the bottom holds its offset `n - 1`, and then runs
+its POPs.
+`test_pop` pops some of the items and stores the top items that remain,
+so the stored values show that exactly the popped items left the stack,
+from the top. `test_pop_underflow` pops one item more than it pushed,
+after a storage write, and expects the stack underflow to revert the
+frame, write included, at every depth up to the stack limit.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
-    Hash,
+    Fork,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+pytestmark = [
+    pytest.mark.ported_from(
+        ["state_tests/VMTests/vmIOandFlowOperations/popFiller.yml"],
+    ),
+    pytest.mark.valid_from("Frontier"),
+]
 
-@pytest.mark.ported_from(
-    ["state_tests/VMTests/vmIOandFlowOperations/popFiller.yml"],
-)
-@pytest.mark.valid_from("Cancun")
+SENTINEL = 0x0BAD
+DONE = 0x600D
+WRITTEN = 0x1234
+
+MAX_STACK_DEPTH = 1024
+# How many of the remaining top items `test_pop` stores, the top one in
+# slot 0, so a full stack doesn't cost a store per item.
+STORED_ITEMS = 3
+DONE_SLOT = STORED_ITEMS
+# `test_pop_underflow` writes before the underflow and after it.
+WRITTEN_SLOT = 0
+SKIPPED_SLOT = 1
+
+
 @pytest.mark.parametrize(
-    "d, g, v",
+    "stack_depth, pops",
     [
+        pytest.param(1, 1, id="pop_1_of_1"),
+        pytest.param(3, 1, id="pop_1_of_3"),
+        pytest.param(3, 2, id="pop_2_of_3"),
+        pytest.param(MAX_STACK_DEPTH, 1, id="pop_1_of_max"),
         pytest.param(
-            0,
-            0,
-            0,
-            id="pop1",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="pop2",
+            MAX_STACK_DEPTH, MAX_STACK_DEPTH - 1, id="pop_all_but_1_of_max"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_pop(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    stack_depth: int,
+    pops: int,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001000)
-    contract_1 = Address(0x0000000000000000000000000000000000001001)
-    contract_2 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0x100000000000)
+    """Pop items and verify the top items that remain."""
+    remaining = stack_depth - pops
+    stored = min(remaining, STORED_ITEMS)
+    # Each PC pushes its own offset, so every item is distinct.
+    code = Op.PC * stack_depth + Op.POP * pops
+    for slot in range(stored):
+        # Store the current top item, consuming it.
+        code += Op.PUSH1[slot] + Op.SSTORE
+    code += Op.SSTORE(DONE_SLOT, DONE) + Op.STOP
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
+    contract = pre.deploy_contract(
+        code=code,
+        storage=dict.fromkeys(range(DONE_SLOT + 1), SENTINEL),
     )
-
-    # Source: raw
-    # 0x6002600360045055
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x2] + Op.PUSH1[0x3] + Op.POP(0x4) + Op.SSTORE,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
-    )
-    # Source: raw
-    # 0x5060026003600455
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP + Op.PUSH1[0x2] + Op.SSTORE(key=0x4, value=0x3),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
-            gas=Op.GAS,
-            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
-    )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_2: Account(storage={3: 2})},
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_2: Account(storage={4: 0})},
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x1),
-    ]
-    tx_gas = [16777216]
-    tx_value = [1]
-
     tx = Transaction(
-        sender=sender,
-        to=contract_2,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        sender=pre.fund_eoa(),
+        to=contract,
+        protected=fork.supports_protected_txs(),
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    storage = dict.fromkeys(range(STORED_ITEMS), SENTINEL)
+    for slot in range(stored):
+        storage[slot] = remaining - 1 - slot
+    storage[DONE_SLOT] = DONE
+    post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "stack_depth",
+    [0, 1, 2, MAX_STACK_DEPTH],
+    ids=lambda stack_depth: f"stack_depth_{stack_depth}",
+)
+def test_pop_underflow(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    stack_depth: int,
+) -> None:
+    """Revert the frame when POP runs on a stack it has emptied."""
+    code = (
+        Op.SSTORE(WRITTEN_SLOT, WRITTEN)
+        + Op.PC * stack_depth
+        + Op.POP * (stack_depth + 1)
+        + Op.SSTORE(SKIPPED_SLOT, DONE)
+        + Op.STOP
+    )
+
+    contract = pre.deploy_contract(
+        code=code, storage={WRITTEN_SLOT: SENTINEL, SKIPPED_SLOT: SENTINEL}
+    )
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=contract,
+        protected=fork.supports_protected_txs(),
+    )
+
+    # The underflow reverts the write before it and skips the one after.
+    storage = {WRITTEN_SLOT: SENTINEL, SKIPPED_SLOT: SENTINEL}
+    post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)

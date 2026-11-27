@@ -1,150 +1,116 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test PC.
+
+The original tests were written by Ori Pomerantz.
 
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/pcFiller.yml
+
+@manually-enhanced: Do not overwrite. Each case names the code that runs
+before `PC`, and the stored `PC` must equal that code's length: the byte
+offset of the `PC` opcode, counting PUSH data and skipped code, not the
+number of executed instructions.
 """
+
+from enum import StrEnum
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
-    Hash,
+    Bytecode,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
-
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+SENTINEL = 0x0BAD
+# Slot 0, so PUSH0 can push it.
+PC_SLOT = 0
+PRIOR_STORE_SLOT = 1
+PRIOR_STORE_VALUE = 0xFF
+SKIPPED_CODE_LENGTH = 16
+
+
+class CodeBeforePc(StrEnum):
+    """The code that runs before the `PC` under test."""
+
+    CODE_START = "code_start"
+    AFTER_SSTORE = "after_sstore"
+    AFTER_PUSH32 = "after_push32"
+    AFTER_JUMP = "after_jump"
+    TWO_BYTE_PC = "two_byte_pc"
+    MAX_CODE_SIZE = "max_code_size"
+
+
+def store_pc(fork: Fork) -> Bytecode:
+    """
+    Return the code that stores `PC`.
+
+    It ends the code without a STOP, so execution halts by running off
+    the end, and pushes the slot with PUSH0 where the fork has it, so the
+    `PC` sits as close to the end of the code as it can.
+    """
+    slot: int | Bytecode = PC_SLOT
+    if Op.PUSH0 in fork.valid_opcodes():
+        slot = Op.PUSH0
+    return Op.SSTORE(slot, Op.PC)
+
+
+def code_before_pc(kind: CodeBeforePc, fork: Fork) -> Bytecode:
+    """Return the code that `kind` runs before `PC`."""
+    match kind:
+        case CodeBeforePc.CODE_START:
+            return Bytecode()
+        case CodeBeforePc.AFTER_SSTORE:
+            return Op.SSTORE(PRIOR_STORE_SLOT, PRIOR_STORE_VALUE)
+        case CodeBeforePc.AFTER_PUSH32:
+            # PC counts the 32 data bytes as well as the opcode.
+            return Op.POP(Op.PUSH32[2**256 - 1])
+        case CodeBeforePc.AFTER_JUMP:
+            # Jump over invalid code; PC is the offset after the landing
+            # JUMPDEST, not the count of executed instructions.
+            code = Op.JUMP(pc=Op.PUSH1(data_placeholder="landing"))
+            code += Op.INVALID * SKIPPED_CODE_LENGTH
+            code.substitute(landing=len(code))
+            return code + Op.JUMPDEST
+        case CodeBeforePc.TWO_BYTE_PC:
+            # PC no longer fits in one byte.
+            return Op.JUMPDEST * 0x100
+        case CodeBeforePc.MAX_CODE_SIZE:
+            # The `PC` sits at the end of the largest deployable code.
+            return Op.JUMPDEST * (fork.max_code_size() - len(store_pc(fork)))
+    raise ValueError(f"Unknown code before PC: {kind}")
 
 
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmIOandFlowOperations/pcFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="pc1",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="pc2",
-        ),
-    ],
-)
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.parametrize("kind", list(CodeBeforePc), ids=str)
 def test_pc(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    kind: CodeBeforePc,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001000)
-    contract_1 = Address(0x0000000000000000000000000000000000001001)
-    contract_2 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0x100000000000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    # Source: lll
-    # {
-    #    [[0]] (pc)
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.PC) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #    [[0]] 0xFF
-    #    [[1]] (pc)
-    # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0xFF)
-        + Op.SSTORE(key=0x1, value=Op.PC)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
-            gas=Op.GAS,
-            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        storage={0: 2989},
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
-    )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_2: Account(storage={0: 0})},
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_2: Account(storage={0: 255, 1: 5})},
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x1),
-    ]
-    tx_gas = [16777216]
-    tx_value = [1]
-
+    """Store `PC` after `kind` and expect the offset of the `PC` opcode."""
+    prefix = code_before_pc(kind, fork)
+    code = prefix + store_pc(fork)
+    if kind == CodeBeforePc.MAX_CODE_SIZE:
+        assert len(code) == fork.max_code_size()
+    contract = pre.deploy_contract(code=code, storage={PC_SLOT: SENTINEL})
     tx = Transaction(
-        sender=sender,
-        to=contract_2,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        sender=pre.fund_eoa(),
+        to=contract,
+        protected=fork.supports_protected_txs(),
     )
-
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    storage = {PC_SLOT: len(prefix)}
+    if kind == CodeBeforePc.AFTER_SSTORE:
+        storage[PRIOR_STORE_SLOT] = PRIOR_STORE_VALUE
+    post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)

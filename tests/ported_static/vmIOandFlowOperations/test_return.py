@@ -1,279 +1,212 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Test the RETURN data a caller receives.
+
+The original tests were written by Ori Pomerantz.
 
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/returnFiller.yml
+
+@manually-enhanced: Do not overwrite. Built from readable parameters.
+
+A `caller` calls the `callee` whose address the transaction sends as
+calldata, with every call opcode the fork has, stores the call's success
+flag, and stores the two words of its 0x40-byte return buffer. The buffer
+starts filled with `BUFFER_FILL`, so a client that writes past the
+returned data, for example by zero-padding it to the buffer's size,
+changes a word it must leave alone. `test_return` returns a range of the
+callee's memory and derives the expected words from that range.
+`test_return_memory_out_of_gas` returns a range whose memory expansion
+cannot be paid for, so the call fails and nothing is returned.
+`test_return_halts` returns from either branch of a JUMPI, with code
+after each RETURN that would change the returned word if RETURN did not
+halt.
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
-    Bytes,
-    Environment,
+    Bytecode,
     Hash,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.vm import Op
+from execution_testing.vm import Op, Opcode
 
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
+from tests.ported_static.helpers import Memory
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+SENTINEL = 0x0BAD
+MAX_UINT = 2**256 - 1
+WORD = 0x0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF
+JUMPED = 0x600D
+FELL_THROUGH = 0x60A7
+NOT_HALTED = 0xDEAD
+# Fills the caller's return buffer before the call: non-zero in every byte,
+# and distinct from the storage sentinel and every returned word.
+BUFFER_FILL = int.from_bytes(b"\xb0" * 32)
 
-@pytest.mark.ported_from(
-    ["state_tests/VMTests/vmIOandFlowOperations/returnFiller.yml"],
-)
-@pytest.mark.valid_from("Cancun")
+FIRST_WORD_SLOT = 0
+SECOND_WORD_SLOT = 1
+SUCCESS_SLOT = 2
+RETURN_BUFFER_SIZE = 0x40
+# Explicit, so the call does not ask for more gas than is left before
+# EIP-150 lets it forward all but 1/64th.
+CALLEE_GAS = 0x10000
+
+pytestmark = [
+    pytest.mark.ported_from(
+        ["state_tests/VMTests/vmIOandFlowOperations/returnFiller.yml"],
+    ),
+    pytest.mark.valid_from("Frontier"),
+    pytest.mark.with_all_call_opcodes(),
+]
+
+
+@pytest.fixture
+def caller(pre: Alloc, call_opcode: Opcode) -> Address:
+    """Deploy the caller of the callee address read from calldata."""
+    return pre.deploy_contract(
+        code=Op.MSTORE(0, BUFFER_FILL)
+        + Op.MSTORE(0x20, BUFFER_FILL)
+        + Op.SSTORE(
+            SUCCESS_SLOT,
+            call_opcode(
+                gas=CALLEE_GAS,
+                address=Op.CALLDATALOAD(0),
+                ret_offset=0,
+                ret_size=RETURN_BUFFER_SIZE,
+            ),
+        )
+        + Op.SSTORE(FIRST_WORD_SLOT, Op.MLOAD(0))
+        + Op.SSTORE(SECOND_WORD_SLOT, Op.MLOAD(0x20))
+        + Op.STOP,
+        storage=dict.fromkeys(
+            (FIRST_WORD_SLOT, SECOND_WORD_SLOT, SUCCESS_SLOT), SENTINEL
+        ),
+    )
+
+
+@pytest.fixture
+def memory() -> Memory:
+    """Return an empty model of the callee's memory."""
+    return Memory()
+
+
+def caller_storage(success: bool, return_data: bytes) -> dict[int, int]:
+    """
+    Return the caller's storage after receiving `return_data`, which
+    overwrites only the start of the pre-filled return buffer.
+    """
+    buffer = bytearray(BUFFER_FILL.to_bytes(32, "big") * 2)
+    returned = return_data[:RETURN_BUFFER_SIZE]
+    buffer[: len(returned)] = returned
+    return {
+        FIRST_WORD_SLOT: int.from_bytes(buffer[:0x20]),
+        SECOND_WORD_SLOT: int.from_bytes(buffer[0x20:]),
+        SUCCESS_SLOT: int(success),
+    }
+
+
 @pytest.mark.parametrize(
-    "d, g, v",
+    "offset, size",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="return",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="returnInfBuff",
-        ),
-        pytest.param(
-            2,
-            0,
-            0,
-            id="returnBigBuff",
-        ),
-        pytest.param(
-            3,
-            0,
-            0,
-            id="returnOffset",
-        ),
-        pytest.param(
-            4,
-            0,
-            0,
-            id="returnOld",
-        ),
+        pytest.param(0, RETURN_BUFFER_SIZE, id="fills_return_buffer"),
+        # Larger than the return buffer, which keeps only its start.
+        pytest.param(0, 0x1000, id="exceeds_return_buffer"),
+        # Unaligned, and shorter than the return buffer, whose second
+        # word keeps its fill.
+        pytest.param(5, 0x20, id="unaligned_offset"),
+        pytest.param(0, 0, id="empty"),
+        # An empty range does not expand memory, whatever its offset.
+        pytest.param(MAX_UINT, 0, id="empty_at_max_offset"),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_return(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    caller: Address,
+    memory: Memory,
+    offset: int,
+    size: int,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000001000)
-    contract_1 = Address(0x0000000000000000000000000000000000001001)
-    contract_2 = Address(0x0000000000000000000000000000000000001002)
-    contract_3 = Address(0x0000000000000000000000000000000000001003)
-    contract_4 = Address(0x0000000000000000000000000000000000001004)
-    contract_5 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    """Return `size` bytes of the callee's memory from `offset`."""
+    callee = pre.deploy_contract(
+        code=Op.MSTORE(0, WORD) + Op.RETURN(offset=offset, size=size)
     )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
-
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
-    # Source: lll
-    # {
-    #    [0] 0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-    #    [[0xFF]] 0x600D
-    #    (return 0x00 0x40)
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,  # noqa: E501
-        )
-        + Op.SSTORE(key=0xFF, value=0x600D)
-        + Op.RETURN(offset=0x0, size=0x40)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001000),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #    [0] 0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-    #    [[0xFF]] 0x600D
-    #    (return 0x00 (- 0 1))
-    # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,  # noqa: E501
-        )
-        + Op.SSTORE(key=0xFF, value=0x600D)
-        + Op.RETURN(offset=0x0, size=Op.SUB(0x0, 0x1))
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001001),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #    [0] 0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-    #    [[0xFF]] 0x600D
-    #    (return 0x05 0x20)
-    # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,  # noqa: E501
-        )
-        + Op.SSTORE(key=0xFF, value=0x600D)
-        + Op.RETURN(offset=0x5, size=0x20)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001003),  # noqa: E501
-    )
-    # Source: raw
-    # 0x6001608052600060805111601b57600160005260206000f3602b565b602760005260206000f360026080525b00  # noqa: E501
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x80, value=0x1)
-        + Op.JUMPI(pc=0x1B, condition=Op.GT(Op.MLOAD(offset=0x80), 0x0))
-        + Op.MSTORE(offset=0x0, value=0x1)
-        + Op.RETURN(offset=0x0, size=0x20)
-        + Op.JUMP(pc=0x2B)
-        + Op.JUMPDEST
-        + Op.MSTORE(offset=0x0, value=0x27)
-        + Op.RETURN(offset=0x0, size=0x20)
-        + Op.MSTORE(offset=0x80, value=0x2)
-        + Op.JUMPDEST
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001004),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #     ; read 0x40 bytes of return data
-    #     (delegatecall 0xffffff (+ 0x1000 $4) 0 0 0x00 0x40)
-    #
-    #     [[0]] @0x00
-    #     [[1]] @0x20
-    # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(
-            Op.DELEGATECALL(
-                gas=0xFFFFFF,
-                address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-        )
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
-        + Op.STOP,
-        storage={255: 2989},
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
-    )
-    # Source: lll
-    # {
-    #    [0] 0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-    #    [[0xFF]] 0x600D
-    #    (return 0x00 0x1000)
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,  # noqa: E501
-        )
-        + Op.SSTORE(key=0xFF, value=0x600D)
-        + Op.RETURN(offset=0x0, size=0x1000)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
-    )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0, 2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_5: Account(
-                    storage={
-                        0: 0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,  # noqa: E501
-                        1: 0,
-                        255: 24589,
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_5: Account(storage={255: 2989})},
-        },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_5: Account(
-                    storage={
-                        0: 0xABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0000000000,  # noqa: E501
-                        1: 0,
-                        255: 24589,
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_5: Account(storage={0: 39, 255: 2989})},
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes("693c6139") + Hash(0x0),
-        Bytes("693c6139") + Hash(0x1),
-        Bytes("693c6139") + Hash(0x2),
-        Bytes("693c6139") + Hash(0x3),
-        Bytes("693c6139") + Hash(0x4),
-    ]
-    tx_gas = [16777216]
-    tx_value = [1]
-
     tx = Transaction(
-        sender=sender,
-        to=contract_5,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        sender=pre.fund_eoa(),
+        to=caller,
+        data=Hash(callee, left_padding=True),
+        protected=fork.supports_protected_txs(),
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    memory.store(0, WORD)
+    return_data = memory.read(offset, size)
+    post = {caller: Account(storage=caller_storage(True, return_data))}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_return_memory_out_of_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    caller: Address,
+) -> None:
+    """Fail the call when RETURN cannot pay for its memory expansion."""
+    callee = pre.deploy_contract(
+        code=Op.MSTORE(0, WORD) + Op.RETURN(offset=0, size=MAX_UINT)
+    )
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=caller,
+        data=Hash(callee, left_padding=True),
+        protected=fork.supports_protected_txs(),
+    )
+    post = {caller: Account(storage=caller_storage(False, b""))}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "jump_taken", [True, False], ids=["jump_taken", "jump_not_taken"]
+)
+def test_return_halts(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    caller: Address,
+    memory: Memory,
+    jump_taken: bool,
+) -> None:
+    """Return from either JUMPI branch, skipping the code after RETURN."""
+    # Returns `NOT_HALTED` instead if execution goes on past a RETURN.
+    after_return = Op.MSTORE(0, NOT_HALTED) + Op.RETURN(0, 0x20)
+    code: Bytecode = (
+        Op.JUMPI(
+            pc=Op.PUSH1(data_placeholder="jumped"), condition=int(jump_taken)
+        )
+        + Op.MSTORE(0, FELL_THROUGH)
+        + Op.RETURN(0, 0x20)
+        + after_return
+    )
+    code.substitute(jumped=len(code))
+    code += (
+        Op.JUMPDEST + Op.MSTORE(0, JUMPED) + Op.RETURN(0, 0x20) + after_return
+    )
+    callee = pre.deploy_contract(code=code)
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=caller,
+        data=Hash(callee, left_padding=True),
+        protected=fork.supports_protected_txs(),
+    )
+
+    memory.store(0, JUMPED if jump_taken else FELL_THROUGH)
+    return_data = memory.read(0, 0x20)
+    post = {caller: Account(storage=caller_storage(True, return_data))}
+    state_test(pre=pre, post=post, tx=tx)
