@@ -25,6 +25,11 @@ fixture format (fixtures with an unknown type do not load), then:
   only `assertHead`, `awaitHead` and the outcome branches of
   `newPayload` and `forkchoiceUpdated` move the markers today.
 
+A block no step delivers is drawn as never sent. If a
+`sendRawTransaction` step sends one of its transactions, it is drawn as
+a carrier instead: it only holds transactions for the pool and is not a
+fork the client is offered.
+
 A frame only knows blocks the client has and blocks it lacks. What a
 `servePeer` step offers is therefore not drawn: the blocks turn up with
 the `awaitHead` that requires the client to have synced them.
@@ -73,9 +78,19 @@ BLOCK_KINDS: Dict[str, str] = {
     "engine": "sent with <code>newPayload</code>",
     "built": "built by the client (<code>getPayload</code>)",
     "peer": "synced from the devp2p peer",
+    "carrier": (
+        "never sent, only holds transactions for "
+        "<code>sendRawTransaction</code>"
+    ),
     "unsent": "never sent",
 }
-"""How a block reaches the client: CSS class suffix to legend text."""
+"""
+How a block reaches the client, or why it never does: CSS class suffix to
+legend text.
+"""
+
+CARRIER_TAG = "txs only"
+"""The tag drawn at a block that only holds transactions for the pool."""
 
 BLOCK_MARKS: Dict[str, str] = {
     "invalid": "invalid",
@@ -499,8 +514,6 @@ def _reported(errors: str) -> str:
     in the fixture as alternatives separated by `|`.
     """
     names = [f"<code>{escape(name)}</code>" for name in errors.split("|")]
-    if len(names) > 3:
-        names = names[:3] + [f"one of {len(names) - 3} others"]
     if len(names) == 1:
         return names[0]
     return ", ".join(names[:-1]) + " or " + names[-1]
@@ -534,7 +547,12 @@ class Scenario:
         self.parents: Dict[str, str | None] = {GENESIS_LABEL: None}
         self.parents.update(blocks)
         self.kinds: Dict[str, str] = {GENESIS_LABEL: "genesis"}
+        self._pooled: Set[str] = set()
         self._collect(steps)
+        # Only a block that no step delivers is a carrier, whatever the
+        # order of the steps.
+        for label in self._pooled:
+            self.kinds.setdefault(label, "carrier")
         self._counter = 0
         self.items = self._flow(
             steps, _State({GENESIS_LABEL}, Forkchoice(latest=GENESIS_LABEL))
@@ -570,8 +588,13 @@ class Scenario:
     # The script
 
     def _collect(self, steps: Sequence[Step]) -> None:
-        """Record the blocks bound by, and the kind delivered by, steps."""
+        """
+        Record the blocks bound by, the kind delivered by, and the blocks
+        whose transactions are sent to the pool by, steps.
+        """
         for step in steps:
+            if isinstance(step, SendRawTransactionStep):
+                self._pooled.add(step.tx.block)
             if isinstance(step, GetPayloadStep):
                 self.parents.setdefault(step.bind, step.parent)
             delivery = DELIVERIES.get(str(step.type))
@@ -1033,10 +1056,23 @@ class Scenario:
                 f'<text class="{css}" x="{center:g}" y="{middle + 4:g}">'
                 f"{escape(node.text)}</text>"
             )
+            if node.tainted and here and node.invalid is None:
+                # A second outline, so that the mark is not told from a
+                # block the client lacks by colour alone.
+                boxes.append(
+                    f'<rect class="rg-b-in" x="{x + 3:g}" y="{y + 3:g}" '
+                    f'width="{width - 6:g}" height="{BLOCK_HEIGHT - 6}" '
+                    'rx="4"/>'
+                )
             if node.invalid is not None:
                 texts.append(
                     f'<text class="rg-x" x="{x + width - 3:g}" y="{y - 3:g}">'
                     "invalid</text>"
+                )
+            elif node.kind == "carrier":
+                texts.append(
+                    f'<text class="rg-c" x="{x + width - 3:g}" y="{y - 3:g}">'
+                    f"{CARRIER_TAG}</text>"
                 )
 
             def marker(tag: str, label: str | None, node: Node = node) -> str:
@@ -1232,7 +1268,7 @@ def render_legend(kinds: Sequence[str]) -> str:
         for kind in kinds
     ]
     entries.append(
-        '<span><i class="rg-sw rg-sw--ghost"></i>not sent yet</span>'
+        '<span><i class="rg-sw rg-sw--ghost"></i>not with the client</span>'
     )
     entries.append(
         '<span><i class="rg-sw rg-sw--target"></i>block the step names</span>'

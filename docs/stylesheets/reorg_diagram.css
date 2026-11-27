@@ -76,12 +76,13 @@
   background: color-mix(in srgb, var(--rg-kind, transparent) 18%, transparent);
 }
 
+.rg-sw--carrier,
 .rg-sw--unsent {
   border-style: dotted;
 }
 
 .rg-sw--tainted {
-  border: 2px dashed var(--rg-bad);
+  border: 4px double var(--rg-bad);
 }
 
 .rg-sw--ghost {
@@ -141,6 +142,8 @@
 
 .md-typeset .rg-invalid li {
   margin: 0;
+  /* An exception name is long and has no space to break at. */
+  overflow-wrap: anywhere;
 }
 
 /* Drawings */
@@ -168,13 +171,20 @@
   stroke-width: 1.6;
 }
 
+/* A broken outline always means a block the client does not have. */
+.rg-b--carrier,
 .rg-b--unsent {
   stroke-dasharray: 1.5 3;
 }
 
 .rg-b--tainted {
   stroke: var(--rg-bad);
-  stroke-dasharray: 6 3;
+}
+
+.rg-b-in {
+  fill: none;
+  stroke: var(--rg-bad);
+  stroke-width: 1;
 }
 
 .rg-b--ghost {
@@ -217,10 +227,15 @@
   fill: var(--rg-open);
 }
 
-.rg-svg .rg-x {
+.rg-svg .rg-x,
+.rg-svg .rg-c {
   font-size: 9px;
   fill: var(--rg-bad);
   text-anchor: end;
+}
+
+.rg-svg .rg-c {
+  fill: var(--rg-muted);
 }
 
 .rg-svg .rg-a {

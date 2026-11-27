@@ -15,9 +15,11 @@ from execution_testing.fixtures.reorg import (
     GetPayloadStep,
     NewPayloadStep,
     Outcome,
+    SendRawTransactionStep,
     ServePeerStep,
     Step,
     StepBase,
+    TxRef,
 )
 
 from ..gen_test_doc import reorg_diagram
@@ -244,6 +246,70 @@ def test_blocks_on_an_invalid_block_are_marked() -> None:
     assert scenario.kinds_used() == ["genesis", "unsent", "invalid", "tainted"]
     assert "rg-b--tainted" in scenario.svg()
     assert "built on an invalid block" in render_section([("x", scenario)])
+
+
+def test_block_on_an_invalid_block_has_a_second_outline() -> None:
+    """
+    The mark is a second outline, drawn only once the client has the
+    block: until then the block is drawn as any block the client lacks.
+    """
+    blocks = {"bad": "genesis", "c2": "bad"}
+    steps: List[Any] = [
+        NewPayloadStep(
+            block="bad", expect=[Outcome(id="invalid", status="INVALID")]
+        ),
+        NewPayloadStep(
+            block="c2", expect=[Outcome(id="invalid", status="INVALID")]
+        ),
+    ]
+    scenario = Scenario(blocks, steps, invalid={"bad": "BAD"})
+    rows = [item for item in scenario.items if isinstance(item, Row)]
+    before, after = (scenario.svg(row.frames[0]) for row in rows)
+
+    assert "rg-b--tainted rg-b--ghost" in before
+    assert "rg-b-in" not in before
+    # One inner outline, for `c2`: the invalid block itself has none.
+    assert after.count("rg-b-in") == 1
+    assert scenario.svg().count("rg-b-in") == 1
+
+
+def test_block_that_only_holds_pool_transactions() -> None:
+    """
+    A block that is never delivered but has a transaction sent to the
+    pool is a carrier, tagged in the drawing; a delivered block is not,
+    even if a transaction of it is sent first.
+    """
+    blocks = {**linear("a", 1), "txs": "genesis", "never": "genesis"}
+    steps: List[Any] = [
+        SendRawTransactionStep(tx=TxRef(block="txs")),
+        SendRawTransactionStep(tx=TxRef(block="a1")),
+        new_payload("a1"),
+    ]
+    scenario = Scenario(blocks, steps)
+
+    kinds = {n.text: n.kind for n in scenario.nodes}
+    assert kinds == {
+        "genesis": "genesis",
+        "a1": "engine",
+        "txs": "carrier",
+        "never": "unsent",
+    }
+    assert scenario.kinds_used() == ["genesis", "engine", "carrier", "unsent"]
+    assert scenario.svg().count(">txs only</text>") == 1
+    # The client never has the block.
+    rows = [item for item in scenario.items if isinstance(item, Row)]
+    assert "txs" not in rows[-1].frames[0].present
+    assert "only holds transactions for" in render_section([("x", scenario)])
+
+
+def test_legend_names_blocks_the_client_lacks() -> None:
+    """
+    The dashed outline stands for every block the client does not have,
+    sent later or never.
+    """
+    legend = render_section([("x", Scenario(linear("a", 1), []))])
+
+    assert "not with the client</span>" in legend
 
 
 def test_wide_dags_get_the_full_width() -> None:
@@ -568,7 +634,10 @@ def test_invalid_block_lists_what_a_client_may_report() -> None:
         "is invalid; a client may report <code>E.A</code> or "
         "<code>E.B</code>" in two.html()
     )
-    assert "<code>E.C</code> or one of 2 others" in many.html()
+    # Every alternative is named: the one a field calls for may be last.
+    assert (
+        "<code>E.C</code>, <code>E.D</code> or <code>E.E</code>" in many.html()
+    )
 
 
 def test_build_request_shows_version_and_relative_timestamp() -> None:
