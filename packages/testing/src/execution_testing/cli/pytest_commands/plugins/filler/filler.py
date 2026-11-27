@@ -100,6 +100,7 @@ from ..shared.fixture_output import (
     resolve_fixture_subfolder,
 )
 from ..shared.helpers import (
+    check_mempool_test_location,
     get_spec_format_for_item,
     is_benchmark_test,
     is_help_or_collectonly_mode,
@@ -1907,6 +1908,17 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """
     session: FillingSession = metafunc.config.filling_session  # type: ignore[attr-defined]
     markers = list(metafunc.definition.iter_markers())
+    spec_parameter_names = [
+        test_type.pytest_parameter_name()
+        for test_type in BaseTest.spec_types.values()
+        if test_type.pytest_parameter_name() in metafunc.fixturenames
+    ]
+    if spec_parameter_names:
+        check_mempool_test_location(
+            rootpath=metafunc.config.rootpath,
+            test_path=metafunc.definition.path,
+            spec_parameter_names=spec_parameter_names,
+        )
     for test_type in BaseTest.spec_types.values():
         if test_type.pytest_parameter_name() in metafunc.fixturenames:
             metafunc.parametrize(
