@@ -28,6 +28,14 @@ search:
     options:
         filters: ["^[tT]est*|^Spec*"]
 
+{% if reorg_section %}
+## Scenario
+
+Generated from the fixture{{ "s" if test_case_count > 1 else "" }} filled for {{ reorg_fork }}: the block DAG, then each step with the outcomes it accepts and, beside or below it, the DAG as the fixture expects the client to see it after the step. Hashes and most fork-specific values are left out, and the script can differ on other forks; the [fixture format]({{ "../" * (path.parts | length) }}running_tests/test_formats/blockchain_test_engine_reorg.md) explains the steps and outcomes.
+
+{{ reorg_section }}
+
+{% endif %}
 ## Parametrized Test Cases
 
 This test generates {{ test_case_count }} parametrized test case{{ "s" if test_case_count > 1 else "" }} across {{ cases | map(attribute='fork') | unique | list | length }} fork{{ "s" if cases | map(attribute='fork') | unique | list | length > 1 else "" }}.

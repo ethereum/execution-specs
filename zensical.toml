@@ -50,6 +50,7 @@ extra_css = [
   "https://cdn.datatables.net/buttons/3.1.2/css/buttons.dataTables.css",
   "vendor/glightbox/glightbox.min.css",
   "stylesheets/custom.css",
+  "stylesheets/reorg_diagram.css",
 ]
 
 [project.theme]
