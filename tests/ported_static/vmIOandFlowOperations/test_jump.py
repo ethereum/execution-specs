@@ -98,6 +98,7 @@ class Destination(StrEnum):
     JUMPDEST_IN_LIST = "jumpdest_in_list"
     JUMPDEST_PLUS_2_32 = "jumpdest_plus_2_32"
     JUMPDEST_PLUS_2_64 = "jumpdest_plus_2_64"
+    AFTER_JUMPDEST = "after_jumpdest"
     NOT_JUMPDEST = "not_jumpdest"
     CODE_START = "code_start"
     JUMPDEST_IN_PUSH_DATA = "jumpdest_in_push_data"
@@ -200,6 +201,9 @@ def resolve_target(
         return offsets[Destination.JUMPDEST] + 2**32
     if destination == Destination.JUMPDEST_PLUS_2_64:
         return offsets[Destination.JUMPDEST] + 2**64
+    if destination == Destination.AFTER_JUMPDEST:
+        # The byte right after a JUMPDEST, which is not one itself.
+        return offsets[Destination.JUMPDEST] + 1
     if destination == Destination.CODE_END:
         return end
     if destination == Destination.PAST_CODE_END:

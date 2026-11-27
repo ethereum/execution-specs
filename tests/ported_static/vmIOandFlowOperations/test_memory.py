@@ -19,6 +19,7 @@ word, `test_msize` records MSIZE after each write, and
 transaction cannot pay for, next to an in-bounds read it can.
 """
 
+from enum import StrEnum
 from typing import NamedTuple
 
 import pytest
@@ -29,6 +30,7 @@ from execution_testing import (
     Fork,
     StateTestFiller,
     Transaction,
+    ceiling_division,
 )
 from execution_testing.vm import Op, Opcode
 
@@ -263,30 +265,73 @@ def mload_code(offset: int, operands: Operands) -> Bytecode:
     )
 
 
-@pytest.mark.parametrize("offset", [0, 0x724825, 0xFFFFFFF], ids=hex)
+class MloadBudget(StrEnum):
+    """Which part of the MLOAD's memory cost the transaction can pay."""
+
+    IN_BOUNDS = "in_bounds"
+    LINEAR_TERM_ONLY = "linear_term_only"
+    NEITHER_TERM = "neither_term"
+
+
+# The filler's gas limit for the far reads: it pays the linear memory
+# cost of reading at 0x724825 but not the quadratic one.
+FAR_READ_GAS_LIMIT = 2**24
+
+
+@pytest.mark.parametrize(
+    "offset, budget",
+    [
+        pytest.param(0, MloadBudget.IN_BOUNDS, id="in_bounds"),
+        pytest.param(
+            0x724825, MloadBudget.LINEAR_TERM_ONLY, id="linear_term_only"
+        ),
+        pytest.param(0xFFFFFFF, MloadBudget.NEITHER_TERM, id="neither_term"),
+    ],
+)
 def test_mload_out_of_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     offset: int,
+    budget: MloadBudget,
     operands: Operands,
 ) -> None:
     """
     Revert the frame when MLOAD cannot pay for its memory expansion.
 
-    The gas limit exactly funds the same code reading at offset 0, so the
-    in-bounds read succeeds and the far reads run out of gas.
+    The in-bounds read gets exactly the gas it needs and succeeds. The far
+    reads get `FAR_READ_GAS_LIMIT`: at 0x724825 only the quadratic term of
+    the memory cost goes over it, so a client missing that term would
+    succeed, and at 0xFFFFFFF even the linear term goes over it.
     """
     code = mload_code(offset, operands)
-    in_bounds_code = mload_code(0, Operands(operands.source))
-    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()(
+    cost = fork.transaction_intrinsic_cost_calculator()(
         calldata=operands.calldata
+    ) + code.gas_cost(fork)
+    # The same cost with the memory expansion priced per word only.
+    memory_bytes = offset + 32
+    cost_without_quadratic_term = (
+        cost
+        - fork.memory_expansion_gas_calculator()(new_bytes=memory_bytes)
+        + fork.gas_costs().MEMORY_PER_WORD * ceiling_division(memory_bytes, 32)
     )
-    gas_limit = intrinsic_cost + in_bounds_code.gas_cost(fork)
-    expected = 0
-    if offset > 0:
-        assert intrinsic_cost + code.gas_cost(fork) > gas_limit
-        expected = SENTINEL
+
+    # Check that each case still sits where its purpose needs it, in case
+    # memory pricing changes.
+    match budget:
+        case MloadBudget.IN_BOUNDS:
+            gas_limit = cost
+        case MloadBudget.LINEAR_TERM_ONLY:
+            gas_limit = FAR_READ_GAS_LIMIT
+            assert cost_without_quadratic_term <= gas_limit < cost, (
+                "only the quadratic term may exceed the gas limit"
+            )
+        case MloadBudget.NEITHER_TERM:
+            gas_limit = FAR_READ_GAS_LIMIT
+            assert gas_limit < cost_without_quadratic_term, (
+                "the linear term alone must exceed the gas limit"
+            )
+    expected = 0 if budget == MloadBudget.IN_BOUNDS else SENTINEL
 
     contract = pre.deploy_contract(code=code, storage={RESULT_SLOT: SENTINEL})
     tx = Transaction(

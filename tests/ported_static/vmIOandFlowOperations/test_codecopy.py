@@ -71,12 +71,14 @@ def test_codecopy(
     elif case == "codecopy_2buff":
         words = 3
         # Pad the code so the second copy reads a full word of real code
-        # and then crosses the end of the code, which must zero-fill.
+        # and then crosses the end of the code, which must zero-fill. The
+        # padding also leaves non-zero bytes in the copy's destination, so
+        # the zero-fill has to overwrite them.
         padding: Bytecode | int = 1
         for i in range(2, 17):
             padding = Op.ADD(padding, i)
         code = (
-            Op.MSTORE(0x100, padding)
+            Op.MSTORE(0x40, Op.NOT(padding))
             + Op.CODECOPY(dest_offset=0, offset=0, size=0x20)
             + Op.CODECOPY(dest_offset=0x20, offset=0x20, size=0x40)
         )

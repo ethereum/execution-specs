@@ -28,6 +28,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
@@ -36,6 +37,8 @@ from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+pytestmark = pytest.mark.valid_from("Frontier")
 
 MAX_UINT = 2**256 - 1
 SENTINEL = 0x0BAD
@@ -64,7 +67,6 @@ def neg(value: int) -> int:
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmBitwiseLogicOperation/andFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -82,6 +84,7 @@ def neg(value: int) -> int:
 def test_and(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -93,7 +96,10 @@ def test_and(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -102,7 +108,6 @@ def test_and(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmBitwiseLogicOperation/byteFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "index, value, expected",
     [
@@ -121,6 +126,7 @@ def test_and(
 def test_byte(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     index: int,
     value: int,
     expected: int,
@@ -132,7 +138,10 @@ def test_byte(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(index) + Hash(value)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(index) + Hash(value),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -141,7 +150,6 @@ def test_byte(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmBitwiseLogicOperation/eqFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -153,6 +161,7 @@ def test_byte(
 def test_eq(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -164,7 +173,10 @@ def test_eq(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -173,7 +185,6 @@ def test_eq(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmBitwiseLogicOperation/gtFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -186,6 +197,7 @@ def test_eq(
 def test_gt(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -197,7 +209,10 @@ def test_gt(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -206,7 +221,6 @@ def test_gt(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmBitwiseLogicOperation/iszeroFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, expected",
     [
@@ -218,6 +232,7 @@ def test_gt(
 def test_iszero(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     expected: int,
 ) -> None:
@@ -226,7 +241,12 @@ def test_iszero(
         code=Op.SSTORE(0, Op.ISZERO(Op.CALLDATALOAD(0))) + Op.STOP,
         storage={0: SENTINEL},
     )
-    tx = Transaction(sender=pre.fund_eoa(), to=contract, data=Hash(a))
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a),
+        protected=fork.supports_protected_txs(),
+    )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
 
@@ -234,7 +254,6 @@ def test_iszero(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmBitwiseLogicOperation/ltFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -247,6 +266,7 @@ def test_iszero(
 def test_lt(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -258,7 +278,10 @@ def test_lt(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -267,7 +290,6 @@ def test_lt(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmBitwiseLogicOperation/notFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, expected",
     [
@@ -281,6 +303,7 @@ def test_lt(
 def test_not(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     expected: int,
 ) -> None:
@@ -289,7 +312,12 @@ def test_not(
         code=Op.SSTORE(0, Op.NOT(Op.CALLDATALOAD(0))) + Op.STOP,
         storage={0: SENTINEL},
     )
-    tx = Transaction(sender=pre.fund_eoa(), to=contract, data=Hash(a))
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a),
+        protected=fork.supports_protected_txs(),
+    )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
 
@@ -297,7 +325,6 @@ def test_not(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmBitwiseLogicOperation/orFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -314,6 +341,7 @@ def test_not(
 def test_or(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -325,7 +353,10 @@ def test_or(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -334,7 +365,6 @@ def test_or(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmBitwiseLogicOperation/sgtFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -347,6 +377,7 @@ def test_or(
 def test_sgt(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -358,7 +389,10 @@ def test_sgt(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -367,7 +401,6 @@ def test_sgt(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmBitwiseLogicOperation/sltFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -380,6 +413,7 @@ def test_sgt(
 def test_slt(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -391,7 +425,10 @@ def test_slt(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -400,7 +437,6 @@ def test_slt(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmBitwiseLogicOperation/xorFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -430,6 +466,7 @@ def test_slt(
 def test_xor(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -441,7 +478,10 @@ def test_xor(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)

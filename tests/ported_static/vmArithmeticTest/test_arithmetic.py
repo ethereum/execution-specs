@@ -29,6 +29,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
@@ -37,6 +38,8 @@ from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+pytestmark = pytest.mark.valid_from("Frontier")
 
 MAX_UINT = 2**256 - 1
 INT_MIN = 2**255
@@ -52,7 +55,6 @@ def neg(value: int) -> int:
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmArithmeticTest/addFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -66,6 +68,7 @@ def neg(value: int) -> int:
 def test_add(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -77,7 +80,10 @@ def test_add(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -86,7 +92,6 @@ def test_add(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmArithmeticTest/addmodFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, n, expected",
     [
@@ -107,6 +112,7 @@ def test_add(
 def test_addmod(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     n: int,
@@ -127,6 +133,7 @@ def test_addmod(
         sender=pre.fund_eoa(),
         to=contract,
         data=Hash(a) + Hash(b) + Hash(n),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -135,7 +142,6 @@ def test_addmod(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmArithmeticTest/divFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -162,6 +168,7 @@ def test_addmod(
 def test_div(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -173,7 +180,10 @@ def test_div(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -182,7 +192,6 @@ def test_div(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmArithmeticTest/expFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "base, exponent, expected",
     [
@@ -207,6 +216,7 @@ def test_div(
 def test_exp(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     base: int,
     exponent: int,
     expected: int,
@@ -221,6 +231,7 @@ def test_exp(
         sender=pre.fund_eoa(),
         to=contract,
         data=Hash(base) + Hash(exponent),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -233,7 +244,6 @@ def test_exp(
         "state_tests/VMTests/vmArithmeticTest/mulmodFiller.yml",
     ],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -249,6 +259,7 @@ def test_exp(
 def test_mod(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -260,7 +271,10 @@ def test_mod(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -269,7 +283,6 @@ def test_mod(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmArithmeticTest/mulFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -297,6 +310,7 @@ def test_mod(
 def test_mul(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -308,7 +322,10 @@ def test_mul(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -317,7 +334,6 @@ def test_mul(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmArithmeticTest/mulmodFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, n, expected",
     [
@@ -339,6 +355,7 @@ def test_mul(
 def test_mulmod(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     n: int,
@@ -359,6 +376,7 @@ def test_mulmod(
         sender=pre.fund_eoa(),
         to=contract,
         data=Hash(a) + Hash(b) + Hash(n),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -367,7 +385,6 @@ def test_mulmod(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmArithmeticTest/notFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, expected",
     [
@@ -381,6 +398,7 @@ def test_mulmod(
 def test_not(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     expected: int,
 ) -> None:
@@ -389,7 +407,12 @@ def test_not(
         code=Op.SSTORE(0, Op.NOT(Op.CALLDATALOAD(0))) + Op.STOP,
         storage={0: SENTINEL},
     )
-    tx = Transaction(sender=pre.fund_eoa(), to=contract, data=Hash(a))
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a),
+        protected=fork.supports_protected_txs(),
+    )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
 
@@ -397,7 +420,6 @@ def test_not(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmArithmeticTest/sdivFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -420,6 +442,7 @@ def test_not(
 def test_sdiv(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -431,7 +454,10 @@ def test_sdiv(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -440,7 +466,6 @@ def test_sdiv(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmArithmeticTest/signextendFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "byte_index, value, expected",
     [
@@ -476,6 +501,7 @@ def test_sdiv(
 def test_signextend(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     byte_index: int,
     value: int,
     expected: int,
@@ -492,6 +518,7 @@ def test_signextend(
         sender=pre.fund_eoa(),
         to=contract,
         data=Hash(byte_index) + Hash(value),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -504,7 +531,6 @@ def test_signextend(
         "state_tests/VMTests/vmArithmeticTest/mulmodFiller.yml",
     ],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -520,6 +546,7 @@ def test_signextend(
 def test_smod(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -531,7 +558,10 @@ def test_smod(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -540,7 +570,6 @@ def test_smod(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmArithmeticTest/subFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "a, b, expected",
     [
@@ -554,6 +583,7 @@ def test_smod(
 def test_sub(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     a: int,
     b: int,
     expected: int,
@@ -565,7 +595,10 @@ def test_sub(
         storage={0: SENTINEL},
     )
     tx = Transaction(
-        sender=pre.fund_eoa(), to=contract, data=Hash(a) + Hash(b)
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=Hash(a) + Hash(b),
+        protected=fork.supports_protected_txs(),
     )
     post = {contract: Account(storage={0: expected})}
     state_test(pre=pre, post=post, tx=tx)
@@ -574,16 +607,20 @@ def test_sub(
 @pytest.mark.ported_from(
     ["state_tests/VMTests/vmArithmeticTest/mulFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
 def test_mul_stack_underflow(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Revert a storage write when MUL underflows the stack."""
     contract = pre.deploy_contract(
         code=Op.SSTORE(0, 1) + Op.PUSH1[1] + Op.MUL + Op.STOP,
         storage={0: SENTINEL},
     )
-    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=contract,
+        protected=fork.supports_protected_txs(),
+    )
     post = {contract: Account(storage={0: SENTINEL})}
     state_test(pre=pre, post=post, tx=tx)

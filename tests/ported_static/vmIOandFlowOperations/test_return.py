@@ -9,14 +9,17 @@ state_tests/VMTests/vmIOandFlowOperations/returnFiller.yml
 @manually-enhanced: Do not overwrite. Built from readable parameters.
 
 A `caller` calls the `callee` whose address the transaction sends as
-calldata, with every call opcode the fork has, stores
-the call's success flag, and stores the two words of its 0x40-byte return
-buffer. `test_return` returns a range of the callee's memory and derives
-the expected words from that range. `test_return_memory_out_of_gas`
-returns a range whose memory expansion cannot be paid for, so the call
-fails and nothing is returned. `test_return_halts` returns from either
-branch of a JUMPI, with code after each RETURN that would change the
-returned word if RETURN did not halt.
+calldata, with every call opcode the fork has, stores the call's success
+flag, and stores the two words of its 0x40-byte return buffer. The buffer
+starts filled with `BUFFER_FILL`, so a client that writes past the
+returned data, for example by zero-padding it to the buffer's size,
+changes a word it must leave alone. `test_return` returns a range of the
+callee's memory and derives the expected words from that range.
+`test_return_memory_out_of_gas` returns a range whose memory expansion
+cannot be paid for, so the call fails and nothing is returned.
+`test_return_halts` returns from either branch of a JUMPI, with code
+after each RETURN that would change the returned word if RETURN did not
+halt.
 """
 
 import pytest
@@ -43,6 +46,9 @@ WORD = 0x0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF
 JUMPED = 0x600D
 FELL_THROUGH = 0x60A7
 NOT_HALTED = 0xDEAD
+# Fills the caller's return buffer before the call: non-zero in every byte,
+# and distinct from the storage sentinel and every returned word.
+BUFFER_FILL = int.from_bytes(b"\xb0" * 32)
 
 FIRST_WORD_SLOT = 0
 SECOND_WORD_SLOT = 1
@@ -65,7 +71,9 @@ pytestmark = [
 def caller(pre: Alloc, call_opcode: Opcode) -> Address:
     """Deploy the caller of the callee address read from calldata."""
     return pre.deploy_contract(
-        code=Op.SSTORE(
+        code=Op.MSTORE(0, BUFFER_FILL)
+        + Op.MSTORE(0x20, BUFFER_FILL)
+        + Op.SSTORE(
             SUCCESS_SLOT,
             call_opcode(
                 gas=CALLEE_GAS,
@@ -90,8 +98,13 @@ def memory() -> Memory:
 
 
 def caller_storage(success: bool, return_data: bytes) -> dict[int, int]:
-    """Return the caller's storage after receiving `return_data`."""
-    buffer = return_data[:RETURN_BUFFER_SIZE].ljust(RETURN_BUFFER_SIZE, b"\0")
+    """
+    Return the caller's storage after receiving `return_data`, which
+    overwrites only the start of the pre-filled return buffer.
+    """
+    buffer = bytearray(BUFFER_FILL.to_bytes(32, "big") * 2)
+    returned = return_data[:RETURN_BUFFER_SIZE]
+    buffer[: len(returned)] = returned
     return {
         FIRST_WORD_SLOT: int.from_bytes(buffer[:0x20]),
         SECOND_WORD_SLOT: int.from_bytes(buffer[0x20:]),
@@ -106,7 +119,7 @@ def caller_storage(success: bool, return_data: bytes) -> dict[int, int]:
         # Larger than the return buffer, which keeps only its start.
         pytest.param(0, 0x1000, id="exceeds_return_buffer"),
         # Unaligned, and shorter than the return buffer, whose second
-        # word stays empty.
+        # word keeps its fill.
         pytest.param(5, 0x20, id="unaligned_offset"),
         pytest.param(0, 0, id="empty"),
         # An empty range does not expand memory, whatever its offset.

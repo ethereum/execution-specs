@@ -58,6 +58,11 @@ pytestmark = [
     ),
     pytest.mark.valid_from("Frontier"),
     pytest.mark.with_all_call_opcodes(),
+    pytest.mark.execute(
+        pytest.mark.skip(
+            reason="Pins a gas price below live-network base fees"
+        )
+    ),
 ]
 
 
