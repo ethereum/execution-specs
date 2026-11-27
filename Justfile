@@ -17,6 +17,9 @@ xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
 export PYTEST_XDIST_AUTO_NUM_WORKERS := ""
 evm_bin := env("EVM_BIN", "evm")
 latest_fork := "Bogota"
+# Fork the benchmark recipes fill for. Keep in sync with the benchmark
+# entries in .github/configs/feature.yaml (checked by test-ci-scripts).
+benchmark_fork := "Amsterdam"
 # PyPy 8 (pypy3.11.16+) uses the pp80 ABI tag, and our compiled dependencies
 # ship no pp80 wheels yet. Keep in sync with the PyPy pins in .github.
 pypy := "pypy3.11.15"
@@ -407,7 +410,7 @@ test-packaging: check-testing-imports build-wheels
 fill-benchmark *args: (_tmp-logs "fill-benchmark")
     uv run fill \
         --gas-benchmark-values 1 \
-        --fork "{{ latest_fork }}" \
+        --fork "{{ benchmark_fork }}" \
         -m "not slow" \
         --primary-format-only \
         -k "not test_return_revert" \
@@ -429,7 +432,7 @@ bench-gas *args: (_tmp-logs "bench-gas")
         --generate-pre-alloc-groups \
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
-        --fork Amsterdam \
+        --fork "{{ benchmark_fork }}" \
         -m "not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
         --output="{{ output_dir }}/bench-gas/pre-alloc" \
@@ -442,7 +445,7 @@ bench-gas *args: (_tmp-logs "bench-gas")
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
-        --fork Amsterdam \
+        --fork "{{ benchmark_fork }}" \
         -m "blockchain_test and not slow" \
         --primary-format-only \
         -n auto --maxprocesses 10 --dist=loadgroup \
@@ -457,7 +460,7 @@ bench-gas *args: (_tmp-logs "bench-gas")
     @rm -rf tests/json_loader/bench_gas_fixtures
     ln -sfn "{{ output_dir }}/bench-gas/fixtures" tests/json_loader/bench_gas_fixtures
     cd tests/json_loader && uv run --python {{ pypy }} --no-dev --group test pytest \
-        --fork Amsterdam \
+        --fork "{{ benchmark_fork }}" \
         --allow-post-state-hash \
         -n auto --maxprocesses 10 --dist=loadfile \
         --durations=20 \
@@ -470,7 +473,7 @@ bench-opcode *args: (_tmp-logs "bench-opcode")
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --fixed-opcode-count 1 \
-        --fork Amsterdam \
+        --fork "{{ benchmark_fork }}" \
         -m "repricing and not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not uncachable" \
@@ -481,6 +484,20 @@ bench-opcode *args: (_tmp-logs "bench-opcode")
         "$@" \
         tests/benchmark/compute
 
+# Smoke-test fill-stateful against a running hive --dev (needs HIVE_SIMULATOR)
+[group('benchmark tests')]
+fill-stateful-smoke *args: (_tmp "fill-stateful-smoke")
+    uv run fill-stateful \
+        --hive-mode \
+        --fork "{{ benchmark_fork }}" \
+        --gas-benchmark-values 1 \
+        --output="{{ output_dir }}/fill-stateful-smoke/fixtures" \
+        --basetemp="{{ output_dir }}/fill-stateful-smoke/tmp" \
+        --clean \
+        "$@" \
+        tests/benchmark/compute/instruction/test_arithmetic.py \
+        tests/benchmark/compute/eip7928_block_level_access_lists/test_block_access_list.py
+
 # Run benchmark_parser, then fill benchmark tests using its config
 [group('benchmark tests')]
 bench-opcode-config *args: (_tmp-logs "bench-opcode-config")
@@ -488,7 +505,7 @@ bench-opcode-config *args: (_tmp-logs "bench-opcode-config")
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --fixed-opcode-count \
-        --fork Amsterdam \
+        --fork "{{ benchmark_fork }}" \
         -m "repricing and not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not uncachable" \
