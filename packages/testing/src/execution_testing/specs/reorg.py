@@ -30,6 +30,10 @@ from pydantic import Field
 
 from execution_testing.base_types import Number
 from execution_testing.client_clis import FillerBackend, LazyAlloc
+from execution_testing.exceptions import (
+    BlockException,
+    TransactionException,
+)
 from execution_testing.fixtures import (
     BlockchainEngineReorgFixture,
     FixtureFormat,
@@ -233,6 +237,29 @@ class ReorgTest(BlockchainTest):
             gas_optimization=None,
         )
 
+    @staticmethod
+    def _validation_error(
+        block: ReorgBlock,
+    ) -> List[TransactionException | BlockException] | None:
+        """
+        Return the exceptions a client may report for an invalid
+        ``block``: the ones the test expects, and that of a wrong block
+        hash if its payload's hashes are corrupted. ``None`` if valid.
+        """
+        errors: List[TransactionException | BlockException] = []
+        if block.exception is not None:
+            errors += (
+                block.exception
+                if isinstance(block.exception, list)
+                else [block.exception]
+            )
+        if (
+            block.payload_corrupted
+            and BlockException.INVALID_BLOCK_HASH not in errors
+        ):
+            errors.append(BlockException.INVALID_BLOCK_HASH)
+        return errors or None
+
     def _build_blocks(
         self, t8n: FillerBackend, pre: Alloc, genesis: FixtureHeader
     ) -> Tuple[
@@ -294,6 +321,7 @@ class ReorgTest(BlockchainTest):
                     params=payload.params,
                     new_payload_version=payload.new_payload_version,
                 ),
+                validation_error=self._validation_error(block),
             )
             dag_blocks[block.label] = DagBlock(
                 parent=parent,

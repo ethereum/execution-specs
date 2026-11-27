@@ -78,6 +78,10 @@ Label of the parent block (`"genesis"` for a block extending the genesis block).
 
 The block's `engine_newPayloadVX` request: `params` (version-dependent parameter tuple, see [`FixtureEngineNewPayload`](./blockchain_test_engine.md#fixtureenginenewpayload)) and `newPayloadVersion`.
 
+#### - `validationError`: [`Optional`](./common_types.md#optional)`[`[`TransactionException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.TransactionException)` | `[`BlockException`](../../library/execution_testing_exceptions.md#execution_testing.exceptions.BlockException)`]`
+
+Present for an invalid block only: the exceptions a client may report for it, any one of them, in the form of [`FixtureEngineNewPayload.validationError`](./blockchain_test_engine.md#fixtureenginenewpayload). A payload that does not hash to its `blockHash` lists `BlockException.INVALID_BLOCK_HASH`; a test can also list that exception for a block whose hash is correct, so the field does not tell the two apart. The field is informative: a consumer judges a client by the `expect` of the steps, which can accept other answers for an invalid block (`ACCEPTED` or `SYNCING` on a side chain, for example). Fixtures with this field do not load in versions of the framework from before it was added.
+
 ### `Step`
 
 A step is one of the variants below, distinguished by its `type` field. Every variant shares:
