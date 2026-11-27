@@ -17,6 +17,7 @@ from execution_testing.test_types.block_access_list import (
 )
 from execution_testing.test_types.block_access_list.modifiers import (
     BalScalarField,
+    add_storage_reads,
     append_change,
     append_storage,
     duplicate_account,
@@ -27,12 +28,14 @@ from execution_testing.test_types.block_access_list.modifiers import (
     duplicate_storage_read,
     duplicate_storage_slot,
     encode_scalar_non_minimally,
+    insert_accounts,
     insert_storage_read,
     modify_balance,
     modify_code,
     modify_nonce,
     modify_storage,
     override_rlp,
+    remove_account_strictly,
     remove_nonces,
     reorder_accounts,
     reverse_balance_changes,
@@ -42,6 +45,7 @@ from execution_testing.test_types.block_access_list.modifiers import (
     reverse_storage_reads,
     reverse_storage_slots,
     swap_bal_indices,
+    swap_last_two_accounts,
 )
 
 ALICE = Address(0xA)
@@ -601,3 +605,46 @@ def test_reverse_slot_changes_missing_slot_raises(
     """Raise when the slot is absent."""
     with pytest.raises(ValueError, match="not found"):
         reverse_slot_changes(ALICE, 99)(two_entry_bal)
+
+
+def test_remove_account_strictly(sample_bal: BlockAccessList) -> None:
+    """Remove the named account."""
+    result = remove_account_strictly(ALICE)(sample_bal)
+    assert [a.address for a in result.root] == [CONTRACT]
+
+
+def test_remove_account_strictly_missing_raises(
+    sample_bal: BlockAccessList,
+) -> None:
+    """Raise instead of silently leaving the list unchanged."""
+    with pytest.raises(ValueError, match="not found"):
+        remove_account_strictly(Address(0xB))(sample_bal)
+
+
+def test_insert_accounts_keeps_sorted(sample_bal: BlockAccessList) -> None:
+    """Insert between existing accounts without breaking the sort."""
+    inserted = BalAccountChange(address=Address(0xB))
+    result = insert_accounts([inserted])(sample_bal)
+    assert [a.address for a in result.root] == [ALICE, Address(0xB), CONTRACT]
+
+
+def test_swap_last_two_accounts() -> None:
+    """Swap only the final pair of accounts."""
+    bal = BlockAccessList(
+        [BalAccountChange(address=Address(i)) for i in (1, 2, 3)]
+    )
+    result = swap_last_two_accounts()(bal)
+    assert [a.address for a in result.root] == [
+        Address(1),
+        Address(3),
+        Address(2),
+    ]
+
+
+def test_add_storage_reads(sample_bal: BlockAccessList) -> None:
+    """Add reads only to accounts that touch no storage."""
+    result = add_storage_reads(2)(sample_bal)
+    alice, contract = result.root
+    assert list(alice.storage_reads) == [0, 1]
+    assert list(contract.storage_reads) == [2, 5]
+    assert list(sample_bal.root[0].storage_reads) == []

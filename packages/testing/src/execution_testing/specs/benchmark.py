@@ -354,7 +354,7 @@ class BenchmarkTest(BaseTest):
 
     supported_markers: ClassVar[Dict[str, str]] = {
         "blockchain_test_engine_only": (
-            "Only generate a blockchain test engine fixture"
+            "Only generate blockchain test engine fixtures"
         ),
         "blockchain_test_only": "Only generate a blockchain test fixture",
         "repricing": "Mark test as reference test for gas repricing analysis",
@@ -475,7 +475,14 @@ class BenchmarkTest(BaseTest):
         if "blockchain_test_only" in [m.name for m in markers]:
             return fixture_format != BlockchainFixture
         if "blockchain_test_engine_only" in [m.name for m in markers]:
-            return fixture_format != BlockchainEngineFixture
+            # Every engine format, not just the plain one: a benchmark
+            # marked this way is still meant to be run, and the format
+            # a stateful run consumes is an engine format too.
+            return fixture_format not in (
+                BlockchainEngineFixture,
+                BlockchainEngineXFixture,
+                BlockchainEngineStatefulFixture,
+            )
         return False
 
     def get_genesis_environment(self) -> Environment:
