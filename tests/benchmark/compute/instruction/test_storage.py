@@ -637,11 +637,12 @@ def test_nested_frame_state_access(
 
     def deepest_frame(execution_gas: int) -> int:
         """Return the deepest frame that can still afford the leaf call."""
-        leaf_call_gas = frame_gas + math.ceil(leaf_gas * 64 / 63)
+        leaf_call_gas = frame_gas + fork.min_gas_for_call_forward(leaf_gas)
         frames = 0
         while True:
-            forwarded_gas = execution_gas - frame_gas
-            forwarded_gas -= forwarded_gas // 64
+            forwarded_gas = fork.max_call_gas_forwarded(
+                execution_gas - frame_gas
+            )
             if forwarded_gas < leaf_call_gas:
                 return frames
             execution_gas = forwarded_gas

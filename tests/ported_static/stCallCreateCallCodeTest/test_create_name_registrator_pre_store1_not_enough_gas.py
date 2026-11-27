@@ -11,7 +11,7 @@ Legacy Test from Christoph. J.
 (not a hex blob), with the runtime a separate bytecode appended to it so
 the executed cost never counts the payload, and the deposit riding on
 RETURN's `code_deposit_size` metadata. The creator's frame gas is solved
-for the exact 63/64 grant that covers the child, then stepped one grant
+for the exact 63/64 grant that covers the child, then stepped one gas
 below it for the failing arm; the creator's balance is asserted (the
 endowment returns on failure). Both create opcodes are covered, which the
 boundary keeps honest: CREATE2 costs 15 gas more up front (hashing the
@@ -106,15 +106,10 @@ def test_create_name_registrator_pre_store1_not_enough_gas(
     )
 
     # Solve for the creator frame's gas at the CREATE so its 63/64 grant
-    # lands exactly on the child's cost; the failing arm steps down until
-    # the grant really drops below it (the grant repeats every 64 gas).
-    child_needed = initcode.gas_cost(fork)
-    frame_gas = child_needed * 64 // 63
-    while frame_gas - frame_gas // 64 < child_needed:
-        frame_gas += 1
+    # lands exactly on the child's cost; the failing arm is one gas short.
+    frame_gas = fork.min_gas_for_call_forward(initcode.gas_cost(fork))
     if not enough_gas:
-        while frame_gas - frame_gas // 64 >= child_needed:
-            frame_gas -= 1
+        frame_gas -= 1
 
     gas_limit = (
         fork.transaction_intrinsic_cost_calculator()(

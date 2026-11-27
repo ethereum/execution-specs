@@ -1185,6 +1185,38 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         return cls.gas_costs().CALL_STIPEND
 
     @classmethod
+    def max_call_gas_forwarded(cls, available_gas: int) -> int:
+        """
+        Return the most gas a CALL-family or CREATE opcode can pass to its
+        child frame.
+
+        `available_gas` is the gas left in the calling frame after the
+        opcode's own cost (including memory expansion) is charged. Before
+        EIP-150 all of it can be forwarded, and a CALL asking for more
+        halts the caller instead of being capped.
+        """
+        return available_gas
+
+    @classmethod
+    def min_gas_for_call_forward(cls, gas: int) -> int:
+        """
+        Return the least available gas that lets a CALL-family or CREATE
+        opcode forward `gas` to its child frame.
+
+        The inverse of `max_call_gas_forwarded`: the smallest
+        `available_gas` for which it returns at least `gas`, where
+        `available_gas` is measured after the opcode's own cost.
+        """
+        low, high = gas, 2 * gas + 64
+        while low < high:
+            middle = (low + high) // 2
+            if cls.max_call_gas_forwarded(middle) >= gas:
+                high = middle
+            else:
+                low = middle + 1
+        return low
+
+    @classmethod
     def system_call_gas_limit(cls) -> int:
         """
         Return the total gas budget the system transaction grants the

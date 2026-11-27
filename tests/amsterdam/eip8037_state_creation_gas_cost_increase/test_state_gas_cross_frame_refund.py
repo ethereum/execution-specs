@@ -556,7 +556,9 @@ def test_repaid_credit_funds_execution(
     )
     # A sliver covering the child's SSTORE stipend sentry through the
     # one-in-64 withholding. It survives the merge unspent.
-    sliver = budget_above_sstore_stipend(fork, clearer_code) * 64 // 63 + 1
+    sliver = fork.min_gas_for_call_forward(
+        budget_above_sstore_stipend(fork, clearer_code)
+    )
     # Burn exactly the repaid state-gas credit as execution gas. The
     # tail must overrun the sliver yet fit inside that credit, or the
     # completion stops demonstrating the repayment buys execution.
@@ -754,16 +756,10 @@ def test_repaid_credit_enters_next_call_forwarding_base(
     probe = pre.deploy_contract(code=probe_code, storage={SLOT_X: 1})
     probe_execution = probe_code.execution_cost(fork)
 
-    # Find the smallest base whose EIP-150 allowance
-    # `base - base // 64` covers the probe exactly.
-    forwarding_base = (probe_execution - 1) * 64 // 63 + 1
-    assert (
-        forwarding_base - 1 - (forwarding_base - 1) // 64
-        < probe_execution
-        <= forwarding_base - forwarding_base // 64
-    )
+    # The smallest base whose forwardable share covers the probe exactly.
+    forwarding_base = fork.min_gas_for_call_forward(probe_execution)
     repaid_base = forwarding_base - 1 + sstore_state_gas
-    assert repaid_base - repaid_base // 64 >= probe_execution
+    assert fork.max_call_gas_forwarded(repaid_base) >= probe_execution
 
     probe_call = Op.CALL(
         gas=0xFFFFFFFF,
@@ -780,7 +776,7 @@ def test_repaid_credit_enters_next_call_forwarding_base(
     # repayment is the only additional execution gas available.
     sliver = probe_call.execution_cost(fork) + forwarding_base - 1
     clear_budget = budget_above_sstore_stipend(fork, clearer_code)
-    assert sliver >= clear_budget * 64 // 63 + 1
+    assert sliver >= fork.min_gas_for_call_forward(clear_budget)
     gas_limit = (
         intrinsic_cost
         + head.gas_cost(fork)

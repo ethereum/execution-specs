@@ -154,9 +154,9 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
             + big_call.gas_cost(fork)
             + STARVE_MARGIN
         )
-        forwarded = STARVE_MARGIN - STARVE_MARGIN // 64
+        forwarded = fork.max_call_gas_forwarded(STARVE_MARGIN)
         assert forwarded < prelude.gas_cost(fork), "prober must starve"
-        assert STARVE_MARGIN // 64 <= 2300, "entry store must halt"
+        assert STARVE_MARGIN - forwarded <= 2300, "entry store must halt"
         tx = Transaction(sender=sender, to=entry, data=data, gas_limit=starved)
 
     untouched = {

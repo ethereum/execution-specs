@@ -130,7 +130,7 @@ def test_create_and_gas_inside_create(
         - create_code.gas_cost(fork)
     )
     assert base > 0, "CALLER_GAS must cover the CREATE's charges"
-    child_observed = (base - base // 64) - Op.GAS.gas_cost(fork)
+    child_observed = fork.max_call_gas_forwarded(base) - Op.GAS.gas_cost(fork)
     measured_create = create_store.gas_cost(fork) + child_code.gas_cost(fork)
 
     created = compute_create_address(address=creator, nonce=1)

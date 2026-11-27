@@ -200,17 +200,15 @@ def test_create_address_warm_after_fail(
             account_new=True,
         )
 
-        initcode_success_gas = pre_create_code.gas_cost(fork) + (
-            initcode.gas_cost(fork) * 64 // 63
-        )
+        initcode_success_gas = pre_create_code.gas_cost(
+            fork
+        ) + fork.min_gas_for_call_forward(initcode.gas_cost(fork))
         callee_code_suffix: Bytecode | Op
         if initcode_outcome == "oog-constructor":
             # Run OOG at the code deposit
             gas = initcode_success_gas - 1
-            assert (
-                (initcode_success_gas - pre_create_code.gas_cost(fork))
-                * 63
-                // 64
+            assert fork.max_call_gas_forwarded(
+                gas - pre_create_code.gas_cost(fork)
             ) < initcode.gas_cost(fork)
             callee_code_suffix = Op.STOP
             # Constructor runs out of gas, but the callee does the warming, so

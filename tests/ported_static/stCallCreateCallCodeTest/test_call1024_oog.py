@@ -178,7 +178,7 @@ def predict_recursion_storage(
         # A reserve underflow wraps mod 2**256: an effectively infinite
         # ask, clamped to the 63/64 forwardable maximum.
         ask = gas_read - GAS_RESERVE if gas_read >= GAS_RESERVE else 1 << 256
-        forwarded = min(ask, gas - gas // 64)
+        forwarded = min(ask, fork.max_call_gas_forwarded(gas))
         levels.append((gas, forwarded))
         gas = forwarded
 

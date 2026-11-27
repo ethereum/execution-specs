@@ -105,16 +105,11 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
         + fork.transaction_top_frame_state_gas(contract_creation=True)
         + initcode.gas_cost(fork)
     )
-    callee_needed = writer_store.gas_cost(fork)
-    # The grant, base - base // 64, is a step function that repeats at
-    # every multiple of 64, so one gas less does not always forward less:
-    # step until the grant really crosses the callee's cost.
-    base = callee_needed * 64 // 63
-    while base - base // 64 < callee_needed:
-        base += 1
+    # The least base whose grant covers the callee, or the most that
+    # still falls one gas short of it.
+    base = fork.min_gas_for_call_forward(writer_store.gas_cost(fork))
     if not call_covered:
-        while base - base // 64 >= callee_needed:
-            base -= 1
+        base -= 1
     assert base < OVERSIZED_GAS_ASK, "the 63/64 clamp must apply"
     gas_limit = overhead + base
     sender = pre.fund_eoa()

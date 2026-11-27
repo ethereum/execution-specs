@@ -30,6 +30,7 @@ from ..forks.forks import (
     Paris,
     Prague,
     Shanghai,
+    TangerineWhistle,
     add_bpo_scenarios,
     first_free_bpo_slot,
 )
@@ -1329,3 +1330,47 @@ def test_bpo_scenarios_are_selected_with_their_fork(
         single_fork={forks_until}, forks_from=set(), forks_until=set()
     )
     assert scenarios_in(single) == set()
+
+
+@pytest.mark.parametrize("fork", [Frontier, Homestead], ids=str)
+@pytest.mark.parametrize("available_gas", [0, 63, 64, 100_000])
+def test_max_call_gas_forwarded_before_eip150(
+    fork: Type[BaseFork], available_gas: int
+) -> None:
+    """Test that a call can forward all the available gas before EIP-150."""
+    assert fork.max_call_gas_forwarded(available_gas) == available_gas
+
+
+@pytest.mark.parametrize(
+    "fork", [TangerineWhistle, Berlin, Osaka, Bogota], ids=str
+)
+@pytest.mark.parametrize(
+    "available_gas, forwarded",
+    [
+        (0, 0),
+        (63, 63),
+        (64, 63),
+        (127, 126),
+        (128, 126),
+        # `available - available // 64`, not `available * 63 // 64`, which
+        # is one less whenever `available` is not a multiple of 64.
+        (100_000, 98_438),
+    ],
+)
+def test_max_call_gas_forwarded_from_eip150(
+    fork: Type[BaseFork], available_gas: int, forwarded: int
+) -> None:
+    """Test that a call withholds one 64th of the gas from EIP-150 on."""
+    assert fork.max_call_gas_forwarded(available_gas) == forwarded
+
+
+@pytest.mark.parametrize(
+    "fork", [Frontier, Homestead, TangerineWhistle, Berlin, Bogota], ids=str
+)
+@pytest.mark.parametrize("gas", [0, 1, 62, 63, 64, 2300, 98_438, 1_000_003])
+def test_min_gas_for_call_forward(fork: Type[BaseFork], gas: int) -> None:
+    """Test that the least gas forwarding `gas` is exactly the boundary."""
+    available_gas = fork.min_gas_for_call_forward(gas)
+    assert fork.max_call_gas_forwarded(available_gas) >= gas
+    if available_gas > 0:
+        assert fork.max_call_gas_forwarded(available_gas - 1) < gas

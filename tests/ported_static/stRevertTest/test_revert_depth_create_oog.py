@@ -133,16 +133,18 @@ def test_revert_depth_create_oog(
             - head_store.gas_cost(fork)
             - call_code.gas_cost(fork)
         )
-        assert grant <= available - available // 64, "grant must be granted"
+        assert grant <= fork.max_call_gas_forwarded(available), (
+            "grant must be granted"
+        )
     else:
         # The grant is granted in full but nothing is budgeted for the
         # caller's post-call stores: the 1/64 retention plus whatever the
         # creator hands back cannot pay them, so the whole transaction
         # runs dry after the creator ran.
-        available = -(-grant * 64 // 63) + 64
-        assert grant <= available - available // 64, "grant must be granted"
+        available = fork.min_gas_for_call_forward(grant)
         creator_spare = grant - inner_consumed
-        assert available // 64 + creator_spare < tail_store.gas_cost(fork), (
+        retained = available - fork.max_call_gas_forwarded(available)
+        assert retained + creator_spare < tail_store.gas_cost(fork), (
             "caller must die"
         )
         gas_limit = (

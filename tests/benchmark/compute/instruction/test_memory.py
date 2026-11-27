@@ -208,8 +208,9 @@ def test_nested_frame_memory(
         """Return the deepest frame the budget can fund."""
         frames = 0
         while True:
-            forwarded_gas = execution_gas - frame_gas
-            forwarded_gas -= forwarded_gas // 64
+            forwarded_gas = fork.max_call_gas_forwarded(
+                execution_gas - frame_gas
+            )
             if forwarded_gas < frame_gas:
                 return frames
             execution_gas = forwarded_gas

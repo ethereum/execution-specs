@@ -35,23 +35,6 @@ CHILD_VALUE = 1
 CHILD_STORED = 0x112233
 
 
-def minimum_frame_gas(needed: int) -> int:
-    """
-    Return the smallest frame budget whose 63/64 grant covers `needed`.
-
-    The EVM withholds `available // 64`, which is not the same as granting
-    `available * 63 // 64`: the two differ by one whenever `available` is
-    not a multiple of 64, so the inverse is found by adjusting an estimate
-    rather than computed directly.
-    """
-    available = -(-needed * 64 // 63)
-    while available - available // 64 < needed:
-        available += 1
-    while (available - 1) - (available - 1) // 64 >= needed:
-        available -= 1
-    return available
-
-
 @pytest.mark.ported_from(
     [
         "state_tests/stInitCodeTest/OutOfGasPrefundedContractCreationFiller.json"  # noqa: E501
@@ -111,7 +94,7 @@ def test_out_of_gas_prefunded_contract_creation(
     )
     # Exactly enough for the child, so one gas either side of it decides
     # whether the 63/64 grant covers the child's init code.
-    child_frame_gas = minimum_frame_gas(child_code.gas_cost(fork))
+    child_frame_gas = fork.min_gas_for_call_forward(child_code.gas_cost(fork))
     if outcome == "outer_oog":
         # One gas short of paying for the inner CREATE itself.
         gas_limit = overhead - 1

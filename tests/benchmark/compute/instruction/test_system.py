@@ -13,7 +13,6 @@ Supported Opcodes:
 - SELFDESTRUCT
 """
 
-import math
 from typing import Any
 
 import pytest
@@ -315,8 +314,8 @@ def test_nested_call_chain(
     # access all the way down.
     address = tail_address
     link = Op.POP(Op.CALL(gas=Op.GAS, address=address, address_warm=False))
-    tail_call_gas = link.gas_cost(fork) + math.ceil(
-        tail.gas_cost(fork) * 64 / 63
+    tail_call_gas = link.gas_cost(fork) + fork.min_gas_for_call_forward(
+        tail.gas_cost(fork)
     )
 
     gas = min(tx_gas_limit, gas_benchmark_value)
@@ -324,8 +323,7 @@ def test_nested_call_chain(
         return_cost_deducted_prior_execution=True
     )
     while True:
-        forwarded_gas = gas - link.gas_cost(fork)
-        forwarded_gas -= forwarded_gas // 64
+        forwarded_gas = fork.max_call_gas_forwarded(gas - link.gas_cost(fork))
         if forwarded_gas < tail_call_gas:
             break
         gas = forwarded_gas

@@ -93,7 +93,7 @@ def test_store_gas_on_create(
 
     # The child receives all but one 64th of what the creating frame
     # still holds at the CREATE, and must afford its store out of that.
-    granted = child_budget - child_budget // 64
+    granted = fork.max_call_gas_forwarded(child_budget)
     assert granted > child_code.gas_cost(fork), (
         "CHILD_HEADROOM no longer covers the 63/64 withhold"
     )
