@@ -36,8 +36,9 @@ When done with changes, ask the user if they'd like to run `/lint` before commit
 
 ## Branches
 
-- **There is no `main` branch.** Default branch = most active fork (currently `forks/bogota`). Run `git remote show origin | grep HEAD` to check.
-- `mainnet` = stable specs for forks live on mainnet
+- Default branch = `main`, which holds every fork, including the forks under development (currently Amsterdam and Bogota). It keeps its name across forks.
+- There are no `mainnet` or `forks/<fork>` branches. Released specs are tags (`vX.Y.Z`) and PyPI packages, which ship only the forks up to the release's fork.
+- `eips/<fork>/eip-<number>` = EIP branches, based on `main`. `devnets/<name>/<n>` = devnet branches.
 - PRs target the default branch
 - PRs strictly follow the template in `.github/PULL_REQUEST_TEMPLATE.md`.
 - Never add Claude attribution links (`Claude-Session:` trailers or `claude.ai` URLs) to commit messages or PR descriptions.

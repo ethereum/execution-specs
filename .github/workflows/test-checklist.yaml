@@ -3,8 +3,7 @@ name: Test checklist consistency
 on:
   push:
     branches:
-      - master
-      - mainnet
+      - main
     paths: &checklist_paths
       - "docs/writing_tests/checklist_templates/**"
       - "packages/testing/src/execution_testing/checklists/eip_checklist.py"

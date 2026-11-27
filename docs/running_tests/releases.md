@@ -25,9 +25,9 @@ and cadence.
 
 | Type      | Release name           | Artifact                        | Scope                                                                          | Built from              |
 | --------- | ---------------------- | ------------------------------- | ------------------------------------------------------------------------------ | ----------------------- |
-| Tests     | `tests@vX.Y.Z`         | `fixtures.tar.gz`               | All forks, all tests (eventually including `ethereum/tests` state tests)        | latest `forks/*` branch |
+| Tests     | `tests@vX.Y.Z`         | `fixtures.tar.gz`               | All forks, all tests (eventually including `ethereum/tests` state tests)        | `main`                  |
 | Devnet    | `<feat>-devnet@vX.Y.Z` | `fixtures_<feat>-devnet.tar.gz` | All forks, all tests, for an upcoming-fork feature under active devnet testing   | the devnet or EIP branch |
-| Benchmark | `benchmark@vX.Y.Z`     | `fixtures_benchmark.tar.gz`     | EVM benchmarking tests                                                          | latest `forks/*` branch |
+| Benchmark | `benchmark@vX.Y.Z`     | `fixtures_benchmark.tar.gz`     | EVM benchmarking tests                                                          | `main`                  |
 
 - "Tests" releases aim to match clients' master branches. Once clients have merged the
   upcoming fork into those branches ahead of a pending client release, the `tests` release

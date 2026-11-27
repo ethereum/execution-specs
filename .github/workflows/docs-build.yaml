@@ -23,8 +23,7 @@ on:
     # .github/configs/docs-branches.yaml publish only via workflow_dispatch
     # (use the `ref:` input to publish a tag/SHA).
     branches:
-      - mainnet
-      - forks/bogota
+      - main
     paths: &docs_paths
       - "src/ethereum/**"
       - "src/ethereum_spec_tools/forks.py"
@@ -48,7 +47,7 @@ on:
         description: "Branch to publish under. Must be in the allowlist (see .github/configs/docs-branches.yaml)."
         required: true
         type: string
-        default: forks/bogota
+        default: main
       ref:
         description: "Ref to build: branch name, tag (e.g. v1.2.3), or commit SHA. Empty = tip of the branch above."
         required: false
@@ -227,7 +226,7 @@ jobs:
         run: |
           # zensical.toml can't read environment variables; set the
           # per-branch site_url (canonical/OG/sitemap URLs) in place.
-          # Refs without zensical.toml (e.g. mainnet, still on MkDocs)
+          # Refs without zensical.toml (older tags, still on MkDocs)
           # read SITE_URL from the environment instead.
           if [ -f zensical.toml ]; then
             sed -i "s|^site_url = .*|site_url = \"${SITE_URL}\"|" zensical.toml

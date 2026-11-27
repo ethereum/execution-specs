@@ -3,7 +3,7 @@ name: Hive Execute E2E
 on:
   push:
     branches:
-      - "forks/**"
+      - main
     paths:
       - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/execute/**"
       - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/shared/**"

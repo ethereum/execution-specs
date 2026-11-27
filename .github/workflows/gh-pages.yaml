@@ -3,8 +3,7 @@ name: render
 on:
   push:
     branches:
-      - mainnet
-      - 'forks/**'
+      - main
     paths:
       - 'src/ethereum/**'
       - 'static/**'

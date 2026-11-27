@@ -3,7 +3,7 @@ name: Hive Consume
 on:
   push:
     branches:
-      - "forks/**"
+      - main
     paths-ignore:
       - "**.md"
       - "LICENSE*"

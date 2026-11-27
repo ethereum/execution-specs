@@ -55,7 +55,7 @@ The tag name should be the letter `v` followed by the version number
 To create and push the tag:
 
 ```bash
-git checkout master     # Replace `master` with the pull request's base branch.
+git checkout main       # Replace `main` with the pull request's base branch.
 git pull
 git tag -a -s v1.15.0   # Replace `v1.15.0` with the tag name from earlier.
 git push origin v1.15.0 # Replace the tag name here too.
