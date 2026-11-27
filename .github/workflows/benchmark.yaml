@@ -32,10 +32,6 @@ jobs:
         include:
           - name: Benchmark Gas Values
             recipe: bench-gas
-          - name: Fixed Opcode Count CLI
-            recipe: bench-opcode
-          - name: Fixed Opcode Count Config
-            recipe: bench-opcode-config
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -61,7 +57,6 @@ jobs:
           EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
 
   # TODO: Add execute remote tests with --gas-benchmark-values
-  # TODO: Add execute remote tests with --fixed-opcode-count
 
   build-artifact:
     name: Build Benchmark Fixture Artifact
