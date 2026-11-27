@@ -59,7 +59,7 @@ def total_tx_gas_needed(
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
     sstore_gas = Op.SSTORE(key_warm=False).gas_cost(fork) * 4
-    precompile_gas_with_margin = precompile_gas * 64 // 63
+    precompile_gas_with_margin = fork.min_gas_for_call_forward(precompile_gas)
     extra_gas = 100_000
     if fork.is_eip_enabled(8037):
         extra_gas = 500_000

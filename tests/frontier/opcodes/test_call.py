@@ -56,7 +56,6 @@ def test_call_large_offset_mstore(
         to=contract,
         value=0,
         sender=sender,
-        protected=fork.supports_protected_txs(),
     )
 
     # Address-access cost (cold under EIP-2929; flat CALL cost before).
@@ -125,7 +124,6 @@ def test_call_memory_expands_on_early_revert(
         to=contract,
         value=0,
         sender=sender,
-        protected=fork.supports_protected_txs(),
     )
 
     # Empty callee + value → NEW_ACCOUNT on the schedule. CodeGasMeasure
@@ -199,7 +197,6 @@ def test_call_large_args_offset_size_zero(
         to=contract,
         value=0,
         sender=sender,
-        protected=fork.supports_protected_txs(),
     )
 
     # Address-access cost (cold under EIP-2929; flat call cost before).

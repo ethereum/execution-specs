@@ -7,7 +7,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks.helpers import Fork
 from execution_testing.vm import Opcodes as Op
 
 
@@ -144,7 +143,6 @@ from execution_testing.vm import Opcodes as Op
 def test_precompiles(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     msg: bytes,
     output: bytes,
     oog: bool,
@@ -172,7 +170,6 @@ def test_precompiles(
         to=account,
         sender=pre.fund_eoa(),
         data=msg,
-        protected=fork.supports_protected_txs(),
     )
 
     post = {account: Account(storage={0: output if not oog else 0})}

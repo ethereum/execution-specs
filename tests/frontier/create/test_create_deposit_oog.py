@@ -87,7 +87,6 @@ def test_create_deposit_oog(
         gas_limit=10_000_000,
         to=caller_address,
         sender=sender,
-        protected=fork.supports_protected_txs(),
     )
 
     created_account: Account | None = Account(code=b"\x00" * deposited_len)

@@ -1419,10 +1419,11 @@ def test_call_pre_charged_costs_excluded_from_forwarding(
     )
     wrapper = pre.deploy_contract(wrapper_code)
 
-    # After the up-front pre-charge, the wrapper has gas_remaining left.
-    # The 63/64 rule should forward gas_remaining * 63/64 to the child —
-    # just enough for its SSTORE.
-    gas_remaining = child_execution_gas * 64 // 63 + memory_cost // 2
+    # After the up-front pre-charge, the wrapper has gas_remaining left,
+    # whose forwardable share is just enough for the child's SSTORE.
+    gas_remaining = (
+        fork.min_gas_for_call_forward(child_execution_gas) + memory_cost // 2
+    )
 
     wrapper_gas = wrapper_code.execution_cost(fork) + gas_remaining
 

@@ -380,6 +380,34 @@ In this example, the test will be marked as expected to fail when it is being ex
 
 ## Other Markers
 
+### `@pytest.mark.with_all_operands`
+
+This marker runs a test once for each way an `Operands` builder can supply opcode operands: as PUSH immediates and as calldata words read back with `CALLDATALOAD`. The test requests the `operands` fixture, builds its code through it, and sends `operands.data` as the transaction's calldata. The cases get the ids `push` and `calldata`.
+
+```python
+import pytest
+
+from execution_testing import (
+    Account,
+    Alloc,
+    Op,
+    Operands,
+    StateTestFiller,
+    Transaction,
+)
+
+@pytest.mark.with_all_operands
+@pytest.mark.valid_from("Frontier")
+def test_add(state_test: StateTestFiller, pre: Alloc, operands: Operands):
+    contract = pre.deploy_contract(
+        Op.SSTORE(0, Op.ADD(operands(2), operands(3)))
+    )
+    tx = Transaction(sender=pre.fund_eoa(), to=contract, data=operands.data)
+    state_test(pre=pre, post={contract: Account(storage={0: 5})}, tx=tx)
+```
+
+Use it where an implementation might treat constant operands differently from runtime values, for example by folding or specializing them. To use a single source, build it with `Operands.push()` or `Operands.calldata()` instead of requesting the fixture; requesting the fixture without the marker fails. See the `Operands` docstring for the calldata layout pitfalls.
+
 ### `@pytest.mark.slow`
 
 This marker is used to mark tests that are slow to run. These tests are not run during [CI checks](../getting_started/verifying_changes.md), and are only run when a release is being prepared.

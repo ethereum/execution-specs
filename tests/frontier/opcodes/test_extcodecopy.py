@@ -5,7 +5,6 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
-    Fork,
     Op,
     StateTestFiller,
     Storage,
@@ -22,7 +21,6 @@ from execution_testing import (
 def test_extcodecopy_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """
     Test EXTCODECOPY with out-of-bounds code offset.
@@ -73,7 +71,6 @@ def test_extcodecopy_bounds(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        protected=fork.supports_protected_txs(),
     )
 
     state_test(

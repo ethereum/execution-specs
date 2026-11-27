@@ -2060,7 +2060,9 @@ def test_bal_create_oog_code_deposit(
     contract_address = compute_create_address(address=factory, nonce=1)
 
     initcode_cost = initcode.gas_cost(fork)
-    gas = (initcode_cost * 64 // 63) + create_code.gas_cost(fork)
+    gas = fork.min_gas_for_call_forward(initcode_cost) + create_code.gas_cost(
+        fork
+    )
     if not sufficient_gas:
         gas -= 1
 
@@ -3351,7 +3353,7 @@ def test_bal_create_and_oog(
         # Full success: static cost + child frame (63/64 rule) +
         # SSTORE + gas sink.
         child_gas = init_code.gas_cost(fork)
-        remaining_needed = (child_gas * 64 + 62) // 63
+        remaining_needed = fork.min_gas_for_call_forward(child_gas)
         gas_limit = (
             intrinsic_cost
             + create_static_cost

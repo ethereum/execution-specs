@@ -5,8 +5,8 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
-    Fork,
     Op,
+    Operands,
     StateTestFiller,
     Storage,
     Transaction,
@@ -34,11 +34,12 @@ def signextend(byte_index: int, value: int) -> int:
         pytest.param(int.from_bytes(bytes(range(0x81, 0xA1))), id="negative"),
     ],
 )
+@pytest.mark.with_all_operands
 def test_signextend(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     value: int,
+    operands: Operands,
 ) -> None:
     """
     Test SIGNEXTEND from every byte position, including the sign bytes of
@@ -49,7 +50,7 @@ def test_signextend(
         (
             Op.SSTORE(
                 storage.store_next(signextend(byte_index, value)),
-                Op.SIGNEXTEND(byte_index, value),
+                Op.SIGNEXTEND(operands(byte_index), operands(value)),
             )
             for byte_index in range(32)
         ),
@@ -63,6 +64,6 @@ def test_signextend(
         tx=Transaction(
             sender=pre.fund_eoa(),
             to=contract,
-            protected=fork.supports_protected_txs(),
+            data=operands.data,
         ),
     )

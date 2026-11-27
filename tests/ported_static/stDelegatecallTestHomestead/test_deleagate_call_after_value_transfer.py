@@ -16,7 +16,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -37,7 +36,6 @@ TRANSFERRED_VALUE = 0xA
 def test_deleagate_call_after_value_transfer(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
 ) -> None:
     """DELEGATECALL runs the callee's code in the caller's context."""
     # Delegated code records the environment it observes: it must see the
@@ -66,7 +64,6 @@ def test_deleagate_call_after_value_transfer(
         sender=sender,
         to=caller,
         value=TRANSFERRED_VALUE,
-        protected=fork.supports_protected_txs(),
     )
 
     post = {

@@ -88,8 +88,7 @@ def signed_tx(
         gas_limit=30_000,
         value=1,
         data=data,
-        protected=fork.supports_protected_txs(),
-    ).with_signature_and_sender()
+    ).with_signature_and_sender(fork=fork)
 
 
 def signed_tx_fields(

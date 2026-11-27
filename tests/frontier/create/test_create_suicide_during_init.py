@@ -95,7 +95,6 @@ def test_create_suicide_during_transaction_create(
         data=contract_initcode,
         value=tx_value,
         sender=sender,
-        protected=fork.supports_protected_txs(),
     )
 
     # per EIP-8246

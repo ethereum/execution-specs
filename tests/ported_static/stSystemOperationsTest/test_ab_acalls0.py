@@ -129,7 +129,7 @@ def predict_final_state(
         assert balance[payer] >= value, "value transfer must be funded"
         balance[payer] -= value
         balance["B" if is_a else "A"] += value
-        forwarded = min(ask, gas - gas // 64)
+        forwarded = min(ask, fork.max_call_gas_forwarded(gas))
         levels.append((gas, forwarded))
         gas = forwarded + stipend
 

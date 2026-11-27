@@ -103,7 +103,6 @@ def test_create_one_byte(
     tx = Transaction(
         to=code,
         sender=sender,
-        protected=fork.supports_protected_txs(),
     )
 
     post = {

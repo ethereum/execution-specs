@@ -786,15 +786,15 @@ def test_call_forwarded_gas_63_64(
 
     A wrapper performs a cold, zero-value ``CALL`` requesting maximum
     gas. The spec charges the repriced ``COLD_ACCOUNT_ACCESS``
-    up front and only then forwards ``floor(63/64 * gas_left)`` to the
-    child. The wrapper is handed an exact budget so that, net of the
-    access charge, ``gas_left`` equals ``child_execution * 64 // 63``;
-    forwarding then yields exactly the child's execution need
-    (``child_execution``) and its cold ``SSTORE`` takes effect. With one
-    gas less the floor drops below ``child_execution`` and the child OOGs,
-    so the slot stays zero. This pins that the floor is taken over
-    ``gas_left`` already net of the post-8038 cold access cost (not
-    before it, and not double-charging it).
+    up front and only then forwards all but one 64th of ``gas_left`` to
+    the child. The wrapper is handed an exact budget so that, net of the
+    access charge, ``gas_left`` is the least that forwards the child's
+    execution need (``child_execution``) and its cold ``SSTORE`` takes
+    effect. With one gas less the forwarded share drops below
+    ``child_execution`` and the child OOGs, so the slot stays zero. This
+    pins that the share is taken over ``gas_left`` already net of the
+    post-8038 cold access cost (not before it, and not double-charging
+    it).
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
@@ -806,8 +806,8 @@ def test_call_forwarded_gas_63_64(
     child = pre.deploy_contract(child_code)
     child_execution = child_code.execution_cost(fork)
 
-    # Smallest budget whose 63/64 floor still reaches `child_execution`.
-    forward_budget = child_execution * 64 // 63
+    # Smallest budget whose forwarded share still reaches `child_execution`.
+    forward_budget = fork.min_gas_for_call_forward(child_execution)
     if not sufficient_gas:
         forward_budget -= 1
 

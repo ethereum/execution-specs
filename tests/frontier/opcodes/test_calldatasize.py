@@ -4,7 +4,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -26,7 +25,6 @@ from execution_testing import Macros as Om
 @pytest.mark.slow()
 def test_calldatasize(
     state_test: StateTestFiller,
-    fork: Fork,
     args_size: int,
     pre: Alloc,
     calldata_source: str,
@@ -63,7 +61,6 @@ def test_calldatasize(
         to = pre.deploy_contract(code=outer_code)
 
         tx = Transaction(
-            protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=to,
         )
@@ -71,7 +68,6 @@ def test_calldatasize(
     else:
         tx = Transaction(
             data=calldata,
-            protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=contract_address,
         )

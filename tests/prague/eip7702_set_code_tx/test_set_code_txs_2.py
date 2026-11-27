@@ -2220,7 +2220,6 @@ def test_sender_with_delegation_designator(
         sender=sender,
         to=recipient,
         value=1,
-        protected=fork.supports_protected_txs(),
         error=expected_error,
     )
 

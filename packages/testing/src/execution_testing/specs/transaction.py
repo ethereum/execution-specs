@@ -93,6 +93,7 @@ class TransactionTest(BaseTest):
     ) -> FillResult:
         """Create a fixture from the transaction test definition."""
         fork = self.fork.transitions_from()
+        signed_tx = self.tx.with_signature_and_sender(fork=fork)
         if self.tx.error is not None:
             result = FixtureResult(
                 exception=self.tx.error,
@@ -103,16 +104,16 @@ class TransactionTest(BaseTest):
         else:
             result = FixtureResult(
                 exception=None,
-                hash=self.tx.hash,
+                hash=signed_tx.hash,
                 intrinsic_gas=self._intrinsic_gas(fork),
-                sender=self.tx.sender,
+                sender=signed_tx.sender,
             )
 
         fixture = TransactionFixture(
             result={
                 fork: result,
             },
-            transaction=self.tx.with_signature_and_sender().rlp(),
+            transaction=signed_tx.rlp(),
         )
         return FillResult(
             fixture=fixture,

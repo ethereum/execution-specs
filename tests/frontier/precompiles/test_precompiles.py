@@ -148,7 +148,6 @@ def test_precompiles(
 def test_precompile_as_coinbase(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
     precompile: int,
 ) -> None:
     """
@@ -165,7 +164,6 @@ def test_precompile_as_coinbase(
                 Transaction(
                     sender=sender,
                     to=sender,
-                    protected=fork.supports_protected_txs(),
                 ),
             ],
         ),
@@ -175,7 +173,6 @@ def test_precompile_as_coinbase(
                 Transaction(
                     sender=sender,
                     to=coinbase,
-                    protected=fork.supports_protected_txs(),
                 ),
             ],
         ),

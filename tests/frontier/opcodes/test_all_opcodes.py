@@ -147,7 +147,6 @@ def test_all_opcodes(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract_address,
-        protected=fork.supports_protected_txs(),
     )
 
     state_test(pre=pre, post=post, tx=tx)
@@ -212,7 +211,6 @@ def test_stack_overflow(
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
-        protected=fork.supports_protected_txs(),
     )
     expected_storage = {
         slot_code_worked: value_code_failed if fails else value_code_worked
@@ -277,7 +275,6 @@ def test_max_stack(
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
-        protected=fork.supports_protected_txs(),
     )
     expected_storage = {slot_code_worked: value_code_worked}
 

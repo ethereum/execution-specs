@@ -221,7 +221,7 @@ def test_create_child_spill_not_double_charged(
     gas_limit = (
         fork.transaction_intrinsic_cost_calculator()()
         + factory_code.gas_cost(fork)
-        + child_gas * 64 // 63
+        + fork.min_gas_for_call_forward(child_gas)
     )
     if not enough_gas:
         gas_limit -= 1
@@ -978,7 +978,7 @@ def test_code_deposit_oog_preserves_parent_reservoir(
     gas_before_create_child = child_gas - factory_create_code.execution_cost(
         fork
     )
-    create_child_gas = gas_before_create_child - gas_before_create_child // 64
+    create_child_gas = fork.max_call_gas_forwarded(gas_before_create_child)
     code_deposit = Op.RETURN(code_deposit_size=deploy_size)
     child_pre_deposit_execution = init_code.execution_cost(
         fork
@@ -1073,7 +1073,7 @@ def test_code_deposit_regular_gas_with_covering_reservoir(
 
     # Invert the CREATE 63/64 withholding to land the grant on target.
     initcode_grant = init_code.execution_cost(fork) + deposit_gas_left
-    gas_at_create = initcode_grant * 64 // 63
+    gas_at_create = fork.min_gas_for_call_forward(initcode_grant)
     child_gas = gas_at_create + factory_code.execution_cost(fork)
 
     caller_code = Op.CALL(gas=child_gas, address=factory)
@@ -1225,8 +1225,8 @@ def test_parent_state_gas_after_child_failure(
         #     remainder forms the state reservoir.
         #  2. CREATE charges new_account state gas, reservoir first
         #     then spilled to gas_left and tracked.
-        #  3. 63/64 retention: parent keeps gas_left // 64. The
-        #     reservoir is forwarded to the child frame.
+        #  3. 63/64 retention: parent keeps what it cannot forward.
+        #     The reservoir is forwarded to the child frame.
         #  4. Child initcode SSTORE charges sstore_state_gas, child
         #     reservoir first then spilled to child gas_left.
         #  5. INVALID refills the child frame LIFO then burns its
@@ -1252,10 +1252,10 @@ def test_parent_state_gas_after_child_failure(
         sim_state_gas_left -= new_account_from_reservoir
         sim_gas_left -= new_account_spill
 
-        # 63/64 retention: parent keeps gas_left // 64. The reservoir
-        # is forwarded to the child frame and survives on halt.
+        # The parent keeps only what the CREATE cannot forward. The
+        # reservoir is forwarded to the child frame and survives on halt.
         child_reservoir = sim_state_gas_left
-        sim_gas_left = sim_gas_left // 64
+        sim_gas_left -= fork.max_call_gas_forwarded(sim_gas_left)
 
         # INVALID burns child gas_left, including any spilled SSTORE
         # state gas. Only the forwarded reservoir survives.
@@ -1353,7 +1353,7 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
     # Everything is funded by the execution gas, so we can apply the 1/64th
     # rule directly.
     factory_gas = factory_code.gas_cost(fork) + (
-        init_code.gas_cost(fork) * 64 // 63
+        fork.min_gas_for_call_forward(init_code.gas_cost(fork))
     )
     if not enough_gas:
         factory_gas -= 1
@@ -2010,7 +2010,9 @@ def test_failed_create_header_gas_used(
         gas_left_before_child = (
             gas_limit_cap - intrinsic_cost - factory_code.execution_cost(fork)
         )
-        parent_gas_left = gas_left_before_child // 64
+        parent_gas_left = gas_left_before_child - fork.max_call_gas_forwarded(
+            gas_left_before_child
+        )
         expected_gas_used = gas_limit_cap - parent_gas_left
 
     blockchain_test(
@@ -2477,8 +2479,8 @@ def test_create2_failed_deposit_refunds_storage_state_gas(
     # refills there when the create fails.
     new_account_state_gas = create_call.state_cost(fork)
     sim_gas_left -= new_account_state_gas
-    # 63/64 retention: the factory keeps gas_left // 64.
-    sim_gas_left = sim_gas_left // 64
+    # The factory keeps only what the CREATE2 cannot forward.
+    sim_gas_left -= fork.max_call_gas_forwarded(sim_gas_left)
     sim_gas_left += new_account_state_gas
     sim_gas_left -= factory_post_create_code.execution_cost(fork)
     expected_cumulative = gas_limit_cap - sim_gas_left
@@ -2537,9 +2539,9 @@ def test_create_account_charge_reduces_child_gas(
     # NEW_ACCOUNT gives a wide discrimination window and a large
     # absolute child share.
     gas_at_charge = 3 * new_account
-    full_share = gas_at_charge - gas_at_charge // 64
+    full_share = fork.max_call_gas_forwarded(gas_at_charge)
     spilled = gas_at_charge - new_account
-    reduced_share = spilled - spilled // 64
+    reduced_share = fork.max_call_gas_forwarded(spilled)
     # Burn the middle of `(reduced_share, full_share]` for robustness.
     target_burn = (full_share + reduced_share) // 2
 
@@ -3219,7 +3221,7 @@ def test_nested_create_failure_refunds_state_gas_before_parent_exit(
         gas_before_child = factory_gas - factory_before_child.execution_cost(
             fork
         )
-        child_gas = gas_before_child - gas_before_child // 64
+        child_gas = fork.max_call_gas_forwarded(gas_before_child)
         expected_execution = (
             intrinsic_execution
             + caller_code.execution_cost(fork)
@@ -3421,7 +3423,7 @@ def test_create_collision_burned_gas_counted_in_block_execution(
     # retains 1/64. Post-CREATE consumes from the retained pool. A
     # mutation that drops the burned forwarded gas from execution
     # accounting would reduce this baseline.
-    retained = gas_at_create // 64
+    retained = gas_at_create - fork.max_call_gas_forwarded(gas_at_create)
     gas_post_create = factory_post_create_code.gas_cost(fork)
     assert retained >= gas_post_create
     baseline_gas_used = gas_limit - retained + gas_post_create

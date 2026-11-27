@@ -243,7 +243,7 @@ class StateTest(BaseTest):
         )
         new_tx = self.tx.copy(
             gas_limit=current_gas_limit
-        ).with_signature_and_sender()
+        ).with_signature_and_sender(fork=fork)
         modified_tool_output = t8n.evaluate(
             transition_tool_data=TransitionTool.TransitionToolData(
                 alloc=pre_alloc,
@@ -511,7 +511,7 @@ class StateTest(BaseTest):
             transaction_total_gas_limit_cap=(
                 fork.transaction_total_gas_limit_cap()
             ),
-        ).with_signature_and_sender(keep_secret_key=True)
+        ).with_signature_and_sender(keep_secret_key=True, fork=fork)
         pre_alloc = self.genesis_alloc(
             self.pre, fork=self.fork, fixture_format=StateFixture
         )

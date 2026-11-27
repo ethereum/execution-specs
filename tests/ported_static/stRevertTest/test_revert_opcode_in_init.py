@@ -52,7 +52,6 @@ def test_revert_opcode_in_init(
         to=None,
         data=initcode,
         value=tx_value,
-        protected=fork.supports_protected_txs(),
     )
 
     created = compute_create_address(address=sender, nonce=0)

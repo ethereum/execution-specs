@@ -8,6 +8,7 @@ from execution_testing import (
     Account,
     Alloc,
     Op,
+    Operands,
     StateTestFiller,
     Storage,
     Transaction,
@@ -60,8 +61,13 @@ combinations = list(itertools.product(list_of_args, repeat=2))
     pr=["https://github.com/ethereum/execution-spec-tests/pull/1683"],
 )
 @pytest.mark.eels_base_coverage
+@pytest.mark.with_all_operands
 def test_combinations(
-    state_test: StateTestFiller, pre: Alloc, opcode: Op, operation: Callable
+    state_test: StateTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    operation: Callable,
+    operands: Operands,
 ) -> None:
     """Test bitwise shift combinations."""
     result = Storage()
@@ -72,7 +78,7 @@ def test_combinations(
                     operation(shift=a, value=b),
                     f"{str(opcode).lower()}({a}, {b})",
                 ),
-                opcode(a, b),
+                opcode(operands(a), operands(b)),
             )
             for a, b in combinations
         )
@@ -83,6 +89,7 @@ def test_combinations(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=address_to,
+        data=operands.data,
     )
 
     state_test(pre=pre, post={address_to: Account(storage=result)}, tx=tx)

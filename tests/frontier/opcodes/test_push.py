@@ -13,7 +13,6 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Environment,
-    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -45,7 +44,7 @@ def get_input_for_push_opcode(opcode: Op) -> bytes:
 )
 @pytest.mark.valid_from("Frontier")
 def test_push(
-    state_test: StateTestFiller, fork: Fork, pre: Alloc, push_opcode: Op
+    state_test: StateTestFiller, pre: Alloc, push_opcode: Op
 ) -> None:
     """
     The set of `PUSH*` opcodes pushes data onto the stack.
@@ -75,7 +74,6 @@ def test_push(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract,
-        protected=fork.supports_protected_txs(),
     )
 
     post = {}
@@ -102,7 +100,6 @@ def test_push(
 @pytest.mark.slow()
 def test_stack_overflow(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
     push_opcode: Op,
     stack_height: int,
@@ -146,7 +143,6 @@ def test_stack_overflow(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract,
-        protected=fork.supports_protected_txs(),
     )
 
     post = {}

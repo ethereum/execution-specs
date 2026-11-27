@@ -4,7 +4,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Fork,
     Op,
     StateTestFiller,
     Storage,
@@ -36,7 +35,6 @@ from execution_testing import (
 )
 def test_dup(
     state_test: StateTestFiller,
-    fork: Fork,
     dup_opcode: Op,
     pre: Alloc,
 ) -> None:
@@ -66,7 +64,6 @@ def test_dup(
 
     tx = Transaction(
         to=account,
-        protected=fork.supports_protected_txs(),
         sender=sender,
     )
 

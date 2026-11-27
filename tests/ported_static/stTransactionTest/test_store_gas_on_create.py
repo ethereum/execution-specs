@@ -86,7 +86,6 @@ def test_store_gas_on_create(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=entry,
-        protected=fork.supports_protected_txs(),
         # Charge state gas to the frames, so an EIP-8037 CREATE's own
         # cost comes out of the budget above rather than a reservoir.
         state_gas_reservoir=0,
@@ -94,7 +93,7 @@ def test_store_gas_on_create(
 
     # The child receives all but one 64th of what the creating frame
     # still holds at the CREATE, and must afford its store out of that.
-    granted = child_budget - child_budget // 64
+    granted = fork.max_call_gas_forwarded(child_budget)
     assert granted > child_code.gas_cost(fork), (
         "CHILD_HEADROOM no longer covers the 63/64 withhold"
     )

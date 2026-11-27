@@ -31,6 +31,11 @@ class EIP150(BaseFork):
         )
 
     @classmethod
+    def max_call_gas_forwarded(cls, available_gas: int) -> int:
+        """Withhold one 64th of the available gas from the child frame."""
+        return available_gas - available_gas // 64
+
+    @classmethod
     def _calculate_selfdestruct_gas(
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:

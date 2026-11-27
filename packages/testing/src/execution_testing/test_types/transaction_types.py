@@ -1594,7 +1594,7 @@ class Transaction(
         return self.model_copy(update=updated_values)
 
     def with_signature_and_sender(
-        self, *, keep_secret_key: bool = False
+        self, *, keep_secret_key: bool = False, fork: Fork | None = None
     ) -> Self:
         """Return signed version of the transaction using the private key."""
         updated_values: Dict[str, Any] = {}
@@ -1619,6 +1619,21 @@ class Transaction(
             signed._drop_cached_properties()
             signed._sign_frame_signatures()
             return signed
+
+        if (
+            fork is not None
+            and self.ty == 0
+            and "protected" not in self.model_fields_set
+            and not {"v", "r", "s"} & self.model_fields_set
+        ):
+            resolved = self.model_copy(
+                update={"protected": fork.supports_protected_txs()}
+            )
+            # Values cached before signing were computed with the default.
+            resolved._drop_cached_properties()
+            return resolved.with_signature_and_sender(
+                keep_secret_key=keep_secret_key
+            )
 
         if (
             "v" in self.model_fields_set
@@ -2213,13 +2228,13 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
         return b""
 
     def with_signature_and_sender(
-        self, *, keep_secret_key: bool = False
+        self, *, keep_secret_key: bool = False, fork: Fork | None = None
     ) -> Self:
         """Return a new transaction with the signature and sender added."""
         return self.model_copy(
             update={
                 "tx": self.tx.with_signature_and_sender(
-                    keep_secret_key=keep_secret_key
+                    keep_secret_key=keep_secret_key, fork=fork
                 ),
             }
         )

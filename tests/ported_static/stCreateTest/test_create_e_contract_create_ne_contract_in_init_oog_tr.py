@@ -93,18 +93,12 @@ def test_create_e_contract_create_ne_contract_in_init_oog_tr(
     initcode = call_code + stage_code + create_code
 
     # The CREATE forwards only 63/64 of what the frame holds, so the
-    # frame must keep more than the child needs: solve for the smallest
-    # amount whose grant still covers it, then step below that grant for
-    # the starved arm (the grant repeats every 64 gas, so one gas less
-    # does not always forward less). The deposit rides on the child's
-    # RETURN metadata.
-    child_total = child_initcode.gas_cost(fork)
-    frame_gas = child_total * 64 // 63
-    while frame_gas - frame_gas // 64 < child_total:
-        frame_gas += 1
+    # frame must keep more than the child needs: take the smallest amount
+    # whose grant still covers it, one gas less for the starved arm. The
+    # deposit rides on the child's RETURN metadata.
+    frame_gas = fork.min_gas_for_call_forward(child_initcode.gas_cost(fork))
     if oog:
-        while frame_gas - frame_gas // 64 >= child_total:
-            frame_gas -= 1
+        frame_gas -= 1
 
     # Everything else must land: the fresh create target's top-frame
     # state gas (EIP-8037), the callee, and the nested creation's peak
