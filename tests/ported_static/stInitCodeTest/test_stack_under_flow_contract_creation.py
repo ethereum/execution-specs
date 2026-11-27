@@ -8,15 +8,11 @@ state_tests/stInitCodeTest/StackUnderFlowContractCreationFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
-    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -27,25 +23,17 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stInitCodeTest/StackUnderFlowContractCreationFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_stack_under_flow_contract_creation(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_stack_under_flow_contract_creation."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xAE9F7BCC00)
-
-    pre[coinbase] = Account(balance=0, nonce=1)
-
-    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
         to=None,
         data=Op.PUSH1[0x0] + Op.CALL,
-        gas_limit=2072000 if fork >= Amsterdam else 72000,
     )
 
     post = {
@@ -53,4 +41,4 @@ def test_stack_under_flow_contract_creation(
         sender: Account(nonce=1),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

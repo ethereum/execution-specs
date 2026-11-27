@@ -7,14 +7,12 @@ state_tests/stCreate2/Create2RecursiveFiller.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
@@ -55,7 +53,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create2_recursive(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -65,78 +62,63 @@ def test_create2_recursive(
     v: int,
 ) -> None:
     """Create2 inside Create2 inside Create2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    env = Environment(gas_limit=9223372036854775807)
+    sender = pre.fund_eoa(amount=2**250)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
-
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+    initcode_word = (
+        0x606460006000396103E85A10601B576000606460006000F5601D565B5A5B
     )
     # Source: lll
     # { (MSTORE 0 0x606460006000396103e85a10601b576000606460006000f5601d565b5a5b)  (CREATE2 0 2 30 0) }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x606460006000396103E85A10601B576000606460006000F5601D565B5A5B,  # noqa: E501
-        )
+    contract_0 = pre.deploy_contract(
+        code=Op.MSTORE(offset=0x0, value=initcode_word)
         + Op.CREATE2(value=0x0, offset=0x2, size=0x1E, salt=0x0)
         + Op.STOP,
-        nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
+
+    # Each level re-runs its own init code, zero-padded to 0x64 bytes.
+    initcode = initcode_word.to_bytes(32, "big")[2:]
+    chain = [
+        compute_create_address(
+            address=contract_0, salt=0, initcode=initcode, opcode=Op.CREATE2
+        )
+    ]
+    while len(chain) < 1024:
+        chain.append(
+            compute_create_address(
+                address=chain[-1],
+                salt=0,
+                initcode=initcode.ljust(0x64, b"\0"),
+                opcode=Op.CREATE2,
+            )
+        )
+    depth_1023, depth_1024 = chain[1022], chain[1023]
 
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun<Osaka"],
-            "result": {
-                Address(0x4B17A07E119E86A0FF1FD21CDC9B4ABA196ED3F8): Account(
-                    nonce=1
-                ),
-            },
+            "result": {depth_1024: Account(nonce=1)},
         },
         {
             "indexes": {"data": -1, "gas": 1, "value": -1},
             "network": [">=Cancun<Osaka"],
-            "result": {
-                Address(
-                    0x4B17A07E119E86A0FF1FD21CDC9B4ABA196ED3F8
-                ): Account.NONEXISTENT,
-            },
+            "result": {depth_1024: Account.NONEXISTENT},
         },
         {
             "indexes": {"data": -1, "gas": 2, "value": -1},
             "network": [">=Cancun<Osaka"],
-            "result": {
-                Address(0x471A0E624A2AC11C82CF1FF843127F1C6AA98351): Account(
-                    nonce=1
-                ),
-            },
+            "result": {depth_1023: Account(nonce=1)},
         },
     ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
-    tx_data = [
-        Bytes(""),
-    ]
     tx_gas = [9151314442816847871, 20070000000000, 20080000000000]
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=tx_data[d],
         gas_limit=tx_gas[g],
         error=_exc,
     )

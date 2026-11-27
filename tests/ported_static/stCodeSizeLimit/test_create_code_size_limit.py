@@ -1,8 +1,9 @@
 """
-Test_create_code_size_limit.
+Deploy code at and one byte over the maximum code size via CREATE/CREATE2.
 
 Ported from:
 state_tests/stCodeSizeLimit/createCodeSizeLimitFiller.yml
+state_tests/stCodeSizeLimit/create2CodeSizeLimitFiller.yml
 """
 
 import pytest
@@ -17,16 +18,15 @@ from execution_testing import (
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
-
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCodeSizeLimit/createCodeSizeLimitFiller.yml"],
+    [
+        "state_tests/stCodeSizeLimit/createCodeSizeLimitFiller.yml",
+        "state_tests/stCodeSizeLimit/create2CodeSizeLimitFiller.yml",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 # Kept before EIP-7954: the fixed 15M gas transaction cannot fund the
@@ -34,100 +34,51 @@ REFERENCE_SPEC_VERSION = "N/A"
 # 64KiB). tests/amsterdam/eip7954_increase_max_contract_size covers the
 # raised limit with fork-sized gas.
 @pytest.mark.valid_before("EIP7954")
+@pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
 @pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="valid",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="invalid",
-        ),
-    ],
+    "oversize", [pytest.param(0, id="valid"), pytest.param(1, id="invalid")]
 )
 def test_create_code_size_limit(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    opcode: Op,
+    oversize: int,
 ) -> None:
-    """Test_create_code_size_limit."""
-    sender = pre.fund_eoa(amount=0xBEBC200)
+    """Deploy code at and one byte over the maximum code size."""
+    sender = pre.fund_eoa()
+    code_size = fork.max_code_size() + oversize
+    initcode = Bytes(Op.RETURN(offset=0, size=code_size))
 
-    # Source: yul
-    # berlin
-    # {
-    #   mstore(0, calldataload(0))
-    #   sstore(0, create(0, 0, calldatasize()))
-    #   sstore(1, 1)
-    # }
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
-        + Op.SSTORE(
-            key=0x0,
-            value=Op.CREATE(value=Op.DUP1, offset=0x0, size=Op.CALLDATASIZE),
-        )
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
+    if opcode == Op.CREATE2:
+        create = Op.CREATE2(value=0, offset=0, size=Op.CALLDATASIZE, salt=0)
+    else:
+        create = Op.CREATE(value=0, offset=0, size=Op.CALLDATASIZE)
+    creator = pre.deploy_contract(
+        code=Op.CALLDATACOPY(dest_offset=0, offset=0, size=Op.CALLDATASIZE)
+        + Op.SSTORE(key=0, value=create)
+        + Op.SSTORE(key=1, value=1)
         + Op.STOP,
     )
+    created = compute_create_address(
+        address=creator, nonce=1, salt=0, initcode=initcode, opcode=opcode
+    )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: compute_create_address(address=contract_0, nonce=1),
-                        1: 1,
-                    },
-                ),
-                compute_create_address(address=contract_0, nonce=1): Account(
-                    storage={}, balance=0, nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(storage={0: 0, 1: 1}),
-                compute_create_address(
-                    address=contract_0, nonce=1
-                ): Account.NONEXISTENT,
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    # Initcode: PUSH <size> PUSH1 0 RETURN, sized from
-    # fork.max_code_size(), so the vectors keep their original 0x6000 /
-    # 0x6001 bytes on every fork this test runs. The CREATE
-    # address is nonce-derived and unaffected by the initcode bytes.
-    max_code_size = fork.max_code_size()
-    tx_data = [
-        Bytes(Op.RETURN(offset=0, size=max_code_size)),
-        Bytes(Op.RETURN(offset=0, size=max_code_size + 1)),
-    ]
-    tx_gas = [15000000]
+    post: dict = {sender: Account(nonce=1)}
+    if oversize:
+        post[creator] = Account(storage={0: 0, 1: 1}, nonce=2)
+        post[created] = Account.NONEXISTENT
+    else:
+        post[creator] = Account(storage={0: created, 1: 1}, nonce=2)
+        post[created] = Account(
+            storage={}, balance=0, nonce=1, code=bytes(code_size)
+        )
 
     tx = Transaction(
         sender=sender,
-        to=contract_0,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        error=_exc,
+        to=creator,
+        data=initcode,
+        gas_limit=15_000_000,
     )
 
     state_test(pre=pre, post=post, tx=tx)

@@ -8,17 +8,12 @@ state_tests/stCreateTest/CREATE2_CallDataFiller.yml
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
-    Fork,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
-from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,28 +24,13 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCreateTest/CREATE2_CallDataFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
 def test_create2_call_data(
     state_test: StateTestFiller,
-    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test if calldata is empty in initcode context."""
-    contract_0 = Address(0x000000000000000000000000000000000C5EA705)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=sender,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=3000000 if fork >= Amsterdam else 1000000,
-    )
-
-    pre[sender] = Account(balance=0x5AF3107A4000)
     # Source: yul
     # berlin object "C" {
     #   code {
@@ -70,8 +50,8 @@ def test_create2_call_data(
     #     }
     #   }
     # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x0]
+    creator_code = (
+        Op.PUSH1[0x0]
         + Op.PUSH1[0x10]
         + Op.CODECOPY(dest_offset=Op.DUP4, offset=0x11, size=Op.DUP1)
         + Op.DUP2
@@ -81,27 +61,24 @@ def test_create2_call_data(
         + Op.INVALID
         + Op.SSTORE(key=0x0, value=Op.CALLDATALOAD(offset=0x0))
         + Op.CALLDATACOPY(dest_offset=Op.DUP1, offset=0x0, size=0x40)
-        + Op.RETURN(offset=0x0, size=Op.MSIZE),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000C5EA705),  # noqa: E501
+        + Op.RETURN(offset=0x0, size=Op.MSIZE)
+    )
+    creator = pre.deploy_contract(code=creator_code)
+
+    initcode = bytes(creator_code)[0x11:]
+    created = compute_create_address(
+        address=creator, salt=0, initcode=initcode, opcode=Op.CREATE2
     )
 
     tx = Transaction(
         sender=sender,
-        to=contract_0,
-        data=Bytes(""),
-        gas_limit=2100000 if fork >= Amsterdam else 100000,
+        to=creator,
+        data=bytes(range(1, 65)),
     )
 
     post = {
-        contract_0: Account(
-            storage={0: 0x7F8330AD7BC2AFE0DFFB2FDC76BBAD8BC326296A},
-        ),
-        Address(0x7F8330AD7BC2AFE0DFFB2FDC76BBAD8BC326296A): Account(
-            code=bytes.fromhex(
-                "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-            ),
-        ),
+        creator: Account(storage={0: created}),
+        created: Account(storage={}, code=bytes(64)),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

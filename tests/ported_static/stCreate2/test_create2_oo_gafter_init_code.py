@@ -16,14 +16,11 @@ tracks the parameters. See `_oog_lift` below for the derivation.
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
@@ -34,6 +31,11 @@ from tests.ported_static.post_state_resolution import (
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+DEPLOYED_CODE = Op.SSTORE(key=1, value=1)
+INITCODE = Op.MSTORE(
+    offset=0, value=int.from_bytes(bytes(DEPLOYED_CODE), "big")
+) + Op.RETURN(offset=32 - len(DEPLOYED_CODE), size=len(DEPLOYED_CODE))
 
 
 @pytest.mark.ported_from(
@@ -57,7 +59,6 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create2_oo_gafter_init_code(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -66,30 +67,23 @@ def test_create2_oo_gafter_init_code(
     g: int,
     v: int,
 ) -> None:
-    """Test_create2_oo_gafter_init_code."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    """Run CREATE2 with just too little and just enough gas to deploy."""
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    pre[sender] = Account(balance=0xE8D4A51000)
-    # Source: lll
-    # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE2 0 18 14 0) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
-        + Op.CREATE2(value=0x0, offset=0x12, size=0xE, salt=0x0)
+    contract_0 = pre.deploy_contract(
+        code=Op.MSTORE(
+            offset=0x0, value=int.from_bytes(bytes(INITCODE), "big")
+        )
+        + Op.CREATE2(
+            value=0x0,
+            offset=32 - len(INITCODE),
+            size=len(INITCODE),
+            salt=0x0,
+        )
         + Op.STOP,
-        nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+    )
+    created = compute_create_address(
+        address=contract_0, salt=0, initcode=INITCODE, opcode=Op.CREATE2
     )
 
     expect_entries_: list[dict] = [
@@ -97,29 +91,22 @@ def test_create2_oo_gafter_init_code(
             "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                contract_0: Account(storage={1: 0}),
-                Address(
-                    0x6878B140F875209C82AB4D5F083B55947299EF6B
-                ): Account.NONEXISTENT,
+                contract_0: Account(nonce=2),
+                created: Account.NONEXISTENT,
             },
         },
         {
             "indexes": {"data": -1, "gas": 1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                contract_0: Account(storage={1: 0}),
-                Address(0x6878B140F875209C82AB4D5F083B55947299EF6B): Account(
-                    code=bytes.fromhex("6001600155")
-                ),
+                contract_0: Account(nonce=2),
+                created: Account(code=DEPLOYED_CODE),
             },
         },
     ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
-    tx_data = [
-        Bytes(""),
-    ]
     # The init code RETURNs a 5-byte deployed contract, so the CREATE2
     # frame is charged a code deposit after the init RETURN. On Cancun
     # that deposit is 1000 (200 * 5 regular) and the two budgets below
@@ -165,9 +152,8 @@ def test_create2_oo_gafter_init_code(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=tx_data[d],
         gas_limit=tx_gas[g],
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

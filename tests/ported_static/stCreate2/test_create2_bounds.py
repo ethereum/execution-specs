@@ -1,93 +1,105 @@
 """
-Test_create2_bounds.
+CREATE2 with init code offsets and sizes at memory bounds.
 
 Ported from:
 state_tests/stCreate2/CREATE2_BoundsFiller.json
+state_tests/stCreate2/CREATE2_Bounds2Filler.json
+state_tests/stCreate2/CREATE2_Bounds3Filler.json
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+BOUNDS = {
+    "0": 0,
+    "2^28-1": 2**28 - 1,
+    "2^32-1": 2**32 - 1,
+    "2^64-1": 2**64 - 1,
+    "2^128-1": 2**128 - 1,
+    "2^256-1": 2**256 - 1,
+}
+OFFSET_SIZE_PAIRS = [
+    ("0", "0"),
+    ("0", "2^28-1"),
+    ("0", "2^32-1"),
+    ("0", "2^64-1"),
+    ("0", "2^128-1"),
+    ("0", "2^256-1"),
+    ("2^28-1", "0"),
+    ("2^32-1", "0"),
+    ("2^64-1", "0"),
+    ("2^128-1", "0"),
+    ("2^256-1", "0"),
+    ("2^28-1", "2^28-1"),
+    ("2^32-1", "2^32-1"),
+    ("2^64-1", "2^64-1"),
+    ("2^128-1", "2^128-1"),
+    ("2^256-1", "2^256-1"),
+]
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stCreate2/CREATE2_BoundsFiller.json"],
+    [
+        "state_tests/stCreate2/CREATE2_BoundsFiller.json",
+        "state_tests/stCreate2/CREATE2_Bounds2Filler.json",
+        "state_tests/stCreate2/CREATE2_Bounds3Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "d, g, v",
+    "offset, size",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="-g0",
-        ),
-        pytest.param(
-            0,
-            1,
-            0,
-            id="-g1",
-        ),
+        pytest.param(BOUNDS[o], BOUNDS[s], id=f"offset_{o}-size_{s}")
+        for o, s in OFFSET_SIZE_PAIRS
     ],
 )
 def test_create2_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    offset: int,
+    size: int,
 ) -> None:
-    """Test_create2_bounds."""
-    sender = pre.fund_eoa(amount=2**128 - 1)
+    """CREATE2 with init code offsets and sizes at memory bounds."""
+    sender = pre.fund_eoa()
+    creator_balance = 100
+    create_value = 1
 
-    # Source: lll
-    # {  (MSTORE 0 0x6001600155601080600c6000396000f3006000355415600957005b6020356000 )  (MSTORE8 32 0x35) (MSTORE8 33 0x55) (CREATE2 1 0 0 0) (CREATE2 1 0 0xfffffff 0) }  # noqa: E501
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x6001600155601080600C6000396000F3006000355415600957005B6020356000,  # noqa: E501
-        )
-        + Op.MSTORE8(offset=0x20, value=0x35)
-        + Op.MSTORE8(offset=0x21, value=0x55)
-        + Op.POP(Op.CREATE2(value=0x1, offset=0x0, size=0x0, salt=0x0))
-        + Op.CREATE2(value=0x1, offset=0x0, size=0xFFFFFFF, salt=0x0)
+    creator = pre.deploy_contract(
+        code=Op.CREATE2(value=create_value, offset=offset, size=size, salt=0)
         + Op.STOP,
-        balance=100,
+        balance=creator_balance,
+    )
+    caller = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.CALL(address=creator)) + Op.SSTORE(1, 1)
     )
 
-    tx_data = [
-        Bytes(""),
-    ]
-    tx_gas = [150000, 16777216]
+    tx = Transaction(sender=sender, to=caller)
 
-    tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
+    created = compute_create_address(
+        address=creator, salt=0, initcode=b"", opcode=Op.CREATE2
     )
-
-    post = {
-        contract_0: Account(balance=100),
-        compute_create_address(
-            address=contract_0, nonce=1
-        ): Account.NONEXISTENT,
-        compute_create_address(
-            address=contract_0, nonce=2
-        ): Account.NONEXISTENT,
-    }
+    post: dict
+    if size == 0:
+        post = {
+            caller: Account(storage={0: 1, 1: 1}),
+            creator: Account(balance=creator_balance - create_value, nonce=2),
+            created: Account(balance=create_value, nonce=1, code=b""),
+        }
+    else:
+        post = {
+            caller: Account(storage={0: 0, 1: 1}),
+            creator: Account(balance=creator_balance, nonce=1),
+            created: Account.NONEXISTENT,
+        }
 
     state_test(pre=pre, post=post, tx=tx)

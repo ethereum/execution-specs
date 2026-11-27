@@ -1,5 +1,8 @@
 """
-Test_recursive_create_return_value.
+CREATE that runs its own code as init code, storing each result plus one.
+
+Each level copies its code into memory and CREATEs from it, so every
+init code creates the next level in turn.
 
 Ported from:
 state_tests/stRecursiveCreate/recursiveCreateReturnValueFiller.json
@@ -9,15 +12,11 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytes,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
 from execution_testing.vm import Op
-
-from tests.ported_static.constants import HIGH_GAS_LIMIT
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -27,13 +26,12 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRecursiveCreate/recursiveCreateReturnValueFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Prague")
 def test_recursive_create_return_value(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test_recursive_create_return_value."""
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    """Store CREATE results plus one along a recursive creation chain."""
+    sender = pre.fund_eoa()
 
     # Source: lll
     # {(CODECOPY 0 0 32) [[ 0 ]] (ADD (CREATE 0 0 32) 1) }
@@ -47,18 +45,21 @@ def test_recursive_create_return_value(
         balance=0x1312D00,
     )
 
-    env = Environment(gas_limit=HIGH_GAS_LIMIT)
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=Bytes(""),
-        gas_limit=1000000000,
         value=0x186A0,
     )
 
+    child = compute_create_address(address=contract_0, nonce=1)
+    grandchild = compute_create_address(address=child, nonce=1)
     post = {
-        compute_create_address(address=contract_0, nonce=1): Account(nonce=2),
+        contract_0: Account(
+            storage={0: int.from_bytes(child, "big") + 1}, nonce=2
+        ),
+        child: Account(
+            storage={0: int.from_bytes(grandchild, "big") + 1}, nonce=2
+        ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -37,30 +37,29 @@ COLLIDER_BALANCE = 1
 SLACK_MARGIN = 5_000
 
 
+INNER_INITCODES = {
+    "empty_initcode": Bytecode(),
+    "storing_initcode": Op.SSTORE(
+        key=0x1,
+        value=0x1,
+        key_warm=False,
+        original_value=0,
+        new_value=1,
+    ),
+    "depositing_initcode": Op.MSTORE(
+        offset=0x0, value=0x6001600155, new_memory_size=0x20
+    )
+    + Op.RETURN(offset=0x1B, size=0x5, code_deposit_size=0x5),
+}
+
+
 @pytest.mark.ported_from(
     ["state_tests/stCreate2/create2collisionSelfdestructedOOGFiller.json"],
 )
 @pytest.mark.valid_from("Constantinople")
 @pytest.mark.parametrize(
     "inner_initcode",
-    [
-        pytest.param(Bytecode(), id="empty_initcode"),
-        pytest.param(
-            Op.SSTORE(
-                key=0x1,
-                value=0x1,
-                key_warm=False,
-                original_value=0,
-                new_value=1,
-            ),
-            id="storing_initcode",
-        ),
-        pytest.param(
-            Op.MSTORE(offset=0x0, value=0x6001600155, new_memory_size=0x20)
-            + Op.RETURN(offset=0x1B, size=0x5, code_deposit_size=0x5),
-            id="depositing_initcode",
-        ),
-    ],
+    [pytest.param(code, id=name) for name, code in INNER_INITCODES.items()],
 )
 @pytest.mark.pre_alloc_mutable
 def test_create2collision_selfdestructed_oog(
@@ -83,12 +82,15 @@ def test_create2collision_selfdestructed_oog(
         address_warm=False,
         account_new=True,
     )
+    # Every case deploys the colliders of all cases, so they share one
+    # pre-allocation.
+    for code in INNER_INITCODES.values():
+        pre.deploy_contract(
+            code=collider_work,
+            balance=COLLIDER_BALANCE,
+            address=compute_create2_address(outer_created, 0, code),
+        )
     collider = compute_create2_address(outer_created, 0, inner_initcode)
-    pre.deploy_contract(
-        code=collider_work,
-        balance=COLLIDER_BALANCE,
-        address=collider,
-    )
 
     # The outer init code selfdestructs the collider, stages the child's
     # init code (never executed: the collision aborts before dispatch)
