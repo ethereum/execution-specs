@@ -325,7 +325,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         dry_run: bool,
         collector: Collector,
         gas_benchmark_value: int,
-        fixed_opcode_count: int | None,
         gas_price: int,
         max_fee_per_gas: int,
         max_priority_fee_per_gas: int,
@@ -349,7 +348,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         When parametrize, indirect must be used along with the fixture format
         as value.
         """
-        del fixed_opcode_count
         execute_format = request.param
         assert execute_format in BaseExecute.formats.values()
         assert isinstance(execute_format, LabeledExecuteFormat) or issubclass(

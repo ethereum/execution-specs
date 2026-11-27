@@ -32,7 +32,6 @@ stub_eoas_key: StashKey[Dict[str, EOA]] = StashKey()
 
 ALL_FIXTURE_PARAMETERS = {
     "gas_benchmark_value",
-    "fixed_opcode_count",
     "genesis_environment",
     "env",
 }

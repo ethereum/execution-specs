@@ -854,7 +854,6 @@ oneliner
 oob
 opc
 opcode's
-opcount
 OpenSSL
 oprypin
 optparser

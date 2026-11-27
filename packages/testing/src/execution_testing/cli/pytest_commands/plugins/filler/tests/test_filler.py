@@ -1071,7 +1071,7 @@ test_module_benchmark_repricing = textwrap.dedent(
     """
 )
 """Benchmark module with repricing and non-repricing tests
-(benchmark_test fixture, compatible with --fixed-opcode-count)."""
+(benchmark_test fixture)."""
 
 
 # Fill: exclusion & collection
@@ -1165,25 +1165,10 @@ def test_benchmark_default_uses_gas_benchmark_mode(
         assert fixture_file.exists(), f"{fixture_file} does not exist"
 
 
-# Fill: subdir × benchmark-option × repricing matrix
+# Fill: subdir × repricing matrix
 
 
 @pytest.mark.parametrize("subdir", ["compute", "stateful"])
-@pytest.mark.parametrize(
-    "benchmark_option,benchmark_value",
-    [
-        pytest.param(
-            "--gas-benchmark-values",
-            "1",
-            id="gas-benchmark-values",
-        ),
-        pytest.param(
-            "--fixed-opcode-count",
-            "1",
-            id="fixed-opcode-count",
-        ),
-    ],
-)
 @pytest.mark.parametrize(
     "use_repricing",
     [
@@ -1196,16 +1181,13 @@ def test_benchmark_conftest_matrix(
     benchmark_dir: Any,
     fill_base_args: list[str],
     subdir: str,
-    benchmark_option: str,
-    benchmark_value: str,
     use_repricing: bool,
 ) -> None:
-    """Verify collection across subdir, benchmark option, and repricing.
+    """Verify collection across subdir and repricing.
 
-    Dimensions (2 x 2 x 2 = 8 combinations):
-      - subdir:           compute | stateful
-      - benchmark option: --gas-benchmark-values | --fixed-opcode-count
-      - repricing:        -m repricing | (all tests)
+    Dimensions (2 x 2 = 4 combinations):
+      - subdir:    compute | stateful
+      - repricing: -m repricing | (all tests)
     """
     target_dir = benchmark_dir.mkdir(subdir)
     target_dir.join("test_module.py").write(test_module_benchmark_repricing)
@@ -1214,8 +1196,8 @@ def test_benchmark_conftest_matrix(
         *fill_base_args,
         "--collect-only",
         "-q",
-        benchmark_option,
-        benchmark_value,
+        "--gas-benchmark-values",
+        "1",
     ]
     if use_repricing:
         args.extend(["-m", "repricing"])
@@ -1300,25 +1282,10 @@ def test_execute_benchmark_default_collects_without_flags(
     result.stdout.fnmatch_lines(["*test_benchmark_one*"])
 
 
-# Execute: subdir × benchmark-option × repricing matrix
+# Execute: subdir × repricing matrix
 
 
 @pytest.mark.parametrize("subdir", ["compute", "stateful"])
-@pytest.mark.parametrize(
-    "benchmark_option,benchmark_value",
-    [
-        pytest.param(
-            "--gas-benchmark-values",
-            "1",
-            id="gas-benchmark-values",
-        ),
-        pytest.param(
-            "--fixed-opcode-count",
-            "1",
-            id="fixed-opcode-count",
-        ),
-    ],
-)
 @pytest.mark.parametrize(
     "use_repricing",
     [
@@ -1332,22 +1299,18 @@ def test_execute_benchmark_conftest_matrix(
     benchmark_dir: Any,
     execute_base_args: list[str],
     subdir: str,
-    benchmark_option: str,
-    benchmark_value: str,
     use_repricing: bool,
 ) -> None:
-    """Verify collection across subdir, benchmark option, and repricing
-    in execute mode.
+    """Verify collection across subdir and repricing in execute mode.
 
-    Dimensions (2 x 2 x 2 = 8 combinations):
-      - subdir:           compute | stateful
-      - benchmark option: --gas-benchmark-values | --fixed-opcode-count
-      - repricing:        -m repricing | (all tests)
+    Dimensions (2 x 2 = 4 combinations):
+      - subdir:    compute | stateful
+      - repricing: -m repricing | (all tests)
     """
     target_dir = benchmark_dir.mkdir(subdir)
     target_dir.join("test_module.py").write(test_module_benchmark_repricing)
 
-    args = [*execute_base_args, benchmark_option, benchmark_value]
+    args = [*execute_base_args, "--gas-benchmark-values", "1"]
     if use_repricing:
         args.extend(["-m", "repricing"])
     args.append(f"tests/benchmark/{subdir}")

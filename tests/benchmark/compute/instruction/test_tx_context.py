@@ -56,14 +56,13 @@ def test_blobhash(
     fork: Fork,
     benchmark_test: BenchmarkTestFiller,
     blob_present: int,
-    fixed_opcode_count: int | None,
     gas_benchmark_value: int,
 ) -> None:
     """Benchmark BLOBHASH instruction."""
     tx_kwargs: dict = {}
     if blob_present:
         cap = fork.transaction_gas_limit_cap()
-        if fixed_opcode_count is None and cap is not None:
+        if cap is not None:
             # Check if blob tx splits would exceed block blob limit
             required_splits = math.ceil(gas_benchmark_value / cap)
             max_blobs = fork.max_blobs_per_block()

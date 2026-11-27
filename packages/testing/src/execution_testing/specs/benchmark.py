@@ -96,10 +96,8 @@ class BenchmarkCodeGenerator(ABC):
     setup: Bytecode = field(default_factory=Bytecode)
     cleanup: Bytecode = field(default_factory=Bytecode)
     tx_kwargs: Dict[str, Any] = field(default_factory=dict)
-    fixed_opcode_count: float | None = None
     code_padding_opcode: Op | None = None
     _contract_address: Address | None = None
-    _inner_iterations: int = 1000
 
     @abstractmethod
     def deploy_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
@@ -117,73 +115,6 @@ class BenchmarkCodeGenerator(ABC):
         return any(
             bytes(opcode) in target_code for opcode in STATE_CHANGING_OPCODES
         )
-
-    def deploy_fix_count_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
-        """Deploy the contract with a fixed opcode count."""
-        code = self.generate_repeated_code(
-            repeated_code=self.attack_block,
-            setup=self.setup,
-            cleanup=self.cleanup,
-            fork=fork,
-        )
-        self._target_contract_address = pre.deploy_contract(code=code)
-
-        assert self.fixed_opcode_count is not None, (
-            "fixed_opcode_count is not set"
-        )
-        # Adjust outer loop iterations based on inner iterations
-        if self.fixed_opcode_count < 1.0:
-            # < 1000 opcodes, outer = 1 as inner already set to exact count
-            iterations = 1
-        else:
-            # >= 1000: calculate outer iterations from target / inner
-            target_opcodes = int(self.fixed_opcode_count * 1000)
-            iterations = target_opcodes // self._inner_iterations
-        prefix = Op.CALLDATACOPY(
-            Op.PUSH0, Op.PUSH0, Op.CALLDATASIZE
-        ) + Op.PUSH4(iterations)
-
-        # Select CALL for state-changing opcodes, STATICCALL otherwise.
-        # CALL takes a value argument STATICCALL lacks; push the zero value
-        # with PUSH0, one gas cheaper than the default PUSH1 0x00.
-        if self.uses_state_changing_opcode():
-            wrapper_call = Op.CALL(
-                gas=Op.GAS,
-                address=self._target_contract_address,
-                value=Op.PUSH0,
-                args_offset=0,
-                args_size=Op.CALLDATASIZE,
-                ret_offset=0,
-                ret_size=0,
-            )
-        else:
-            wrapper_call = Op.STATICCALL(
-                gas=Op.GAS,
-                address=self._target_contract_address,
-                args_offset=0,
-                args_size=Op.CALLDATASIZE,
-                ret_offset=0,
-                ret_size=0,
-            )
-
-        opcode = (
-            prefix
-            + Op.JUMPDEST
-            + Op.POP(wrapper_call)
-            + Op.PUSH1(1)
-            + Op.SWAP1
-            + Op.SUB
-            + Op.DUP1
-            + Op.ISZERO
-            + Op.ISZERO
-            + Op.PUSH1(len(prefix))
-            + Op.JUMPI
-            + Op.STOP
-        )
-        self._validate_code_size(opcode, fork)
-
-        self._contract_address = pre.deploy_contract(code=opcode)
-        return self._contract_address
 
     def generate_transaction(
         self, *, pre: Alloc, gas_benchmark_value: int
@@ -226,74 +157,11 @@ class BenchmarkCodeGenerator(ABC):
         available_space = max_code_size - overhead
         max_iterations = available_space // len(repeated_code)
 
-        # Use fixed_opcode_count if provided, otherwise fill to max
-        # Iteration Logic: The goal is to set the total operation count
-        # proportional to a 'fixed_opcode_count' multiplied by 1000,
-        # across two contracts (Loop M * Target N).
-
-        # --- 1. Determine Inner Iterations (N) ---
-        # The Target Contract's loop count is determined by block filling,
-        # capped at 1000.
-        #
-        # 1a. Calculate 'max_iterations' to fill the block.
-        # 1b. The Inner Iteration count (N) is capped at 1000.
-        # 1c. If the calculated N is less than 1000, use 250 as fallback.
-
-        # --- 2. Determine Outer Iterations (M) ---
-        # The Loop Contract's call count (M) is set to ensure the final
-        # total execution is consistent.
-        #
-        # 2a. If N=1000: M = fixed_opcode_count (Total: foc*1000)
-        # 2b. If N=250: M = fixed_opcode_count*4 (Total: same as above)
-        #
-        # --- 3. Sub-1K Case (fixed_opcode_count < 1.0) ---
-        # For Sub-1K counts (e.g., 0.25 = 250 opcodes): N = exact count, M = 1.
-        if self.fixed_opcode_count is not None:
-            if self.fixed_opcode_count < 0.001:
-                raise ValueError(
-                    f"fixed_opcode_count must be >= 0.001 (1 opcode), "
-                    f"got {self.fixed_opcode_count}"
-                )
-            if self.fixed_opcode_count < 1.0:
-                # < 1000 opcodes, inner = exact count, outer = 1
-                self._inner_iterations = min(
-                    max_iterations, int(self.fixed_opcode_count * 1000)
-                )
-            else:
-                # >= 1000 opcodes: use 250 inner iterations (0.25K granularity)
-                target_opcodes = int(self.fixed_opcode_count * 1000)
-
-                if max_iterations >= 250 and target_opcodes % 250 == 0:
-                    inner_iterations = 250
-                elif max_iterations >= target_opcodes:
-                    # Use exact count as inner with outer = 1
-                    inner_iterations = target_opcodes
-                else:
-                    suggested_lo = ((target_opcodes // 250) * 250) / 1000
-                    suggested_hi = ((target_opcodes // 250 + 1) * 250) / 1000
-                    raise ValueError(
-                        f"fixed_opcode_count {self.fixed_opcode_count} "
-                        f"({target_opcodes} opcodes) exceeds max contract "
-                        f"size for this attack block.\n"
-                        f"Contract size limit allows up to {max_iterations} "
-                        f"opcodes ({max_iterations / 1000:.3f}K) in the "
-                        f"inner loop.\n"
-                        f"For counts above this limit, use multiples of 0.25K "
-                        f"(e.g., {suggested_lo:.2f} or {suggested_hi:.2f})."
-                    )
-                self._inner_iterations = inner_iterations
-
         # TODO: Unify the PUSH0 and PUSH1 usage.
-        iterations = (
-            self._inner_iterations
-            if self.fixed_opcode_count
-            else max_iterations
+        code = setup + Op.JUMPDEST + repeated_code * max_iterations
+        code += cleanup + (
+            Op.JUMP(len(setup)) if len(setup) > 0 else Op.PUSH0 + Op.JUMP
         )
-        code = setup + Op.JUMPDEST + repeated_code * iterations
-        if self.fixed_opcode_count is None:
-            code += cleanup + (
-                Op.JUMP(len(setup)) if len(setup) > 0 else Op.PUSH0 + Op.JUMP
-            )
         # Pad the code to the maximum code size.
         if self.code_padding_opcode is not None:
             padding_size = max_code_size - len(code) - 1
@@ -327,7 +195,6 @@ class BenchmarkTest(BaseTest):
     gas_benchmark_value: int = Field(
         default_factory=lambda: int(Environment().gas_limit)
     )
-    fixed_opcode_count: float | None = None
     expected_opcode_count: int | None = None
     target_opcode: Op | OpcodeTarget | None = None
     code_generator: BenchmarkCodeGenerator | None = None
@@ -388,25 +255,8 @@ class BenchmarkTest(BaseTest):
 
         blocks: List[Block] = self.setup_blocks
 
-        if self.fixed_opcode_count is not None and self.code_generator is None:
-            pytest.skip(
-                "Cannot run fixed opcode count tests without a code generator"
-            )
-
         if self.code_generator is not None:
-            # Inject fixed_opcode_count into the code generator if provided
-            self.code_generator.fixed_opcode_count = self.fixed_opcode_count
-
-            # In fixed opcode count mode, skip gas validation since we're
-            # measuring performance by operation count, not gas usage
-            if self.fixed_opcode_count is not None:
-                self.skip_gas_used_validation = True
-                generated_blocks = (
-                    self.generate_fixed_opcode_count_transactions()
-                )
-            else:
-                generated_blocks = self.generate_blocks_from_code_generator()
-            blocks += generated_blocks
+            blocks += self.generate_blocks_from_code_generator()
 
         elif self.blocks is not None:
             blocks += self.blocks
@@ -533,24 +383,6 @@ class BenchmarkTest(BaseTest):
 
         return [self.generate_block(execution_txs)]
 
-    def generate_fixed_opcode_count_transactions(self) -> List[Block]:
-        """Generate transactions with a fixed opcode count."""
-        if self.code_generator is None:
-            raise Exception("Code generator is not set")
-        self.code_generator.deploy_fix_count_contracts(
-            pre=self.pre, fork=self.fork.fork_at(block_number=0, timestamp=0)
-        )
-        gas_limit = (
-            self.fork.fork_at(
-                block_number=0, timestamp=0
-            ).transaction_gas_limit_cap()
-            or self.gas_benchmark_value
-        )
-        benchmark_tx = self.code_generator.generate_transaction(
-            pre=self.pre, gas_benchmark_value=gas_limit
-        )
-        return [self.generate_block([benchmark_tx])]
-
     def generate_blockchain_test(self) -> BlockchainTest:
         """Create a BlockchainTest from this BenchmarkTest."""
         return BlockchainTest.from_test(
@@ -600,35 +432,16 @@ class BenchmarkTest(BaseTest):
             )
 
             # Verify target opcode count if specified
-            if (
-                self.fixed_opcode_count is not None
-                or self.expected_opcode_count is not None
-            ):
+            if self.expected_opcode_count is not None:
                 target_opcode = self.target_opcode
                 assert target_opcode is not None, "target_opcode is not set"
                 opcode_count = fill_result.benchmark_opcode_count
                 if opcode_count is not None:
-                    if self.fixed_opcode_count is not None:
-                        self._verify_target_opcode_count(
-                            target_opcode=target_opcode,
-                            opcode_count=opcode_count,
-                            expected_opcode_count=int(
-                                # fixed_opcode_count is in thousands units
-                                self.fixed_opcode_count * 1000
-                            ),
-                        )
-                    elif self.expected_opcode_count is not None:
-                        self._verify_target_opcode_count(
-                            target_opcode=target_opcode,
-                            opcode_count=opcode_count,
-                            expected_opcode_count=self.expected_opcode_count,
-                        )
-                    else:
-                        raise Exception(
-                            "Opcode verification needs either "
-                            "`fixed_opcode_count` or `expected_opcode_count` "
-                            "to be set."
-                        )
+                    self._verify_target_opcode_count(
+                        target_opcode=target_opcode,
+                        opcode_count=opcode_count,
+                        expected_opcode_count=self.expected_opcode_count,
+                    )
 
             if self.target_opcode is not None:
                 fill_result.metadata["target_opcode"] = str(self.target_opcode)

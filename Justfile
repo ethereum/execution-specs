@@ -467,23 +467,6 @@ bench-gas *args: (_tmp-logs "bench-gas")
         --basetemp="{{ output_dir }}/bench-gas/json-loader-tmp" \
         bench_gas_fixtures
 
-# Fill benchmark tests with --fixed-opcode-count 1
-[group('benchmark tests')]
-bench-opcode *args: (_tmp-logs "bench-opcode")
-    uv run fill \
-        --evm-bin="{{ evm_bin }}" \
-        --fixed-opcode-count 1 \
-        --fork "{{ benchmark_fork }}" \
-        -m "repricing and not slow" \
-        -n auto --maxprocesses 10 --dist=loadgroup \
-        -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not uncachable" \
-        --output="{{ output_dir }}/bench-opcode/fixtures" \
-        --basetemp="{{ output_dir }}/bench-opcode/tmp" \
-        --log-to "{{ output_dir }}/bench-opcode/logs" \
-        --clean \
-        "$@" \
-        tests/benchmark/compute
-
 # Smoke-test fill-stateful against a running hive --dev (needs HIVE_SIMULATOR)
 [group('benchmark tests')]
 fill-stateful-smoke *args: (_tmp "fill-stateful-smoke")
@@ -497,24 +480,6 @@ fill-stateful-smoke *args: (_tmp "fill-stateful-smoke")
         "$@" \
         tests/benchmark/compute/instruction/test_arithmetic.py \
         tests/benchmark/compute/eip7928_block_level_access_lists/test_block_access_list.py
-
-# Run benchmark_parser, then fill benchmark tests using its config
-[group('benchmark tests')]
-bench-opcode-config *args: (_tmp-logs "bench-opcode-config")
-    uv run benchmark_parser
-    uv run fill \
-        --evm-bin="{{ evm_bin }}" \
-        --fixed-opcode-count \
-        --fork "{{ benchmark_fork }}" \
-        -m "repricing and not slow" \
-        -n auto --maxprocesses 10 --dist=loadgroup \
-        -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not uncachable" \
-        --output="{{ output_dir }}/bench-opcode-config/fixtures" \
-        --basetemp="{{ output_dir }}/bench-opcode-config/tmp" \
-        --log-to "{{ output_dir }}/bench-opcode-config/logs" \
-        --clean \
-        "$@" \
-        tests/benchmark/compute
 
 # --- Docs ---
 
