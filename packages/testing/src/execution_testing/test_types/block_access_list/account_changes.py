@@ -5,7 +5,7 @@ This module contains the core data structures representing changes to accounts
 in a block access list as defined in EIP-7928.
 """
 
-from typing import ClassVar, List, Self, Union
+from typing import Any, Callable, ClassVar, List, Self, Sequence, Union
 
 from pydantic import Field, model_validator
 
@@ -16,6 +16,22 @@ from execution_testing.base_types import (
     RLPSerializable,
     ZeroPaddedHexNumber,
 )
+
+
+def remap_change_indices(
+    changes: Sequence[Any], remap: Callable[[int], int]
+) -> List[Any]:
+    """Return `changes` with every block access index put through `remap`."""
+    return [
+        change.model_copy(
+            update={
+                "block_access_index": ZeroPaddedHexNumber(
+                    remap(int(change.block_access_index))
+                )
+            }
+        )
+        for change in changes
+    ]
 
 
 class BalNonceChange(CamelModel, RLPSerializable):
@@ -91,6 +107,14 @@ class BalStorageSlot(CamelModel, RLPSerializable):
 
     rlp_fields: ClassVar[List[str]] = ["slot", "slot_changes"]
 
+    def with_remapped_indices(self, remap: Callable[[int], int]) -> Self:
+        """Return this slot with its block access indices remapped."""
+        return self.model_copy(
+            update={
+                "slot_changes": remap_change_indices(self.slot_changes, remap)
+            }
+        )
+
     @model_validator(mode="after")
     def _check_mutual_exclusion(self) -> Self:
         if self.validate_any_change and self.slot_changes:
@@ -132,6 +156,24 @@ class BalAccountChange(CamelModel, RLPSerializable):
         "code_changes",
     ]
 
+    def with_remapped_indices(self, remap: Callable[[int], int]) -> Self:
+        """Return this account with its block access indices remapped."""
+        return self.model_copy(
+            update={
+                "nonce_changes": remap_change_indices(
+                    self.nonce_changes, remap
+                ),
+                "balance_changes": remap_change_indices(
+                    self.balance_changes, remap
+                ),
+                "code_changes": remap_change_indices(self.code_changes, remap),
+                "storage_changes": [
+                    slot.with_remapped_indices(remap)
+                    for slot in self.storage_changes
+                ],
+            }
+        )
+
 
 BlockAccessListChangeLists = Union[
     List[BalNonceChange],
@@ -141,6 +183,7 @@ BlockAccessListChangeLists = Union[
 
 
 __all__ = [
+    "remap_change_indices",
     "BalNonceChange",
     "BalBalanceChange",
     "BalCodeChange",
