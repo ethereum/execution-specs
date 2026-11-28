@@ -8,9 +8,7 @@ state_tests/stSolidityTest/ByZeroFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -64,17 +62,7 @@ def test_by_zero(
     v: int,
 ) -> None:
     """DIV/SDIV/MOD/SMOD by zero tests."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x8AC7230489E80000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
 
     tx_data = [
         Op.SSTORE(key=Op.DIV(0x1, 0x0), value=0x1) + Op.STOP,
@@ -98,4 +86,4 @@ def test_by_zero(
         sender: Account(storage={}, code=b"", nonce=1),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

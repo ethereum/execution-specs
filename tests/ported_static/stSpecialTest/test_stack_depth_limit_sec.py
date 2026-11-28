@@ -8,9 +8,7 @@ state_tests/stSpecialTest/StackDepthLimitSECFiller.json
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -30,17 +28,8 @@ def test_stack_depth_limit_sec(
     pre: Alloc,
 ) -> None:
     """Test_stack_depth_limit_sec."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x2540BE400)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
+    runtime_code = Op.CALL(gas=Op.SUB(Op.GAS, 0x40), address=Op.ADDRESS)
 
     tx = Transaction(
         sender=sender,
@@ -52,17 +41,19 @@ def test_stack_depth_limit_sec(
         + Op.POP(Op.MLOAD(offset=0x0))
         + Op.CALLDATACOPY(dest_offset=0x0, offset=0x0, size=0x4)
         + Op.POP(Op.MLOAD(offset=0x0))
-        + Op.MSTORE(offset=0x0, value=0x600060006000600060003060405A03F1)
-        + Op.RETURN(offset=0x10, size=0x10),
+        + Op.MSTORE(
+            offset=0x0, value=int.from_bytes(bytes(runtime_code), "big")
+        )
+        + Op.RETURN(offset=32 - len(runtime_code), size=len(runtime_code)),
         gas_limit=1000000,
         value=10,
     )
 
     post = {
         compute_create_address(address=sender, nonce=0): Account(
-            code=bytes.fromhex("600060006000600060003060405a03f1"),
+            code=runtime_code,
             balance=10,
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -11,7 +11,6 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -43,8 +42,6 @@ def test_basefee_example(
         balance=0xDE0B6B3A7640000,
     )
 
-    env = Environment(base_fee_per_gas=70000000)
-
     tx = Transaction(
         sender=sender,
         to=target,
@@ -70,4 +67,4 @@ def test_basefee_example(
 
     post = {target: Account(storage={0: 2})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

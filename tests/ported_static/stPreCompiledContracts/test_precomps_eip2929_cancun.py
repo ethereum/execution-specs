@@ -20,10 +20,8 @@ to `["Cancun"]` only and unchanged.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -2829,16 +2827,7 @@ def test_precomps_eip2929_cancun(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
 
     # Source: yul
     # berlin
@@ -2847,7 +2836,6 @@ def test_precomps_eip2929_cancun(
     # }
     addr = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=0x3) + Op.STOP,
-        nonce=1,
     )
     # Source: yul
     # berlin
@@ -2856,40 +2844,7 @@ def test_precomps_eip2929_cancun(
     # }
     addr_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=0x3) + Op.STOP,
-        nonce=1,
     )
-    # Source: yul
-    # berlin optimise
-    # {
-    #   let addrTest   := calldataload(0x04)
-    #   let action     := calldataload(0x24)
-    #   let gas0, gas1, gas2
-    #
-    #   // Not really needed, but otherwise Yul optimizes and
-    #   // skips operations we need
-    #   let useless0, useless1
-    #
-    #   // Touch the first word of memory here, so it
-    #   // won't confuse the gas measurement
-    #   mstore(0x100, 0xDEADBEEF)
-    #
-    #   // Access <contract:0x0000000000000000000000000000000000101157> (so it becomes warm and send it wei)  # noqa: E501
-    #   pop(call(0x100000, <contract:0x0000000000000000000000000000000000101157>, 1, 0, 0, 0, 0))  # noqa: E501
-    #
-    #   // Switch before measuring, so it won't affect
-    #   // the gas costs
-    #   switch action
-    #   case 0xf100 {
-    #       gas0 := gas()
-    #       pop(call(0x100000, addrTest, 0, 0, 0, 0, 0))
-    #       gas1 := gas()
-    #       pop(call(0x100000, addrTest, 0, 0, 0, 0, 0))
-    #       gas2 := gas()
-    #   }
-    #   case 0xf101 {
-    #       gas0 := gas()
-    #       pop(call(0x100000, addrTest, 1, 0, 0, 0, 0))
-    # ... (156 more lines)
     target = pre.deploy_contract(  # noqa: F841
         code=Op.CALLDATALOAD(offset=0x4)
         + Op.CALLDATALOAD(offset=0x24)
@@ -3590,7 +3545,6 @@ def test_precomps_eip2929_cancun(
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.DUP3, Op.DUP1))
         + Op.POP * 9,
         storage={0: 24743, 1: 24743},
-        nonce=1,
     )
 
     # These measurements isolate repriced components applied per
@@ -4782,4 +4736,4 @@ def test_precomps_eip2929_cancun(
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
