@@ -4,6 +4,7 @@ from .account_types import EOA, Account, Alloc, AllocGroupHash, P256Signer
 from .balance_expectations import (
     BalanceExpression,
     BlobFee,
+    BlockReward,
     EmptyPostStateContext,
     GasFee,
     PostStateContext,
@@ -134,6 +135,7 @@ __all__ = (
     "TestPhase",
     "TestPhaseManager",
     "Tip",
+    "BlockReward",
     "Transaction",
     "TransactionDefaults",
     "TransactionLog",

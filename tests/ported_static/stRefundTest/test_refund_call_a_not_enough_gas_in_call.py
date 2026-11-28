@@ -1,118 +1,97 @@
 """
-Test_refund_call_a_not_enough_gas_in_call.
+Verify that a storage-clear refund is lost when the sub-call making it
+runs out of gas.
 
 Ported from:
 state_tests/stRefundTest/refund_CallA_notEnoughGasInCallFiller.json
 
-@manually-enhanced: Do not overwrite. The post-state asserts the sender
-balance, which equals its start minus `gas_used * gas_price`. The inner
-CALL is starved of gas so its SSTORE clear always reverts (no refund
-survives); the only surviving repricing is in the outer frame, where
-EIP-8038 raises the `COLD_ACCOUNT_ACCESS` charged by the CALL and
-the cold no-op SSTORE of slot 0. Derive both deltas from the fork gas
-model (0 pre-EIP-8037) and subtract
-`gas_price * (call_access_delta + outer_sstore_delta)` from the Cancun
-balance; do not hardcode the Amsterdam value.
+@manually-enhanced: Do not overwrite. The gas used is derived from the fork:
+intrinsic cost plus the caller's code plus the whole sub-call grant, which the
+starved callee consumes; no refund survives. The fee recipient's priority fee
+and block reward are checked with `Tip` and `BlockReward`.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
+    BlockReward,
     Environment,
+    Fork,
+    GasFee,
     StateTestFiller,
+    Tip,
     Transaction,
 )
-from execution_testing.forks import Cancun, Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+# One gas short of the callee's cold storage clear on Cancun.
+CALL_GAS = 5005
+
 
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refund_CallA_notEnoughGasInCallFiller.json"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="requires env.fee_recipient as block coinbase")
+)
 def test_refund_call_a_not_enough_gas_in_call(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Test_refund_call_a_not_enough_gas_in_call."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0xF4240)
+    """Starve a sub-call clearing a storage slot so its refund is lost."""
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
+    callee_code = Op.SSTORE(
+        key=0x1, value=0x0, key_warm=False, original_value=1, new_value=0
     )
+    callee = pre.deploy_contract(
+        code=callee_code + Op.STOP,
+        storage={1: 1},
+    )
+    assert callee_code.gas_cost(fork) > CALL_GAS, "callee must run out of gas"
 
-    pre[coinbase] = Account(balance=0, nonce=1)
-    # Source: lll
-    # { [[ 1 ]] 0 }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
-        storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
+    # The failed call leaves slot 0 unchanged at zero.
+    caller_code = Op.SSTORE(
+        key=0x0,
+        value=Op.CALL(gas=CALL_GAS, address=callee, address_warm=False),
+        key_warm=False,
+        original_value=0,
+        new_value=0,
     )
-    # Source: lll
-    # { [[ 0 ]] (CALL 5005 <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 )}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x0,
-            value=Op.CALL(
-                gas=0x138D,
-                address=addr,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
+    caller = pre.deploy_contract(
+        code=caller_code + Op.STOP,
         storage={1: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
     tx = Transaction(
         sender=sender,
-        to=target,
-        data=Bytes(""),
+        to=caller,
         gas_limit=85000,
         value=10,
+        protected=fork.supports_protected_txs(),
     )
 
-    # The inner SSTORE clear always reverts (gas-starved), so its refund
-    # never survives. Only the outer frame reprices under EIP-8038: the
-    # cold account access charged by the CALL and the cold no-op SSTORE
-    # of slot 0 (original == current == new == 0).
-    gas_costs = fork.gas_costs()
-    call_access_delta = (
-        gas_costs.COLD_ACCOUNT_ACCESS - Cancun.gas_costs().COLD_ACCOUNT_ACCESS
+    # The callee runs out of gas, consuming the whole grant, and its
+    # reverted clear earns no refund.
+    gas_used = (
+        fork.transaction_intrinsic_cost_calculator()(sends_value=True)
+        + caller_code.gas_cost(fork)
+        + CALL_GAS
     )
-    outer_sstore = Op.SSTORE.with_metadata(
-        key_warm=False, original_value=0, current_value=0, new_value=0
-    )
-    cancun_outer_sstore = outer_sstore.gas_cost(Cancun)
-    outer_sstore_delta = outer_sstore.gas_cost(fork) - cancun_outer_sstore
-    gas_used_delta = call_access_delta + outer_sstore_delta
 
     post = {
-        target: Account(storage={1: 1}, balance=0xDE0B6B3A764000A),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0xA8DF4 - 10 * gas_used_delta, nonce=1),
-        addr: Account(storage={1: 1}),
+        caller: Account(storage={1: 1}, balance_change=tx.value),
+        callee: Account(storage={1: 1}),
+        sender: Account(balance_change=-tx.value - GasFee(tx, gas=gas_used)),
     }
+    post[Environment().fee_recipient] = Account(
+        balance_change=Tip(tx, gas=gas_used) + BlockReward(tx)
+    )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

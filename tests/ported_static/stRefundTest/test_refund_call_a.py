@@ -6,20 +6,25 @@ minus the refund.
 Ported from:
 state_tests/stRefundTest/refund_CallAFiller.json
 
-@manually-enhanced: Do not overwrite. The sub-call forwards all gas
-instead of a schedule-sized constant, and the sender's balance, refund cap
-and budget derive from the fork (`code.gas_cost` / `code.refund`
-composites), so EIP-8037's repriced stores are tracked instead of pinned.
-The legacy transaction value and the caller balance it pinned are dropped
-as incidental to the refund.
+@manually-enhanced: Do not overwrite. The sub-call forwards all gas instead of
+a schedule-sized constant, and the sender's balance, refund cap and budget
+derive from the fork (`code.gas_cost` / `code.refund` composites), so
+EIP-8037's repriced stores are tracked instead of pinned. The legacy
+transaction value and the caller balance it pinned are dropped as incidental to
+the refund. The fee recipient's priority fee and block reward are checked with
+`Tip` and `BlockReward`.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
+    BlockReward,
+    Environment,
     Fork,
+    GasFee,
     StateTestFiller,
+    Tip,
     Transaction,
 )
 from execution_testing.vm import Op
@@ -27,14 +32,14 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
-INITIAL_BALANCE = 10**18
-GAS_PRICE = 10
-
 
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refund_CallAFiller.json"],
 )
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("TangerineWhistle")
+@pytest.mark.execute(
+    pytest.mark.skip(reason="requires env.fee_recipient as block coinbase")
+)
 def test_refund_call_a(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -68,12 +73,12 @@ def test_refund_call_a(
     )
     gas_limit = executed + 5_000
 
-    sender = pre.fund_eoa(amount=INITIAL_BALANCE)
+    sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
         to=caller,
         gas_limit=gas_limit,
-        gas_price=GAS_PRICE,
+        protected=fork.supports_protected_txs(),
     )
 
     # The refund is capped at a fork-defined fraction of the executed
@@ -88,7 +93,11 @@ def test_refund_call_a(
     post = {
         caller: Account(storage={0: 1, 1: 1}),
         callee: Account(storage={}),
-        sender: Account(balance=INITIAL_BALANCE - gas_used * GAS_PRICE),
+        sender: Account(balance_change=-GasFee(tx, gas=gas_used)),
     }
+
+    post[Environment().fee_recipient] = Account(
+        balance_change=Tip(tx, gas=gas_used) + BlockReward(tx)
+    )
 
     state_test(pre=pre, post=post, tx=tx)

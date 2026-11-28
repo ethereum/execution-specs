@@ -7,6 +7,7 @@ import pytest
 from execution_testing.base_types import Address, Hash
 from execution_testing.test_types import (
     EOA,
+    BlockReward,
     GasFee,
     PostStateContext,
     Tip,
@@ -23,8 +24,9 @@ BLOCK_HASH = Hash(0xB1)
 class FakeEthRPC:
     """Serve one block and its receipts, counting every request."""
 
-    def __init__(self, txs: List[Transaction]) -> None:
+    def __init__(self, txs: List[Transaction], difficulty: int = 0) -> None:
         """Land all `txs` in `BLOCK_HASH` at an effective price of 12."""
+        self.difficulty = difficulty
         self.receipt_requests: List[Hash] = []
         self.block_requests: List[Hash] = []
         self.receipts = {
@@ -46,7 +48,11 @@ class FakeEthRPC:
         """Return the block header fields used by the context."""
         del full_txs
         self.block_requests.append(block_hash)
-        return {"baseFeePerGas": hex(7), "miner": str(MINER)}
+        return {
+            "baseFeePerGas": hex(7),
+            "miner": str(MINER),
+            "difficulty": hex(self.difficulty),
+        }
 
 
 def signed_txs(count: int) -> List[Transaction]:
@@ -94,6 +100,27 @@ def test_fetches_on_demand_and_caches() -> None:
     assert context.landing((Address(SENDER), 2)).fee_recipient() == MINER
     assert len(rpc.receipt_requests) == 3
     assert rpc.block_requests == [BLOCK_HASH], "block should be cached"
+
+
+def test_block_reward_after_the_merge() -> None:
+    """Test that a proof-of-stake block carries no block reward."""
+    txs = signed_txs(1)
+    context = RPCPostStateContext(
+        eth_rpc=FakeEthRPC(txs),  # type: ignore[arg-type]
+        txs=txs,
+    )
+    assert BlockReward(txs[0]).resolve(context) == 0
+
+
+def test_block_reward_before_the_merge() -> None:
+    """Test that a proof-of-work block reward cannot be resolved."""
+    txs = signed_txs(1)
+    context = RPCPostStateContext(
+        eth_rpc=FakeEthRPC(txs, difficulty=0x20000),  # type: ignore[arg-type]
+        txs=txs,
+    )
+    with pytest.raises(NotImplementedError):
+        BlockReward(txs[0]).resolve(context)
 
 
 def test_unknown_transaction() -> None:

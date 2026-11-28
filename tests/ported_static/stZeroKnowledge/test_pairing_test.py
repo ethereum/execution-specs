@@ -1,573 +1,226 @@
 """
-Test_pairing_test.
+Test the BN254 pairing check precompile with valid and failing inputs.
 
 Ported from:
 state_tests/stZeroKnowledge/pairingTestFiller.json
+
+@manually-enhanced: Do not overwrite. Parametrized on the pairing input and
+its expected result. The arbitrary transaction gas limits are replaced by
+forwarding exactly the pairing cost or one gas less, the input is copied
+with CALLDATACOPY instead of word by word, its length comes from
+CALLDATASIZE, the forwarded gas is passed in calldata so one contract
+serves every case, and the unused ECMUL/ECADD helper contracts are
+dropped.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Bytes,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+PAIRING_ADDRESS = 0x8
+PAIR_SIZE = 192
+RESULT_OFFSET = 0x400
+SENTINEL = 0x60A7
 
 
 @pytest.mark.ported_from(
     ["state_tests/stZeroKnowledge/pairingTestFiller.json"],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize(
-    "d, g, v",
+    "enough_gas", [True, False], ids=["enough_gas", "one_gas_short"]
+)
+@pytest.mark.parametrize(
+    "pairing_input, pairing_result",
     [
         pytest.param(
-            0,
-            0,
-            0,
-            id="d0-g0",
-        ),
-        pytest.param(
-            0,
+            Bytes(
+                "1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59"
+                "3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41"
+                "209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7"
+                "04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678"
+                "2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d"
+                "120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550"
+                "111e129f1cf1097710d41c4ac70fcdfa5ba2023c6ff1cbeac322de49d1b6df7c"
+                "2032c61a830e3c17286de9462bf242fca2883585b93870a73853face6a6bf411"
+                "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2"
+                "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed"
+                "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b"
+                "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa"
+            ),
             1,
-            0,
-            id="d0-g1",
+            id="two_pairs_a",
         ),
         pytest.param(
-            0,
-            2,
-            0,
-            id="d0-g2",
-        ),
-        pytest.param(
-            0,
-            3,
-            0,
-            id="d0-g3",
-        ),
-        pytest.param(
+            Bytes(
+                "2eca0c7238bf16e83e7a1e6c5d49540685ff51380f309842a98561558019fc02"
+                "03d3260361bb8451de5ff5ecd17f010ff22f5c31cdf184e9020b06fa5997db84"
+                "1213d2149b006137fcfb23036606f848d638d576a120ca981b5b1a5f9300b3ee"
+                "2276cf730cf493cd95d64677bbb75fc42db72513a4c1e387b476d056f80aa75f"
+                "21ee6226d31426322afcda621464d0611d226783262e21bb3bc86b537e986237"
+                "096df1f82dff337dd5972e32a8ad43e28a78a96a823ef1cd4debe12b6552ea5f"
+                "06967a1237ebfeca9aaae0d6d0bab8e28c198c5a339ef8a2407e31cdac516db9"
+                "22160fa257a5fd5b280642ff47b65eca77e626cb685c84fa6d3b6882a283ddd1"
+                "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2"
+                "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed"
+                "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b"
+                "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa"
+            ),
             1,
-            0,
-            0,
-            id="d1-g0",
+            id="two_pairs_b",
         ),
         pytest.param(
+            Bytes(
+                "0f25929bcb43d5a57391564615c9e70a992b10eafa4db109709649cf48c50dd2"
+                "16da2f5cb6be7a0aa72c440c53c9bbdfec6c36c7d515536431b3a865468acbba"
+                "2e89718ad33c8bed92e210e81d1853435399a271913a6520736a4729cf0d51eb"
+                "01a9e2ffa2e92599b68e44de5bcf354fa2642bd4f26b259daa6f7ce3ed57aeb3"
+                "14a9a87b789a58af499b314e13c3d65bede56c07ea2d418d6874857b70763713"
+                "178fb49a2d6cd347dc58973ff49613a20757d0fcc22079f9abd10c3baee24590"
+                "1b9e027bd5cfc2cb5db82d4dc9677ac795ec500ecd47deee3b5da006d6d049b8"
+                "11d7511c78158de484232fc68daf8a45cf217d1c2fae693ff5871e8752d73b21"
+                "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2"
+                "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed"
+                "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b"
+                "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa"
+            ),
             1,
+            id="two_pairs_c",
+        ),
+        pytest.param(
+            Bytes(
+                "2f2ea0b3da1e8ef11914acf8b2e1b32d99df51f5f4f206fc6b947eae860eddb6"
+                "068134ddb33dc888ef446b648d72338684d678d2eb2371c61a50734d78da4b72"
+                "25f83c8b6ab9de74e7da488ef02645c5a16a6652c3c71a15dc37fe3a5dcb7cb1"
+                "22acdedd6308e3bb230d226d16a105295f523a8a02bfc5e8bd2da135ac4c245d"
+                "065bbad92e7c4e31bf3757f1fe7362a63fbfee50e7dc68da116e67d600d9bf68"
+                "06d302580dc0661002994e7cd3a7f224e7ddc27802777486bf80f40e4ca3cfdb"
+                "186bac5188a98c45e6016873d107f5cd131f3a3e339d0375e58bd6219347b008"
+                "122ae2b09e539e152ec5364e7e2204b03d11d3caa038bfc7cd499f8176aacbee"
+                "1f39e4e4afc4bc74790a4a028aff2c3d2538731fb755edefd8cb48d6ea589b5e"
+                "283f150794b6736f670d6a1033f9b46c6f5204f50813eb85c8dc4b59db1c5d39"
+                "140d97ee4d2b36d99bc49974d18ecca3e7ad51011956051b464d9e27d46cc25e"
+                "0764bb98575bd466d32db7b15f582b2d5c452b36aa394b789366e5e3ca5aabd4"
+                "15794ab061441e51d01e94640b7e3084a07e02c78cf3103c542bc5b298669f21"
+                "1b88da1679b0b64a63b7e0e7bfe52aae524f73a55be7fe70c7e9bfc94b4cf0da"
+                "1213d2149b006137fcfb23036606f848d638d576a120ca981b5b1a5f9300b3ee"
+                "2276cf730cf493cd95d64677bbb75fc42db72513a4c1e387b476d056f80aa75f"
+                "21ee6226d31426322afcda621464d0611d226783262e21bb3bc86b537e986237"
+                "096df1f82dff337dd5972e32a8ad43e28a78a96a823ef1cd4debe12b6552ea5f"
+            ),
             1,
-            0,
-            id="d1-g1",
+            id="three_pairs_a",
         ),
         pytest.param(
+            Bytes(
+                "20a754d2071d4d53903e3b31a7e98ad6882d58aec240ef981fdf0a9d22c5926a"
+                "29c853fcea789887315916bbeb89ca37edb355b4f980c9a12a94f30deeed3021"
+                "1213d2149b006137fcfb23036606f848d638d576a120ca981b5b1a5f9300b3ee"
+                "2276cf730cf493cd95d64677bbb75fc42db72513a4c1e387b476d056f80aa75f"
+                "21ee6226d31426322afcda621464d0611d226783262e21bb3bc86b537e986237"
+                "096df1f82dff337dd5972e32a8ad43e28a78a96a823ef1cd4debe12b6552ea5f"
+                "1abb4a25eb9379ae96c84fff9f0540abcfc0a0d11aeda02d4f37e4baf74cb0c1"
+                "1073b3ff2cdbb38755f8691ea59e9606696b3ff278acfc098fa8226470d03869"
+                "217cee0a9ad79a4493b5253e2e4e3a39fc2df38419f230d341f60cb064a0ac29"
+                "0a3d76f140db8418ba512272381446eb73958670f00cf46f1d9e64cba057b53c"
+                "26f64a8ec70387a13e41430ed3ee4a7db2059cc5fc13c067194bcc0cb49a9855"
+                "2fd72bd9edb657346127da132e5b82ab908f5816c826acb499e22f2412d1a2d7"
+                "0f25929bcb43d5a57391564615c9e70a992b10eafa4db109709649cf48c50dd2"
+                "198a1f162a73261f112401aa2db79c7dab1533c9935c77290a6ce3b191f2318d"
+                "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2"
+                "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed"
+                "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b"
+                "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa"
+            ),
             1,
-            2,
-            0,
-            id="d1-g2",
+            id="three_pairs_b",
         ),
         pytest.param(
-            1,
-            3,
+            Bytes(
+                "1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59"
+                "3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41"
+                "209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7"
+                "04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678"
+                "2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d"
+                "120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550"
+                "111e129f1cf1097710d41c4ac70fcdfa5ba2023c6ff1cbeac322de49d1b6df7c"
+                "103188585e2364128fe25c70558f1560f4f9350baf3959e603cc91486e110936"
+                "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2"
+                "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed"
+                "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b"
+                "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa"
+            ),
             0,
-            id="d1-g3",
-        ),
-        pytest.param(
-            2,
-            0,
-            0,
-            id="d2-g0",
-        ),
-        pytest.param(
-            2,
-            1,
-            0,
-            id="d2-g1",
-        ),
-        pytest.param(
-            2,
-            2,
-            0,
-            id="d2-g2",
-        ),
-        pytest.param(
-            2,
-            3,
-            0,
-            id="d2-g3",
-        ),
-        pytest.param(
-            3,
-            0,
-            0,
-            id="d3-g0",
-        ),
-        pytest.param(
-            3,
-            1,
-            0,
-            id="d3-g1",
-        ),
-        pytest.param(
-            3,
-            2,
-            0,
-            id="d3-g2",
-        ),
-        pytest.param(
-            3,
-            3,
-            0,
-            id="d3-g3",
-        ),
-        pytest.param(
-            4,
-            0,
-            0,
-            id="d4-g0",
-        ),
-        pytest.param(
-            4,
-            1,
-            0,
-            id="d4-g1",
-        ),
-        pytest.param(
-            4,
-            2,
-            0,
-            id="d4-g2",
-        ),
-        pytest.param(
-            4,
-            3,
-            0,
-            id="d4-g3",
-        ),
-        pytest.param(
-            5,
-            0,
-            0,
-            id="d5-g0",
-        ),
-        pytest.param(
-            5,
-            1,
-            0,
-            id="d5-g1",
-        ),
-        pytest.param(
-            5,
-            2,
-            0,
-            id="d5-g2",
-        ),
-        pytest.param(
-            5,
-            3,
-            0,
-            id="d5-g3",
+            id="two_pairs_false",
         ),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_pairing_test(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    pairing_input: Bytes,
+    pairing_result: int,
+    enough_gas: bool,
 ) -> None:
-    """Test_pairing_test."""
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=1)
+    """
+    Call the pairing check precompile with `pairing_input`.
 
-    # Source: lll
-    # {(MSTORE 32 (CALLDATALOAD 32)) (MSTORE 64 (CALLDATALOAD 64)) (MSTORE 96 (CALLDATALOAD 96)) (MSTORE 128 (CALLDATALOAD 128)) (MSTORE 160 (CALLDATALOAD 160)) (MSTORE 192 (CALLDATALOAD 192)) (MSTORE 224 (CALLDATALOAD 224)) (MSTORE 256 (CALLDATALOAD 256)) (MSTORE 288 (CALLDATALOAD 288)) (MSTORE 320 (CALLDATALOAD 320)) (MSTORE 352 (CALLDATALOAD 352)) (MSTORE 384 (CALLDATALOAD 384)) (MSTORE 416 (CALLDATALOAD 416)) (MSTORE 448 (CALLDATALOAD 448)) (MSTORE 480 (CALLDATALOAD 480)) (MSTORE 512 (CALLDATALOAD 512)) (MSTORE 544 (CALLDATALOAD 544)) (MSTORE 576 (CALLDATALOAD 576)) (MSTORE 608 (CALLDATALOAD 608)) (MSTORE 640 (CALLDATALOAD 640)) (MSTORE 672 (CALLDATALOAD 672)) (MSTORE 704 (CALLDATALOAD 704)) (MSTORE 736 (CALLDATALOAD 736)) [[0]](CALLCODE 500000 8 0 32 (CALLDATALOAD 0) 1000 32)  [[1]] (MLOAD 1000) }  # noqa: E501
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x20, value=Op.CALLDATALOAD(offset=0x20))
-        + Op.MSTORE(offset=0x40, value=Op.CALLDATALOAD(offset=0x40))
-        + Op.MSTORE(offset=0x60, value=Op.CALLDATALOAD(offset=0x60))
-        + Op.MSTORE(offset=0x80, value=Op.CALLDATALOAD(offset=0x80))
-        + Op.MSTORE(offset=0xA0, value=Op.CALLDATALOAD(offset=0xA0))
-        + Op.MSTORE(offset=0xC0, value=Op.CALLDATALOAD(offset=0xC0))
-        + Op.MSTORE(offset=0xE0, value=Op.CALLDATALOAD(offset=0xE0))
-        + Op.MSTORE(offset=0x100, value=Op.CALLDATALOAD(offset=0x100))
-        + Op.MSTORE(offset=0x120, value=Op.CALLDATALOAD(offset=0x120))
-        + Op.MSTORE(offset=0x140, value=Op.CALLDATALOAD(offset=0x140))
-        + Op.MSTORE(offset=0x160, value=Op.CALLDATALOAD(offset=0x160))
-        + Op.MSTORE(offset=0x180, value=Op.CALLDATALOAD(offset=0x180))
-        + Op.MSTORE(offset=0x1A0, value=Op.CALLDATALOAD(offset=0x1A0))
-        + Op.MSTORE(offset=0x1C0, value=Op.CALLDATALOAD(offset=0x1C0))
-        + Op.MSTORE(offset=0x1E0, value=Op.CALLDATALOAD(offset=0x1E0))
-        + Op.MSTORE(offset=0x200, value=Op.CALLDATALOAD(offset=0x200))
-        + Op.MSTORE(offset=0x220, value=Op.CALLDATALOAD(offset=0x220))
-        + Op.MSTORE(offset=0x240, value=Op.CALLDATALOAD(offset=0x240))
-        + Op.MSTORE(offset=0x260, value=Op.CALLDATALOAD(offset=0x260))
-        + Op.MSTORE(offset=0x280, value=Op.CALLDATALOAD(offset=0x280))
-        + Op.MSTORE(offset=0x2A0, value=Op.CALLDATALOAD(offset=0x2A0))
-        + Op.MSTORE(offset=0x2C0, value=Op.CALLDATALOAD(offset=0x2C0))
-        + Op.MSTORE(offset=0x2E0, value=Op.CALLDATALOAD(offset=0x2E0))
+    Forwarding exactly the pairing cost, the call succeeds and returns
+    `pairing_result`. One gas less and the precompile runs out of gas: the
+    call fails and both slots are overwritten with zero, which a reverted
+    transaction would leave at their pre-set value.
+    """
+    gas_costs = fork.gas_costs()
+    pairing_cost = (
+        gas_costs.PRECOMPILE_ECPAIRING_BASE
+        + gas_costs.PRECOMPILE_ECPAIRING_PER_POINT
+        * (len(pairing_input) // PAIR_SIZE)
+    )
+    call_gas = pairing_cost if enough_gas else pairing_cost - 1
+
+    # Calldata: the gas to forward, followed by the pairing input. The same
+    # contract serves every case.
+    input_size = Op.SUB(Op.CALLDATASIZE, 0x20)
+    pairing_caller = pre.deploy_contract(
+        code=Op.CALLDATACOPY(dest_offset=0, offset=0x20, size=input_size)
         + Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
-                gas=0x7A120,
-                address=0x8,
-                value=0x0,
-                args_offset=0x20,
-                args_size=Op.CALLDATALOAD(offset=0x0),
-                ret_offset=0x3E8,
+                gas=Op.CALLDATALOAD(offset=0),
+                address=PAIRING_ADDRESS,
+                args_offset=0,
+                args_size=input_size,
+                ret_offset=RESULT_OFFSET,
                 ret_size=0x20,
             ),
         )
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x3E8))
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=RESULT_OFFSET))
         + Op.STOP,
-    )
-    # Source: lll
-    # { (MSTORE 0 (CALLDATALOAD 0)) (MSTORE 32 (CALLDATALOAD 32)) (MSTORE 64 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000)  [[0]](CALLCODE 5000000 7 0 0 96 1000 64)  [[1]](MLOAD 1000) [[2]](MLOAD 1032) }  # noqa: E501
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
-        + Op.MSTORE(offset=0x20, value=Op.CALLDATALOAD(offset=0x20))
-        + Op.MSTORE(
-            offset=0x40,
-            value=0x30644E72E131A029B85045B68181585D2833E84879B9709143E1F593F0000000,  # noqa: E501
-        )
-        + Op.SSTORE(
-            key=0x0,
-            value=Op.CALLCODE(
-                gas=0x4C4B40,
-                address=0x7,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x60,
-                ret_offset=0x3E8,
-                ret_size=0x40,
-            ),
-        )
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x3E8))
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x408))
-        + Op.STOP,
-    )
-    # Source: lll
-    # { (MSTORE 0 (CALLDATALOAD 0)) (MSTORE 32 (CALLDATALOAD 32)) (MSTORE 64 (CALLDATALOAD 64)) (MSTORE 96 (CALLDATALOAD 96)) [[0]](CALLCODE 5000000 6 0 0 128 1000 64)  [[1]](MLOAD 1000) [[2]](MLOAD 1032) }  # noqa: E501
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
-        + Op.MSTORE(offset=0x20, value=Op.CALLDATALOAD(offset=0x20))
-        + Op.MSTORE(offset=0x40, value=Op.CALLDATALOAD(offset=0x40))
-        + Op.MSTORE(offset=0x60, value=Op.CALLDATALOAD(offset=0x60))
-        + Op.SSTORE(
-            key=0x0,
-            value=Op.CALLCODE(
-                gas=0x4C4B40,
-                address=0x6,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x80,
-                ret_offset=0x3E8,
-                ret_size=0x40,
-            ),
-        )
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x3E8))
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x408))
-        + Op.STOP,
+        storage={0: SENTINEL, 1: SENTINEL},
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0, 1, 2, 3, 4], "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 1, 1: 1})},
-        },
-        {
-            "indexes": {"data": -1, "gas": [1, 2, 3], "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={})},
-        },
-        {
-            "indexes": {"data": [5], "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 1, 1: 0})},
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Hash(0x180)
-        + Hash(
-            0x1C76476F4DEF4BB94541D57EBBA1193381FFA7AA76ADA664DD31C16024C43F59
-        )
-        + Hash(
-            0x3034DD2920F673E204FEE2811C678745FC819B55D3E9D294E45C9B03A76AEF41
-        )
-        + Hash(
-            0x209DD15EBFF5D46C4BD888E51A93CF99A7329636C63514396B4A452003A35BF7
-        )
-        + Hash(
-            0x4BF11CA01483BFA8B34B43561848D28905960114C8AC04049AF4B6315A41678
-        )
-        + Hash(
-            0x2BB8324AF6CFC93537A2AD1A445CFD0CA2A71ACD7AC41FADBF933C2A51BE344D
-        )
-        + Hash(
-            0x120A2A4CF30C1BF9845F20C6FE39E07EA2CCE61F0C9BB048165FE5E4DE877550
-        )
-        + Hash(
-            0x111E129F1CF1097710D41C4AC70FCDFA5BA2023C6FF1CBEAC322DE49D1B6DF7C
-        )
-        + Hash(
-            0x2032C61A830E3C17286DE9462BF242FCA2883585B93870A73853FACE6A6BF411
-        )
-        + Hash(
-            0x198E9393920D483A7260BFB731FB5D25F1AA493335A9E71297E485B7AEF312C2
-        )
-        + Hash(
-            0x1800DEEF121F1E76426A00665E5C4479674322D4F75EDADD46DEBD5CD992F6ED
-        )
-        + Hash(
-            0x90689D0585FF075EC9E99AD690C3395BC4B313370B38EF355ACDADCD122975B
-        )
-        + Hash(
-            0x12C85EA5DB8C6DEB4AAB71808DCB408FE3D1E7690C43D37B4CE6CC0166FA7DAA
-        ),
-        Hash(0x180)
-        + Hash(
-            0x2ECA0C7238BF16E83E7A1E6C5D49540685FF51380F309842A98561558019FC02
-        )
-        + Hash(
-            0x3D3260361BB8451DE5FF5ECD17F010FF22F5C31CDF184E9020B06FA5997DB84
-        )
-        + Hash(
-            0x1213D2149B006137FCFB23036606F848D638D576A120CA981B5B1A5F9300B3EE
-        )
-        + Hash(
-            0x2276CF730CF493CD95D64677BBB75FC42DB72513A4C1E387B476D056F80AA75F
-        )
-        + Hash(
-            0x21EE6226D31426322AFCDA621464D0611D226783262E21BB3BC86B537E986237
-        )
-        + Hash(
-            0x96DF1F82DFF337DD5972E32A8AD43E28A78A96A823EF1CD4DEBE12B6552EA5F
-        )
-        + Hash(
-            0x6967A1237EBFECA9AAAE0D6D0BAB8E28C198C5A339EF8A2407E31CDAC516DB9
-        )
-        + Hash(
-            0x22160FA257A5FD5B280642FF47B65ECA77E626CB685C84FA6D3B6882A283DDD1
-        )
-        + Hash(
-            0x198E9393920D483A7260BFB731FB5D25F1AA493335A9E71297E485B7AEF312C2
-        )
-        + Hash(
-            0x1800DEEF121F1E76426A00665E5C4479674322D4F75EDADD46DEBD5CD992F6ED
-        )
-        + Hash(
-            0x90689D0585FF075EC9E99AD690C3395BC4B313370B38EF355ACDADCD122975B
-        )
-        + Hash(
-            0x12C85EA5DB8C6DEB4AAB71808DCB408FE3D1E7690C43D37B4CE6CC0166FA7DAA
-        ),
-        Hash(0x180)
-        + Hash(
-            0xF25929BCB43D5A57391564615C9E70A992B10EAFA4DB109709649CF48C50DD2
-        )
-        + Hash(
-            0x16DA2F5CB6BE7A0AA72C440C53C9BBDFEC6C36C7D515536431B3A865468ACBBA
-        )
-        + Hash(
-            0x2E89718AD33C8BED92E210E81D1853435399A271913A6520736A4729CF0D51EB
-        )
-        + Hash(
-            0x1A9E2FFA2E92599B68E44DE5BCF354FA2642BD4F26B259DAA6F7CE3ED57AEB3
-        )
-        + Hash(
-            0x14A9A87B789A58AF499B314E13C3D65BEDE56C07EA2D418D6874857B70763713
-        )
-        + Hash(
-            0x178FB49A2D6CD347DC58973FF49613A20757D0FCC22079F9ABD10C3BAEE24590
-        )
-        + Hash(
-            0x1B9E027BD5CFC2CB5DB82D4DC9677AC795EC500ECD47DEEE3B5DA006D6D049B8
-        )
-        + Hash(
-            0x11D7511C78158DE484232FC68DAF8A45CF217D1C2FAE693FF5871E8752D73B21
-        )
-        + Hash(
-            0x198E9393920D483A7260BFB731FB5D25F1AA493335A9E71297E485B7AEF312C2
-        )
-        + Hash(
-            0x1800DEEF121F1E76426A00665E5C4479674322D4F75EDADD46DEBD5CD992F6ED
-        )
-        + Hash(
-            0x90689D0585FF075EC9E99AD690C3395BC4B313370B38EF355ACDADCD122975B
-        )
-        + Hash(
-            0x12C85EA5DB8C6DEB4AAB71808DCB408FE3D1E7690C43D37B4CE6CC0166FA7DAA
-        ),
-        Hash(0x240)
-        + Hash(
-            0x2F2EA0B3DA1E8EF11914ACF8B2E1B32D99DF51F5F4F206FC6B947EAE860EDDB6
-        )
-        + Hash(
-            0x68134DDB33DC888EF446B648D72338684D678D2EB2371C61A50734D78DA4B72
-        )
-        + Hash(
-            0x25F83C8B6AB9DE74E7DA488EF02645C5A16A6652C3C71A15DC37FE3A5DCB7CB1
-        )
-        + Hash(
-            0x22ACDEDD6308E3BB230D226D16A105295F523A8A02BFC5E8BD2DA135AC4C245D
-        )
-        + Hash(
-            0x65BBAD92E7C4E31BF3757F1FE7362A63FBFEE50E7DC68DA116E67D600D9BF68
-        )
-        + Hash(
-            0x6D302580DC0661002994E7CD3A7F224E7DDC27802777486BF80F40E4CA3CFDB
-        )
-        + Hash(
-            0x186BAC5188A98C45E6016873D107F5CD131F3A3E339D0375E58BD6219347B008
-        )
-        + Hash(
-            0x122AE2B09E539E152EC5364E7E2204B03D11D3CAA038BFC7CD499F8176AACBEE
-        )
-        + Hash(
-            0x1F39E4E4AFC4BC74790A4A028AFF2C3D2538731FB755EDEFD8CB48D6EA589B5E
-        )
-        + Hash(
-            0x283F150794B6736F670D6A1033F9B46C6F5204F50813EB85C8DC4B59DB1C5D39
-        )
-        + Hash(
-            0x140D97EE4D2B36D99BC49974D18ECCA3E7AD51011956051B464D9E27D46CC25E
-        )
-        + Hash(
-            0x764BB98575BD466D32DB7B15F582B2D5C452B36AA394B789366E5E3CA5AABD4
-        )
-        + Hash(
-            0x15794AB061441E51D01E94640B7E3084A07E02C78CF3103C542BC5B298669F21
-        )
-        + Hash(
-            0x1B88DA1679B0B64A63B7E0E7BFE52AAE524F73A55BE7FE70C7E9BFC94B4CF0DA
-        )
-        + Hash(
-            0x1213D2149B006137FCFB23036606F848D638D576A120CA981B5B1A5F9300B3EE
-        )
-        + Hash(
-            0x2276CF730CF493CD95D64677BBB75FC42DB72513A4C1E387B476D056F80AA75F
-        )
-        + Hash(
-            0x21EE6226D31426322AFCDA621464D0611D226783262E21BB3BC86B537E986237
-        )
-        + Hash(
-            0x96DF1F82DFF337DD5972E32A8AD43E28A78A96A823EF1CD4DEBE12B6552EA5F
-        ),
-        Hash(0x240)
-        + Hash(
-            0x20A754D2071D4D53903E3B31A7E98AD6882D58AEC240EF981FDF0A9D22C5926A
-        )
-        + Hash(
-            0x29C853FCEA789887315916BBEB89CA37EDB355B4F980C9A12A94F30DEEED3021
-        )
-        + Hash(
-            0x1213D2149B006137FCFB23036606F848D638D576A120CA981B5B1A5F9300B3EE
-        )
-        + Hash(
-            0x2276CF730CF493CD95D64677BBB75FC42DB72513A4C1E387B476D056F80AA75F
-        )
-        + Hash(
-            0x21EE6226D31426322AFCDA621464D0611D226783262E21BB3BC86B537E986237
-        )
-        + Hash(
-            0x96DF1F82DFF337DD5972E32A8AD43E28A78A96A823EF1CD4DEBE12B6552EA5F
-        )
-        + Hash(
-            0x1ABB4A25EB9379AE96C84FFF9F0540ABCFC0A0D11AEDA02D4F37E4BAF74CB0C1
-        )
-        + Hash(
-            0x1073B3FF2CDBB38755F8691EA59E9606696B3FF278ACFC098FA8226470D03869
-        )
-        + Hash(
-            0x217CEE0A9AD79A4493B5253E2E4E3A39FC2DF38419F230D341F60CB064A0AC29
-        )
-        + Hash(
-            0xA3D76F140DB8418BA512272381446EB73958670F00CF46F1D9E64CBA057B53C
-        )
-        + Hash(
-            0x26F64A8EC70387A13E41430ED3EE4A7DB2059CC5FC13C067194BCC0CB49A9855
-        )
-        + Hash(
-            0x2FD72BD9EDB657346127DA132E5B82AB908F5816C826ACB499E22F2412D1A2D7
-        )
-        + Hash(
-            0xF25929BCB43D5A57391564615C9E70A992B10EAFA4DB109709649CF48C50DD2
-        )
-        + Hash(
-            0x198A1F162A73261F112401AA2DB79C7DAB1533C9935C77290A6CE3B191F2318D
-        )
-        + Hash(
-            0x198E9393920D483A7260BFB731FB5D25F1AA493335A9E71297E485B7AEF312C2
-        )
-        + Hash(
-            0x1800DEEF121F1E76426A00665E5C4479674322D4F75EDADD46DEBD5CD992F6ED
-        )
-        + Hash(
-            0x90689D0585FF075EC9E99AD690C3395BC4B313370B38EF355ACDADCD122975B
-        )
-        + Hash(
-            0x12C85EA5DB8C6DEB4AAB71808DCB408FE3D1E7690C43D37B4CE6CC0166FA7DAA
-        ),
-        Hash(0x180)
-        + Hash(
-            0x1C76476F4DEF4BB94541D57EBBA1193381FFA7AA76ADA664DD31C16024C43F59
-        )
-        + Hash(
-            0x3034DD2920F673E204FEE2811C678745FC819B55D3E9D294E45C9B03A76AEF41
-        )
-        + Hash(
-            0x209DD15EBFF5D46C4BD888E51A93CF99A7329636C63514396B4A452003A35BF7
-        )
-        + Hash(
-            0x4BF11CA01483BFA8B34B43561848D28905960114C8AC04049AF4B6315A41678
-        )
-        + Hash(
-            0x2BB8324AF6CFC93537A2AD1A445CFD0CA2A71ACD7AC41FADBF933C2A51BE344D
-        )
-        + Hash(
-            0x120A2A4CF30C1BF9845F20C6FE39E07EA2CCE61F0C9BB048165FE5E4DE877550
-        )
-        + Hash(
-            0x111E129F1CF1097710D41C4AC70FCDFA5BA2023C6FF1CBEAC322DE49D1B6DF7C
-        )
-        + Hash(
-            0x103188585E2364128FE25C70558F1560F4F9350BAF3959E603CC91486E110936
-        )
-        + Hash(
-            0x198E9393920D483A7260BFB731FB5D25F1AA493335A9E71297E485B7AEF312C2
-        )
-        + Hash(
-            0x1800DEEF121F1E76426A00665E5C4479674322D4F75EDADD46DEBD5CD992F6ED
-        )
-        + Hash(
-            0x90689D0585FF075EC9E99AD690C3395BC4B313370B38EF355ACDADCD122975B
-        )
-        + Hash(
-            0x12C85EA5DB8C6DEB4AAB71808DCB408FE3D1E7690C43D37B4CE6CC0166FA7DAA
-        ),
-    ]
-    tx_gas = [10000000, 90000, 110000, 150000]
+    if enough_gas:
+        storage = {0: 1, 1: pairing_result}
+    else:
+        storage = {0: 0, 1: 0}
+    post = {pairing_caller: Account(storage=storage)}
 
     tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        nonce=1,
-        error=_exc,
+        sender=pre.fund_eoa(),
+        to=pairing_caller,
+        data=Hash(call_gas) + pairing_input,
     )
 
     state_test(pre=pre, post=post, tx=tx)

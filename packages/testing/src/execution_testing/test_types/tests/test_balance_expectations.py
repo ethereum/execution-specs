@@ -10,6 +10,7 @@ from ..account_types import EOA, Account, Alloc
 from ..balance_expectations import (
     BalanceExpression,
     BlobFee,
+    BlockReward,
     EmptyPostStateContext,
     GasFee,
     PostStateContext,
@@ -24,6 +25,7 @@ from ..transaction_types import Transaction
 SENDER = EOA(key=1)
 FEE_RECIPIENT = Address(0xC0FFEE)
 BASE_FEE = 7
+BLOCK_REWARD = 2 * 10**18
 
 
 def legacy_tx(*, nonce: int = 0, gas_price: int = 10) -> Transaction:
@@ -71,6 +73,10 @@ class FixedTransactionLanding(TransactionLanding):
     def fee_recipient(self) -> Address:
         """Return the fee recipient."""
         return FEE_RECIPIENT
+
+    def block_reward(self) -> int:
+        """Return the block reward."""
+        return BLOCK_REWARD
 
 
 class DictPostStateContext(PostStateContext):
@@ -258,6 +264,31 @@ def test_tip_on_account_other_than_fee_recipient() -> None:
             address=Address(1),
             pre_account=None,
             account=Account(balance=21_000 * (10 - BASE_FEE)),
+            context=context_for(tx),
+        )
+
+
+def test_block_reward() -> None:
+    """Test that the block reward resolves from the landing's block."""
+    tx = legacy_tx()
+    context = context_for(tx)
+    assert BlockReward(tx).resolve(context) == BLOCK_REWARD
+    expression = Tip(tx, gas=21_000) + BlockReward(tx)
+    assert expression.resolve(context) == (
+        21_000 * (10 - BASE_FEE) + BLOCK_REWARD
+    )
+    assert str(BlockReward(tx)).startswith("BlockReward(tx ")
+
+
+def test_block_reward_on_account_other_than_fee_recipient() -> None:
+    """Test that a block reward is only accepted on the fee recipient."""
+    tx = legacy_tx()
+    expected = Account(balance_change=BlockReward(tx))
+    with pytest.raises(BlockReward.WrongRecipientError):
+        expected.check_alloc(
+            address=Address(1),
+            pre_account=None,
+            account=Account(balance=BLOCK_REWARD),
             context=context_for(tx),
         )
 

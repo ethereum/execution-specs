@@ -57,7 +57,11 @@ from execution_testing.base_types.conversions import (
     NumberConvertible,
 )
 
-from .balance_expectations import BalanceExpression, PostStateContext, Tip
+from .balance_expectations import (
+    BalanceExpression,
+    FeeRecipientTerm,
+    PostStateContext,
+)
 from .incremental_trie import IncrementalStateTrie
 from .p256 import p256_sign
 from .utils import keccak256
@@ -246,8 +250,8 @@ class Account(BaseAccount):
     post-state assertions.
 
     Accepts an integer, or an expression combining integers with fee terms
-    (`GasFee`, `Tip`, `BlobFee`) that are resolved against the block in
-    which each transaction landed.
+    (`GasFee`, `Tip`, `BlobFee`, `BlockReward`) that are resolved against
+    the block in which each transaction landed.
     """
 
     NONEXISTENT: ClassVar[None] = None
@@ -441,7 +445,7 @@ class Account(BaseAccount):
 
         if "balance_change" in self.model_fields_set:
             for _, term in self.balance_change.terms:
-                if isinstance(term, Tip):
+                if isinstance(term, FeeRecipientTerm):
                     term.check_recipient(address, context)
             want_balance = ZeroPaddedHexNumber(
                 pre_account.balance + self.balance_change.resolve(context)

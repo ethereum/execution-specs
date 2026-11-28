@@ -1,17 +1,22 @@
 """
-Test_zero_value_suicide.
+SELFDESTRUCT a contract holding no balance to different kinds of
+beneficiary.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_SUICIDEFiller.json
+state_tests/stZeroCallsTest/ZeroValue_SUICIDE_ToEmpty_ParisFiller.json
+state_tests/stZeroCallsTest/ZeroValue_SUICIDE_ToNonZeroBalanceFiller.json
+state_tests/stZeroCallsTest/ZeroValue_SUICIDE_ToOneStorageKey_ParisFiller.json
+
+@manually-enhanced: Do not overwrite. Four fillers parametrized by recipient.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 from execution_testing.vm import Op
@@ -21,43 +26,62 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stZeroCallsTest/ZeroValue_SUICIDEFiller.json"],
+    [
+        "state_tests/stZeroCallsTest/ZeroValue_SUICIDEFiller.json",
+        "state_tests/stZeroCallsTest/ZeroValue_SUICIDE_ToEmpty_ParisFiller.json",  # noqa: E501
+        "state_tests/stZeroCallsTest/ZeroValue_SUICIDE_ToNonZeroBalanceFiller.json",  # noqa: E501
+        "state_tests/stZeroCallsTest/ZeroValue_SUICIDE_ToOneStorageKey_ParisFiller.json",  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "recipient",
+    [
+        "nonexistent",
+        "funded_eoa",
+        "eoa_with_storage",
+    ],
+)
 def test_zero_value_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
+    recipient: str,
 ) -> None:
-    """Test_zero_value_suicide."""
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    """SELFDESTRUCT a contract holding no balance to `recipient`."""
+    sender = pre.fund_eoa()
+    storage = Storage()
 
-    # Source: lll
-    # { (SELFDESTRUCT 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b) }
-    contract_0_code = (
-        Op.SELFDESTRUCT(address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-        + Op.STOP
-    )
-    contract_0 = pre.deploy_contract(
-        code=contract_0_code,
+    if recipient == "nonexistent":
+        beneficiary = pre.nonexistent_account()
+        expected = Account.NONEXISTENT
+    elif recipient == "funded_eoa":
+        beneficiary = pre.fund_eoa(amount=1)
+        expected = Account(balance_change=0)
+    else:
+        storage[0] = 1
+        beneficiary = pre.fund_eoa(amount=1, storage=storage)
+        expected = Account(storage=storage, balance_change=0)
+
+    target_code = Op.SELFDESTRUCT(address=beneficiary) + Op.STOP
+    target = pre.deploy_contract(
+        code=target_code,
+        storage=storage,
     )
 
     tx = Transaction(
         sender=sender,
-        to=contract_0,
-        data=Bytes(""),
+        to=target,
         gas_limit=600000,
     )
 
     post = {
-        contract_0: Account(
-            storage={},
-            code=contract_0_code,
+        target: Account(
+            storage=storage,
+            code=target_code,
             balance=0,
             nonce=1,
         ),
-        Address(
-            0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B
-        ): Account.NONEXISTENT,
+        beneficiary: expected,
     }
 
     state_test(pre=pre, post=post, tx=tx)
