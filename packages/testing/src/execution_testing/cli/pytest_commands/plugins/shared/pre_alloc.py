@@ -346,3 +346,29 @@ class Alloc(BaseAlloc):
         raise NotImplementedError(
             "_nonexistent_account is not implemented in the base class"
         )
+
+    def empty_account(self) -> Address:
+        """
+        Add an empty account to the pre-state and return its address.
+
+        The account exists but has zero nonce, zero balance, no code and no
+        storage, which is what EIP-161 calls empty. From the Merge on, EIP-7523
+        rules out empty accounts in the state, so the method only works on
+        earlier forks.
+        """
+        if self._fork.transitions_to().is_eip_enabled(3675):
+            raise ValueError(
+                "Empty accounts cannot exist in the state from the Merge on "
+                "(EIP-7523); limit the test to forks before Paris."
+            )
+        address = self._empty_account()
+        self._declared_empty_accounts.add(address)
+        return address
+
+    def _empty_account(self) -> Address:
+        """
+        Sub-class implementation of empty_account.
+        """
+        raise NotImplementedError(
+            "_empty_account is not implemented in the base class"
+        )

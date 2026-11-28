@@ -515,7 +515,7 @@ class StateTest(BaseTest):
         pre_alloc = self.genesis_alloc(
             self.pre, fork=self.fork, fixture_format=StateFixture
         )
-        if empty_accounts := pre_alloc.empty_accounts():
+        if empty_accounts := pre_alloc.undeclared_empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
 
         transition_tool_output = t8n.evaluate(
