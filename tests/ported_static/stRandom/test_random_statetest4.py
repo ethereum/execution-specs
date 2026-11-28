@@ -3,6 +3,8 @@ Test_random_statetest4.
 
 Ported from:
 state_tests/stRandom/randomStatetest4Filler.json
+state_tests/stRandom/randomStatetest335Filler.json
+state_tests/stRandom2/randomStatetest387Filler.json
 """
 
 import pytest
@@ -21,7 +23,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stRandom/randomStatetest4Filler.json"],
+    [
+        "state_tests/stRandom/randomStatetest4Filler.json",
+        "state_tests/stRandom/randomStatetest335Filler.json",
+        "state_tests/stRandom2/randomStatetest387Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 def test_random_statetest4(
@@ -31,15 +37,11 @@ def test_random_statetest4(
     """Test_random_statetest4."""
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    # Source: raw
-    # 0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000100000000000000000000000000000000000000007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000100000000000000000000000000000000000000007f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c350617e7608617c95f3ff584076e07b5a4460005155  # noqa: E501
     target = pre.deploy_contract(
         code=bytes.fromhex(
             "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000100000000000000000000000000000000000000007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000100000000000000000000000000000000000000007f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c350617e7608617c95f3ff584076e07b5a4460005155"  # noqa: E501
         ),
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,

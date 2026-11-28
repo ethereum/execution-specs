@@ -16,8 +16,6 @@ from execution_testing import (
 )
 from execution_testing.vm import Op
 
-from tests.ported_static.constants import HIGH_GAS_LIMIT
-
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
@@ -26,7 +24,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom/randomStatetest42Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Prague")
 def test_random_statetest42(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -34,8 +31,6 @@ def test_random_statetest42(
     """Test_random_statetest42."""
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    # Source: raw
-    # 0x7f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000000000000000000000000000000000000000c3507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3505a7f00000000000000000000000100000000000000000000000000000000000000007f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c350356436f0f119011a5560005155  # noqa: E501
     target = pre.deploy_contract(
         code=Op.PUSH32[0xC350] * 2
         + Op.PUSH32[
@@ -53,8 +48,6 @@ def test_random_statetest42(
         + Op.MLOAD(offset=0x0)
         + Op.SSTORE,
     )
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,
@@ -68,9 +61,7 @@ def test_random_statetest42(
         balance=46,
     )
 
-    env = Environment(
-        fee_recipient=coinbase, prev_randao=0x20000, gas_limit=HIGH_GAS_LIMIT
-    )
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
@@ -78,7 +69,6 @@ def test_random_statetest42(
         data=Bytes(
             "7f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000000000000000000000000000000000000000c3507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3505a7f00000000000000000000000100000000000000000000000000000000000000007f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c350356436f0f119011a"  # noqa: E501
         ),
-        gas_limit=221233021,
         value=0x61B9CAA3,
     )
 

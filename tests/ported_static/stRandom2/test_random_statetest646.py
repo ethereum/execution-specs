@@ -27,20 +27,16 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom2/randomStatetest646Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.execute(pytest.mark.skip(reason="needs a high-nonce contract"))
 @pytest.mark.valid_before("EIP7954")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest646(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Geth Failed this test on all networks."""
     coinbase = Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_0 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0x54465EF1C769628B)
 
-    pre[contract_0] = Account(balance=0x33888D4CE6B934, nonce=7)
-    # Source: raw
-    # 0x64ba8b878e0154689b908f27acb42e5269603972609834bf9a7e578e45609242172907dd75a92555656c5aa6e9248162013ffa6203864863446d325df0336d2c38cfa2f1cdf8cb623c0591987419  # noqa: E501
     contract_1 = pre.deploy_contract(
         code=Op.SLOAD(key=0xBA8B878E01)
         + Op.PUSH9[0x9B908F27ACB42E5269]
@@ -94,7 +90,6 @@ def test_random_statetest646(
         compute_create_address(
             address=contract_1, nonce=28
         ): Account.NONEXISTENT,
-        contract_0: Account(storage={}, code=b"", nonce=7),
         contract_1: Account(storage={}, nonce=28),
     }
 

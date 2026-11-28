@@ -7,9 +7,7 @@ state_tests/stRandom/randomStatetest263Filler.json
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
@@ -27,30 +25,13 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
-@pytest.mark.pre_alloc_mutable
 def test_random_statetest263(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest263."""
-    coinbase = Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(
             pc=0x9,
@@ -62,11 +43,7 @@ def test_random_statetest263(
             key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
         ),
         balance=46,
-        nonce=0,
-        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
     )
-    # Source: raw
-    # 0x7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b5807f000000000000000000000000000000000000000000000000000000000000c3507ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000100000000000000000000000000000000000000007f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57f000000000000000000000000000000000000000000000000000000000000c3507ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0418625560005155  # noqa: E501
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH32[0x945304EB96065B2A98B57A48A06AE28D285A71B5]
         + Op.DUP1
@@ -85,8 +62,12 @@ def test_random_statetest263(
                 Op.PUSH32[0x945304EB96065B2A98B57A48A06AE28D285A71B5],
             ),
         ),
-        nonce=0,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
+    )
+
+    env = Environment(
+        fee_recipient=coinbase,
+        prev_randao=0x20000,
+        gas_limit=9223372036854775807,
     )
 
     tx = Transaction(
@@ -104,9 +85,8 @@ def test_random_statetest263(
             storage={
                 0: 0x14F8B588E368F08461F9F95EB620FACA1C09044BCFAFAE26DE901D3A614F5,  # noqa: E501
             },
-            nonce=0,
         ),
-        coinbase: Account(storage={}, nonce=0),
+        coinbase: Account(storage={}),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

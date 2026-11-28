@@ -2,6 +2,7 @@
 Test_random_statetest641.
 
 Ported from:
+state_tests/stRandom2/randomStatetestFiller.json
 state_tests/stRandom2/randomStatetest641Filler.json
 
 @manually-enhanced: Do not overwrite. tx `gas_limit` has been removed.
@@ -23,7 +24,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stRandom2/randomStatetest641Filler.json"],
+    [
+        "state_tests/stRandom2/randomStatetestFiller.json",
+        "state_tests/stRandom2/randomStatetest641Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 def test_random_statetest641(
@@ -33,8 +37,6 @@ def test_random_statetest641(
     """Test_random_statetest641."""
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,
@@ -47,8 +49,6 @@ def test_random_statetest641(
         ),
         balance=46,
     )
-    # Source: raw
-    # 0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3507f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe6f29199c9aa4054170f1a15a55056f965560005155  # noqa: E501
     target = pre.deploy_contract(
         code=Op.PUSH32[
             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE

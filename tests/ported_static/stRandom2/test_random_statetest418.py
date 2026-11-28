@@ -15,8 +15,6 @@ from execution_testing import (
 )
 from execution_testing.vm import Op
 
-from tests.ported_static.constants import HIGH_GAS_LIMIT
-
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
@@ -33,8 +31,6 @@ def test_random_statetest418(
     """Test_random_statetest418."""
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
 
-    # Source: raw
-    # 0x6000355415600957005b60203560003555
     coinbase = pre.deploy_contract(
         code=Op.JUMPI(
             pc=0x9,
@@ -47,8 +43,6 @@ def test_random_statetest418(
         ),
         balance=46,
     )
-    # Source: raw
-    # 0x7f0000000000000000000000000000000000000000000000000000000000000000437f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f000000000000000000000000000000000000000000000000000000000000c3507f0000000000000000000000000000000000000000000000000000000000000000417fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff12a36234970658a03160005155  # noqa: E501
     target = pre.deploy_contract(
         code=Op.PUSH32[0x0]
         + Op.NUMBER
@@ -66,9 +60,7 @@ def test_random_statetest418(
         + Op.SSTORE(key=Op.MLOAD(offset=0x0), value=Op.BALANCE),
     )
 
-    env = Environment(
-        fee_recipient=coinbase, prev_randao=0x20000, gas_limit=HIGH_GAS_LIMIT
-    )
+    env = Environment(fee_recipient=coinbase, prev_randao=0x20000)
 
     tx = Transaction(
         sender=sender,
@@ -89,7 +81,6 @@ def test_random_statetest418(
             + Op.LOG0(offset=Op.PC, size=0x349706)
             + Op.BALANCE
         ),
-        gas_limit=392462029,
         value=0x65A87A48,
     )
 

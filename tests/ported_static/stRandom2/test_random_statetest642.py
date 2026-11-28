@@ -25,18 +25,14 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stRandom2/randomStatetest642Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.execute(pytest.mark.skip(reason="needs a high-nonce contract"))
 def test_random_statetest642(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """Test_random_statetest642."""
-    addr_2 = Address(0x78D51368C50ED27350D847254125276522CF9DAC)
     sender = pre.fund_eoa(amount=0x26551A696CACB206)
 
-    pre[addr_2] = Account(balance=0x11BAE0BB79D6A164, nonce=163)
-    # Source: raw
-    # 0x62f46a4f547b169c9edf92f4b39273fe47accc75d1209ae58463c2585607ce051ff6714c4f0fbf6de0659784434fb240652ff52d08576408f168a43a6651f765a4788a05537086290691d5a3239db43eefea96b0012ea26534e99e4ba9ee7f92f37fa731707f800683bafb70815757d861ad8cc6804154ce5b9de3146b58cd53  # noqa: E501
     addr = pre.deploy_contract(
         code=Op.SLOAD(key=0xF46A4F)
         + Op.JUMPI(
@@ -68,7 +64,6 @@ def test_random_statetest642(
     post = {
         sender: Account(storage={}, code=b"", nonce=1),
         addr: Account(storage={}, nonce=112),
-        addr_2: Account(storage={}, code=b"", nonce=163),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
