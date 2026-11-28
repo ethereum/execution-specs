@@ -810,6 +810,23 @@ def update_builder_from_tx(
         else:
             remove_code_change(builder, address, idx)
 
+    for address in tx_state.storage_clears:
+        cleared_slots = block_state.storage_writes.get(address)
+        if not cleared_slots:
+            continue
+        tx_slots = tx_state.storage_writes.get(address)
+        for key in cleared_slots:
+            if tx_slots is not None and key in tx_slots:
+                continue
+            pre_value = _index_start_storage(
+                builder, block_state, address, key
+            )
+            u256_slot = U256.from_be_bytes(key)
+            if pre_value != U256(0):
+                add_storage_write(builder, address, u256_slot, idx, U256(0))
+            else:
+                remove_storage_write(builder, address, u256_slot, idx)
+
     for address, slots in tx_state.storage_writes.items():
         for key, post_value in slots.items():
             pre_value = _index_start_storage(
