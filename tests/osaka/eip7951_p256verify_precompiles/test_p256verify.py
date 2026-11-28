@@ -77,11 +77,14 @@ def test_wycheproof_invalid(
 @pytest.mark.parametrize(
     "input_data,expected_output,vector_gas_value",
     vectors_from_file("secp256r1_small_large_r_s.json")
-    + vectors_from_file("secp256r1_special_points.json"),
+    + vectors_from_file("secp256r1_special_points.json")
+    + vectors_from_file("secp256r1_r_x_comparison.json"),
     # Test vectors generated from Wycheproof's ECDSA secp256r1 SHA-256
     # test suite, valid/invalid cases
     # Source: https://github.com/C2SP/wycheproof/blob/main/
-    # testvectors/ecdsa_secp256r1_sha256_test.json
+    # testvectors/ecdsa_secp256r1_sha256_test.json, and for
+    # secp256r1_r_x_comparison.json from
+    # testvectors_v1/ecdsa_secp256r1_sha256_test.json
 )
 @pytest.mark.parametrize("precompile_address", [Spec.P256VERIFY], ids=[""])
 @EIPChecklist.Precompile.Test.CallContexts.Normal()
@@ -289,6 +292,23 @@ def test_wycheproof_extra(
             + Spec.X0
             + Spec.Y0,
             id="u1_eq_u2_and_Q_ne_G",
+        ),
+        # Test case for Q == -G.
+        # This test case is important because G + Q, which implementations
+        # of u1*G + u2*Q may precompute, is the point at infinity.
+        pytest.param(
+            H(
+                0x6038D49A0C9EDC92C761AA73983CFFD22AAB0CFC8E972D09100F2EA5FA094CB0
+            )
+            + R(
+                0xE4958EB9A98B86C3FD80EF08A6702A50532D4470A9D5CCD7F21FEFF38EBFCF06
+            )
+            + S(
+                0x2AA1C1DFB80EC2E1AC69E9F321C50304684EFC958443A5BFA1E546DD4E6BEB86
+            )
+            + X(Spec.Gx)
+            + Y(Spec.P - Spec.Gy),
+            id="Q_eq_minus_G",
         ),
     ],
 )
@@ -1191,6 +1211,24 @@ def test_precompile_will_return_success_with_tx_value(
             Spec.INVALID_RETURN_VALUE,  # Should fail because R = 2 is not a
             # valid signature
             id="r_equals_n_plus_two",
+        ),
+        # R' has x-coordinate 0, which is congruent to r + n = p (mod p).
+        pytest.param(
+            H(
+                0x24FB632FF0B8C9603E8B6A7F7134BD1F173D4FEC0442BDC1FD4DDD6D175D9F8F
+            )
+            + R(Spec.P - Spec.N)
+            + S(
+                0x1E8FC04717FB006A47290D67318CE4C9AFACB60F8A6EE2CEA97301002926A8A0
+            )
+            + X(
+                0x1FF12615D101B23FE5A80726C40757682454ACB303AB1D222CAD6EB1D4544A5E
+            )
+            + Y(
+                0x17A1E9C5297C4CA5B4D41FCBCD47B92AAC508A86C4302EC1C5314EC795DEF763
+            ),
+            Spec.INVALID_RETURN_VALUE,
+            id="r_equals_p_minus_n",
         ),
     ],
 )

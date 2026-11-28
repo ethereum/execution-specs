@@ -1,0 +1,58 @@
+[
+  {
+    "Input": "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b0000000000000000000000000000000000000000000000000000000000000005ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63254e264d796a0dab9b376d34eea6fe297dde1c7b73e53944bc96c8f1e8a6850bb6c9cf5308020eed460c649ddae61d4ef8bb79958113f106befaf4f18876d12a5e64",
+    "Expected": "0000000000000000000000000000000000000000000000000000000000000001",
+    "Gas": 6900,
+    "Name": "wycheproof/ecdsa_secp256r1_sha256_test.json EcdsaVerify SHA-256 #475: r = 5, x = 5 is valid",
+    "NoBenchmark": false
+  },
+  {
+    "Input": "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b0000000000000000000000000000000000000000000000000000000000000006ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63254eadd76677e54a92e79bbee36a70e1754838273ec4b39295e4018a587290a7fc73f240d625642c943e610d80d953c5c6b8a12760a624ba3b90a0b7902755e1ae79",
+    "Expected": "",
+    "Gas": 6900,
+    "Name": "wycheproof/ecdsa_secp256r1_sha256_test.json EcdsaVerify SHA-256 #476: r = 6, x = 5 is invalid",
+    "NoBenchmark": false
+  },
+  {
+    "Input": "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5bffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632556ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63254e264d796a0dab9b376d34eea6fe297dde1c7b73e53944bc96c8f1e8a6850bb6c9cf5308020eed460c649ddae61d4ef8bb79958113f106befaf4f18876d12a5e64",
+    "Expected": "",
+    "Gas": 6900,
+    "Name": "wycheproof/ecdsa_secp256r1_sha256_test.json EcdsaVerify SHA-256 #477: r = 5 + n, x = 5 is invalid; r was not reduced mod n",
+    "NoBenchmark": false
+  },
+  {
+    "Input": "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5bffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63254effffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63254ee7e49dd82812432744fefe723f7f69663214ad1b85c02b2650b4ca0354743a325223c51c415f457aec69cb019bbe3d27585b38f8b79c39dfea6c27c2f0d8146a",
+    "Expected": "",
+    "Gas": 6900,
+    "Name": "wycheproof/ecdsa_secp256r1_sha256_test.json EcdsaVerify SHA-256 #478: r = n - 3, x = n - 2 is invalid",
+    "NoBenchmark": false
+  },
+  {
+    "Input": "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b0000000000000000000000000000000000000000000000000000000000000003ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63254ece24c99032d52ac6ead23c0ae3ec68ef41e51a281fd457808c83136d7dcce90e8f7a154b551e9f39c59279357aa491b2a62bdebc2bb78613883fc72936c057e0",
+    "Expected": "0000000000000000000000000000000000000000000000000000000000000001",
+    "Gas": 6900,
+    "Name": "wycheproof/ecdsa_secp256r1_sha256_test.json EcdsaVerify SHA-256 #479: r = 3, x = n + 3 is the smallest possible x with a reduction",
+    "NoBenchmark": false
+  },
+  {
+    "Input": "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b0000000000000000000000000000000000000000000000000000000000000004ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63254ec981c75ddfd3910387eb147098fe5658c43aaaa34c681cd6d514b6ad5b6baa6d14fbddb53a6e6db18e90602bc60f2e736d625765f7f2cca4be76f4eeccf12c18",
+    "Expected": "",
+    "Gas": 6900,
+    "Name": "wycheproof/ecdsa_secp256r1_sha256_test.json EcdsaVerify SHA-256 #480: r = 4, x = n + 3 is invalid",
+    "NoBenchmark": false
+  },
+  {
+    "Input": "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b000000000000000000000000000000004319055358e8617b0c46353d039cdab3ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63254e0ec505bc19b14a43e05678cccf07a443d3e871a2e19b68a4da91859a0650f32477300e4f64e9982d94dff5d294428bb37cc9be66117cae9c389d2d495f68b987",
+    "Expected": "",
+    "Gas": 6900,
+    "Name": "wycheproof/ecdsa_secp256r1_sha256_test.json EcdsaVerify SHA-256 #481: r = p - n + 5, x = 5 is invalid; r is too large to compare r + n with x",
+    "NoBenchmark": false
+  },
+  {
+    "Input": "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b00000000ffffffff00000000000000004319055258e8617b0c46353d039cdab4ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63254ed42ce21e730f3d2a84e949828574b4dceeb77d4f89556735f34fba03028ee3ed32daf8bfd3f0a7a0821170840f4e032056722386b35d9bdd4f4f450696f4fb52",
+    "Expected": "",
+    "Gas": 6900,
+    "Name": "wycheproof/ecdsa_secp256r1_sha256_test.json EcdsaVerify SHA-256 #482: r = 2^256 - n + 5, x = 5 is invalid; r + n is too large to compare r + n with x, and overflows 2^256 bits",
+    "NoBenchmark": false
+  }
+]
