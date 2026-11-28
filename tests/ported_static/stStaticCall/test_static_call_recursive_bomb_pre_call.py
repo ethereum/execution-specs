@@ -1,100 +1,97 @@
 """
-Test_static_call_recursive_bomb_pre_call.
+Recursive STATICCALL bomb to the maximum call depth after a call to an
+empty account.
 
 Ported from:
 state_tests/stStaticCall/static_CallRecursiveBombPreCallFiller.json
+state_tests/stStaticCall/static_CallRecursiveBombPreCall2Filler.json
+
+@manually-enhanced: Do not overwrite. Merged; the depth reached is stored.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
     Environment,
+    Op,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 
 from tests.ported_static.constants import HIGH_GAS_LIMIT
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+MAX_CALL_DEPTH = 1024
+RETAINED_GAS = 224_000
+BOMB_GAS = 0x7FFFFFFFFFFFFFF
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stStaticCall/static_CallRecursiveBombPreCallFiller.json"],
+    [
+        "state_tests/stStaticCall/static_CallRecursiveBombPreCallFiller.json",
+        "state_tests/stStaticCall/static_CallRecursiveBombPreCall2Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
 @pytest.mark.slow
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize("entry", [Op.DELEGATECALL, Op.STATICCALL])
 def test_static_call_recursive_bomb_pre_call(
     state_test: StateTestFiller,
     pre: Alloc,
+    entry: Op,
 ) -> None:
-    """Test_static_call_recursive_bomb_pre_call."""
+    """
+    Verify a STATICCALL bomb entered by `entry` reaches the call depth
+    limit.
+
+    The bomb's address is passed as calldata, since in a DELEGATECALL
+    frame ADDRESS is the caller's. Each bomb frame returns the number of
+    bomb frames from itself down.
+    """
     env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
-    sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-
-    # Source: lll
-    # { (STATICCALL 100000 0xbad304eb96065b2a98b57a48a06ae28d285a71b5 0 0 0 0) [[ 0 ]] (DELEGATECALL 0x7ffffffffffffff <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) [[ 1 ]] 1 }  # noqa: E501
-    target = pre.deploy_contract(
-        code=Op.POP(
+    bomb = pre.deploy_contract(
+        code=Op.CALLDATACOPY(size=32)
+        + Op.POP(
             Op.STATICCALL(
-                gas=0x186A0,
-                address=0xBAD304EB96065B2A98B57A48A06AE28D285A71B5,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
+                gas=Op.SUB(Op.GAS, RETAINED_GAS),
+                address=Op.CALLDATALOAD(0),
+                args_size=32,
+                ret_offset=32,
+                ret_size=32,
             )
         )
+        + Op.MSTORE(0, Op.ADD(Op.MLOAD(32), 1))
+        + Op.RETURN(0, 32)
+    )
+    target = pre.deploy_contract(
+        code=Op.POP(
+            Op.STATICCALL(gas=100_000, address=pre.nonexistent_account())
+        )
+        + Op.MSTORE(0, bomb)
         + Op.SSTORE(
-            key=0x0,
-            value=Op.DELEGATECALL(
-                gas=0x7FFFFFFFFFFFFFF,
-                address=0x72E480206054168CFA7D5C6A1BD8C3FFE26A4D82,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
+            0,
+            entry(
+                gas=BOMB_GAS,
+                address=bomb,
+                args_size=32,
+                ret_offset=32,
+                ret_size=32,
             ),
         )
-        + Op.SSTORE(key=0x1, value=0x1)
-        + Op.STOP,
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-        address=Address(0x6A441A35B94353A66FFD7FD1E54550ACECB81AAF),  # noqa: E501
-    )
-    # Source: lll
-    # { (MSTORE 0 (+ (MLOAD 0) 1)) (STATICCALL (- (GAS) 224000) <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) }  # noqa: E501
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.ADD(Op.MLOAD(offset=0x0), 0x1))
-        + Op.STATICCALL(
-            gas=Op.SUB(Op.GAS, 0x36B00),
-            address=0x72E480206054168CFA7D5C6A1BD8C3FFE26A4D82,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        address=Address(0x72E480206054168CFA7D5C6A1BD8C3FFE26A4D82),  # noqa: E501
+        + Op.SSTORE(1, 1)
+        + Op.SSTORE(2, Op.MLOAD(32))
+        + Op.STOP
     )
 
     tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=9214364837600034817,
+        sender=pre.fund_eoa(), to=target, gas_limit=9214364837600034817
     )
 
-    post = {
-        target: Account(storage={0: 1, 1: 1}),
-        sender: Account(nonce=1),
-    }
+    post = {target: Account(storage={0: 1, 1: 1, 2: MAX_CALL_DEPTH})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

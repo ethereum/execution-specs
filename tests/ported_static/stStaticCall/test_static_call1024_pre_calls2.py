@@ -1,5 +1,5 @@
 """
-Test_static_call1024_pre_calls2.
+STATICCALL a contract twice, then DELEGATECALL self recursively.
 
 Ported from:
 state_tests/stStaticCall/static_Call1024PreCalls2Filler.json
@@ -57,13 +57,14 @@ def test_static_call1024_pre_calls2(
     g: int,
     v: int,
 ) -> None:
-    """Test_static_call1024_pre_calls2."""
+    """
+    Verify a contract that STATICCALLs another contract twice and then
+    DELEGATECALLs itself recursively until it runs out of depth or gas.
+    """
     env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-    # Source: lll
-    # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
     target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
@@ -80,14 +81,10 @@ def test_static_call1024_pre_calls2(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
     )
-    # Source: lll
-    # { (MSTORE 0 1)}
     addr = pre.deploy_contract(
         code=Op.MSTORE(offset=0x0, value=0x1) + Op.STOP,
         balance=7000,
     )
-    # Source: lll
-    # { [[ 2 ]] (STATICCALL 0xffff <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[ 3 ]] (STATICCALL 0xffff <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0)  [[ 0 ]] (ADD @@0 1) [[ 1 ]] (DELEGATECALL 0xfffffffffff <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }  # noqa: E501
     addr_2 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x2,
@@ -126,8 +123,6 @@ def test_static_call1024_pre_calls2(
         + Op.STOP,
         balance=2024,
     )
-    # Source: lll
-    # { (STATICCALL 0xffff <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) (STATICCALL 0xffff <contract:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0)  (MSTORE 0 (ADD (MLOAD 0) 1)) (DELEGATECALL 0xfffffffffff <contract:0xcbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }  # noqa: E501
     addr_3 = pre.deploy_contract(
         code=Op.POP(
             Op.STATICCALL(
@@ -166,7 +161,7 @@ def test_static_call1024_pre_calls2(
             "indexes": {"data": 1, "gas": -1, "value": -1},
             "network": [">=Cancun<Osaka"],
             "result": {
-                addr_2: Account(storage={0: 0, 1: 0, 2: 0, 3: 0}),
+                addr_3: Account(storage={0: 0, 1: 0, 2: 0, 3: 0}),
                 target: Account(storage={0: 1, 1: 1}),
             },
         },

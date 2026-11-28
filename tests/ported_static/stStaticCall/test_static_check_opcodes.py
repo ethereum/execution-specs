@@ -1,263 +1,245 @@
 """
-Test_static_check_opcodes.
+Check ORIGIN, CALLER, ADDRESS and CALLVALUE at the end of call paths that
+go through STATICCALL.
 
 Ported from:
 state_tests/stStaticCall/static_CheckOpcodesFiller.json
+state_tests/stStaticCall/static_CheckOpcodes2Filler.json
+state_tests/stStaticCall/static_CheckOpcodes3Filler.json
+state_tests/stStaticCall/static_CheckOpcodes4Filler.json
+state_tests/stStaticCall/static_CheckOpcodes5Filler.json
+state_tests/stStaticCall/static_callToCallOpCodeCheckFiller.json
+state_tests/stStaticCall/static_callToCallCodeOpCodeCheckFiller.json
+state_tests/stStaticCall/static_callToDelCallOpCodeCheckFiller.json
+state_tests/stStaticCall/static_callToStaticOpCodeCheckFiller.json
+
+@manually-enhanced: Do not overwrite. Merged; expected context in calldata.
 """
+
+from dataclasses import dataclass
 
 import pytest
 from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytecode,
+    Conditional,
     Hash,
+    Op,
     StateTestFiller,
     Transaction,
-)
-from execution_testing.forks import Fork
-from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+CONTRACT_BALANCE = 1000
+ENTRY_CONTEXT_SLOTS = {"caller": 3, "callvalue": 4, "origin": 5, "address": 6}
+
+S = (Op.STATICCALL, 0)
+C0 = (Op.CALL, 0)
+C1 = (Op.CALL, 1)
+CC0 = (Op.CALLCODE, 0)
+CC1 = (Op.CALLCODE, 1)
+D = (Op.DELEGATECALL, 0)
+
+
+@dataclass(frozen=True)
+class Frame:
+    """Execution context of one level of a call path."""
+
+    address: Address
+    caller: Address
+    value: int
+
+    def enter(self, opcode: Op, callee: Address, value: int) -> "Frame":
+        """Return the context in which `opcode` runs `callee`'s code."""
+        if opcode in (Op.CALL, Op.STATICCALL):
+            return Frame(address=callee, caller=self.address, value=value)
+        if opcode == Op.CALLCODE:
+            return Frame(
+                address=self.address, caller=self.address, value=value
+            )
+        return self
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stStaticCall/static_CheckOpcodesFiller.json"],
-)
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.slow
-@pytest.mark.parametrize(
-    "d, g, v",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="d0-g0-v0",
-        ),
-        pytest.param(
-            0,
-            0,
-            1,
-            id="d0-g0-v1",
-        ),
-        pytest.param(
-            0,
-            1,
-            0,
-            id="d0-g1-v0",
-        ),
-        pytest.param(
-            0,
-            1,
-            1,
-            id="d0-g1-v1",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="d1-g0-v0",
-        ),
-        pytest.param(
-            1,
-            0,
-            1,
-            id="d1-g0-v1",
-        ),
-        pytest.param(
-            1,
-            1,
-            0,
-            id="d1-g1-v0",
-        ),
-        pytest.param(
-            1,
-            1,
-            1,
-            id="d1-g1-v1",
-        ),
+        "state_tests/stStaticCall/static_CheckOpcodesFiller.json",
+        "state_tests/stStaticCall/static_CheckOpcodes2Filler.json",
+        "state_tests/stStaticCall/static_CheckOpcodes3Filler.json",
+        "state_tests/stStaticCall/static_CheckOpcodes4Filler.json",
+        "state_tests/stStaticCall/static_CheckOpcodes5Filler.json",
+        "state_tests/stStaticCall/static_callToCallOpCodeCheckFiller.json",
+        "state_tests/stStaticCall/static_callToCallCodeOpCodeCheckFiller.json",
+        "state_tests/stStaticCall/static_callToDelCallOpCodeCheckFiller.json",
+        "state_tests/stStaticCall/static_callToStaticOpCodeCheckFiller.json",
     ],
 )
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("tx_value", [0, 100])
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.param((S,), id="static"),
+        pytest.param((S, S), id="static_static"),
+        pytest.param((S, C0), id="static_call"),
+        pytest.param((S, C1), id="static_call_value"),
+        pytest.param((S, CC0), id="static_callcode"),
+        pytest.param((S, CC1), id="static_callcode_value"),
+        pytest.param((S, D), id="static_delegatecall"),
+        pytest.param((S, S, C0), id="static_static_call"),
+        pytest.param((S, S, C1), id="static_static_call_value"),
+        pytest.param((S, S, CC0), id="static_static_callcode"),
+        pytest.param((S, S, CC1), id="static_static_callcode_value"),
+        pytest.param((S, S, D), id="static_static_delegatecall"),
+        pytest.param((S, C0, S), id="static_call_static"),
+        pytest.param((S, C1, S), id="static_call_value_static"),
+        pytest.param((S, CC0, S), id="static_callcode_static"),
+        pytest.param((S, CC1, S), id="static_callcode_value_static"),
+        pytest.param((S, D, S), id="static_delegatecall_static"),
+        pytest.param((C0, C0, S), id="call_call_static"),
+        pytest.param((C0, C1, S), id="call_call_value_static"),
+        pytest.param((C0, CC0, S), id="call_callcode_static"),
+        pytest.param((C0, CC1, S), id="call_callcode_value_static"),
+        pytest.param((C0, D, S), id="call_delegatecall_static"),
+    ],
+)
 def test_static_check_opcodes(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    path: tuple[tuple[Op, int], ...],
+    tx_value: int,
 ) -> None:
-    """Test_static_check_opcodes."""
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    """
+    Call down `path` and check the innermost frame's context.
 
-    # Source: lll
-    # { [[1]] (STATICCALL 100000 (CALLDATALOAD 0) 0 0 0 0) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(
-            key=0x1,
-            value=Op.STATICCALL(
-                gas=0x186A0,
-                address=Op.CALLDATALOAD(offset=0x0),
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        address=Address(0x50F628D871A69F2DB31E98D7FBF8AE6F1FC0D55C),  # noqa: E501
-    )
-    # Source: lll
-    # { (if (= <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b> (ORIGIN)) (MSTORE 1 1) (SSTORE 1 2) ) (if (= <contract:target:0x1000000000000000000000000000000000000000> (CALLER)) (MSTORE 1 1) (SSTORE 1 2) ) (if (= <contract:0x1000000000000000000000000000000000000001> (ADDRESS)) (MSTORE 1 1) (SSTORE 1 2) )   (if (= 0 (CALLVALUE)) (MSTORE 1 1) (SSTORE 1 2) ) }  # noqa: E501
-    addr = pre.deploy_contract(
-        code=Op.JUMPI(
-            pc=0x22,
-            condition=Op.EQ(Op.PUSH20[sender], Op.ORIGIN),
-        )
-        + Op.SSTORE(key=0x1, value=0x2)
-        + Op.JUMP(pc=0x28)
-        + Op.JUMPDEST
-        + Op.MSTORE(offset=0x1, value=0x1)
-        + Op.JUMPDEST
-        + Op.JUMPI(
-            pc=0x4B,
-            condition=Op.EQ(
-                0x50F628D871A69F2DB31E98D7FBF8AE6F1FC0D55C, Op.CALLER
-            ),
-        )
-        + Op.SSTORE(key=0x1, value=0x2)
-        + Op.JUMP(pc=0x51)
-        + Op.JUMPDEST
-        + Op.MSTORE(offset=0x1, value=0x1)
-        + Op.JUMPDEST
-        + Op.JUMPI(
-            pc=0x74,
-            condition=Op.EQ(
-                0xB4B91C40F3E3A6E5576B0413572B88D535CEE7B0, Op.ADDRESS
-            ),
-        )
-        + Op.SSTORE(key=0x1, value=0x2)
-        + Op.JUMP(pc=0x7A)
-        + Op.JUMPDEST
-        + Op.MSTORE(offset=0x1, value=0x1)
-        + Op.JUMPDEST
-        + Op.JUMPI(pc=0x8A, condition=Op.EQ(0x0, Op.CALLVALUE))
-        + Op.SSTORE(key=0x1, value=0x2)
-        + Op.JUMP(pc=0x90)
-        + Op.JUMPDEST
-        + Op.MSTORE(offset=0x1, value=0x1)
-        + Op.JUMPDEST
-        + Op.STOP,
-        address=Address(0xB4B91C40F3E3A6E5576B0413572B88D535CEE7B0),  # noqa: E501
-    )
-    # Source: lll
-    # { (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000003> 0 0 0 0) }  # noqa: E501
-    addr_2 = pre.deploy_contract(
-        code=Op.STATICCALL(
-            gas=0x186A0,
-            address=0x2B8B4845ACB3EF63F61F109B960754CF76DFBDFD,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        address=Address(0xE4B8BAA7DA1A97BFF89D7DB0AE345DD30CD8C1D0),  # noqa: E501
-    )
-    # Source: lll
-    # { (if (= <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b> (ORIGIN)) (MSTORE 1 1) (SSTORE 1 2) ) (if (= <contract:0x1000000000000000000000000000000000000002> (CALLER)) (MSTORE 1 1) (SSTORE 1 2) ) (if (= <contract:0x1000000000000000000000000000000000000001> (ADDRESS)) (MSTORE 1 1) (SSTORE 1 2) )   (if (= 0 (CALLVALUE)) (MSTORE 1 1) (SSTORE 1 2) ) }  # noqa: E501
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPI(
-            pc=0x22,
-            condition=Op.EQ(Op.PUSH20[sender], Op.ORIGIN),
-        )
-        + Op.SSTORE(key=0x1, value=0x2)
-        + Op.JUMP(pc=0x28)
-        + Op.JUMPDEST
-        + Op.MSTORE(offset=0x1, value=0x1)
-        + Op.JUMPDEST
-        + Op.JUMPI(
-            pc=0x4B,
-            condition=Op.EQ(
-                0xE4B8BAA7DA1A97BFF89D7DB0AE345DD30CD8C1D0, Op.CALLER
-            ),
-        )
-        + Op.SSTORE(key=0x1, value=0x2)
-        + Op.JUMP(pc=0x51)
-        + Op.JUMPDEST
-        + Op.MSTORE(offset=0x1, value=0x1)
-        + Op.JUMPDEST
-        + Op.JUMPI(
-            pc=0x74,
-            condition=Op.EQ(
-                0xB4B91C40F3E3A6E5576B0413572B88D535CEE7B0, Op.ADDRESS
-            ),
-        )
-        + Op.SSTORE(key=0x1, value=0x2)
-        + Op.JUMP(pc=0x7A)
-        + Op.JUMPDEST
-        + Op.MSTORE(offset=0x1, value=0x1)
-        + Op.JUMPDEST
-        + Op.JUMPI(pc=0x8A, condition=Op.EQ(0x0, Op.CALLVALUE))
-        + Op.SSTORE(key=0x1, value=0x2)
-        + Op.JUMP(pc=0x90)
-        + Op.JUMPDEST
-        + Op.MSTORE(offset=0x1, value=0x1)
-        + Op.JUMPDEST
-        + Op.STOP,
-        address=Address(0x2B8B4845ACB3EF63F61F109B960754CF76DFBDFD),  # noqa: E501
-    )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                target: Account(storage={1: 1}),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                target: Account(storage={1: 0}),
-            },
-        },
-        {
-            "indexes": {"data": 0, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                target: Account(storage={1: 1}),
-            },
-        },
+    The expected context is passed down as calldata, and the innermost
+    frame halts exceptionally on a mismatch. Each non-static frame stores
+    its call's success in the slot of its level, and each static frame
+    halts exceptionally when its call fails. A CALL with value from a
+    static frame halts that frame.
+    """
+    depth = len(path)
+    sender = pre.fund_eoa()
+    static = [
+        any(opcode == Op.STATICCALL for opcode, _ in path[:level])
+        for level in range(depth + 1)
     ]
 
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Hash(addr, left_padding=True),
-        Hash(addr_2, left_padding=True),
+    # Construct the innermost contract, which checks its context.
+    context_matches = Op.AND(
+        Op.AND(
+            Op.EQ(Op.ORIGIN, Op.CALLDATALOAD(0x00)),
+            Op.EQ(Op.CALLER, Op.CALLDATALOAD(0x20)),
+        ),
+        Op.AND(
+            Op.EQ(Op.ADDRESS, Op.CALLDATALOAD(0x40)),
+            Op.EQ(Op.CALLVALUE, Op.CALLDATALOAD(0x60)),
+        ),
+    )
+    contracts = [
+        pre.deploy_contract(
+            code=Conditional(
+                condition=Op.ISZERO(context_matches), if_true=Op.INVALID
+            )
+            + Op.STOP
+        )
     ]
-    tx_gas = [50000, 335000]
-    if fork.is_eip_enabled(8037):
-        tx_gas = [g + Op.SSTORE(new_value=1).state_cost(fork) for g in tx_gas]
-    tx_value = [0, 100]
 
+    # Construct the calling contracts, from the innermost one outward.
+    for level in reversed(range(depth)):
+        opcode, value = path[level]
+        if opcode in (Op.CALL, Op.CALLCODE):
+            call = opcode(
+                address=contracts[0], value=value, args_size=Op.CALLDATASIZE
+            )
+        else:
+            call = opcode(address=contracts[0], args_size=Op.CALLDATASIZE)
+        if static[level]:
+            handle: Bytecode = Conditional(
+                condition=Op.ISZERO(call), if_true=Op.INVALID
+            )
+        else:
+            handle = Op.SSTORE(level, call)
+        code = Op.CALLDATACOPY(size=Op.CALLDATASIZE) + handle
+        if level == 0:
+            code += (
+                Op.SSTORE(ENTRY_CONTEXT_SLOTS["caller"], Op.CALLER)
+                + Op.SSTORE(ENTRY_CONTEXT_SLOTS["callvalue"], Op.CALLVALUE)
+                + Op.SSTORE(ENTRY_CONTEXT_SLOTS["origin"], Op.ORIGIN)
+                + Op.SSTORE(ENTRY_CONTEXT_SLOTS["address"], Op.ADDRESS)
+            )
+        contracts.insert(
+            0,
+            pre.deploy_contract(code=code + Op.STOP, balance=CONTRACT_BALANCE),
+        )
+
+    # Simulate each frame's context.
+    frames = [Frame(address=contracts[0], caller=sender, value=tx_value)]
+    for (opcode, value), callee in zip(path, contracts[1:], strict=True):
+        frames.append(frames[-1].enter(opcode, callee, value))
+    checker = frames[-1]
+
+    # Find the frame whose call fails: the deepest non-static frame above
+    # a CALL with value from a static frame.
+    failing_hop = next(
+        (
+            level
+            for level, (opcode, value) in enumerate(path)
+            if static[level] and opcode == Op.CALL and value > 0
+        ),
+        None,
+    )
+    if failing_hop is None:
+        storing = [level for level in range(depth) if not static[level]]
+        failed_level = None
+    else:
+        failed_level = max(
+            level for level in range(failing_hop) if not static[level]
+        )
+        storing = [
+            level for level in range(failed_level + 1) if not static[level]
+        ]
+
+    # Construct the transaction, with the expected context as calldata.
     tx = Transaction(
         sender=sender,
-        to=target,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        to=contracts[0],
+        data=Hash(sender, left_padding=True)
+        + Hash(checker.caller, left_padding=True)
+        + Hash(checker.address, left_padding=True)
+        + Hash(checker.value),
+        value=tx_value,
     )
+
+    # Construct the expected storage and balances.
+    storage: dict[Address, dict[int, int | Address]] = {
+        c: {} for c in contracts
+    }
+    for level in storing:
+        storage[frames[level].address][level] = int(level != failed_level)
+    storage[contracts[0]].update(
+        {
+            ENTRY_CONTEXT_SLOTS["caller"]: sender,
+            ENTRY_CONTEXT_SLOTS["callvalue"]: tx_value,
+            ENTRY_CONTEXT_SLOTS["origin"]: sender,
+            ENTRY_CONTEXT_SLOTS["address"]: contracts[0],
+        }
+    )
+    balance = dict.fromkeys(contracts[:-1], CONTRACT_BALANCE)
+    balance[contracts[-1]] = 0
+    balance[contracts[0]] += tx_value
+    for level in storing:
+        opcode, value = path[level]
+        if opcode == Op.CALL:
+            balance[frames[level].address] -= value
+            balance[contracts[level + 1]] += value
+
+    post = {
+        contract: Account(storage=storage[contract], balance=balance[contract])
+        for contract in contracts
+    }
 
     state_test(pre=pre, post=post, tx=tx)

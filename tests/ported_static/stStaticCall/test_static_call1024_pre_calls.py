@@ -1,8 +1,9 @@
 """
-Test_static_call1024_pre_calls.
+STATICCALL an account twice, then STATICCALL self recursively.
 
 Ported from:
 state_tests/stStaticCall/static_Call1024PreCallsFiller.json
+state_tests/stStaticCall/static_Call1024PreCalls3Filler.json
 """
 
 import pytest
@@ -27,7 +28,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stStaticCall/static_Call1024PreCallsFiller.json"],
+    [
+        "state_tests/stStaticCall/static_Call1024PreCallsFiller.json",
+        "state_tests/stStaticCall/static_Call1024PreCalls3Filler.json",
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
@@ -57,14 +61,18 @@ def test_static_call1024_pre_calls(
     g: int,
     v: int,
 ) -> None:
-    """Test_static_call1024_pre_calls."""
+    """
+    Verify a contract that STATICCALLs an account twice and then
+    STATICCALLs itself recursively.
+
+    The storing variant fails at its first store in a static frame, the
+    memory-only variant recurses until it runs out of depth or gas.
+    """
     env = Environment(gas_limit=HIGH_GAS_LIMIT)
 
     sender = pre.fund_eoa(amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
     addr = pre.fund_eoa(amount=7000)
-    # Source: lll
-    # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
     target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
@@ -81,8 +89,6 @@ def test_static_call1024_pre_calls(
         + Op.SSTORE(key=0x1, value=0x1)
         + Op.STOP,
     )
-    # Source: lll
-    # { [[ 2 ]] (STATICCALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[ 3 ]] (STATICCALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0)  [[ 0 ]] (ADD @@0 1) [[ 1 ]] (STATICCALL 0xfffffffffff <contract:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }  # noqa: E501
     addr_2 = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x2,
@@ -121,8 +127,6 @@ def test_static_call1024_pre_calls(
         + Op.STOP,
         balance=2024,
     )
-    # Source: lll
-    # { (STATICCALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) (STATICCALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0)  (MSTORE 0 (ADD (MLOAD 0) 1)) (STATICCALL 0xfffffffffff <contract:0xcbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }  # noqa: E501
     addr_3 = pre.deploy_contract(
         code=Op.POP(
             Op.STATICCALL(
