@@ -1,93 +1,103 @@
 """
-Test_create_bounds.
+Test CREATE with an init code region using huge bounds.
 
 Ported from:
 state_tests/stMemoryStressTest/CREATE_BoundsFiller.json
+state_tests/stMemoryStressTest/CREATE_Bounds2Filler.json
+state_tests/stMemoryStressTest/CREATE_Bounds3Filler.json
 """
+
+from typing import Dict
 
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
-    Bytes,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+INITIAL_RESULT = 0xDEAD
+CANARY = 0xC0DE
+CREATE_VALUE = 1
+BOUNDS = {
+    "2^28-1": 2**28 - 1,
+    "2^32-1": 2**32 - 1,
+    "2^64-1": 2**64 - 1,
+    "2^128-1": 2**128 - 1,
+    "2^256-1": 2**256 - 1,
+}
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stMemoryStressTest/CREATE_BoundsFiller.json"],
-)
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize(
-    "d, g, v",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="-g0",
-        ),
-        pytest.param(
-            0,
-            1,
-            0,
-            id="-g1",
-        ),
+        "state_tests/stMemoryStressTest/CREATE_BoundsFiller.json",
+        "state_tests/stMemoryStressTest/CREATE_Bounds2Filler.json",
+        "state_tests/stMemoryStressTest/CREATE_Bounds3Filler.json",
+    ],
+)
+@pytest.mark.valid_from("TangerineWhistle")
+@pytest.mark.parametrize(
+    "offset, size",
+    [
+        pytest.param(0, 0, id="offset_0-size_0"),
+        *[
+            pytest.param(bound, 0, id=f"offset_{name}-size_0")
+            for name, bound in BOUNDS.items()
+        ],
+        *[
+            pytest.param(0, bound, id=f"offset_0-size_{name}")
+            for name, bound in BOUNDS.items()
+        ],
+        *[
+            pytest.param(bound, bound, id=f"offset_{name}-size_{name}")
+            for name, bound in BOUNDS.items()
+        ],
     ],
 )
 def test_create_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    offset: int,
+    size: int,
 ) -> None:
-    """Test_create_bounds."""
-    sender = pre.fund_eoa(amount=2**128 - 1)
-
-    # Source: lll
-    # {  (MSTORE 0 0x6001600155601080600c6000396000f3006000355415600957005b6020356000 )  (MSTORE8 32 0x35) (MSTORE8 33 0x55) (CREATE 1 0 0) (CREATE 1 0 0xfffffff) }  # noqa: E501
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x6001600155601080600C6000396000F3006000355415600957005B6020356000,  # noqa: E501
-        )
-        + Op.MSTORE8(offset=0x20, value=0x35)
-        + Op.MSTORE8(offset=0x21, value=0x55)
-        + Op.POP(Op.CREATE(value=0x1, offset=0x0, size=0x0))
-        + Op.CREATE(value=0x1, offset=0x0, size=0xFFFFFFF)
+    """Call a contract that runs an empty CREATE, then one over the region."""
+    sender = pre.fund_eoa()
+    creator = pre.deploy_contract(
+        code=Op.POP(Op.CREATE(value=CREATE_VALUE, offset=0, size=0))
+        + Op.CREATE(value=CREATE_VALUE, offset=offset, size=size)
         + Op.STOP,
-        balance=100,
+        balance=2 * CREATE_VALUE,
     )
-
-    tx_data = [
-        Bytes(""),
-    ]
-    tx_gas = [150000, 16777216]
+    entry = pre.deploy_contract(
+        code=Op.SSTORE(key=0, value=Op.CALL(address=creator))
+        + Op.SSTORE(key=1, value=CANARY)
+        + Op.STOP,
+        storage={0: INITIAL_RESULT},
+    )
 
     tx = Transaction(
         sender=sender,
-        to=contract_0,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
+        to=entry,
+        protected=fork.supports_protected_txs(),
     )
 
-    post = {
-        contract_0: Account(balance=100),
-        compute_create_address(
-            address=contract_0, nonce=1
-        ): Account.NONEXISTENT,
-        compute_create_address(
-            address=contract_0, nonce=2
-        ): Account.NONEXISTENT,
+    succeeds = size == 0
+    post: Dict[Address, Account | None] = {
+        entry: Account(storage={0: int(succeeds), 1: CANARY})
     }
+    for nonce in (1, 2):
+        created = compute_create_address(address=creator, nonce=nonce)
+        post[created] = (
+            Account(balance=CREATE_VALUE) if succeeds else Account.NONEXISTENT
+        )
 
     state_test(pre=pre, post=post, tx=tx)
