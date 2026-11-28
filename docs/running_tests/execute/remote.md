@@ -85,6 +85,8 @@ uv run execute remote --fork=Prague --rpc-endpoint=https://rpc.endpoint.io --rpc
 
 The JWT secret file must contain only the JWT secret as a hex string.
 
+Before running any test, the command calls `engine_getClientVersionV1` on the engine endpoint and logs the client versions it reports. If the endpoint rejects the JWT secret, or can't be reached, the command exits right away with an error instead of failing every test.
+
 When an engine endpoint is provided, the test execution will use the Engine API to create new blocks and include transactions, giving you full control over the chain progression.
 
 ### Using `testing_buildBlockV1` with a Remote Engine
