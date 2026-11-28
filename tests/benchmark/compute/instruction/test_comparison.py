@@ -10,11 +10,17 @@ Supported Opcodes:
 - ISZERO
 """
 
+import random
+
 import pytest
 from execution_testing import (
+    Alloc,
     BenchmarkTestFiller,
+    Bytecode,
+    Fork,
     JumpLoopGenerator,
     Op,
+    Transaction,
 )
 
 
@@ -26,23 +32,16 @@ from execution_testing import (
             Op.LT,  # Keeps getting result 1.
             (0, 1),
         ),
+        # Operands of the same sign: with different signs the result is the
+        # sign of the first operand, which implementations take without
+        # comparing the words.
         (
-            Op.GT,  # Keeps getting result 0.
+            Op.SLT,  # Keeps getting result 1.
             (0, 1),
         ),
         (
-            Op.SLT,  # Keeps getting result 1.
-            (
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                1,
-            ),
-        ),
-        (
             Op.SGT,  # Keeps getting result 0.
-            (
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                1,
-            ),
+            (0, 1),
         ),
         # Operands of the same sign: with different signs the result is the
         # sign of the first operand, which implementations take without
@@ -73,23 +72,55 @@ def test_comparison(
 ) -> None:
     """
     Benchmark binary instructions (takes two args, pushes one value).
-    The execution starts with two initial values on the stack
-    The stack is balanced by the DUP2 instruction.
-    """
-    tx_data = b"".join(
-        arg.to_bytes(32, byteorder="big") for arg in opcode_args
-    )
 
-    setup = Op.CALLDATALOAD(0) + Op.CALLDATALOAD(32) + Op.DUP2 + Op.DUP2
-    attack_block = Op.DUP2 + opcode
-    cleanup = Op.POP + Op.POP + Op.DUP2 + Op.DUP2
+    Each comparison takes the first argument from a PUSH31 and the previous
+    result as the second. Clients copy a pushed value out of the code,
+    which is slower than duplicating a stack item, and 31 bytes is the
+    slowest push size in some of them.
+    """
+    first, second = opcode_args
     benchmark_test(
         target_opcode=opcode,
         code_generator=JumpLoopGenerator(
-            setup=setup,
-            attack_block=attack_block,
-            cleanup=cleanup,
-            tx_kwargs={"data": tx_data},
+            setup=Op.PUSH1(second),
+            attack_block=Op.PUSH31[first.to_bytes(31, "big")] + opcode,
+        ),
+    )
+
+
+@pytest.mark.repricing
+def test_gt(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Benchmark GT instruction with unpredictable results.
+
+    Each GT takes the first argument from a PUSH31 and the previous result
+    as the second, as in the other comparison benchmarks. The pushed values
+    make the results a random sequence of zeros and ones.
+    """
+    rng = random.Random(1)  # Use random with a fixed seed.
+    setup = Op.PUSH1(1)
+    loop_back = Op.JUMP(len(setup))
+    room = fork.max_code_size() - len(setup + Op.JUMPDEST + loop_back)
+    count = room // len(Op.PUSH31[bytes(31)] + Op.GT)
+    # The last result is 1, as the setup's, so every loop pass is the same.
+    results = [rng.getrandbits(1) for _ in range(count - 1)] + [1]
+
+    body = Bytecode(Op.JUMPDEST)
+    previous = 1
+    for result in results:
+        # GT(previous + result, previous) is result.
+        body += Op.PUSH31[(previous + result).to_bytes(31, "big")] + Op.GT
+        previous = result
+
+    code = setup + body + loop_back
+    benchmark_test(
+        target_opcode=Op.GT,
+        tx=Transaction(
+            to=pre.deploy_contract(code=code), sender=pre.fund_eoa()
         ),
     )
 
