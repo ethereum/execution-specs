@@ -45,7 +45,6 @@ def test_simple_transfer_mainnet(
     gas_limit = intrinsic_gas + top_frame_state_gas
 
     tx = Transaction(
-        ty=0x02,
         sender=sender,
         to=recipient,
         value=1,
@@ -62,46 +61,63 @@ def test_simple_transfer_mainnet(
 def test_call_with_value_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test that CALL with value emits a transfer log on mainnet."""
     sender = pre.fund_eoa()
     recipient = pre.deploy_contract(Op.STOP)
+    transfer_value = 1
 
-    contract_code = Op.CALL(gas=50_000, address=recipient, value=100)
-    contract = pre.deploy_contract(contract_code, balance=100)
+    # The callee is a bare STOP, so the stipend covers the inner frame.
+    contract_code = Op.CALL(
+        gas=0,
+        address=recipient,
+        value=transfer_value,
+        # gas accounting
+        value_transfer=True,
+    )
+    contract = pre.deploy_contract(contract_code, balance=transfer_value)
+    gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + contract_code.gas_cost(fork)
+    )
 
     tx = Transaction(
-        ty=0x02,
         sender=sender,
         to=contract,
         value=0,
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         expected_receipt=TransactionReceipt(
-            logs=[transfer_log(contract, recipient, 100)]
+            logs=[transfer_log(contract, recipient, transfer_value)]
         ),
     )
 
-    post = {recipient: Account(balance=100)}
+    post = {recipient: Account(balance=transfer_value)}
     state_test(pre=pre, post=post, tx=tx)
 
 
 def test_create_endowment_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test that a CREATE endowment emits a transfer log on mainnet."""
     sender = pre.fund_eoa()
     create_value = 1
 
-    contract = pre.deploy_contract(
-        Op.CREATE(value=create_value, offset=0, size=0),
-        balance=create_value,
-    )
+    contract_code = Op.CREATE(value=create_value, offset=0, size=0)
+    contract = pre.deploy_contract(contract_code, balance=create_value)
     created = compute_create_address(address=contract, nonce=1)
+    gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + contract_code.gas_cost(fork)
+        + fork.create_state_gas()
+    )
 
     tx = Transaction(
         sender=sender,
         to=contract,
+        gas_limit=gas_limit,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(contract, created, create_value)]
         ),
@@ -119,24 +135,24 @@ def test_selfdestruct_mainnet(
     """Test that SELFDESTRUCT emits a transfer log on mainnet."""
     sender = pre.fund_eoa()
     beneficiary = pre.nonexistent_account()
+    balance = 1
 
-    contract_code = Op.SELFDESTRUCT(beneficiary)
-    contract = pre.deploy_contract(contract_code, balance=500)
-
-    gas_limit = 100_000
-    if fork.is_eip_enabled(8037):
-        gas_limit = 500_000
+    contract_code = Op.SELFDESTRUCT(beneficiary, account_new=True)
+    contract = pre.deploy_contract(contract_code, balance=balance)
+    gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + contract_code.gas_cost(fork)
+    )
 
     tx = Transaction(
-        ty=0x02,
         sender=sender,
         to=contract,
         value=0,
         gas_limit=gas_limit,
         expected_receipt=TransactionReceipt(
-            logs=[transfer_log(contract, beneficiary, 500)]
+            logs=[transfer_log(contract, beneficiary, balance)]
         ),
     )
 
-    post = {beneficiary: Account(balance=500)}
+    post = {beneficiary: Account(balance=balance)}
     state_test(pre=pre, post=post, tx=tx)

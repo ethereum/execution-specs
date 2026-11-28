@@ -14,6 +14,7 @@ from execution_testing import (
     BalStorageChange,
     BalStorageSlot,
     BlockAccessListExpectation,
+    Fork,
     Initcode,
     Op,
     StateTestFiller,
@@ -32,6 +33,7 @@ pytestmark = [pytest.mark.valid_at("Amsterdam"), pytest.mark.mainnet]
 def test_bal_storage_and_value_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Record a storage write, a storage read and a CALL value transfer in
@@ -41,16 +43,33 @@ def test_bal_storage_and_value_mainnet(
     recipient = pre.fund_eoa(amount=1)
     call_value = 1
 
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(1, 0x42)
-            + Op.POP(Op.SLOAD(2))
-            + Op.POP(Op.CALL(address=recipient, value=call_value))
-        ),
-        balance=call_value,
+    code = (
+        Op.SSTORE(
+            1,
+            0x42,
+            # gas accounting
+            new_value=0x42,
+        )
+        + Op.POP(Op.SLOAD(2))
+        + Op.POP(
+            Op.CALL(
+                address=recipient,
+                value=call_value,
+                # gas accounting
+                value_transfer=True,
+            )
+        )
+    )
+    contract = pre.deploy_contract(code=code, balance=call_value)
+    gas_limit = fork.transaction_intrinsic_cost_calculator()() + code.gas_cost(
+        fork
     )
 
-    tx = Transaction(sender=sender, to=contract)
+    tx = Transaction(
+        sender=sender,
+        to=contract,
+        gas_limit=gas_limit,
+    )
 
     state_test(
         pre=pre,
@@ -97,6 +116,7 @@ def test_bal_storage_and_value_mainnet(
 def test_bal_contract_creation_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Record the deployed code and nonce of a contract created by a
@@ -105,11 +125,21 @@ def test_bal_contract_creation_mainnet(
     sender = pre.fund_eoa()
     deploy_code = Op.PUSH1(0x42) + Op.STOP
     created = compute_create_address(address=sender, nonce=0)
+    initcode = Initcode(deploy_code=deploy_code)
+    gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()(
+            calldata=initcode, contract_creation=True
+        )
+        + fork.transaction_top_frame_state_gas(contract_creation=True)
+        + initcode.evm_gas(fork)
+        + initcode.deployment_gas(fork)
+    )
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=Initcode(deploy_code=deploy_code),
+        data=initcode,
+        gas_limit=gas_limit,
     )
 
     state_test(
