@@ -213,6 +213,8 @@ test = [
     "requests-cache>=1.2.1,<2",
     "libcst>=1.8,<2",
     "ethereum-execution-testing",
+    "hypothesis>=6.100,<7",
+    "trie>=3.1.0,<4",
 ]
 lint = [
     "codespell==2.4.1",
@@ -482,7 +484,7 @@ warn_unused_configs = true
 warn_redundant_casts = true
 ignore_missing_imports = false
 mypy_path = ["src", "packages/testing/src", "packages/testing/stubs"]
-files = ["src", "tests", "packages"]
+files = ["src", "tests", "tests_property", "packages"]
 enable_error_code = [
     "truthy-iterable",
     "unused-awaitable",

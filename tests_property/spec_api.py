@@ -1,0 +1,354 @@
+"""
+Build spec objects and call spec functions the same way on every fork.
+
+Each fork is a full copy of the one before, so names and signatures drift
+between them. This module is the one place that knows how they differ, and
+the one bridge from the framework's transactions to the spec's.
+"""
+
+import dataclasses
+import inspect
+from types import ModuleType, SimpleNamespace, UnionType
+from typing import (
+    Any,
+    Iterable,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    get_args,
+    get_origin,
+)
+
+from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes, Bytes0, Bytes32
+from ethereum_types.numeric import U256, FixedUnsigned, Uint
+from execution_testing import Transaction, TransactionType
+
+from ethereum.crypto.hash import keccak256
+from ethereum.state import EMPTY_CODE_HASH, Account, Address
+from ethereum.state_mpt import State
+from ethereum_spec_tools.forks import Hardfork
+
+# The spec's class for each EIP-2718 transaction type. Forks before typed
+# transactions name their only class `Transaction`.
+TYPE_BYTES = {
+    "Transaction": TransactionType.LEGACY,
+    "LegacyTransaction": TransactionType.LEGACY,
+    "AccessListTransaction": TransactionType.ACCESS_LIST,
+    "FeeMarketTransaction": TransactionType.BASE_FEE,
+    "BlobTransaction": TransactionType.BLOB_TRANSACTION,
+    "SetCodeTransaction": TransactionType.SET_CODE,
+}
+
+# Spec field names that the framework spells differently.
+FRAMEWORK_FIELD_NAMES = {
+    "gas": "gas_limit",
+    "y_parity": "v",
+    "authorizations": "authorization_list",
+    "account": "address",
+    "slots": "storage_keys",
+}
+
+
+def _zero_value(field_type: Any) -> Any:
+    origin = get_origin(field_type)
+    if origin in (UnionType, Union):
+        options = get_args(field_type)
+        if type(None) in options:
+            return None
+        field_type = options[0]
+        origin = get_origin(field_type)
+    if origin in (tuple, list, set, dict):
+        return origin()
+    if isinstance(field_type, type) and issubclass(field_type, bool):
+        return False
+    if isinstance(field_type, type) and issubclass(
+        field_type, (FixedUnsigned, Uint)
+    ):
+        return field_type(0)
+    length = getattr(field_type, "LENGTH", None)
+    if length is not None:
+        return field_type(b"\x00" * length)
+    return field_type(b"")
+
+
+def zeroed(cls: Any, **overrides: Any) -> Any:
+    """Build a dataclass with every field zero or empty except `overrides`."""
+    fields = {
+        f.name: overrides[f.name]
+        if f.name in overrides
+        else _zero_value(f.type)
+        for f in dataclasses.fields(cls)
+    }
+    return cls(**fields)
+
+
+def block_state_with(
+    tracker: ModuleType,
+    address: bytes,
+    *,
+    nonce: int,
+    balance: int,
+    code: bytes = b"",
+) -> Any:
+    """
+    Return a block's state over an empty pre-state, holding one account as
+    an earlier transaction of the block left it.
+    """
+    block_state = tracker.BlockState(pre_state=State())
+    add_account(block_state, address, nonce=nonce, balance=balance, code=code)
+    return block_state
+
+
+def add_account(
+    block_state: Any,
+    address: bytes,
+    *,
+    nonce: int,
+    balance: int,
+    code: bytes = b"",
+) -> None:
+    """Write an account and its code into a block's state."""
+    code_hash = keccak256(code) if code else EMPTY_CODE_HASH
+    block_state.account_writes[Address(address)] = Account(
+        nonce=Uint(nonce), balance=U256(balance), code_hash=code_hash
+    )
+    if code:
+        block_state.code_writes[code_hash] = Bytes(code)
+
+
+def transaction_types(transactions: ModuleType) -> Tuple[type, ...]:
+    """Return every transaction class of a fork."""
+    return get_args(transactions.Transaction) or (transactions.Transaction,)
+
+
+def type_byte(tx_type: type) -> int:
+    """Return the EIP-2718 type byte of a transaction class."""
+    return TYPE_BYTES[tx_type.__name__]
+
+
+def _spec_value(field_type: Any, value: Any) -> Any:
+    origin = get_origin(field_type)
+    if origin is tuple:
+        item_type, _ = get_args(field_type)
+        return tuple(_spec_value(item_type, item) for item in value or ())
+    if origin in (UnionType, Union):
+        # Only `to` is a union: empty for a contract creation.
+        return Bytes0(b"") if value is None else Address(value)
+    if dataclasses.is_dataclass(field_type):
+        return _spec_object(field_type, value)
+    if issubclass(field_type, (FixedUnsigned, Uint)):
+        return field_type(int(value))
+    return field_type(bytes(value))
+
+
+def _spec_object(cls: Any, framework_object: Any) -> Any:
+    return cls(
+        **{
+            field.name: _spec_value(
+                field.type,
+                getattr(
+                    framework_object,
+                    FRAMEWORK_FIELD_NAMES.get(field.name, field.name),
+                ),
+            )
+            for field in dataclasses.fields(cls)
+        }
+    )
+
+
+def spec_transaction(transactions: ModuleType, tx: Transaction) -> Any:
+    """Return the spec's copy of a framework transaction."""
+    (tx_type,) = (
+        tx_type
+        for tx_type in transaction_types(transactions)
+        if type_byte(tx_type) == tx.ty
+    )
+    return _spec_object(tx_type, tx)
+
+
+def spec_authorization(fork_types: ModuleType, authorization: Any) -> Any:
+    """Return the spec's copy of a framework EIP-7702 authorization."""
+    return _spec_object(fork_types.Authorization, authorization)
+
+
+def validate_authorization(
+    vm: ModuleType, block_env: Any, tx_env: Any, authorization: Any
+) -> Tuple[Optional[Address], Set[Address]]:
+    """
+    Check one EIP-7702 authorization, and return its authority, or None if
+    it is invalid, with the addresses the check warmed.
+
+    Some forks warm the authority in the message's accessed addresses, and
+    later ones collect it in a set of its own.
+    """
+    validate = vm.eoa_delegation.validate_authorization
+    accessed: Set[Address] = set()
+    if "message" not in inspect.signature(validate).parameters:
+        return validate(block_env, tx_env, accessed, authorization), accessed
+    message = zeroed(
+        vm.Message,
+        block_env=block_env,
+        tx_env=tx_env,
+        accessed_addresses=accessed,
+    )
+    return validate(message, authorization), accessed
+
+
+def encode_transaction(transactions: ModuleType, tx: Any) -> bytes:
+    """Return a transaction's encoding, with its type byte if it has one."""
+    encode = getattr(transactions, "encode_transaction", None)
+    encoded = tx if encode is None else encode(tx)
+    return encoded if isinstance(encoded, bytes) else rlp.encode(encoded)
+
+
+def transaction_hash(transactions: ModuleType, tx: Any) -> bytes:
+    """Return a transaction's hash, the hash of its encoding."""
+    encode = getattr(transactions, "encode_transaction", None)
+    return transactions.get_transaction_hash(
+        tx if encode is None else encode(tx)
+    )
+
+
+def decode_transaction(transactions: ModuleType, encoded: bytes) -> Any:
+    """Decode a transaction encoded by `encode_transaction`."""
+    if not hasattr(transactions, "decode_transaction"):
+        return rlp.decode_to(transactions.Transaction, encoded)
+    if encoded[0] >= 0xC0:
+        # An RLP list: a legacy transaction.
+        return rlp.decode_to(transactions.LegacyTransaction, encoded)
+    return transactions.decode_transaction(encoded)
+
+
+def sender_of(transactions: ModuleType, tx: Any) -> Address:
+    """
+    Recover a transaction's sender, after the EIP-155 chain id check that
+    forks with one run first.
+    """
+    if hasattr(transactions, "chain_id"):
+        transactions.chain_id(tx)
+    return transactions.recover_sender(tx)
+
+
+def validate_tx(transactions: ModuleType, tx: Any, sender: bytes) -> None:
+    """Validate `tx` as sent by `sender`, on forks that take a sender."""
+    validate = transactions.validate_transaction
+    if "sender" in inspect.signature(validate).parameters:
+        validate(tx, Address(sender))
+    else:
+        validate(tx)
+
+
+def validate_header(fork: ModuleType, parent: Any, header: Any) -> None:
+    """
+    Validate `header` against `parent`, on forks that read the parent from
+    the chain as well as on those that take it directly.
+    """
+    validate = fork.validate_header
+    if "chain" in inspect.signature(validate).parameters:
+        chain = SimpleNamespace(blocks=[SimpleNamespace(header=parent)])
+        validate(chain, header)
+    else:
+        validate(parent, header)
+
+
+def modify_deletes_empty_accounts(tracker: ModuleType) -> bool:
+    """
+    Return whether a change that leaves an account empty deletes it.
+
+    Forks that sweep touched empty accounts at the end of a transaction
+    keep them until then; later forks delete them on the spot. The answer
+    is read from the spec's own tracker, which only a model test of that
+    tracker may do.
+    """
+    return not hasattr(tracker, "destroy_touched_empty_accounts")
+
+
+def set_storage(
+    block_state: Any, address: bytes, key: int, value: int
+) -> None:
+    """Write a storage slot into a block's state."""
+    slots = block_state.storage_writes.setdefault(Address(address), {})
+    slots[Bytes32(key.to_bytes(32, "big"))] = U256(value)
+
+
+def run_code(
+    spec: Hardfork,
+    block_state: Any,
+    code: bytes,
+    *,
+    caller: bytes,
+    address: bytes,
+    gas: int,
+    state_gas: int = 0,
+    warm_addresses: Iterable[bytes] = (),
+    warm_storage_keys: Iterable[int] = (),
+) -> SimpleNamespace:
+    """
+    Run `code` as the account at `address`, called by `caller` with no
+    value or data, and return how the frame ended: its `error`, the
+    `gas_left`, the `state_gas_left` and the `refund` it earned.
+    """
+    vm = spec.module("vm")
+    interpreter = spec.module("vm.interpreter")
+    tracker = spec.module("state_tracker")
+    target = Address(address)
+    accessed_addresses = {Address(a) for a in warm_addresses}
+    accessed_storage_keys = {
+        (target, Bytes32(key.to_bytes(32, "big"))) for key in warm_storage_keys
+    }
+    tx_state = tracker.TransactionState(parent=block_state)
+    block_env = zeroed(vm.BlockEnvironment, state=block_state)
+
+    if hasattr(interpreter, "create_evm"):
+        # EIP-8037: the frame's gas is a meter with a state gas reservoir.
+        meter = spec.module("vm.gas").GasMeter(
+            gas_left=Uint(gas),
+            state_gas_left=Uint(state_gas),
+            state_gas_baseline=Uint(state_gas),
+        )
+        tx_env = zeroed(
+            vm.TransactionEnvironment,
+            origin=Address(caller),
+            recipient=target,
+            is_create=False,
+            state=tx_state,
+            access_list_addresses=accessed_addresses,
+            access_list_storage_keys=accessed_storage_keys,
+        )
+        evm = interpreter.process_call(
+            interpreter.create_evm(block_env, tx_env, meter)
+        )
+        return SimpleNamespace(
+            error=evm.error,
+            gas_left=int(meter.gas_left),
+            state_gas_left=int(meter.state_gas_left),
+            refund=int(meter.refund_counter),
+        )
+
+    tx_env = zeroed(
+        vm.TransactionEnvironment, origin=Address(caller), state=tx_state
+    )
+    message = zeroed(
+        vm.Message,
+        block_env=block_env,
+        tx_env=tx_env,
+        caller=Address(caller),
+        target=target,
+        current_target=target,
+        code_address=target,
+        gas=Uint(gas),
+        code=Bytes(code),
+        should_transfer_value=False,
+        accessed_addresses={target, Address(caller), *accessed_addresses},
+        accessed_storage_keys=accessed_storage_keys,
+        parent_evm=None,
+    )
+    evm = interpreter.process_message(message)
+    return SimpleNamespace(
+        error=evm.error,
+        gas_left=int(evm.gas_left),
+        state_gas_left=0,
+        refund=int(evm.refund_counter),
+    )
