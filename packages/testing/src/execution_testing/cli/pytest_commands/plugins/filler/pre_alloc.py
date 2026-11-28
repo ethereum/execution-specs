@@ -414,6 +414,15 @@ class Alloc(SharedAlloc):
         salt = self.get_next_account_salt(EMPTY_ACCOUNT_HASH)
         return Address(eoa_from_hash(EMPTY_ACCOUNT_HASH, salt))
 
+    def _empty_account(self, address: Address | None) -> Address:
+        """
+        Filler implementation of empty_account.
+        """
+        if address is None:
+            address = self._nonexistent_account()
+        self.__internal_setitem__(address, Account())
+        return address
+
 
 def sha256_from_string(s: str) -> int:
     """Return SHA-256 hash of a string."""

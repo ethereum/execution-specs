@@ -3,7 +3,7 @@
 import pytest
 
 from execution_testing.base_types import Address
-from execution_testing.forks import Fork, Prague
+from execution_testing.forks import Fork, London, Paris, Prague
 from execution_testing.test_types import Account
 from execution_testing.vm import Op
 
@@ -155,6 +155,45 @@ def test_alloc_nonexistent_account() -> None:
     assert addr_2 not in pre
     # Each call returns a unique address.
     assert addr_1 != addr_2
+
+
+@pytest.mark.parametrize("flags", [AllocFlags.NONE, AllocFlags.MUTABLE])
+def test_alloc_empty_account(flags: AllocFlags) -> None:
+    """Test `Alloc.empty_account` adds a declared empty account."""
+    pre = create_test_alloc(flags=flags, fork=London)
+    addr_1 = pre.empty_account()
+    addr_2 = pre.empty_account()
+
+    assert addr_1 != addr_2
+    assert pre.root[addr_1] == Account()
+    assert pre.empty_accounts() == [addr_1, addr_2]
+    assert pre.undeclared_empty_accounts() == []
+
+
+def test_alloc_empty_account_at_address() -> None:
+    """Test `Alloc.empty_account` places the account at a given address."""
+    pre = create_test_alloc(fork=London)
+    addr = Address(0x1234)
+    assert pre.empty_account(addr) == addr
+    assert pre.root[addr] == Account()
+    assert pre.undeclared_empty_accounts() == []
+    with pytest.raises(ValueError, match="already in the pre-state"):
+        pre.empty_account(addr)
+
+
+def test_alloc_empty_account_rejected_from_paris() -> None:
+    """Test `Alloc.empty_account` refuses forks without empty accounts."""
+    pre = create_test_alloc(fork=Paris)
+    with pytest.raises(ValueError, match="EIP-7523"):
+        pre.empty_account()
+
+
+def test_alloc_undeclared_empty_account() -> None:
+    """Test an all-zero account set directly is not a declared one."""
+    pre = create_test_alloc(fork=London)
+    addr = pre.nonexistent_account()
+    pre[addr] = Account()
+    assert pre.undeclared_empty_accounts() == [addr]
 
 
 def test_alloc_deploy_contract_code_types() -> None:

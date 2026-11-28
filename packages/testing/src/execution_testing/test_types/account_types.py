@@ -18,6 +18,7 @@ from typing import (
     Literal,
     Optional,
     Self,
+    Set,
     Tuple,
 )
 
@@ -592,6 +593,8 @@ class Alloc(BaseAlloc):
     the allocation (`seeded`), added by the spec when it builds the genesis
     (`deferred`), or nowhere (`absent`).
     """
+    _declared_empty_accounts: Set[Address] = PrivateAttr(default_factory=set)
+    """Empty accounts the test placed in the allocation on purpose."""
 
     @dataclass(kw_only=True)
     class UnexpectedAccountError(Exception):
@@ -798,6 +801,17 @@ class Alloc(BaseAlloc):
             address for address, account in self.root.items() if not account
         ]
 
+    def undeclared_empty_accounts(self) -> List[Address]:
+        """
+        Return the addresses of empty accounts the test did not place in the
+        allocation on purpose.
+        """
+        return [
+            address
+            for address in self.empty_accounts()
+            if address not in self._declared_empty_accounts
+        ]
+
     def state_root(self) -> Hash:
         """Return state root of the allocation."""
         state_module = self._state_module()
@@ -826,8 +840,8 @@ class Alloc(BaseAlloc):
         for address, account in self.root.items():
             if account is None:
                 # Account must not exist
-                got_account = got_alloc.get(address)
-                if got_account:
+                got_account = got_alloc.root.get(address)
+                if got_account is not None:
                     raise Alloc.UnexpectedAccountError(
                         address=address, account=got_account
                     )
@@ -1353,6 +1367,18 @@ class Alloc(BaseAlloc):
         """
         raise NotImplementedError(
             "nonexistent_account is not implemented in the base class"
+        )
+
+    def empty_account(self, address: Address | None = None) -> Address:
+        """
+        Add an empty account to the pre-state and return its address.
+
+        The account exists but has zero nonce, zero balance, no code and no
+        storage, which is what EIP-161 calls empty. Only forks before Paris
+        allow it (EIP-7523). `address` places it at a given address.
+        """
+        raise NotImplementedError(
+            "empty_account is not implemented in the base class"
         )
 
     def expect_account_state(
