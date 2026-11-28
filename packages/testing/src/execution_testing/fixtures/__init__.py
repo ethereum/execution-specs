@@ -28,7 +28,6 @@ from .pre_alloc_groups import (
     PreAllocGroupBuilder,
     PreAllocGroupBuilders,
     PreAllocGroups,
-    pack_pre_alloc_groups,
 )
 from .reorg import BlockchainEngineReorgFixture
 from .state import StateFixture
@@ -60,5 +59,4 @@ __all__ = [
     "TestInfo",
     "TransactionFixture",
     "merge_partial_fixture_files",
-    "pack_pre_alloc_groups",
 ]

@@ -63,19 +63,9 @@ from execution_testing.fixtures import (
     merge_partial_fixture_files,
     strip_fixture_format_from_node,
 )
-from execution_testing.fixtures.engine_x_checks import (
-    ENGINE_X_FIXTURES_DIR,
-    EngineXCheckError,
-    EngineXExecutionDriftError,
-    verify_engine_x_execution,
-)
 from execution_testing.fixtures.pre_alloc_groups import (
-    GroupIndexEntries,
     _get_worker_id,
     merge_partial_group_files,
-    pack_pre_alloc_groups,
-    packed_group_hash_for_test,
-    read_test_group_index,
 )
 from execution_testing.forks import (
     Fork,
@@ -175,14 +165,6 @@ class FillingSession:
     primary_format_only: bool = False
     pre_alloc_groups: PreAllocGroups | None = None
     pre_alloc_group_builders: PreAllocGroupBuilders | None = None
-    # Phase 2 reverse index: test id -> packed pre-alloc group. Packing
-    # (see pack_pre_alloc_groups) makes a group's hash depend on the whole set
-    # of tests it holds, so it can no longer be recomputed per-test; a test
-    # finds its group through the packed index file instead (see
-    # read_test_group_index).
-    _test_group_index: GroupIndexEntries | None = field(
-        default=None, repr=False
-    )
 
     @classmethod
     def from_config(
@@ -315,26 +297,6 @@ class FillingSession:
             )
 
         return self.pre_alloc_groups[pre_alloc_hash]
-
-    def group_hash_for_test(
-        self, test_id: str, phase1_hash: AllocGroupHash
-    ) -> AllocGroupHash:
-        """
-        Return the packed pre-alloc group hash that owns ``test_id``.
-
-        Loaded once (per worker) from the index file written by
-        `pack_pre_alloc_groups` at the end of phase 1. ``phase1_hash`` is
-        the test's fine-grained group hash recomputed from its current
-        content, so a stale pre-alloc folder fails loudly (see
-        `packed_group_hash_for_test`).
-        """
-        if self._test_group_index is None:
-            self._test_group_index = read_test_group_index(
-                self.fixture_output.pre_alloc_groups_folder_path
-            )
-        return packed_group_hash_for_test(
-            self._test_group_index, test_id, phase1_hash
-        )
 
     def save_pre_alloc_groups(self) -> None:
         """Save pre-allocation groups to disk as partial files."""
@@ -617,17 +579,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "other formats are not generated. Replaces the deprecated "
             "`-m primary_format`. Mutually exclusive with "
             "--generate-all-formats."
-        ),
-    )
-    test_group.addoption(
-        "--disable-optimistic-pre-alloc-grouping",
-        action="store_true",
-        dest="optimistic_pre_alloc_grouping_disabled",
-        default=False,
-        help=(
-            "Disable optimistic grouping that uses heuristics to attempt to "
-            "predict tests that reuse the same addresses, but still try to "
-            "group them in order to reduce the group count."
         ),
     )
     test_group.addoption(
@@ -1032,26 +983,6 @@ def pytest_terminal_summary(
                 bold=True,
                 yellow=True,
             )
-
-    engine_x_warning = getattr(config, "engine_x_check_warning", None)
-    if engine_x_warning is not None:
-        terminalreporter.write_sep(
-            "=",
-            " WARNING: Engine X execution consistency check skipped ",
-            bold=True,
-            yellow=True,
-        )
-        terminalreporter.write_line(engine_x_warning, yellow=True)
-
-    engine_x_error = getattr(config, "engine_x_check_error", None)
-    if engine_x_error is not None:
-        title = (
-            " ERROR: Engine X execution drift "
-            if isinstance(engine_x_error, EngineXExecutionDriftError)
-            else " ERROR: Engine X execution consistency check failed "
-        )
-        terminalreporter.write_sep("=", title, bold=True, red=True)
-        terminalreporter.write_line(str(engine_x_error), red=True)
 
 
 def _aggregate_cache_stats(node: Any) -> None:
@@ -1561,14 +1492,6 @@ def commit_hash_or_tag() -> str:
     return get_current_commit_hash_or_tag()
 
 
-@pytest.fixture(scope="session")
-def optimistic_pre_alloc_grouping_disabled(
-    request: pytest.FixtureRequest,
-) -> bool:
-    """Whether optimistic pre-allocation grouping is disabled or not."""
-    return request.config.getoption("optimistic_pre_alloc_grouping_disabled")
-
-
 @pytest.fixture(scope="function")
 def fixture_source_url(
     request: pytest.FixtureRequest,
@@ -1645,7 +1568,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         test_case_description: str,
         fixture_source_url: str,
         gas_benchmark_value: int,
-        optimistic_pre_alloc_grouping_disabled: bool,
         is_tx_gas_heavy_test: bool,
         is_exception_test: bool,
         is_inclusion_test: bool,
@@ -1787,16 +1709,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     genesis_environment=self.get_genesis_environment(),
                     group_salt=group_salt,
                 )
-                if not optimistic_pre_alloc_grouping_disabled:
-                    # Groups are packed after phase 1, so a test's group
-                    # hash can no longer be recomputed from its own pre;
-                    # look it up by test id instead, fingerprinted by the
-                    # recomputed phase 1 hash so a stale group folder fails
-                    # loudly.
-                    pre_alloc_hash = session.group_hash_for_test(
-                        test_id,
-                        phase1_hash=pre_alloc_hash,
-                    )
                 group = session.get_pre_alloc_group(pre_alloc_hash)
                 self.pre = group.pre
             fill_result: FillResult | None = None
@@ -2215,26 +2127,12 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         if not is_worker:
             _log_timing("Phase 1 (master): merging partial group files...")
             t0 = time.time()
-            optimistic_pre_alloc_grouping_disabled = session.config.getoption(
-                "optimistic_pre_alloc_grouping_disabled"
-            )
-            assert isinstance(optimistic_pre_alloc_grouping_disabled, bool)
-            pre_alloc_folder = fixture_output.pre_alloc_groups_folder_path
             merge_partial_group_files(
-                pre_alloc_folder, final=optimistic_pre_alloc_grouping_disabled
+                fixture_output.pre_alloc_groups_folder_path
             )
             _log_timing(
                 f"Phase 1 (master): merge done in {time.time() - t0:.1f}s"
             )
-            if not optimistic_pre_alloc_grouping_disabled:
-                # Pack the fine-grained groups into fewer, larger ones so
-                # Engine X boots one client for many tests instead of one per
-                # test.
-                t0 = time.time()
-                pack_pre_alloc_groups(pre_alloc_folder)
-                _log_timing(
-                    f"Phase 1 (master): pack done in {time.time() - t0:.1f}s"
-                )
         else:
             # Workers: clear in-memory state to reduce memory pressure while
             # waiting for other workers to finish
@@ -2295,45 +2193,6 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         for file in lock_files:
             file.unlink()
         _log_timing(f"Lock files removed in {time.time() - t0:.1f}s")
-
-    # Loudly fail the fill if pre-alloc group packing changed any Engine X
-    # test's execution. The check reports through the terminal summary
-    # instead of raising: an exception from this hook would abort the
-    # terminal reporter before the FAILURES section prints (hiding any
-    # test failures, which the drift report may be the explanation for)
-    # and would skip the index merge and tarball below. Drift still fails
-    # the fill via the session exit status. The check runs on unclean
-    # sessions too: a leaked account that breaks a test's post-state is
-    # exactly the failure the drift report diagnoses.
-    if not session.config.getoption("optimistic_pre_alloc_grouping_disabled"):
-        _log_timing("verify_engine_x_execution: starting...")
-        t0 = time.time()
-        try:
-            engine_x_check = verify_engine_x_execution(
-                fixture_output.directory
-            )
-        except EngineXCheckError as check_error:
-            logger.error(str(check_error))
-            session.config.engine_x_check_error = check_error  # type: ignore[attr-defined] # noqa: E501
-            session.exitstatus = pytest.ExitCode.TESTS_FAILED
-        else:
-            if engine_x_check.compared > 0:
-                logger.info(engine_x_check.summary)
-            if engine_x_check.skip_reason is not None:
-                logger.warning(engine_x_check.skip_reason)
-                # Repeated in the terminal summary; a log line alone is
-                # easy to miss.
-                session.config.engine_x_check_warning = (  # type: ignore[attr-defined] # noqa: E501
-                    engine_x_check.skip_reason
-                )
-        _log_timing(
-            f"verify_engine_x_execution: done in {time.time() - t0:.1f}s"
-        )
-    elif (fixture_output.directory / ENGINE_X_FIXTURES_DIR).is_dir():
-        logger.info(
-            "Engine X execution consistency check skipped: optimistic "
-            "pre-alloc grouping is disabled."
-        )
 
     # Verify fixtures after merge if verification is enabled
     if session.config.getoption("verify_fixtures"):
